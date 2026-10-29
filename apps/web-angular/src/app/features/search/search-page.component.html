@@ -7,37 +7,40 @@
   [class.sx--narrow-map]="layout.narrow() && u.tab === 'binders' && narrowView() === 'map'"
 >
   <section class="sx__list" aria-labelledby="search-title">
+    <!-- The head stays above an open binder (board W5): a tab is one click away. -->
+    <header class="sx__head">
+      <h1 class="sx__title" id="search-title" appShellTabTitle>Search</h1>
+      <app-underline-tabs label="Search" [tabs]="tabs()" />
+      @if (regionContext.browsingAway()) {
+        <p class="sx__away" data-testid="search-away">
+          Not your region.
+          <button type="button" class="sx__away-back" (click)="backHome()">
+            Back to {{ homeRegionName() }}
+          </button>
+        </p>
+      }
+      @if (layout.narrow() && u.tab === 'binders') {
+        <app-segmented
+          class="sx__narrow-toggle"
+          label="Show"
+          size="sm"
+          [options]="narrowViews"
+          [value]="narrowView()"
+          (valueChange)="narrowView.set($event)"
+        />
+      }
+    </header>
     @if (openId() && !xl()) {
-      <app-binder-drill-in
-        class="sx__drill"
-        [binderId]="openId()!"
-        [where]="openWhere()"
-        (back)="closeBinder()"
-      />
-      <h1 class="visually-hidden" id="search-title">Search</h1>
+      <!-- "Skip the map" lands on the open binder while it replaces the list. -->
+      <div class="sx__pane sx__pane--drill" [id]="listId" tabindex="-1">
+        <app-binder-drill-in
+          class="sx__drill"
+          [binderId]="openId()!"
+          [where]="openWhere()"
+          (back)="closeBinder()"
+        />
+      </div>
     } @else {
-      <header class="sx__head">
-        <h1 class="sx__title" id="search-title" appShellTabTitle>Search</h1>
-        <app-underline-tabs label="Search" [tabs]="tabs()" />
-        @if (regionContext.browsingAway()) {
-          <p class="sx__away" data-testid="search-away">
-            Not your region.
-            <button type="button" class="sx__away-back" (click)="backHome()">
-              Back to {{ homeRegionName() }}
-            </button>
-          </p>
-        }
-        @if (layout.narrow() && u.tab === 'binders') {
-          <app-segmented
-            class="sx__narrow-toggle"
-            label="Show"
-            size="sm"
-            [options]="narrowViews"
-            [value]="narrowView()"
-            (valueChange)="narrowView.set($event)"
-          />
-        }
-      </header>
       <div class="sx__pane" [id]="listId" tabindex="-1">
         @switch (u.tab) {
           @case ('cards') {

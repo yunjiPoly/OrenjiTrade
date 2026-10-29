@@ -119,7 +119,7 @@ export class GameContext {
       const status = this.session.status();
       const id = this.session.me()?.id ?? null;
       untracked(() => {
-        const uid = this.auth.user()?.uid ?? null;
+        const uid = this.auth.user?.()?.uid ?? null;
         const account = status === 'ready' && id ? uid : null;
         if (status !== 'ready' && status !== 'anonymous') {
           return;

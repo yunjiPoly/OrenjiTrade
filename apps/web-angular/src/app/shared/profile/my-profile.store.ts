@@ -30,7 +30,7 @@ export class MyProfileStore {
   private readonly profileApi = inject(ProfileService);
   private readonly session = inject(SessionService);
   private readonly auth = inject(AuthService);
-  private uid: string | null = this.auth.user()?.uid ?? null;
+  private uid: string | null = this.auth.user?.()?.uid ?? null;
   private generation = 0;
 
   private readonly profileState = signal<MyProfileResponse | null>(null);
@@ -42,7 +42,8 @@ export class MyProfileStore {
   readonly error = this.errorState.asReadonly();
 
   constructor() {
-    this.auth.changes$.subscribe((change) => {
+    // (`?.`: a test double of AuthService may have no change feed.)
+    this.auth.changes$?.subscribe((change) => {
       const uid = change.user?.uid ?? null;
       if (uid !== this.uid) {
         this.uid = uid;

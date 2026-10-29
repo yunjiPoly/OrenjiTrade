@@ -46,7 +46,7 @@ export class MyLocationStore {
   private readonly session = inject(SessionService);
   private readonly region = inject(RegionContext);
   private readonly auth = inject(AuthService);
-  private uid: string | null = this.auth.user()?.uid ?? null;
+  private uid: string | null = this.auth.user?.()?.uid ?? null;
   /** Bumped on every account change: an answer for an older account is dropped. */
   private generation = 0;
 
@@ -61,7 +61,8 @@ export class MyLocationStore {
   readonly error = this.errorState.asReadonly();
 
   constructor() {
-    this.auth.changes$.subscribe((change) => {
+    // (`?.`: a test double of AuthService may have no change feed.)
+    this.auth.changes$?.subscribe((change) => {
       const uid = change.user?.uid ?? null;
       if (uid !== this.uid) {
         this.uid = uid;

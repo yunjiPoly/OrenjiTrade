@@ -78,6 +78,29 @@ describe('BinderListStore (Search › Binders, spec 6.3)', () => {
     );
   });
 
+  it('says when the other kind matches a text that finds nothing here (no count)', () => {
+    subdivision.mockImplementation((params: { deckCore: boolean }) =>
+      of(
+        params.deckCore
+          ? { items: [{ id: 'core' }], hasMore: false, nextCursor: null }
+          : { items: [], hasMore: false, nextCursor: null },
+      ),
+    );
+    const store = TestBed.inject(BinderListStore);
+    store.load({ ...query, q: 'fox' });
+    expect(store.items()).toEqual([]);
+    expect(subdivision).toHaveBeenLastCalledWith(
+      expect.objectContaining({ deckCore: true, limit: 1, q: 'fox' }),
+      'body',
+      false,
+      expect.anything(),
+    );
+    expect(store.otherMatches()).toBe(true);
+    // Without a text there is nothing to point at.
+    store.load({ ...query, q: '' });
+    expect(store.otherMatches()).toBe(false);
+  });
+
   it('keeps an error to retry', () => {
     subdivision.mockReturnValueOnce(throwError(() => new Error('offline')));
     const store = TestBed.inject(BinderListStore);

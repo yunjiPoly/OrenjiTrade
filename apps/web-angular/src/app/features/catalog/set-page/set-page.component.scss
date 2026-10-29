@@ -6,7 +6,7 @@
 
 .sp {
   width: 100%;
-  max-width: 1200px;
+  max-width: calc(1200px + 48px); // 1200 of content (spec 7.5), the padding on top
   margin: 0 auto;
   padding: 32px 24px 48px;
 }

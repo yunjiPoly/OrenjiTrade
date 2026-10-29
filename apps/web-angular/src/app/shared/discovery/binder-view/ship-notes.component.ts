@@ -43,10 +43,14 @@ import { ShellIconComponent } from '../../../core/layout/shell-icon/shell-icon.c
     }
     .ship p {
       display: flex;
-      flex: 1 1 320px;
       gap: 10px;
       margin: 0;
       padding: 14px 16px;
+    }
+    /* Side by side under a binder; stacked and compact in the deck core's panel (a basis of 320
+       in a column made each note 320 tall, WD review U3). */
+    .ship--row p {
+      flex: 1 1 320px;
     }
     .ship:not(.ship--row) p + p {
       border-top: 1px solid var(--color-border);

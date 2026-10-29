@@ -67,6 +67,16 @@ describe('the global search rules (spec 4.4)', () => {
     expect(options.filter((o) => o.kind === 'card')).toHaveLength(2);
   });
 
+  it('shows one row for printings of one code that open the same page (WD review U12)', () => {
+    const options = searchOptions(
+      'azr-en011',
+      [printing('p-1', 'AZR-EN011'), printing('p-2', 'AZR-EN011'), printing('p-3', 'AZR-EN012')],
+      [],
+    );
+    const cards = options.filter((o) => o.kind === 'card');
+    expect(cards.map((o) => o.queryParams)).toEqual([{ printing: 'any' }, { printing: 'p-3' }]);
+  });
+
   it('splits a name around its first match, case-insensitive', () => {
     expect(splitMatch('Snake-Eye Ash', 'ash')).toEqual({ pre: 'Snake-Eye ', hit: 'Ash', post: '' });
     expect(splitMatch('Yubel', 'zzz')).toEqual({ pre: 'Yubel', hit: '', post: '' });

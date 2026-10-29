@@ -33,7 +33,24 @@ import { ShellIconComponent } from '../../../core/layout/shell-icon/shell-icon.c
     >
       <div class="gal__main">
         @if (current(); as photo) {
-          <img class="gal__img" [src]="photo.url" [alt]="photoAlt(index())" decoding="async" />
+          @if (compact()) {
+            <img class="gal__img" [src]="photo.url" [alt]="photoAlt(index())" decoding="async" />
+          } @else {
+            <!-- A click on the photo opens it at its own size (spec 8.1); the keyboard has
+                 "View full size", so the photo itself is no second tab stop. -->
+            <button
+              type="button"
+              class="gal__photo"
+              tabindex="-1"
+              data-testid="gallery-photo"
+              [attr.aria-label]="
+                'View full size, photo ' + (index() + 1) + ' of ' + photos().length
+              "
+              (click)="openLightbox($event, true)"
+            >
+              <img class="gal__img" [src]="photo.url" [alt]="photoAlt(index())" decoding="async" />
+            </button>
+          }
         } @else {
           <span class="gal__none">No photos yet</span>
         }
@@ -59,7 +76,7 @@ import { ShellIconComponent } from '../../../core/layout/shell-icon/shell-icon.c
           </button>
         }
         @if (current() && !compact()) {
-          <button type="button" class="gal__full" (click)="openLightbox($event)">
+          <button #fullButton type="button" class="gal__full" (click)="openLightbox($event)">
             <app-shell-icon name="expand" [size]="16" />
             View full size
           </button>
@@ -133,6 +150,19 @@ import { ShellIconComponent } from '../../../core/layout/shell-icon/shell-icon.c
       max-width: 100%;
       max-height: 100%;
       object-fit: contain;
+    }
+    .gal__photo {
+      display: grid;
+      place-items: center;
+      width: 100%;
+      height: 100%;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      cursor: zoom-in;
+    }
+    .gal__photo .gal__img {
+      max-height: 100%;
     }
     .gal__none {
       color: #a8a29e;
@@ -224,6 +254,12 @@ import { ShellIconComponent } from '../../../core/layout/shell-icon/shell-icon.c
       color: var(--color-text-muted);
       font-size: var(--font-size-meta);
     }
+    /* No arrow-key hint on a touch screen or the phone layout. */
+    @media (hover: none), (max-width: 959.98px) {
+      .gal__keys {
+        display: none;
+      }
+    }
     .gal__keys kbd {
       margin-right: 4px;
       padding: 0 5px;
@@ -276,6 +312,7 @@ export class DeckCoreGalleryComponent {
     () => this.photos()[this.index()] ?? this.photos()[0] ?? null,
   );
   private readonly lightbox = viewChild.required<ElementRef<HTMLDialogElement>>('lightbox');
+  private readonly fullButton = viewChild<ElementRef<HTMLButtonElement>>('fullButton');
   private opener: HTMLElement | null = null;
 
   constructor() {
@@ -300,8 +337,13 @@ export class DeckCoreGalleryComponent {
     }
   }
 
-  protected openLightbox(event: Event): void {
-    this.opener = event.currentTarget as HTMLElement;
+  /**
+   * Opens the lightbox; the focus comes back to its opener, or to "View full size" after a click
+   * on the photo (which is no tab stop).
+   */
+  protected openLightbox(event: Event, fromPhoto = false): void {
+    this.opener =
+      (fromPhoto ? this.fullButton()?.nativeElement : null) ?? (event.currentTarget as HTMLElement);
     const dialog = this.lightbox().nativeElement;
     if (typeof dialog.showModal === 'function') {
       dialog.showModal();

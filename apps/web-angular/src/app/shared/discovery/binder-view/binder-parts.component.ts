@@ -8,7 +8,7 @@ import type {
 } from '@orenji/api-client';
 import { ShellIconComponent } from '../../../core/layout/shell-icon/shell-icon.component';
 import { itemPriceText } from '../../../features/inventory/data/item-price';
-import { printingImageUrl } from '../../inventory/inventory-labels';
+import { printingCode, printingImageUrl } from '../../inventory/inventory-labels';
 import { AvatarComponent } from '../../ui/avatar/avatar.component';
 import { CardImageComponent } from '../../ui/card-image/card-image.component';
 
@@ -57,7 +57,7 @@ export function ownerLine(
       }
       <span class="own__text">
         <span class="own__line1">
-          @if (o?.handle && !card()) {
+          @if (o?.handle && !card() && linked()) {
             <a class="own__handle own__handle--link" [routerLink]="['/collectors', o?.handle]">{{
               o?.handle
             }}</a>
@@ -152,7 +152,12 @@ export class BinderOwnerComponent {
   readonly binderCount = input<number | null | undefined>(null);
   /** The page's seller card (a surface card with "View profile"). */
   readonly card = input(false);
-  protected readonly line = computed(() => ownerLine(this.owner(), this.binderCount()));
+  /** False inside a row that is itself the profile link (no link in a link, WD review A10). */
+  readonly linked = input(true);
+  // A guest sees the province only (spec 8.3): no handle, rating, presence or binder count.
+  protected readonly line = computed(() =>
+    ownerLine(this.owner(), this.owner()?.handle ? this.binderCount() : null),
+  );
 }
 
 /**
@@ -172,13 +177,10 @@ export class BinderOwnerComponent {
             class="bc__link"
             [routerLink]="['/cards', item.card.id]"
             [queryParams]="{ printing: item.printing.id }"
+            [attr.aria-label]="tileLabel(item)"
           >
-            <app-card-image
-              class="bc__art"
-              [src]="image(item)"
-              [alt]="item.card.name"
-              [game]="item.card.game"
-            />
+            <!-- The link names the card (with its code and price): the art adds nothing. -->
+            <app-card-image class="bc__art" [src]="image(item)" alt="" [game]="item.card.game" />
             <span class="bc__name">{{ item.card.name }}</span>
           </a>
           <span class="bc__foot">
@@ -303,6 +305,9 @@ export class BinderCardsComponent {
   readonly messageAbout = output<{ item: PublicInventoryItem; opener: EventTarget | null }>();
   protected readonly image = (item: PublicInventoryItem) => printingImageUrl(item.printing);
   protected readonly price = (item: PublicInventoryItem) => itemPriceText(item);
+  /** "Tidecaller Mermaid, TDC-EN004, $12": two tiles of one card differ by code or price. */
+  protected readonly tileLabel = (item: PublicInventoryItem) =>
+    [item.card.name, printingCode(item.printing), itemPriceText(item)].filter(Boolean).join(', ');
 }
 
 /**
@@ -320,12 +325,7 @@ export class BinderCardsComponent {
           <a class="kc__card" [routerLink]="['/cards', card.cardId]">
             @if (!chips()) {
               <span class="kc__art-wrap">
-                <app-card-image
-                  class="kc__art"
-                  [src]="art(card)"
-                  [alt]="card.name"
-                  [game]="game()"
-                />
+                <app-card-image class="kc__art" [src]="art(card)" alt="" [game]="game()" />
                 <span class="kc__badge">×{{ card.quantity }}</span>
               </span>
               <span class="kc__name">{{ card.name }}</span>

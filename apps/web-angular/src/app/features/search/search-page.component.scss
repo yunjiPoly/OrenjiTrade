@@ -39,6 +39,14 @@
   min-height: 0;
 }
 
+// An open binder under the head (board W5): it fills the rest of the pane.
+.sx__pane--drill {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 12px 0 0;
+}
+
 .sx__head {
   display: flex;
   flex-direction: column;

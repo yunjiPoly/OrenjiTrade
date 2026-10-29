@@ -93,7 +93,9 @@ export function binderRowLine(binder: PublicBinderSummary): string {
       background: var(--color-primary-tint-subtle);
     }
     .br:focus-visible {
-      outline: none;
+      /* The transparent outline is what forced colours paint (they drop the inset shadow). */
+      outline: 2px solid transparent;
+      outline-offset: -2px;
       box-shadow: inset 0 0 0 2px var(--color-accent);
     }
     .br__photo {

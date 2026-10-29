@@ -1,8 +1,11 @@
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
   ElementRef,
+  Injector,
+  afterNextRender,
   computed,
   effect,
   inject,
@@ -75,11 +78,12 @@ export function bindersEmptyText(
       <div class="bp__filters">
         @if (state(); as code) {
           <button
+            #chip
             type="button"
             class="bp__chip"
             data-testid="state-chip"
             [attr.aria-label]="'Showing ' + stateName() + '. Show the whole region'"
-            (click)="stateChange.emit(null)"
+            (click)="clearState()"
           >
             {{ stateName() }}
             <app-shell-icon name="close" [size]="16" />
@@ -107,7 +111,7 @@ export function bindersEmptyText(
             [deckCoreTotal]="deckCoreTotal()"
             [home]="home()"
             [loading]="!region()"
-            (picked)="stateChange.emit($event)"
+            (picked)="pickState($event)"
             (highlight)="highlight.emit($event)"
           />
         } @else if (store.status() === 'error' && store.items().length === 0) {
@@ -124,6 +128,18 @@ export function bindersEmptyText(
           </div>
         } @else if (store.items().length === 0) {
           <p class="bp__empty" data-testid="binders-empty">{{ emptyText() }}</p>
+          @if (store.otherMatches()) {
+            <p class="bp__other" data-testid="binders-other-kind">
+              {{ kind() === 'deckcores' ? 'Binders' : 'Deck cores' }} match ‘{{ q() }}’.
+              <button
+                type="button"
+                class="bp__retry"
+                (click)="kindChange.emit(kind() === 'deckcores' ? 'binders' : 'deckcores')"
+              >
+                Show {{ kind() === 'deckcores' ? 'binders' : 'deck cores' }}
+              </button>
+            </p>
+          }
         } @else {
           <ul class="bp__rows" [attr.aria-label]="listLabel()">
             @for (binder of store.items(); track binder.id) {
@@ -179,6 +195,7 @@ export function bindersEmptyText(
     }
     .bp__field:focus-within {
       border-color: var(--color-accent);
+      box-shadow: 0 0 0 2px var(--color-focus-ring);
     }
     .bp__input {
       flex: 1;
@@ -249,6 +266,10 @@ export function bindersEmptyText(
       font-weight: var(--font-weight-semibold);
       cursor: pointer;
     }
+    .bp__other {
+      margin: 8px 0 0;
+      font-size: var(--font-size-sm);
+    }
     .bp__empty,
     .bp__state p {
       margin: 0;
@@ -276,6 +297,17 @@ export class BindersPaneComponent {
   private readonly session = inject(SessionService);
   private readonly fieldRef = viewChild<ElementRef<HTMLInputElement>>('field');
   private readonly stateListRef = viewChild(StateListComponent);
+  private readonly chipRef = viewChild<ElementRef<HTMLButtonElement>>('chip');
+  private readonly announcer = inject(LiveAnnouncer);
+  private readonly injector = inject(Injector);
+  /**
+   * Where the focus goes once a choice made in the pane rendered (spec 6.4: the list is the
+   * keyboard and screen-reader twin of the map): the state chip after a pick, the state's row
+   * after the chip's ×. A pick on the map leaves the focus on the map.
+   */
+  private pendingFocus: { to: 'chip' } | { to: 'row'; code: string | null } | null = null;
+  /** The text whose results were last announced. */
+  private announcedQuery: string | null = null;
 
   readonly regionCode = input.required<string>();
   readonly region = input<PlatformRegion | null>(null);
@@ -327,7 +359,74 @@ export class BindersPaneComponent {
       const list = this.stateList();
       untracked(() => (list ? this.store.clear() : this.store.load(query)));
     });
+    // After a pick in the list or the chip's ×: the focus and a short announcement (no count).
+    effect(() => {
+      const state = this.state();
+      this.stateName();
+      untracked(() => {
+        const pending = this.pendingFocus;
+        if (!pending || (pending.to === 'chip') !== !!state) {
+          return;
+        }
+        this.pendingFocus = null;
+        this.announcer.announce(
+          state
+            ? `Showing ${state === WHOLE_REGION ? 'the whole region' : this.stateName()}`
+            : 'Browse by state or province',
+          'polite',
+        );
+        afterNextRender(
+          {
+            write: () => {
+              if (pending.to === 'chip') {
+                this.chipRef()?.nativeElement.focus();
+              } else {
+                this.stateListRef()?.focusCode(pending.code);
+              }
+            },
+          },
+          { injector: this.injector },
+        );
+      });
+    });
+    // A text search's results, said once they are in: "Results updated" or the no-match text.
+    effect(() => {
+      const q = this.q();
+      const status = this.store.status();
+      const count = this.store.items().length;
+      untracked(() => {
+        if (!q) {
+          this.announcedQuery = null;
+          return;
+        }
+        if (status === 'loading' || q === this.announcedQuery) {
+          return;
+        }
+        this.announcedQuery = q;
+        this.announcer.announce(
+          status === 'error'
+            ? 'Binders could not load.'
+            : count === 0
+              ? this.emptyText()
+              : 'Results updated',
+          'polite',
+        );
+      });
+    });
     inject(DestroyRef).onDestroy(() => this.timer && clearTimeout(this.timer));
+  }
+
+  /** A state (or "Whole region") chosen in the list: its rows, the focus on the chip. */
+  protected pickState(code: string): void {
+    this.pendingFocus = { to: 'chip' };
+    this.stateChange.emit(code);
+  }
+
+  /** The chip's ×: back to the list, the focus on the state that was chosen. */
+  protected clearState(): void {
+    const state = this.state();
+    this.pendingFocus = { to: 'row', code: state && state !== WHOLE_REGION ? state : WHOLE_REGION };
+    this.stateChange.emit(null);
   }
 
   protected isOwn(binder: PublicBinderSummary): boolean {

@@ -177,9 +177,11 @@ export function stateGroups(
     .sl__row:hover,
     .sl__row:focus-visible {
       background: var(--color-primary-tint-subtle);
-      outline: none;
     }
     .sl__row:focus-visible {
+      /* The transparent outline is what forced colours paint (they drop the inset shadow). */
+      outline: 2px solid transparent;
+      outline-offset: -2px;
       box-shadow: inset 0 0 0 2px var(--color-accent);
     }
     .sl__row--whole {
@@ -269,5 +271,17 @@ export class StateListComponent {
   /** "Skip the map" and the empty field land here: the list's tab stop. */
   focus(): void {
     this.host.nativeElement.querySelector<HTMLElement>('.sl__row[tabindex="0"]')?.focus();
+  }
+
+  /** Back from a state (its chip's ×): the row of that state, else the list's tab stop. */
+  focusCode(code: string | null): void {
+    const row = code
+      ? this.host.nativeElement.querySelector<HTMLElement>(`.sl__row[data-code="${code}"]`)
+      : null;
+    if (row) {
+      row.focus();
+    } else {
+      this.focus();
+    }
   }
 }

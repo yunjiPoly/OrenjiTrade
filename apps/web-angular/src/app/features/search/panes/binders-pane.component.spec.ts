@@ -1,3 +1,4 @@
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MapService, PublicBindersService } from '@orenji/api-client';
@@ -38,9 +39,11 @@ describe('BindersPaneComponent (spec 6.3)', () => {
   let fixture: ComponentFixture<BindersPaneComponent>;
   let element: HTMLElement;
   let getPublicBinder: ReturnType<typeof vi.fn>;
+  let announce: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
     getPublicBinder = vi.fn(() => of({}));
+    announce = vi.fn();
     TestBed.configureTestingModule({
       imports: [BindersPaneComponent],
       providers: [
@@ -55,6 +58,7 @@ describe('BindersPaneComponent (spec 6.3)', () => {
         { provide: PublicBindersService, useValue: { getPublicBinder } },
         { provide: AuthService, useValue: { isAuthenticated: signal(true) } },
         { provide: SessionService, useValue: { me: signal({ id: 'o1' }) } },
+        { provide: LiveAnnouncer, useValue: { announce } },
       ],
     });
     fixture = TestBed.createComponent(BindersPaneComponent);
@@ -108,5 +112,69 @@ describe('BindersPaneComponent (spec 6.3)', () => {
     expect(element.textContent).toContain('Whole region');
     expect(element.querySelector('[data-testid="binder-row"]')).toBeNull();
     expect(element.textContent).toContain('Pick on the map');
+  });
+
+  describe('the keyboard and screen-reader path (spec 6.4)', () => {
+    const REGION = {
+      code: 'americas-north',
+      countries: [
+        {
+          code: 'CA',
+          name: 'Canada',
+          subdivisions: [
+            { code: 'CA-ON', name: 'Ontario' },
+            { code: 'CA-QC', name: 'Quebec' },
+          ],
+        },
+      ],
+    };
+
+    async function settle() {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await new Promise((resolve) => setTimeout(resolve));
+    }
+
+    beforeEach(async () => {
+      document.body.appendChild(element);
+      fixture.componentRef.setInput('region', REGION);
+      await settle();
+    });
+
+    afterEach(() => element.remove());
+
+    it("the chip's × returns to the list with the focus on that state's row", async () => {
+      const states: (string | null)[] = [];
+      fixture.componentInstance.stateChange.subscribe((code) => states.push(code));
+      element.querySelector<HTMLButtonElement>('[data-testid="state-chip"]')!.click();
+      expect(states).toEqual([null]);
+      fixture.componentRef.setInput('state', null);
+      fixture.componentRef.setInput('stateName', '');
+      await settle();
+      expect((document.activeElement as HTMLElement).getAttribute('data-code')).toBe('CA-QC');
+      expect(announce).toHaveBeenCalledWith('Browse by state or province', 'polite');
+    });
+
+    it('a state picked in the list moves the focus to its chip and says what shows', async () => {
+      fixture.componentRef.setInput('state', null);
+      await settle();
+      const states: (string | null)[] = [];
+      fixture.componentInstance.stateChange.subscribe((code) => states.push(code));
+      element.querySelector<HTMLElement>('.sl__row[data-code="CA-ON"]')!.click();
+      expect(states).toEqual(['CA-ON']);
+      fixture.componentRef.setInput('state', 'CA-ON');
+      fixture.componentRef.setInput('stateName', 'Ontario');
+      await settle();
+      expect(document.activeElement?.getAttribute('data-testid')).toBe('state-chip');
+      expect(announce).toHaveBeenCalledWith('Showing Ontario', 'polite');
+      expect(announce.mock.calls.flat().join(' ')).not.toMatch(/\d/);
+    });
+
+    it('says when a text search has results, or the no-match text, without a count', async () => {
+      fixture.componentRef.setInput('q', 'yubel');
+      await settle();
+      expect(announce).toHaveBeenCalledWith('Results updated', 'polite');
+    });
   });
 });

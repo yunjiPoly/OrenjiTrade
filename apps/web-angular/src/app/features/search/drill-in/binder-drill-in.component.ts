@@ -141,6 +141,7 @@ import { ReportActionsService } from '../../../shared/reports/report-actions.ser
                     [owner]="binder.owner"
                     [rating]="rating()"
                     [binderCount]="binder.ownerPublicBinderCount"
+                    [linked]="false"
                   />
                   <app-shell-icon class="di__muted" name="chevronRight" [size]="18" />
                 </a>

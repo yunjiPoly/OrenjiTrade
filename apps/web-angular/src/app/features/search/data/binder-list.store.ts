@@ -45,14 +45,18 @@ export class BinderListStore {
   private readonly statusSignal = signal<'idle' | 'loading' | 'ready' | 'error'>('idle');
   private readonly errorSignal = signal<ApiError | null>(null);
   private readonly cursorSignal = signal<string | null>(null);
+  /** A text that finds nothing in this kind finds something in the other one (no count). */
+  private readonly otherMatchesSignal = signal(false);
   private request = 0;
   private subscription: Subscription | null = null;
+  private probe: Subscription | null = null;
 
   readonly query = this.querySignal.asReadonly();
   readonly items = this.itemsSignal.asReadonly();
   readonly status = this.statusSignal.asReadonly();
   readonly error = this.errorSignal.asReadonly();
   readonly hasMore = () => !!this.cursorSignal();
+  readonly otherMatches = this.otherMatchesSignal.asReadonly();
 
   load(query: BinderListQuery): void {
     if (sameBinderQuery(this.querySignal(), query) && this.statusSignal() !== 'error') {
@@ -61,6 +65,7 @@ export class BinderListStore {
     this.querySignal.set(query);
     this.itemsSignal.set([]);
     this.cursorSignal.set(null);
+    this.otherMatchesSignal.set(false);
     this.fetch(null);
   }
 
@@ -78,6 +83,8 @@ export class BinderListStore {
   clear(): void {
     this.request++;
     this.subscription?.unsubscribe();
+    this.probe?.unsubscribe();
+    this.otherMatchesSignal.set(false);
     this.querySignal.set(null);
     this.itemsSignal.set([]);
     this.statusSignal.set('idle');
@@ -115,6 +122,9 @@ export class BinderListStore {
         );
         this.cursorSignal.set(page.hasMore && page.nextCursor ? page.nextCursor : null);
         this.statusSignal.set('ready');
+        if (!cursor && query.q && (page.items ?? []).length === 0) {
+          this.probeOtherKind(query, request);
+        }
       },
       error: (error: unknown) => {
         if (request !== this.request) {
@@ -123,6 +133,34 @@ export class BinderListStore {
         this.errorSignal.set(toApiError(error));
         this.statusSignal.set('error');
       },
+    });
+  }
+
+  /**
+   * "Search binders and deck cores for 'fox'" lands on Binders: when no binder matches the text,
+   * one read of the other kind (limit 1) says whether deck cores match, so the pane can point
+   * there (WD review U11). It spends no binder view and shows no count.
+   */
+  private probeOtherKind(query: BinderListQuery, request: number): void {
+    this.probe?.unsubscribe();
+    const params = {
+      region: query.region,
+      game: query.game,
+      deckCore: !query.deckCores,
+      limit: 1,
+      q: query.q,
+    };
+    const options = { context: silentErrors().set(ATTACH_ID_TOKEN, true) };
+    const page$ = query.state
+      ? this.api.listSubdivisionBinders({ ...params, code: query.state }, 'body', false, options)
+      : this.api.listRegionBinders(params, 'body', false, options);
+    this.probe = page$.subscribe({
+      next: (page) => {
+        if (request === this.request) {
+          this.otherMatchesSignal.set((page.items ?? []).length > 0);
+        }
+      },
+      error: () => this.otherMatchesSignal.set(false),
     });
   }
 }
