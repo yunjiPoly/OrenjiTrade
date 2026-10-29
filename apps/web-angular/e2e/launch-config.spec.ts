@@ -210,7 +210,8 @@ test.describe('launch configuration: every money flag off', () => {
 
     // --- No offer on the web any more (decision 2): no button, no chip, old links to Messages ---
     await page.goto(`/binders/${binderId}`);
-    const listing = page.getByRole('article', { name: card });
+    // The binder page's cards (web stage WD, board W9).
+    const listing = page.getByTestId('binder-card').filter({ hasText: card });
     await expect(listing).toBeVisible();
     await expect(listing.getByRole('button', { name: /Make an offer/ })).toHaveCount(0);
     await expect(listing).not.toContainText(/Accepting offers|Make an offer/);
