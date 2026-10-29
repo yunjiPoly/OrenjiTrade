@@ -360,6 +360,48 @@ test.describe('Messages: the deal beside the chat (web WC)', () => {
     await page.context().close();
   });
 
+  test('at md the drawer overlays the page: Esc on the page closes it and the focused opener shows (WC review R1-1)', async ({
+    browser,
+    request,
+  }) => {
+    test.setTimeout(120_000);
+    const { seller, buyer, cardId, cardName } = await createDeal(request);
+    const { page } = await openSignedIn(browser, buyer, { width: 1024, height: 768 });
+    await page.goto(`/search?card=${cardId}`);
+    const message = page.getByRole('button', {
+      name: `Message ${seller.handle} about ${cardName}`,
+    });
+    await message.click();
+    const drawer = page.getByTestId('chat-drawer');
+    const field = drawer.getByRole('textbox', { name: 'Message' });
+    await expect(field).toBeFocused();
+    /** Whether the control's centre shows, not something on top of it (WCAG 2.4.11). */
+    const shows = () =>
+      message.evaluate((element) => {
+        const box = element.getBoundingClientRect();
+        const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+        return !!hit && (element === hit || element.contains(hit));
+      });
+
+    // F6 back to the page lands on the opener, which the drawer may cover at md; Esc on the page
+    // closes the drawer without moving the focus, and the focused opener shows again.
+    await page.keyboard.press('F6');
+    await expect(message).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(drawer).toHaveCount(0);
+    await expect(message).toBeFocused();
+    expect(await shows()).toBe(true);
+
+    // Esc inside still closes it with the focus back on the opener (spec 10.6).
+    await message.click();
+    await expect(field).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(drawer).toHaveCount(0);
+    await expect(message).toBeFocused();
+    expect(await shows()).toBe(true);
+    await page.context().close();
+  });
+
   test('signing out closes the chat drawer and forgets its draft; the next account starts empty (WC review F1, P1)', async ({
     browser,
     request,
