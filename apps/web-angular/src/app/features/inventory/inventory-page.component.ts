@@ -866,7 +866,9 @@ export class InventoryPageComponent {
   }
 
   private onDocumentKey(event: KeyboardEvent): void {
-    if (event.key === 'Escape' && !event.defaultPrevented) {
+    if (event.key === 'Escape') {
+      // Not `defaultPrevented`: a closed Material menu stays with the overlay keyboard dispatcher
+      // and prevents every later Esc; what lies on top is checked instead.
       this.escapeSelection(event);
       return;
     }
@@ -890,13 +892,16 @@ export class InventoryPageComponent {
    * (a menu, a dialog, a drawer) or the focus is in a text field, which handle Esc themselves.
    */
   private escapeSelection(event: KeyboardEvent): void {
+    const target = event.target instanceof Element ? event.target : null;
     if (
       this.store.selectedCount() === 0 ||
       isEditableTarget(event.target) ||
       this.drawerOpen() ||
-      this.quickOpenTarget(event.target) ||
-      this.document.querySelector(
-        '.cdk-overlay-container :is(.mat-mdc-menu-panel, [role="dialog"], [role="alertdialog"])',
+      // A menu or a dialog holds the focus while it is open (its Esc closes it).
+      !!target?.closest('.cdk-overlay-container, app-quick-add-rows, app-price-editor') ||
+      // A menu still in the page but closing (its exit can stall after an action) is not on top.
+      !!this.document.querySelector(
+        '.cdk-overlay-container :is(.mat-mdc-menu-panel:not(.mat-menu-panel-exit-animation), [role="dialog"], [role="alertdialog"])',
       )
     ) {
       return;
@@ -904,10 +909,6 @@ export class InventoryPageComponent {
     event.preventDefault();
     this.store.clearSelection();
     this.refocusAfterAction();
-  }
-
-  private quickOpenTarget(target: EventTarget | null): boolean {
-    return target instanceof Element && !!target.closest('app-quick-add-rows');
   }
 
   /** Whether the focus fell out of the page (its control was removed or replaced). */

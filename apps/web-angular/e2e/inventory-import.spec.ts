@@ -164,7 +164,7 @@ test.describe('inventory import (web WB)', () => {
     await page.getByRole('checkbox', { name: 'Include Mirrorblade Knight' }).uncheck();
     expect((await leftOut).postDataJSON()).toEqual({ included: false });
     await expect(page.getByTestId('import-row-1')).toContainText('Left out', { timeout: 30_000 });
-    await expect(page.getByTestId('import-commit')).toHaveText(/Add 1 card$/);
+    await expect(page.getByTestId('import-commit')).toHaveText(/Add 1 card\s*$/);
     await page.getByTestId('import-commit').click();
     await expect(page.getByTestId('import-done')).toHaveText('1 card added', { timeout: 30_000 });
     expect(await itemCount(page, collector.idToken)).toBe(deckCards + 1);

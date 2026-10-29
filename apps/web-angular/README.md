@@ -273,13 +273,21 @@ Contract: `docs/api/contracts/phase3-inventory.md` (web section). Generated clie
     copies).
   - `BulkDockComponent`: "6 selected" · Make public · Make private · Move to binder (by game,
     Unfiled, New binder…) · Still have them · Delete (confirm, then "6 cards deleted" with Undo) ·
-    Clear. No "Set price" and no "Select all that match" (decision 19).
+    Clear (Esc anywhere on the page while nothing lies on top). No "Set price" and no "Select all
+    that match" (decision 19). Its buttons stay focusable while an action runs (`aria-disabled`).
+    Undo (and Ctrl/Cmd+Z) restores four cards at a time; a 429 `RATE_LIMITED` pauses for the
+    server's `retryAfterSeconds` (twice at most), and the cards still waiting keep an Undo of their
+    own ("Try again in 40 s") until the server's 10 minutes end. An inline save is announced
+    ("Price saved") through `LiveAnnouncer`.
   - `QuickAddRowsComponent` (Shift+N): a code resolves its printing through `/cards/suggest`, a
     name opens a printing list; Enter adds the row (one `POST /inventory/items`), copies reset to 1;
     each added row has Undo for 10 minutes; errors and the 429 stay inline.
   - Drawers (`drawer/`): `EditCardDrawerComponent` (Previous and Next with Alt+↑ / Alt+↓, each
-    saving first; "Discard your changes?"; Ctrl/Cmd+Enter; the old web form's condition, language
-    and edition read-only with "Add to public note"; photos in four slots, images dropped on the
+    saving first; "Discard your changes?", also when leaving Inventory (`leaveInventoryGuard`);
+    Ctrl/Cmd+Enter; a stated condition, language and edition (the old web form, or a Collectr
+    import) read-only as "Stated when it was added: …" with "Add to public note"; a binder change
+    keeps the card's stored visibility (a temporary publication stays temporary); photos in four
+    slots, images dropped on the
     drawer go there), `AddCardsDrawerComponent` (Card, Printing, Details; "Keep these for the next
     card"; the loop back to the search; "Add many at once").
   - Binders (`binders/`): `BindersTabComponent` (by game, covers, freshness with "Still have
@@ -288,7 +296,13 @@ Contract: `docs/api/contracts/phase3-inventory.md` (web section). Generated clie
     photos, price, note and key cards), `NewBinderDialogComponent` (five game tiles, "Cards coming
     soon" for a game without cards, the deck core switch, "Cards inside" from a selection; the
     stage G 409s and the binder limit in plain words).
-  - A `.ydk` or `.csv` dropped anywhere on Inventory opens Import with it (`ImportHandoff`).
+  - A `.ydk` or `.csv` dropped anywhere on Inventory opens Import with it (`ImportHandoff`); any
+    other file is answered with a toast and never uploaded. While a drawer is open the app's
+    single-key shortcuts are off (`data-shortcuts-off` on the drawer frame). Printings that share a
+    code say what tells them apart (edition, language, finish: `printingVariant`, the phone's rule)
+    in Add cards, quick add rows and the import's printing menu. A public binder offers "View
+    public page" (strip, pane menu, Binders tab card and menu, Edit binder); a temporary one says
+    when it ends.
 - **`/inventory/import`** (`import/`, contract `docs/api/contracts/s5-inventory-import.md`):
   `ImportSourceComponent` (deck or Collectr, the drop zone, the limits read from
   `GET /inventory/imports/limits`, paste the text), the check (chips All | Which copy? | Not

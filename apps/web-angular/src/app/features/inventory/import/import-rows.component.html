@@ -16,7 +16,7 @@
             [checked]="group.include"
             [attr.aria-disabled]="working() || null"
             [attr.aria-label]="'Include the ' + group.title"
-            (click)="working() && $event.preventDefault()"
+            (click)="holdWhile(working(), $event)"
             (change)="includeSection.emit({ key: group.key, include: $any($event.target).checked })"
           />
         </span>
@@ -59,7 +59,7 @@
                 [checked]="row.included"
                 [attr.aria-disabled]="isBusy(row) || null"
                 [attr.aria-label]="'Include ' + name(row)"
-                (click)="isBusy(row) && $event.preventDefault()"
+                (click)="holdWhile(isBusy(row), $event)"
                 (change)="include.emit({ row, included: $any($event.target).checked })"
               />
             } @else {

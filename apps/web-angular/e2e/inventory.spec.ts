@@ -208,7 +208,9 @@ test.describe('inventory (web WB)', () => {
     await row(page, 'Lantern Fox Spirit')
       .getByRole('button', { name: 'One more Lantern Fox Spirit' })
       .click();
-    await expect(row(page, 'Lantern Fox Spirit').locator('.qty')).toHaveText('×2');
+    await expect(row(page, 'Lantern Fox Spirit').locator('.qty > [aria-hidden="true"]')).toHaveText(
+      '×2',
+    );
     const afterInline = await items(page, collector.idToken);
     expect(
       afterInline.find((it) => it.card.name === 'Azure-Eyes Sky Dragon')?.askingPriceText,

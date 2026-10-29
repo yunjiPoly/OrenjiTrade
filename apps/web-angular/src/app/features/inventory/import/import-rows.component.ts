@@ -160,6 +160,17 @@ export class ImportRowsComponent {
     return printingCode(printing);
   }
 
+  /**
+   * A checkbox clicked while its row (or the check) saves keeps its state (it stays focusable,
+   * aria-disabled). A method, not `busy && $event.preventDefault()`: a template handler that
+   * returns false prevents the click.
+   */
+  protected holdWhile(busy: boolean, event: Event): void {
+    if (busy) {
+      event.preventDefault();
+    }
+  }
+
   protected isBusy(row: InventoryImportRow): boolean {
     return this.busyRows().has(row.id);
   }
