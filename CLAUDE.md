@@ -175,9 +175,11 @@ steps and the owner's working agreements. macOS setup: `docs/development/macos-s
 7. Keep the repository buildable at the end of every session and record the exact next task
    in `IMPLEMENTATION_STATUS.md`.
 8. Prefer framework-provided solutions over new dependencies; pin versions.
-9. Owner orders in force: the web app (`apps/web-angular`) is paused since 2026-10-12 (read,
-   build, test and walk it; change nothing); stages S3 and S4 of the 2026-10-08 spec are skipped
-   since 2026-10-13 until the owner asks, and are never described as done.
+9. Owner orders in force: the web app (`apps/web-angular`), paused since 2026-10-12, resumes for
+   stages WA to WH2 of `docs/product/specs/2026-10-20-web-redesign.md` (the owner's prompt of
+   2026-10-28, `docs/product/specs/2026-10-28-web-redesign-stages.md`), one stage at a time; outside
+   the stage being built change nothing in it. Stages S3 and S4 of the 2026-10-08 spec stay skipped
+   until the owner asks, and are never described as done.
 10. Native runs use the iOS simulator the owner keeps booted (`ORENJI_IOS_SIMULATOR_UDID=<its
     UDID>`); never boot, create, erase or shut down a simulator. This Mac has no Android SDK: say
     "the Android run could not be verified".

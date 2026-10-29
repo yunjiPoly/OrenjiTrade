@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { SessionService } from '../../core/auth/session.service';
-import { FEATURE, FeatureFlagsService } from '../../core/feature-flags/feature-flags.service';
+import { FeatureFlagsService } from '../../core/feature-flags/feature-flags.service';
 import { AvatarComponent } from '../../shared/ui/avatar/avatar.component';
 
 interface SettingsLink {
@@ -18,13 +18,6 @@ export const SETTINGS_LINKS: readonly SettingsLink[] = [
   { path: 'privacy', label: 'Privacy', icon: 'shield_person' },
   { path: 'notifications', label: 'Notifications', icon: 'notifications' },
   { path: 'location', label: 'Location', icon: 'location_on' },
-  { path: 'offers', label: 'Offers', icon: 'local_offer' },
-  {
-    path: 'payouts',
-    label: 'Payouts',
-    icon: 'account_balance',
-    feature: FEATURE.protectedPayments,
-  },
   { path: 'blocked', label: 'Blocked users', icon: 'block' },
   { path: 'reports', label: 'My reports', icon: 'flag' },
   { path: 'account', label: 'Account', icon: 'manage_accounts' },

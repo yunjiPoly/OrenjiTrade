@@ -35,7 +35,12 @@ describe('TradingSafetyNoticeComponent', () => {
     await create('conversation');
     expect(notice()?.getAttribute('role')).toBe('note');
     expect(notice()?.textContent).toContain('Trade safely');
-    expect(notice()?.textContent).toContain('never share your home address');
+    // The phone's chat tip: deals ship by mail and the buyer pays by e-Transfer (ADR 0018);
+    // the meetup advice left with web WA (spec 20).
+    expect(notice()?.textContent).toContain(
+      'Agree on the price and shipping here. Check ratings before you send an e-Transfer.',
+    );
+    expect(notice()?.textContent).not.toMatch(/meet|public place/i);
     const link = element.querySelector<HTMLAnchorElement>('[data-testid="safety-guide"]');
     expect(link?.getAttribute('href')).toBe('/legal/trading-safely');
 

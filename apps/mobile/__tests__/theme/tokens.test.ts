@@ -64,6 +64,18 @@ describe('design tokens of the phone redesign (spec 2026-10-14, section 3)', () 
     }
   });
 
+  it('writes ink on orange in light (owner decision 21 of the web redesign, stage WA)', () => {
+    // White on #F4761A was 2.8:1 and failed AA; ink is 6.2:1. Dark keeps its own pair.
+    expect(lightPalette.onPrimary).toBe('#1C1917');
+    expect(contrast(lightPalette.onPrimary, lightPalette.primary)).toBeGreaterThan(4.5);
+    expect(contrast(darkPalette.onPrimary, darkPalette.primary)).toBeGreaterThan(4.5);
+    // The web-only group never reaches the phone; the additive colours do.
+    expect('notificationKind' in tokens.color.light).toBe(false);
+    expect(tokens.color.light.primaryTint).toBe('rgba(244, 118, 26, 0.14)');
+    expect(tokens.radius.dialog).toBe(22);
+    expect(tokens.fontSize.title).toBe(28);
+  });
+
   it('names the three font families the phone loads', () => {
     expect(tokens.font.display.mobile).toBe('Sora');
     expect(tokens.font.body.mobile).toBe('Inter');

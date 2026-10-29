@@ -63,8 +63,8 @@ test.describe('acceptance: map', () => {
     // --- B opens the map: A's state is shaded, its panel lists A's binder --------------------------
     const pageB = await actors.anonymous();
     await signIn(pageB, b);
-    await pageB.goto('/map');
-    await expect(pageB).toHaveURL(/\/map\?region=americas-north$/);
+    await pageB.goto('/');
+    await expect(pageB).toHaveURL(/:\d+\/\?region=americas-north$/);
     const shape = pageB.locator(`.leaflet-overlay-pane path[data-code="${place.subdivisionCode}"]`);
     await expect(shape).toBeAttached({ timeout: 20_000 });
     await expect

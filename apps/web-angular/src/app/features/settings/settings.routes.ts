@@ -1,6 +1,4 @@
 import { Routes } from '@angular/router';
-import { FEATURE } from '../../core/feature-flags/feature-flags.service';
-import { featureGuard } from '../../core/feature-flags/feature.guard';
 
 /** `/settings/*`: one child route per section inside the settings shell. */
 export const SETTINGS_ROUTES: Routes = [
@@ -37,19 +35,9 @@ export const SETTINGS_ROUTES: Routes = [
       },
       // Bookmarks and e-mails from before platform regions (ADR 0017).
       { path: 'trading-area', pathMatch: 'full', redirectTo: 'location' },
-      {
-        path: 'offers',
-        title: 'Offer settings',
-        loadComponent: () =>
-          import('./offers/offer-settings.component').then((m) => m.OfferSettingsComponent),
-      },
-      {
-        path: 'payouts',
-        title: 'Payouts',
-        canActivate: [featureGuard(FEATURE.protectedPayments, 'Payouts', '/settings/profile')],
-        loadComponent: () =>
-          import('./payouts/payout-settings.component').then((m) => m.PayoutSettingsComponent),
-      },
+      // Offers and payouts left the web (decision 2, spec 4.11).
+      { path: 'offers', pathMatch: 'full', redirectTo: 'profile' },
+      { path: 'payouts', pathMatch: 'full', redirectTo: 'profile' },
       {
         path: 'blocked',
         title: 'Blocked users',

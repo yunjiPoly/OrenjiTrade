@@ -1,6 +1,5 @@
 import { SendMessageRequest, SendMessageRequestKindEnum } from '@orenji/api-client';
 import type { BinderLinkChoice, CardLinkChoice } from '../../../shared/links/link-choices';
-import type { OfferLinkChoice } from '../../../shared/offers/offer-link-picker.component';
 import { MESSAGE_MAX_LENGTH } from './message-text';
 
 /** Photo limit of `POST /uploads/images` (the server re-encodes and strips metadata). */
@@ -10,7 +9,6 @@ export const IMAGE_TYPES: readonly string[] = ['image/jpeg', 'image/png', 'image
 export type DraftAttachment =
   | { kind: 'card'; card: CardLinkChoice }
   | { kind: 'binder'; binder: BinderLinkChoice }
-  | { kind: 'offer'; offer: OfferLinkChoice }
   | { kind: 'image'; file: File; previewUrl: string };
 
 /** What the composer hands to the thread when the collector presses Send. */
@@ -62,12 +60,6 @@ export function sendRequest(draft: MessageDraft, imageUploadId?: string): SendMe
         kind: SendMessageRequestKindEnum.BinderLink,
         body,
         binderId: attachment.binder.binderId,
-      };
-    case 'offer':
-      return {
-        kind: SendMessageRequestKindEnum.OfferLink,
-        body,
-        offerId: attachment.offer.offerId,
       };
     case 'image':
       return { kind: SendMessageRequestKindEnum.Image, body, imageUploadId };

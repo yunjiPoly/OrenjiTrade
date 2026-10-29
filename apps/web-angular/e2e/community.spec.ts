@@ -13,7 +13,7 @@ import {
 
 /**
  * Public community channels (Phase 5) against the real local stack: a collector opens
- * `/community`, lands on the channel of their platform region (ADR 0017: one channel per region),
+ * Messages › Community (`/messages/community/<channel>` since web WA), lands on the channel of their platform region (ADR 0017: one channel per region),
  * moves to the "Looking for" topic and back, posts with a shared card, is told inline that the
  * same text cannot be posted twice, edits the post; a second collector (another browser context)
  * replies inline; the author sees the reply and deletes the post. A moderator removes a post with
@@ -69,21 +69,26 @@ test.describe('community channels', () => {
 
     const page = await openSignedIn(browser, author);
     const watcher = watchCoordinates(page);
-    // The primary navigation leads to the channel of the browsed region (the home region).
+    // Messages › Community leads to the channel of the browsed region (the home region; old
+    // /community links land there too, web redesign WA).
     await page
-      .getByRole('navigation', { name: 'Primary' })
+      .getByRole('navigation', { name: 'Main' })
+      .getByRole('link', { name: /^Messages/ })
+      .click();
+    await page
+      .getByRole('navigation', { name: 'Messages' })
       .getByRole('link', { name: 'Community' })
       .click();
-    await expect(page).toHaveURL(/\/community\/americas-north$/);
+    await expect(page).toHaveURL(/\/messages\/community\/americas-north$/);
     const channels = page.getByRole('navigation', { name: 'Community channels' });
     await expect(channels.getByRole('heading', { name: 'Regions' })).toBeVisible();
     await expect(channels.getByRole('link', { name: 'Europe' })).toBeVisible();
     await expect(channels.getByRole('link', { name: /Montréal/ })).toHaveCount(0);
     await expect(channels.getByRole('heading', { name: 'Topics' })).toBeVisible();
     await channels.getByRole('link', { name: 'Looking for' }).click();
-    await expect(page).toHaveURL(/\/community\/looking-for$/);
+    await expect(page).toHaveURL(/\/messages\/community\/looking-for$/);
     await channels.getByRole('link', { name: CHANNEL_NAME }).click();
-    await expect(page).toHaveURL(new RegExp(`/community/${CHANNEL}$`));
+    await expect(page).toHaveURL(new RegExp(`/messages/community/${CHANNEL}$`));
     await expect(channels.getByRole('link', { name: CHANNEL_NAME })).toHaveAttribute(
       'aria-current',
       'page',
@@ -141,7 +146,7 @@ test.describe('community channels', () => {
 
     // Another collector replies inline.
     const other = await openSignedIn(browser, replier);
-    await other.goto(`/community/${CHANNEL}`);
+    await other.goto(`/messages/community/${CHANNEL}`);
     const theirView = postOf(other, edited);
     await expect(theirView).toBeVisible();
     await expect(theirView).not.toContainText('You');
@@ -186,7 +191,7 @@ test.describe('community channels', () => {
     const moderator = await createStaffMember(request, 'moder', ['MODERATOR']);
     try {
       const page = await openSignedIn(browser, moderator);
-      await page.goto(`/community/${CHANNEL}`);
+      await page.goto(`/messages/community/${CHANNEL}`);
       const post = postOf(page, text);
       await expect(post).toBeVisible();
       await post.getByRole('button', { name: /^Post options/ }).click();

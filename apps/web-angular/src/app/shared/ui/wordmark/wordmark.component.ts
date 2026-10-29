@@ -5,14 +5,14 @@ export type WordmarkSize = 'sm' | 'md' | 'lg';
 
 /**
  * Temporary text wordmark: "Orenji" in the brand orange + "Trade" in ink, display font.
- * Renders as a link to the map unless `link` is false.
+ * Renders as a link to Home unless `link` is false.
  */
 @Component({
   selector: 'app-wordmark',
   imports: [RouterLink],
   template: `
     @if (link()) {
-      <a class="wordmark" routerLink="/map" aria-label="OrenjiTrade home">
+      <a class="wordmark" routerLink="/" aria-label="OrenjiTrade, Home">
         <span class="wordmark__orenji">Orenji</span><span class="wordmark__trade">Trade</span>
       </a>
     } @else {

@@ -64,6 +64,7 @@ const ALL = 'ALL';
           <input
             matInput
             type="search"
+            data-page-search
             [formControl]="query"
             [attr.maxlength]="maxLength"
             autocomplete="off"

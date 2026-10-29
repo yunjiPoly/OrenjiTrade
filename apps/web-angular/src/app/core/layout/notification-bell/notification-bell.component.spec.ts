@@ -68,23 +68,23 @@ describe('NotificationBellComponent', () => {
     return element.querySelector<HTMLButtonElement>('[data-testid="notification-bell"]')!;
   }
 
-  it('shows the unread count as a badge and in the label', async () => {
+  it('shows an orange dot when unread and names the count in the label (spec 4.3)', async () => {
     expect(bell().getAttribute('aria-label')).toBe('Notifications');
     expect(bell().getAttribute('data-realtime')).toBe('connected');
     expect(element.querySelector('[data-testid="notification-badge"]')).toBeNull();
 
     unreadCount.set(3);
     await fixture.whenStable();
-    expect(bell().getAttribute('aria-label')).toBe('Notifications, 3 unread');
-    expect(element.querySelector('[data-testid="notification-badge"]')?.textContent?.trim()).toBe(
-      '3',
-    );
+    expect(bell().getAttribute('aria-label')).toBe('Notifications, 3 new');
+    const dot = element.querySelector('[data-testid="notification-badge"]');
+    expect(dot).not.toBeNull();
+    // A dot, never a number: the count is in the name only.
+    expect(dot?.textContent?.trim()).toBe('');
+    expect(dot?.getAttribute('aria-hidden')).toBe('true');
 
     unreadCount.set(140);
     await fixture.whenStable();
-    expect(element.querySelector('[data-testid="notification-badge"]')?.textContent?.trim()).toBe(
-      '99+',
-    );
+    expect(bell().getAttribute('aria-label')).toBe('Notifications, 140 new');
   });
 
   it('announces pushed notifications to screen readers', async () => {
@@ -92,6 +92,17 @@ describe('NotificationBellComponent', () => {
     await fixture.whenStable();
     expect(element.querySelector('[aria-live="polite"]')?.textContent).toContain(
       'New notification: Wishlist alert: Card z',
+    );
+    // An old offer notice is announced as history, never as a new offer (decision 2).
+    lastPush.set({
+      ...notification('o'),
+      type: Type.OfferReceived,
+      title: 'New offer on Card o',
+      data: { offerId: 'o-1', cardName: 'Card o' },
+    });
+    await fixture.whenStable();
+    expect(element.querySelector('[aria-live="polite"]')?.textContent).toContain(
+      'New notification: Past offer on Card o',
     );
   });
 

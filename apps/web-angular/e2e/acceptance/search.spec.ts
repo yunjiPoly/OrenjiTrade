@@ -40,7 +40,9 @@ test.describe('acceptance: search', () => {
     await signIn(page, searcher);
 
     // Top-bar card search → card detail.
-    const search = page.getByRole('banner').getByRole('combobox', { name: 'Search cards' });
+    const search = page
+      .getByRole('banner')
+      .getByRole('combobox', { name: /^Search Yu-Gi-Oh! cards/ });
     await search.fill('Tidecaller');
     await page
       .getByRole('option', { name: new RegExp(CARD) })
@@ -72,14 +74,14 @@ test.describe('acceptance: search', () => {
     );
 
     // Another region does not list the holder.
-    await page.getByTestId('region-switcher').click();
-    await page.getByRole('menuitemradio', { name: 'Europe' }).click();
+    await page.getByTestId('region-pill').click();
+    await page.getByRole('radio', { name: /^Europe/ }).click();
     await expect(page.getByText('Collectors in Europe, freshest listings first.')).toBeVisible();
     await expect(row).toBeHidden();
 
     // Unified search by printing code (back in the home region) lists the holder.
-    await page.getByTestId('region-switcher').click();
-    await page.getByRole('menuitemradio', { name: /Americas \(North\)/ }).click();
+    await page.getByTestId('region-pill').click();
+    await page.getByRole('radio', { name: /^Americas \(North\)/ }).click();
     await page.goto(`/search?q=${CODE}`);
     await expect(page.getByRole('heading', { name: new RegExp(`Who has ${CARD}`) })).toBeVisible();
     await expect(

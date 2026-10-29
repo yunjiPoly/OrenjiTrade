@@ -12,7 +12,6 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import type { BinderResponse, GameSchema } from '@orenji/api-client';
 import { editionLabel, finishLabel, languageLabel } from '../../../shared/catalog/catalog-labels';
 import {
@@ -50,7 +49,6 @@ function withCurrent(options: readonly string[] | undefined, current: string): s
     MatIconModule,
     MatInputModule,
     MatSelectModule,
-    MatSlideToggleModule,
   ],
   template: `
     @let f = form();
@@ -146,7 +144,7 @@ function withCurrent(options: readonly string[] | undefined, current: string): s
             </mat-select>
           </mat-form-field>
         </div>
-        <mat-slide-toggle formControlName="acceptsOffers">Accepts offers</mat-slide-toggle>
+        <!-- "Accepts offers" left with offers (decision 2): the item keeps its stored value. -->
       </fieldset>
 
       <fieldset class="idf__group">

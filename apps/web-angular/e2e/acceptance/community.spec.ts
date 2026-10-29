@@ -22,15 +22,19 @@ test.describe('acceptance: community chat', () => {
     // --- A posts with a shared card ---------------------------------------------------------------
     const pageA = await actors.open(a);
     await pageA
-      .getByRole('navigation', { name: 'Primary' })
+      .getByRole('navigation', { name: 'Main' })
+      .getByRole('link', { name: /^Messages/ })
+      .click();
+    await pageA
+      .getByRole('navigation', { name: 'Messages' })
       .getByRole('link', { name: 'Community' })
       .click();
-    await expect(pageA).toHaveURL(/\/community\/[\w-]+$/);
+    await expect(pageA).toHaveURL(/\/messages\/community\/[\w-]+$/);
     await pageA
       .getByRole('navigation', { name: 'Community channels' })
       .getByRole('link', { name: CHANNEL_NAME })
       .click();
-    await expect(pageA).toHaveURL(new RegExp(`/community/${CHANNEL}$`));
+    await expect(pageA).toHaveURL(new RegExp(`/messages/community/${CHANNEL}$`));
     const text = `Looking for a Mirrorblade Knight near the library ${suffix()}`;
     const composer = pageA.getByRole('form', { name: `Post in ${CHANNEL_NAME}` });
     await composer.getByRole('textbox', { name: 'Post text' }).fill(text);
@@ -52,7 +56,7 @@ test.describe('acceptance: community chat', () => {
 
     // --- B reads it and replies inline --------------------------------------------------------------
     const pageB = await actors.open(b);
-    await pageB.goto(`/community/${CHANNEL}`);
+    await pageB.goto(`/messages/community/${CHANNEL}`);
     const postB = pageB.locator(`article[data-post-id="${postId}"]`);
     await expect(postB).toContainText(text);
     await expect(postB).toContainText(a.displayName);

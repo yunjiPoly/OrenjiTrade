@@ -7,6 +7,7 @@ import { RouterLink } from '@angular/router';
 import { PrivacySettings } from '@orenji/api-client';
 import { isApiError } from '../../../core/http/api-error';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
+import { RecentSearches } from '../../../core/search/recent-searches.service';
 import { MyLocationStore } from '../../../shared/location/my-location.store';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
 import { SectionCardComponent } from '../../../shared/ui/section-card/section-card.component';
@@ -42,6 +43,8 @@ type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 export class PrivacySettingsComponent {
   private readonly snackBar = inject(MatSnackBar);
   protected readonly store = inject(MyLocationStore);
+  /** "Remember my searches" of the top bar's search (this browser only, spec 4.4). */
+  protected readonly recent = inject(RecentSearches);
 
   protected readonly toggles = PRIVACY_TOGGLES;
   protected readonly visibilityOptions = PROFILE_VISIBILITY_OPTIONS;

@@ -6,29 +6,75 @@ import {
   authGuard,
   onboardingGuard,
 } from './core/auth/auth.guards';
-import { FEATURE } from './core/feature-flags/feature-flags.service';
-import { featureGuard } from './core/feature-flags/feature.guard';
+import { ShellRouteData } from './core/layout/shell-layout.service';
+import {
+  communityRedirect,
+  mapRedirect,
+  offersGoneRedirect,
+  wishlistRedirect,
+} from './core/routing/legacy-redirects';
 
 /**
- * Top-level routes. Every page is lazy (`loadComponent` / `loadChildren`) so the initial bundle
- * only carries the shell. Titles feed `OrenjiTitleStrategy`.
+ * `data.shell` of the web redesign's areas (spec 4.2 pill scope, 4.6 rail, 4.10 footer); `tabBar`
+ * marks the five tabs' own pages, whose top bar below 960 is the phone's per-tab bar (spec 16).
+ */
+const HOME: ShellRouteData = { area: 'home', pills: 'both', layout: 'workspace', tabBar: true };
+const SEARCH: ShellRouteData = {
+  area: 'search',
+  pills: 'both',
+  layout: 'workspace',
+  pageSearch: true,
+  hideGlobalSearch: true,
+  tabBar: true,
+};
+const DISCOVERY_PAGE: ShellRouteData = { area: 'search', pills: 'region', layout: 'reading' };
+const INVENTORY: ShellRouteData = {
+  area: 'inventory',
+  pills: 'none',
+  layout: 'workspace',
+  pageSearch: true,
+  tabBar: true,
+};
+const MESSAGES: ShellRouteData = {
+  area: 'messages',
+  pills: 'none',
+  layout: 'workspace',
+  tabBar: true,
+};
+/** Settings belongs to Profile too, but keeps the bar with the wordmark below 960. */
+const PROFILE: ShellRouteData = { area: 'profile', pills: 'none', layout: 'reading' };
+const PROFILE_TAB: ShellRouteData = { ...PROFILE, tabBar: true };
+
+/**
+ * Top-level routes (web redesign spec 4.11). Every page is lazy (`loadComponent` /
+ * `loadChildren`) so the initial bundle only carries the shell. Titles feed `OrenjiTitleStrategy`;
+ * `data.shell` tells the shell the rail's area, the pills in scope and the page layout.
  *
  * Guards: public product pages use `onboardingGuard` (anonymous visitors pass; signed-in
  * collectors must have accepted the terms and finished onboarding), account pages use
  * `accountGuard`, the admin console `adminGuard`.
+ *
+ * Old links redirect (spec 4.11): `/map` to Search › Binders, `/cards?q=` to Search › Cards,
+ * `/wishlist` to Search › Wishlist, `/community` to Messages › Community, `/offers` and
+ * `/trades` to Messages with a toast, `/checkout` and `/disputes` to a notice (decision 2).
  */
 export const routes: Routes = [
-  { path: '', pathMatch: 'full', redirectTo: 'map' },
   {
-    path: 'map',
-    title: 'Map',
+    // Home: until web stage WE builds the feed (W1), the region's binders on its map.
+    path: '',
+    pathMatch: 'full',
+    title: 'Home',
+    // The landing: the one page indexed with the legal pages (decision 6).
+    data: { shell: HOME, seo: 'index' },
     canActivate: [onboardingGuard],
     loadComponent: () =>
       import('./features/map/map-page.component').then((m) => m.MapPageComponent),
   },
+  { path: 'map', pathMatch: 'full', children: [], canActivate: [mapRedirect] },
   {
     path: 'inventory',
     title: 'Inventory',
+    data: { shell: INVENTORY },
     canActivate: [onboardingGuard],
     loadComponent: () =>
       import('./features/inventory/inventory-page.component').then((m) => m.InventoryPageComponent),
@@ -36,6 +82,7 @@ export const routes: Routes = [
   {
     path: 'binders/:id',
     title: 'Binder',
+    data: { shell: DISCOVERY_PAGE },
     canActivate: [accountStateGuard],
     loadComponent: () =>
       import('./features/binders/public-binder-page.component').then(
@@ -45,47 +92,29 @@ export const routes: Routes = [
   {
     path: 'search',
     title: 'Search',
+    data: { shell: SEARCH },
     canActivate: [onboardingGuard],
     loadComponent: () =>
       import('./features/search/search-page.component').then((m) => m.SearchPageComponent),
   },
   {
     path: 'cards',
+    data: { shell: DISCOVERY_PAGE },
     canActivate: [onboardingGuard],
     loadChildren: () => import('./features/catalog/catalog.routes').then((m) => m.CATALOG_ROUTES),
   },
   {
     path: 'sets/:id',
     title: 'Set',
+    data: { shell: DISCOVERY_PAGE },
     canActivate: [onboardingGuard],
     loadComponent: () =>
       import('./features/catalog/set-detail/set-detail-page.component').then(
         (m) => m.SetDetailPageComponent,
       ),
   },
-  {
-    path: 'community',
-    title: 'Community',
-    canActivate: [onboardingGuard, featureGuard(FEATURE.publicChat, 'Community')],
-    loadComponent: () =>
-      import('./features/community/community-page.component').then((m) => m.CommunityPageComponent),
-  },
-  {
-    path: 'community/:slug',
-    title: 'Community',
-    canActivate: [onboardingGuard, featureGuard(FEATURE.publicChat, 'Community')],
-    loadComponent: () =>
-      import('./features/community/community-page.component').then((m) => m.CommunityPageComponent),
-  },
-  {
-    path: 'wishlist',
-    title: 'Wishlist',
-    canActivate: [onboardingGuard],
-    loadComponent: () =>
-      import('./features/wishlist/wishlist-page.component').then((m) => m.WishlistPageComponent),
-  },
-  // The matches drawer of one wish is gone (stage S2): old `/wishlist/<id>` links open the list.
-  { path: 'wishlist/:id', redirectTo: 'wishlist' },
+  { path: 'community', children: [{ path: '**', children: [] }], canActivate: [communityRedirect] },
+  { path: 'wishlist', children: [{ path: '**', children: [] }], canActivate: [wishlistRedirect] },
   {
     path: 'notifications',
     title: 'Notifications',
@@ -98,6 +127,15 @@ export const routes: Routes = [
   {
     path: 'messages',
     title: 'Messages',
+    data: { shell: MESSAGES },
+    canActivate: [onboardingGuard],
+    loadComponent: () =>
+      import('./features/messages/messages-page.component').then((m) => m.MessagesPageComponent),
+  },
+  {
+    path: 'messages/community/:room',
+    title: 'Community',
+    data: { shell: MESSAGES },
     canActivate: [onboardingGuard],
     loadComponent: () =>
       import('./features/messages/messages-page.component').then((m) => m.MessagesPageComponent),
@@ -105,34 +143,34 @@ export const routes: Routes = [
   {
     path: 'messages/:id',
     title: 'Messages',
+    data: { shell: MESSAGES },
     canActivate: [onboardingGuard],
     loadComponent: () =>
       import('./features/messages/messages-page.component').then((m) => m.MessagesPageComponent),
   },
+  // Offers, trades, checkout and disputes left the web (decision 2, ADR 0018).
+  { path: 'offers', children: [{ path: '**', children: [] }], canActivate: [offersGoneRedirect] },
+  { path: 'trades', children: [{ path: '**', children: [] }], canActivate: [offersGoneRedirect] },
+  ...['checkout', 'disputes'].map((path) => ({
+    path,
+    title: 'Deals happen in the chat',
+    children: [
+      {
+        path: '**',
+        loadComponent: () =>
+          import('./features/notice/payments-notice-page.component').then(
+            (m) => m.PaymentsNoticePageComponent,
+          ),
+      },
+    ],
+  })),
   {
-    path: 'offers',
-    loadChildren: () => import('./features/offers/offers.routes').then((m) => m.OFFERS_ROUTES),
-  },
-  {
-    path: 'trades',
-    loadChildren: () => import('./features/trades/trades.routes').then((m) => m.TRADES_ROUTES),
-  },
-  {
-    // The local fake payment provider's checkout (the buyer of a protected trade only).
-    path: 'checkout/fake/:ref',
-    title: 'Checkout',
+    path: 'profile',
+    title: 'Profile',
+    data: { shell: PROFILE_TAB },
     canActivate: [authGuard, onboardingGuard],
     loadComponent: () =>
-      import('./features/checkout/fake-checkout-page.component').then(
-        (m) => m.FakeCheckoutPageComponent,
-      ),
-  },
-  {
-    path: 'disputes/:id',
-    title: 'Dispute',
-    canActivate: [authGuard, onboardingGuard],
-    loadComponent: () =>
-      import('./features/disputes/dispute-page.component').then((m) => m.DisputePageComponent),
+      import('./features/profile/my-profile-page.component').then((m) => m.MyProfilePageComponent),
   },
   {
     path: 'collectors/:handle',
@@ -158,17 +196,21 @@ export const routes: Routes = [
   },
   {
     path: 'settings',
+    data: { shell: PROFILE },
     canActivate: [accountGuard],
     loadChildren: () =>
       import('./features/settings/settings.routes').then((m) => m.SETTINGS_ROUTES),
   },
   {
     path: 'admin',
+    // The rail's Admin item is the current one (WH1 rebuilds the console's own shell).
+    data: { shell: { area: 'admin' } satisfies ShellRouteData },
     canActivate: [adminGuard],
     loadChildren: () => import('./features/admin/admin.routes').then((m) => m.ADMIN_ROUTES),
   },
   {
     path: 'legal',
+    data: { seo: 'index' },
     loadChildren: () => import('./features/legal/legal.routes').then((m) => m.LEGAL_ROUTES),
   },
   {

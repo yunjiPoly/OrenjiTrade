@@ -303,7 +303,7 @@ export class ItemEditorSheetComponent {
   protected readonly image = computed(() => printingImageUrl(this.item().printing));
   protected readonly code = computed(() => printingCode(this.item().printing));
   protected readonly gameLabel = computed(() => gameInfo(this.item().card.game).label);
-  protected readonly accent = computed(() => `var(${gameInfo(this.item().card.game).colorVar})`);
+  protected readonly accent = computed(() => gameInfo(this.item().card.game).accent);
   protected readonly freshness = computed(() => badgeFreshness(this.item().freshness.state));
   protected readonly needsConfirmation = computed(() =>
     ['STALE', 'HIDDEN'].includes(this.item().freshness.state),

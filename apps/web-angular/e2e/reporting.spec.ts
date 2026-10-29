@@ -297,7 +297,7 @@ test.describe('collector reporting', () => {
       await expect(dialog).toBeHidden();
 
       // Community post menu.
-      await page.goto('/community/americas-north');
+      await page.goto('/messages/community/americas-north');
       const post = page.locator(`article[data-post-id="${postId}"]`);
       await expect(post).toContainText(postText);
       await post.getByRole('button', { name: /^Post options/ }).click();

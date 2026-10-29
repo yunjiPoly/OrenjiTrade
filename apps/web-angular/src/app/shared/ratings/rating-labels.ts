@@ -11,6 +11,12 @@ import { friendlyMessage } from '../../core/http/api-error-messages';
 /** Optional criteria of a rating (Phase 7 contract), in display order. */
 export type RatingCriterion = keyof RatingBreakdown & keyof RatingSummaryResponse;
 
+/**
+ * The criteria the web asks and shows: the phone's (Overall, Communication, Card condition,
+ * Shipping). Collectors don't meet, deals ship by mail (ADR 0018): "Meetup reliability" is never
+ * shown; the API keeps the column, and an old rating's meetup score is kept on edit.
+ */
+
 export interface RatingCriterionInfo {
   key: RatingCriterion;
   label: string;
@@ -26,11 +32,6 @@ export const RATING_CRITERIA: readonly RatingCriterionInfo[] = [
     hint: 'Cards matched the condition described',
   },
   { key: 'shipping', label: 'Shipping', hint: 'Well packed and sent on time' },
-  {
-    key: 'meetupReliability',
-    label: 'Meetup reliability',
-    hint: 'On time at the agreed place',
-  },
 ];
 
 /** Longest rating comment (contract: ≤ 600) and reference (≤ 400). */
@@ -124,8 +125,7 @@ export function ratingProblem(
     case 'RATING_NOT_ELIGIBLE':
       return (
         `You can ${subject === 'rating' ? 'rate' : 'write a reference for'} ${displayName} ` +
-        'after a completed trade, an accepted offer or a conversation where you both sent at ' +
-        'least 3 messages.'
+        'after a deal with them or a conversation where you both sent at least 3 messages.'
       );
     case 'ALREADY_RATED':
       return 'You already rated this interaction. Edit your rating from the list instead.';

@@ -38,7 +38,7 @@ import {
   SUGGEST_LIMIT,
   SUGGEST_MIN_CHARS,
 } from '../catalog/catalog-constants';
-import { uniqueSuggestions } from '../catalog/card-search-box/card-search-box.component';
+import { uniqueSuggestions } from '../catalog/card-suggestions';
 import { gameInfo } from '../domain/games';
 import { CardLinkChoice, printingForSuggestion } from './link-choices';
 import { CardImageComponent } from '../ui/card-image/card-image.component';

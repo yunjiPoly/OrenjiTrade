@@ -33,9 +33,9 @@ test.describe('acceptance: inventory', () => {
     const binderName = `Acceptance trades ${suffix()}`;
     await signIn(page, owner);
 
-    // Open the dedicated inventory page from the primary navigation.
+    // Open the inventory from the rail (web redesign WA, spec 4.6).
     await page
-      .getByRole('navigation', { name: 'Primary' })
+      .getByRole('navigation', { name: 'Main' })
       .getByRole('link', { name: 'Inventory' })
       .click();
     await expect(page).toHaveURL(/\/inventory$/);

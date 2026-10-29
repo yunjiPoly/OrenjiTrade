@@ -30,7 +30,6 @@ export interface HolderFilters {
   freshness: FreshnessFilter | null;
   edition: string | null;
   language: string | null;
-  acceptsOffers: boolean;
   sort: HolderSort;
   page: number;
 }
@@ -38,8 +37,8 @@ export interface HolderFilters {
 /**
  * State of `/search`, mirrored in the URL: `?q=&tab=` for the unified results, or
  * `?card=|printing=` plus the holder filters (`availability`, `condition`, `minPrice`, `maxPrice`,
- * `freshness`, `edition`, `language`, `offers`, `sort`, `page`) for "who in my region has this
- * card".
+ * `freshness`, `edition`, `language`, `sort`, `page`) for "who in my region has this card". An
+ * old `offers` parameter is read as no filter (offers left the web, decision 2).
  */
 export interface SearchParams {
   q: string;
@@ -77,7 +76,6 @@ export const DEFAULT_HOLDER_FILTERS: HolderFilters = {
   freshness: null,
   edition: null,
   language: null,
-  acceptsOffers: false,
   sort: 'freshness',
   page: 0,
 };
@@ -131,7 +129,6 @@ export function parseSearchParams(raw: RawSearchParams): SearchParams {
       freshness: isFreshnessFilter(freshness) ? freshness : null,
       edition: ENUM.test(edition) ? edition : null,
       language: LANGUAGE.test(language) ? language : null,
-      acceptsOffers: raw.offers === 'true' || raw.offers === '1',
       sort,
       page: Number.isFinite(page) && page > 0 ? Math.min(page, 10_000) : 0,
     },
@@ -148,7 +145,8 @@ export function holderFiltersToQuery(filters: HolderFilters): Record<string, str
     freshness: filters.freshness,
     edition: filters.edition,
     language: filters.language,
-    offers: filters.acceptsOffers ? 'true' : null,
+    // An old `offers=true` (offers left the web, decision 2) is dropped on the next change.
+    offers: null,
     sort: filters.sort === 'freshness' ? null : filters.sort,
     page: filters.page > 0 ? String(filters.page) : null,
   };
@@ -163,8 +161,7 @@ export function activeHolderFilterCount(filters: HolderFilters): number {
     (filters.maxPrice !== null ? 1 : 0) +
     (filters.freshness ? 1 : 0) +
     (filters.edition ? 1 : 0) +
-    (filters.language ? 1 : 0) +
-    (filters.acceptsOffers ? 1 : 0)
+    (filters.language ? 1 : 0)
   );
 }
 
@@ -221,9 +218,6 @@ export function cardHoldersRequest(
   }
   if (filters.language) {
     params.language = filters.language;
-  }
-  if (filters.acceptsOffers) {
-    params.acceptsOffers = true;
   }
   return params;
 }

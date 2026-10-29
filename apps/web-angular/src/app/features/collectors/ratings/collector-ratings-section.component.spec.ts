@@ -141,7 +141,7 @@ describe('CollectorRatingsSectionComponent', () => {
     expect(button('Rate this collector')).toBeUndefined();
     expect(button('Write a reference')).toBeUndefined();
     expect(element.querySelector('[data-testid="rating-hint"]')?.textContent).toContain(
-      'You can rate Tess Trader after a completed trade',
+      'You can rate Tess Trader after a deal with them',
     );
   });
 

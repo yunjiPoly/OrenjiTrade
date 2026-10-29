@@ -63,7 +63,7 @@ import { BIO_MAX, DISPLAY_NAME_MAX, HANDLE_MAX, HANDLE_MIN, ProfileForm } from '
           formControlName="bio"
           rows="3"
           [maxlength]="bioMax"
-          placeholder="What do you collect? Where do you like to meet?"
+          placeholder="What do you collect? Do you trade, sell or ship?"
         ></textarea>
         <mat-hint align="end">{{ form().controls.bio.value.length }} / {{ bioMax }}</mat-hint>
         @if (form().controls.bio.hasError('server')) {

@@ -7,25 +7,16 @@ import { gameInfo } from '../../domain/games';
 import { FreshnessBadgeComponent } from '../../ui/freshness-badge/freshness-badge.component';
 import { badgeFreshness, formatPrice, printingCode, printingImageUrl } from '../inventory-labels';
 import { ItemChipsComponent } from '../item-chips/item-chips.component';
-import { MakeOfferButtonComponent } from '../../offers/make-offer-button.component';
-import { OfferSeller, offerTargetFromItem } from '../../offers/offer-target';
 
 /**
  * A public inventory item (public binder page, collector page): picture, card name (links to the
- * catalog card), printing code, condition / availability / offers chips, price, quantity,
- * freshness and the owner's public note. Never private notes (the API does not send them).
- * With its `seller`, the card offers "Make an offer" (when the card accepts offers and is not the
- * viewer's own).
+ * catalog card), printing code, condition and availability chips, price, quantity, freshness and
+ * the owner's public note. Never private notes (the API does not send them). Offers left the web
+ * (decision 2): deals happen in the chat.
  */
 @Component({
   selector: 'app-public-item-card',
-  imports: [
-    RouterLink,
-    CardImageComponent,
-    FreshnessBadgeComponent,
-    ItemChipsComponent,
-    MakeOfferButtonComponent,
-  ],
+  imports: [RouterLink, CardImageComponent, FreshnessBadgeComponent, ItemChipsComponent],
   template: `
     @let it = item();
     <article class="pic" [style.--pic-accent]="accent()" [attr.aria-label]="it.card.name">
@@ -53,11 +44,7 @@ import { OfferSeller, offerTargetFromItem } from '../../offers/offer-target';
           }
         </p>
         <p class="pic__meta">{{ details() }}</p>
-        <app-item-chips
-          [condition]="it.condition"
-          [availability]="it.availability"
-          [acceptsOffers]="it.acceptsOffers"
-        />
+        <app-item-chips [condition]="it.condition" [availability]="it.availability" />
         <div class="pic__footer">
           @if (price(); as price) {
             <span class="pic__price" data-testid="item-price">{{ price }}</span>
@@ -68,9 +55,6 @@ import { OfferSeller, offerTargetFromItem } from '../../offers/offer-target';
         </div>
         @if (it.publicNotes) {
           <p class="pic__note">“{{ it.publicNotes }}”</p>
-        }
-        @if (offerTarget(); as target) {
-          <app-make-offer-button class="pic__offer" appearance="tonal" compact [target]="target" />
         }
       </div>
     </article>
@@ -154,12 +138,6 @@ import { OfferSeller, offerTargetFromItem } from '../../offers/offer-target';
       font-size: var(--font-size-sm);
       font-weight: var(--font-weight-regular);
     }
-    .pic__offer {
-      margin-top: var(--spacing-2);
-    }
-    .pic__offer:empty {
-      display: none;
-    }
     .pic__note {
       margin: var(--spacing-1) 0 0;
       color: var(--color-text-muted);
@@ -171,14 +149,6 @@ import { OfferSeller, offerTargetFromItem } from '../../offers/offer-target';
 })
 export class PublicItemCardComponent {
   readonly item = input.required<PublicInventoryItem>();
-  /** The owner: enables "Make an offer" (public binder page, collector page). */
-  readonly seller = input<OfferSeller | null>(null);
-
-  protected readonly offerTarget = computed(() => {
-    const seller = this.seller();
-    return seller ? offerTargetFromItem(this.item(), seller) : null;
-  });
-
   protected readonly image = computed(
     () => this.item().images[0]?.url ?? printingImageUrl(this.item().printing),
   );
@@ -187,7 +157,7 @@ export class PublicItemCardComponent {
     formatPrice(this.item().askingPrice, this.item().currency),
   );
   protected readonly freshness = computed(() => badgeFreshness(this.item().freshness.state));
-  protected readonly accent = computed(() => `var(${gameInfo(this.item().card.game).colorVar})`);
+  protected readonly accent = computed(() => gameInfo(this.item().card.game).accent);
   protected readonly details = computed(() => {
     const item = this.item();
     return [languageLabel(item.language), editionLabel(item.edition)]

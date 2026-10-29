@@ -49,9 +49,9 @@ test.describe('inventory', () => {
     const collector = await createOnboardedCollector(request, 'inventory');
     await signInThroughUi(page, collector.email, collector.password);
 
-    // Open the dedicated inventory page from the primary navigation.
+    // Open the inventory from the rail (web redesign WA, spec 4.6).
     await page
-      .getByRole('navigation', { name: 'Primary' })
+      .getByRole('navigation', { name: 'Main' })
       .getByRole('link', { name: 'Inventory' })
       .click();
     await expect(page).toHaveURL(/\/inventory$/);
@@ -305,7 +305,8 @@ test.describe('inventory', () => {
     await expect(dragon.getByTestId('item-price')).toHaveText('$45.00');
     await expect(dragon.getByLabel('Condition: Near Mint')).toBeVisible();
     await expect(dragon).toContainText('Trade or sale');
-    await expect(dragon).toContainText('Accepting offers');
+    // Offers left the web (decision 2): no "Accepting offers" chip.
+    await expect(dragon).not.toContainText('Accepting offers');
     await expect(dragon).toContainText('Sleeved since the day it was pulled.');
     await expect(page.getByText('E2E-private-note-never-public')).toHaveCount(0);
 

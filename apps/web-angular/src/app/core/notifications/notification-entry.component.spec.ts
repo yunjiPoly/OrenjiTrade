@@ -69,4 +69,25 @@ describe('NotificationEntryComponent', () => {
     expect(element.querySelector('.ne__icon mat-icon')?.textContent).toContain('favorite');
     expect(element.textContent).toContain('Wishlist alert: Azure-Eyes Sky Dragon');
   });
+
+  it('reads an old offer notice as history, not with the server’s live headline (decision 2)', async () => {
+    const fixture = TestBed.createComponent(NotificationEntryComponent);
+    fixture.componentRef.setInput('notification', {
+      ...notification({ offerId: 'o-1', cardName: 'Azure-Eyes Sky Dragon' }),
+      type: 'OFFER_RECEIVED',
+      title: 'New offer on Azure-Eyes Sky Dragon',
+      body: 'Devon Okafor offered 20.00 CAD for Azure-Eyes Sky Dragon.',
+    });
+    await fixture.whenStable();
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('.ne__label')?.textContent).toBe('Past offer');
+    expect(element.querySelector('.ne__title')?.textContent).toBe(
+      'Past offer on Azure-Eyes Sky Dragon',
+    );
+    expect(element.querySelector('.ne__body')?.textContent?.trim()).toBe(
+      'Offers are no longer available. Deals happen in the chat.',
+    );
+    expect(element.textContent).not.toContain('New offer');
+    expect(element.textContent).not.toContain('offered 20.00 CAD');
+  });
 });

@@ -151,7 +151,11 @@ test.describe('wishlist and notifications', () => {
       const page = await openSignedIn(browser, a);
       const watcher = watchCoordinates(page);
       await page.goto('/wishlist');
-      await expect(page.getByRole('heading', { level: 1, name: 'Wishlist' })).toBeVisible();
+      // Search › Wishlist since web WA (the old /wishlist redirects there): the Wishlist is a section.
+      await expect(page).toHaveURL(/\/search\?tab=wishlist$/);
+      await expect(
+        page.getByRole('heading', { level: 2, name: 'Wishlist', exact: true }),
+      ).toBeVisible();
       await expect(page.getByRole('heading', { name: 'Your wishlist is empty' })).toBeVisible();
       // A has a location: no prompt to set one.
       await expect(page.getByTestId('wishlist-location-prompt')).toHaveCount(0);
@@ -263,8 +267,8 @@ test.describe('wishlist and notifications', () => {
       // exactly one alert, live.
       await listCopy(request, b, binder.id, printingId, { condition: 'LIGHTLY_PLAYED', price: 18 });
       await listCopy(request, b, binder.id, printingId, { condition: 'NEAR_MINT', price: 20 });
-      await expect(page.getByTestId('notification-badge')).toHaveText('1', { timeout: 20_000 });
-      await expect(bell).toHaveAccessibleName('Notifications, 1 unread');
+      await expect(page.getByTestId('notification-badge')).toBeVisible({ timeout: 20_000 });
+      await expect(bell).toHaveAccessibleName('Notifications, 1 new');
       expect(
         await page.evaluate(() => (window as unknown as { e2eNoReload?: boolean }).e2eNoReload),
       ).toBe(true);
@@ -420,7 +424,7 @@ test.describe('wishlist and notifications', () => {
       // B lists the Unlimited copy: A's alert, for an "Any printing" wish, is shown in full in
       // the bell menu (the place is never cut off), on a wide and on a phone-sized screen.
       await listCopy(request, b, binder.id, unlimited.id, { condition: 'NEAR_MINT', price: 12.5 });
-      await expect(page.getByTestId('notification-badge')).toHaveText('1', { timeout: 20_000 });
+      await expect(page.getByTestId('notification-badge')).toBeVisible({ timeout: 20_000 });
       const menu = page.getByRole('menu', { name: 'Notifications' });
       const entry = menu.getByRole('menuitem', {
         name: new RegExp(`Wishlist alert: ${SHARED_CODE_CARD}`),

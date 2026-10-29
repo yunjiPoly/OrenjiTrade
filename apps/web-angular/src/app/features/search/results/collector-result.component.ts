@@ -54,13 +54,9 @@ import { CardImageComponent } from '../../../shared/ui/card-image/card-image.com
                   [game]="item.game"
                 />
                 <span class="mono">{{ item.printingCode ?? item.cardName }}</span>
-                <app-item-chips
-                  [condition]="item.condition"
-                  [availability]="item.availability"
-                  [acceptsOffers]="item.acceptsOffers"
-                />
+                <app-item-chips [condition]="item.condition" [availability]="item.availability" />
                 <strong data-testid="holder-price">{{
-                  price(item.askingPrice, item.currency, item.acceptsOffers)
+                  price(item.askingPrice, item.currency)
                 }}</strong>
               </li>
             }
@@ -153,7 +149,7 @@ export class CollectorResultComponent {
     return pictureFor(this.pictures(), item.printingId);
   }
 
-  protected price(amount: number | null | undefined, currency: string, offers: boolean): string {
-    return formatPrice(amount, currency) ?? (offers ? 'Make an offer' : 'No price');
+  protected price(amount: number | null | undefined, currency: string): string {
+    return formatPrice(amount, currency) ?? 'No price';
   }
 }

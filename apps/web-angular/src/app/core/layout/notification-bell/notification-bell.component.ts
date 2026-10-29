@@ -21,7 +21,8 @@ import { toApiError } from '../../http/api-error';
 import { friendlyMessage } from '../../http/api-error-messages';
 import { NotificationCenter } from '../../notifications/notification-center.service';
 import { NotificationEntryComponent } from '../../notifications/notification-entry.component';
-import { notificationLink } from '../../notifications/notification-kinds';
+import { ShellIconComponent } from '../shell-icon/shell-icon.component';
+import { notificationLink, notificationText } from '../../notifications/notification-kinds';
 import { RealtimeService } from '../../realtime/realtime.service';
 
 /** How long the badge "bumps" after a new notification arrives. */
@@ -42,11 +43,11 @@ const BUMP_MS = 700;
     MatMenuModule,
     MatTooltipModule,
     NotificationEntryComponent,
+    ShellIconComponent,
     SkeletonComponent,
   ],
   template: `
     <button
-      matIconButton
       type="button"
       class="bell"
       data-testid="notification-bell"
@@ -56,15 +57,14 @@ const BUMP_MS = 700;
       [matMenuTriggerFor]="menu"
       (menuOpened)="onOpened()"
     >
-      <mat-icon>{{ unread() > 0 ? 'notifications_active' : 'notifications' }}</mat-icon>
+      <app-shell-icon name="bell" [size]="20" />
       @if (unread() > 0) {
         <span
-          class="bell__badge"
-          [class.bell__badge--bump]="bump()"
+          class="bell__dot"
+          [class.bell__dot--bump]="bump()"
           data-testid="notification-badge"
           aria-hidden="true"
-          >{{ badgeText() }}</span
-        >
+        ></span>
       }
     </button>
     <span class="visually-hidden" aria-live="polite">{{ announcement() }}</span>
@@ -83,7 +83,7 @@ const BUMP_MS = 700;
           }
         </div>
         @if (!center.active()) {
-          <p class="nm__note">Sign in to hear about wishlist alerts, messages and offers.</p>
+          <p class="nm__note">Sign in to hear about wishlist alerts, sales and ratings.</p>
           <a mat-menu-item routerLink="/auth/sign-in">
             <mat-icon>login</mat-icon>
             <span>Sign in</span>
@@ -144,28 +144,34 @@ const BUMP_MS = 700;
     :host {
       display: inline-flex;
     }
+    /* 40 round on surface, an 8 px orange dot when unread (spec 4.3, board W1). */
     .bell {
       position: relative;
-    }
-    .bell__badge {
-      position: absolute;
-      top: 4px;
-      right: 2px;
       display: grid;
       place-items: center;
-      min-width: 18px;
-      height: 18px;
-      padding: 0 5px;
+      width: 40px;
+      height: 40px;
+      border: 0;
       border-radius: var(--radius-pill);
+      background: var(--color-surface);
+      color: var(--color-ink);
+      cursor: pointer;
+    }
+    .bell:hover {
+      background: var(--color-surface-variant);
+    }
+    .bell__dot {
+      position: absolute;
+      top: 8px;
+      right: 9px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
       background: var(--color-primary);
-      color: var(--color-on-primary);
       box-shadow: 0 0 0 2px var(--color-surface);
-      font-size: 11px;
-      font-weight: var(--font-weight-bold);
-      line-height: 1;
       pointer-events: none;
     }
-    .bell__badge--bump {
+    .bell__dot--bump {
       animation: bell-bump var(--motion-duration-slow) var(--motion-easing-standard);
     }
     @keyframes bell-bump {
@@ -174,7 +180,7 @@ const BUMP_MS = 700;
       }
     }
     @media (prefers-reduced-motion: reduce) {
-      .bell__badge--bump {
+      .bell__dot--bump {
         animation: none;
       }
     }
@@ -191,7 +197,7 @@ const BUMP_MS = 700;
       font-weight: var(--font-weight-semibold);
     }
     .nm__count {
-      color: var(--color-primary);
+      color: var(--app-primary-text);
       font-size: var(--font-size-xs);
       font-weight: var(--font-weight-semibold);
     }
@@ -237,14 +243,13 @@ export class NotificationBellComponent {
   protected readonly unread = computed(() =>
     this.center.active() ? this.center.unreadCount() : 0,
   );
-  protected readonly badgeText = computed(() => (this.unread() > 99 ? '99+' : `${this.unread()}`));
   protected readonly label = computed(() => {
     const unread = this.unread();
-    return unread > 0 ? `Notifications, ${unread} unread` : 'Notifications';
+    return unread > 0 ? `Notifications, ${unread} new` : 'Notifications';
   });
   protected readonly announcement = computed(() => {
     const last = this.center.lastPush();
-    return last ? `New notification: ${last.title}` : '';
+    return last ? `New notification: ${notificationText(last).title}` : '';
   });
   protected readonly bump = signal(false);
   protected readonly marking = signal(false);

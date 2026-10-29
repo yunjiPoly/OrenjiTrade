@@ -136,7 +136,9 @@ test.describe('card pictures', () => {
     await signInThroughUi(page, collector.email, collector.password);
 
     // Top-bar suggestions: one picture per card or printing entry.
-    const search = page.getByRole('banner').getByRole('combobox', { name: 'Search cards' });
+    const search = page
+      .getByRole('banner')
+      .getByRole('combobox', { name: /^Search Yu-Gi-Oh! cards/ });
     await search.fill('azure');
     await expect(page.getByRole('option', { name: /Azure-Eyes Sky Dragon/ }).first()).toBeVisible();
     await expectPictures(page.getByRole('listbox'), 1, 3);
@@ -168,7 +170,11 @@ test.describe('card pictures', () => {
     await expect(page.getByRole('main').getByTestId('card-data-attribution')).toContainText(
       'Card data and images courtesy of YGOPRODeck',
     );
-    await expect(page.getByRole('contentinfo').getByTestId('card-data-attribution')).toContainText(
+    // The footer links to the card data credits on Legal (spec 4.10, web WA).
+    await expect(
+      page.getByRole('contentinfo').getByRole('link', { name: 'Card data credits' }),
+    ).toHaveAttribute('href', '/legal#card-data-credits');
+    await expect(page.getByRole('main').getByTestId('card-data-attribution')).toContainText(
       '4K Media Inc.',
     );
     await expectNoProviderSources(page);

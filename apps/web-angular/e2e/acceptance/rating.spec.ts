@@ -29,7 +29,7 @@ test.describe('acceptance: rating', () => {
     const section = page.getByRole('region', { name: 'Ratings & references' });
     await expect(section).toContainText('No ratings yet');
     await expect(section.getByTestId('rating-hint')).toContainText(
-      `You can rate ${ratee.displayName} after a completed trade`,
+      `You can rate ${ratee.displayName} after a deal with them`,
     );
     await expect(section.getByRole('button', { name: 'Rate this collector' })).toHaveCount(0);
 

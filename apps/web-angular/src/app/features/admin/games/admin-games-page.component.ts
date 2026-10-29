@@ -194,7 +194,7 @@ export class AdminGamesPageComponent {
   }
 
   protected accent(slug: string | undefined): string {
-    return `var(${gameInfo(slug ?? '').colorVar})`;
+    return gameInfo(slug ?? '').accent;
   }
 
   protected select(slug: string | undefined): void {

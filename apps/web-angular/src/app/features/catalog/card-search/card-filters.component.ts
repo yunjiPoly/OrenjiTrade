@@ -208,6 +208,6 @@ export class CardFiltersComponent {
   }
 
   protected accent(slug: string | undefined): string {
-    return `var(${gameInfo(slug ?? '').colorVar})`;
+    return gameInfo(slug ?? '').accent;
   }
 }
