@@ -2,6 +2,7 @@ export { tokens, type Tokens } from './tokens';
 export { darkPalette, lightPalette, paletteFor, type ColorScheme, type Palette } from './palette';
 export { SCRIM_FLOOR, scrimColor } from './scrim';
 export {
+  HANDLE_MAX_FONT_SCALE,
   PINNED_MAX_FONT_SCALE,
   TITLE_MAX_FONT_SCALE,
   elevation,

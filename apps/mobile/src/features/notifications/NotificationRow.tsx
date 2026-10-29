@@ -5,6 +5,7 @@ import type { NotificationResponse } from '@/src/api/types';
 import { CardImage } from '@/src/components/ui/CardImage';
 import { Text } from '@/src/components/ui/Text';
 import { fontWeight, useStackedRows, useTheme, type Palette } from '@/src/theme';
+import { HandleText } from '@/src/components/ui/HandleText';
 
 import { NOTIFICATIONS_COPY } from './notificationCopy';
 import { notificationCard } from './notificationKinds';
@@ -83,10 +84,24 @@ export function NotificationRow({
 
   const lines = (
     <>
-      <Text style={[styles.sentence, { color: colors.restText }]}>
-        <Text style={[styles.strong, { color: palette.ink }]}>{text.strong}</Text>
-        {text.rest ? ` ${text.rest}` : ''}
-      </Text>
+      {text.strongIsHandle && stacked ? (
+        // At large text sizes a collector's handle has a line of its own, capped like every
+        // handle (owner decision of 2026-10-28; a capped part inside a growing sentence made iOS
+        // draw the sentence's lines over each other), the rest of the sentence under it.
+        <>
+          <HandleText style={[styles.sentence, styles.strong, { color: palette.ink }]}>
+            {text.strong}
+          </HandleText>
+          {text.rest ? (
+            <Text style={[styles.sentence, { color: colors.restText }]}>{text.rest}</Text>
+          ) : null}
+        </>
+      ) : (
+        <Text style={[styles.sentence, { color: colors.restText }]}>
+          <Text style={[styles.strong, { color: palette.ink }]}>{text.strong}</Text>
+          {text.rest ? ` ${text.rest}` : ''}
+        </Text>
+      )}
       {text.sub ? (
         <Text numberOfLines={subLines} style={[styles.sub, { color: palette.textMuted }]}>
           {text.sub}

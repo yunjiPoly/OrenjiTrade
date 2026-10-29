@@ -2,6 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
 import { useEffect } from 'react';
 import {
+  AccessibilityInfo,
   Dimensions,
   Keyboard,
   KeyboardAvoidingView,
@@ -26,10 +27,23 @@ import {
 } from '@/src/components/ui/FormControls';
 import { QueryState } from '@/src/components/ui/QueryState';
 import { Screen, keyboardBehavior, ownSafeBottom } from '@/src/components/ui/Screen';
-import { useSnackbar } from '@/src/components/ui/Snackbar';
+import { HandleText } from '@/src/components/ui/HandleText';
+import { ListRow } from '@/src/components/ui/Layout';
+import { PillButton } from '@/src/components/ui/PillButton';
+import {
+  SNACKBAR_MAX_FONT_SCALE,
+  SNACKBAR_MAX_WINDOW_SHARE,
+  SNACKBAR_TITLE_LINES,
+  toastLayout,
+  useSnackbar,
+} from '@/src/components/ui/Snackbar';
 import { StateScroll } from '@/src/components/ui/StateScroll';
 import { Stepper } from '@/src/components/ui/Stepper';
 
+import { SharedLinkCard } from '@/src/features/messages/LinkCards';
+import { SaleMessage } from '@/src/features/messages/SaleMessage';
+import { HANDLE_MAX } from '@/src/lib/profile';
+import { HANDLE_MAX_FONT_SCALE, PINNED_MAX_FONT_SCALE, fontSize } from '@/src/theme';
 import { darkPalette } from '@/src/theme/palette';
 
 import { renderWithProviders } from '../test-utils';
@@ -566,4 +580,315 @@ describe('Snackbar', () => {
       jest.useRealTimers();
     }
   });
+});
+
+describe('the largest text sizes: handles and toasts (owner decision of 2026-10-28)', () => {
+  const WINDOW = Dimensions.get('window');
+  /** Sets the system text size (Jest's React Native starts at 2); put back after each test. */
+  function textSize(fontScale: number) {
+    act(() => {
+      Dimensions.set({
+        window: { ...WINDOW, width: 402, height: 874, fontScale },
+        screen: { ...WINDOW, width: 402, height: 874, fontScale },
+      });
+    });
+  }
+  afterEach(() => {
+    act(() => {
+      Dimensions.set({ window: WINDOW, screen: WINDOW });
+    });
+  });
+
+  // The longest handle the API allows: 24 characters of [a-z0-9_].
+  const LONGEST = 'collector_ab12cd34ef56gh';
+
+  it.each([1, 3.1])(
+    'draws a handle on one line, capped, cut with "…" rather than broken or shrunk (text size %s)',
+    (fontScale) => {
+      textSize(fontScale);
+      renderWithProviders(<HandleText testID="handle">{LONGEST}</HandleText>);
+      const handle = screen.getByTestId('handle');
+      expect(LONGEST).toHaveLength(HANDLE_MAX);
+      expect(handle).toHaveTextContent(LONGEST);
+      expect(handle).toHaveProp('numberOfLines', 1);
+      expect(handle).toHaveProp('maxFontSizeMultiplier', HANDLE_MAX_FONT_SCALE);
+      expect(handle).toHaveProp('ellipsizeMode', 'tail');
+      // Never shrunk to fit (review fix 2, R1-1): React Native 0.86 ignores `minimumFontScale`
+      // on iOS and Android and shrinks down to 4 points.
+      expect(handle.props.adjustsFontSizeToFit).toBeUndefined();
+      expect(handle.props.minimumFontScale).toBeUndefined();
+    }
+  );
+
+  it('lets a line led by a handle take two lines, still capped', () => {
+    textSize(3.1);
+    renderWithProviders(
+      <HandleText numberOfLines={2} testID="line">
+        @{LONGEST} · Newfoundland and Labrador
+      </HandleText>
+    );
+    expect(screen.getByTestId('line')).toHaveProp('numberOfLines', 2);
+    expect(screen.getByTestId('line')).toHaveProp('maxFontSizeMultiplier', HANDLE_MAX_FONT_SCALE);
+  });
+
+  it('keeps the longest handle of ordinary letters within a row beside an avatar at the cap', () => {
+    // Inter's lowercase letters and digits average about 0.56 em; a row is the 402 pt phone less
+    // its 16 pt sides, a 44 pt avatar and a 12 pt gap.
+    const width = HANDLE_MAX * 0.56 * fontSize.md * HANDLE_MAX_FONT_SCALE;
+    expect(width).toBeLessThanOrEqual(402 - 2 * 16 - 44 - 12);
+  });
+
+  function LongToast({ title, action }: { title?: string; action?: boolean }) {
+    const snackbar = useSnackbar();
+    return (
+      <Text
+        onPress={() =>
+          snackbar.show(
+            'You cannot message this collector. They may have blocked messages or you blocked them, or this collector cannot receive messages right now.',
+            {
+              ...(title ? { title } : {}),
+              ...(action
+                ? { action: { label: 'View', onPress: jest.fn(), testID: 'snackbar-view' } }
+                : {}),
+            }
+          )
+        }
+      >
+        show
+      </Text>
+    );
+  }
+
+  it.each([1, 3.1])(
+    'holds a toast within a quarter of the window, readable, with its action (text size %s)',
+    (fontScale) => {
+      jest.useFakeTimers();
+      const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
+      try {
+        textSize(fontScale);
+        renderWithProviders(<LongToast action />);
+        fireEvent.press(screen.getByText('show'));
+        const text = screen.getByTestId('snackbar-text');
+        expect(text).toHaveProp('maxFontSizeMultiplier', SNACKBAR_MAX_FONT_SCALE);
+        const layout = toastLayout(874, fontScale, { title: false, action: true });
+        expect(text).toHaveProp('numberOfLines', layout.textLines);
+        expect(layout.textLines).toBeGreaterThanOrEqual(2);
+        // The action stays, under the words at the largest size, and its words are capped too.
+        const view = screen.getByTestId('snackbar-view');
+        expect(within(view).getByText('View')).toHaveProp(
+          'maxFontSizeMultiplier',
+          SNACKBAR_MAX_FONT_SCALE
+        );
+        expect(layout.stacked).toBe(fontScale > 1.3);
+        // VoiceOver hears the whole message, however many lines show.
+        expect(announce).toHaveBeenCalledWith(
+          expect.stringMatching(/receive messages right now\.\. View$/)
+        );
+        expect(screen.getByTestId('snackbar-message').props.accessibilityLabel).toMatch(
+          /receive messages right now\.$/
+        );
+        // About five seconds, as before.
+        act(() => {
+          jest.advanceTimersByTime(4900);
+        });
+        expect(screen.getByTestId('snackbar')).toBeTruthy();
+        act(() => {
+          jest.advanceTimersByTime(200);
+        });
+        expect(screen.queryByTestId('snackbar')).toBeNull();
+      } finally {
+        announce.mockRestore();
+        jest.useRealTimers();
+      }
+    }
+  );
+
+  it('caps a toast with a title and an action at the largest size', () => {
+    textSize(3.1);
+    renderWithProviders(<LongToast title="Card deleted" action />);
+    fireEvent.press(screen.getByText('show'));
+    const title = screen.getByTestId('snackbar-title');
+    expect(title).toHaveProp('maxFontSizeMultiplier', SNACKBAR_MAX_FONT_SCALE);
+    // One line, its end cut rather than shrunk (review fix 2, R1-1: no floor above 4 points).
+    expect(title).toHaveProp('numberOfLines', SNACKBAR_TITLE_LINES);
+    expect(title).toHaveProp('ellipsizeMode', 'tail');
+    expect(title.props.adjustsFontSizeToFit).toBeUndefined();
+    expect(title.props.minimumFontScale).toBeUndefined();
+    expect(screen.getByTestId('snackbar-text')).toHaveProp('numberOfLines', 3);
+  });
+
+  it('keeps a confirmation’s buttons in reach and the handle in its title on one line (largest size)', () => {
+    textSize(3.1);
+    renderWithProviders(
+      <ConfirmDialog
+        visible
+        title={`Block ${LONGEST}?`}
+        handleInTitle
+        message={'You will stop seeing each other. '.repeat(12)}
+        confirmLabel="Block"
+        onConfirm={jest.fn()}
+        onCancel={jest.fn()}
+        testID="block-dialog"
+      />
+    );
+    expectHandleLine(screen.getByText(`Block ${LONGEST}?`));
+    // The words scroll within the window; the buttons sit under them, outside the scroll.
+    const scroll = screen.getByTestId('block-dialog-scroll');
+    expect(StyleSheet.flatten(screen.getByTestId('block-dialog').props.style).maxHeight).toBe(
+      874 - 2 * (24 + 48)
+    );
+    expect(within(scroll).queryByTestId('block-dialog-confirm')).toBeNull();
+    expect(screen.getByTestId('block-dialog-confirm')).toBeOnTheScreen();
+  });
+
+  /**
+   * Review fix 1 (F8): the height a toast takes, read from what is rendered (every text's lines,
+   * line height and cap, the bar's and the message's padding, the stacked action's row), not
+   * from `toastLayout`'s own sum.
+   */
+  function renderedToastHeight(fontScale: number) {
+    const lines = (testID: string) => {
+      const text = screen.getByTestId(testID);
+      const style = StyleSheet.flatten(text.props.style);
+      const scale = Math.min(Math.max(fontScale, 1), text.props.maxFontSizeMultiplier ?? fontScale);
+      return text.props.numberOfLines * style.lineHeight * scale;
+    };
+    const bar = StyleSheet.flatten(screen.getByTestId('snackbar').props.style);
+    const message = StyleSheet.flatten(screen.getByTestId('snackbar-message').props.style);
+    const title = screen.queryByTestId('snackbar-title') ? lines('snackbar-title') + 2 : 0;
+    const words = title + lines('snackbar-text') + 2 * message.paddingVertical;
+    const action = screen.queryByTestId('snackbar-view') ? 44 : 0;
+    const stacked = bar.flexDirection === 'column';
+    return (
+      2 * bar.paddingVertical +
+      2 * bar.borderWidth +
+      (stacked ? Math.max(words, 44) + action : Math.max(words, 44, action))
+    );
+  }
+
+  it.each([
+    [667, 3.1],
+    [874, 3.1],
+    [956, 3.1],
+    [874, 2],
+    [874, 1],
+  ])(
+    'never lets a rendered toast reach past a quarter of a %s pt window at text size %s',
+    (height, scale) => {
+      for (const title of [undefined, 'Card deleted']) {
+        for (const action of [false, true]) {
+          act(() => {
+            Dimensions.set({
+              window: { ...WINDOW, width: 402, height, fontScale: scale },
+              screen: { ...WINDOW, width: 402, height, fontScale: scale },
+            });
+          });
+          const view = renderWithProviders(<LongToast title={title} action={action} />);
+          fireEvent.press(screen.getByText('show'));
+          if (title) {
+            expect(screen.getByTestId('snackbar-title')).toHaveProp(
+              'numberOfLines',
+              SNACKBAR_TITLE_LINES
+            );
+          }
+          expect(renderedToastHeight(scale)).toBeLessThanOrEqual(
+            height * SNACKBAR_MAX_WINDOW_SHARE
+          );
+          view.unmount();
+        }
+      }
+    }
+  );
+
+  // Review fix 1 (U1, U3, F5, F7): a label that names a handle stays on one line, capped, its
+  // end cut with "…" where its button or row is too narrow, at the largest size as at the default
+  // one; never shrunk to fit (review fix 2, R1-1).
+  function expectHandleLine(text: ReturnType<typeof screen.getByText>) {
+    expect(text).toHaveProp('numberOfLines', 1);
+    expect(text).toHaveProp('ellipsizeMode', 'tail');
+    expect(text).toHaveProp('maxFontSizeMultiplier', HANDLE_MAX_FONT_SCALE);
+    expect(text.props.adjustsFontSizeToFit).toBeUndefined();
+    expect(text.props.minimumFontScale).toBeUndefined();
+  }
+
+  it.each([1, 3.1])(
+    'keeps the handle of a button, a pill and a sheet row on one line (text size %s)',
+    (fontScale) => {
+      textSize(fontScale);
+      renderWithProviders(
+        <>
+          <Button label={`Message ${LONGEST}`} handleInLabel icon="message-text-outline" />
+          <PillButton label={`Message ${LONGEST}`} handleInLabel icon="message-outline" />
+          <ListRow label={`Report ${LONGEST}`} handleInLabel kind="button" onPress={jest.fn()} />
+          <ListRow label="Notifications" />
+        </>
+      );
+      const [button, pill] = screen.getAllByText(`Message ${LONGEST}`);
+      expectHandleLine(button!);
+      expectHandleLine(pill!);
+      expect(StyleSheet.flatten(button!.props.style).flexShrink).toBe(1);
+      expect(StyleSheet.flatten(pill!.props.style).flexShrink).toBe(1);
+      expectHandleLine(screen.getByText(`Report ${LONGEST}`));
+      // A label without a handle keeps growing.
+      expect(screen.getByText('Notifications').props.maxFontSizeMultiplier).toBeUndefined();
+    }
+  );
+
+  it('keeps "Rate {handle}" and a binder link\'s "by @{handle}" on one line (largest size)', () => {
+    textSize(3.1);
+    renderWithProviders(
+      <>
+        <SaleMessage
+          sale={{
+            saleId: 's-1',
+            sellerId: 'seller',
+            buyerId: 'buyer',
+            kind: 'CARD',
+            name: 'Lantern Fox',
+            quantity: 1,
+            trackingNumber: null,
+            undone: false,
+          }}
+          selfId="buyer"
+          otherHandle={LONGEST}
+          onRate={jest.fn()}
+        />
+        <SharedLinkCard binder={{ id: 'b-1', name: 'Trade binder', ownerHandle: LONGEST }} />
+      </>
+    );
+    expectHandleLine(screen.getByTestId('sale-message-rate-label'));
+    expect(screen.getByTestId('sale-message-rate-label')).toHaveTextContent(`Rate ${LONGEST}`);
+    expectHandleLine(screen.getByTestId('binder-link-owner'));
+    expect(screen.getByTestId('binder-link-owner')).toHaveTextContent(`by @${LONGEST}`);
+  });
+
+  it.each([
+    [1, 'row'],
+    [3.1, 'column-reverse'],
+  ])(
+    "caps a confirmation's buttons and stacks them at large sizes (text size %s)",
+    (fontScale, direction) => {
+      textSize(fontScale);
+      renderWithProviders(
+        <ConfirmDialog
+          visible
+          title="Remove this card?"
+          message="It leaves your binder."
+          confirmLabel="Remove"
+          onConfirm={jest.fn()}
+          onCancel={jest.fn()}
+          testID="remove-dialog"
+        />
+      );
+      for (const label of ['Cancel', 'Remove']) {
+        expect(within(screen.getByTestId('remove-dialog')).getByText(label)).toHaveProp(
+          'maxFontSizeMultiplier',
+          PINNED_MAX_FONT_SCALE
+        );
+      }
+      expect(
+        StyleSheet.flatten(screen.getByTestId('remove-dialog-actions').props.style).flexDirection
+      ).toBe(direction);
+    }
+  );
 });

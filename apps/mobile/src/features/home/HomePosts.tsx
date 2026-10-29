@@ -17,6 +17,7 @@ import {
   useStackedRows,
   useTheme,
 } from '@/src/theme';
+import { HandleText } from '@/src/components/ui/HandleText';
 
 import {
   codeAndRarity,
@@ -123,10 +124,27 @@ export function FeedPostCard({
           />
         )}
         <View style={[styles.headerText, stacked && styles.fullWidth]}>
-          <Text numberOfLines={stacked ? 4 : 2} style={[styles.headline, { color: palette.ink }]}>
-            <Text style={styles.handle}>{postWho(post)}</Text>{' '}
-            <Text style={{ color: toneColor(tone) }}>{verb}</Text>
-          </Text>
+          {stacked ? (
+            // At large text sizes the handle has a line of its own, capped like every handle
+            // (owner decision of 2026-10-28; a capped part inside a growing sentence made iOS
+            // draw the sentence's lines over each other), the verb under it.
+            <>
+              <HandleText
+                testID={`${testID}-who`}
+                style={[styles.headline, styles.handle, { color: palette.ink }]}
+              >
+                {postWho(post)}
+              </HandleText>
+              <Text numberOfLines={4} style={[styles.headline, { color: toneColor(tone) }]}>
+                {verb}
+              </Text>
+            </>
+          ) : (
+            <Text numberOfLines={2} style={[styles.headline, { color: palette.ink }]}>
+              <Text style={styles.handle}>{postWho(post)}</Text>{' '}
+              <Text style={{ color: toneColor(tone) }}>{verb}</Text>
+            </Text>
+          )}
           <Text numberOfLines={stacked ? 2 : 1} style={[styles.meta, { color: palette.textMuted }]}>
             {feedTime(post.at, now)} · {postProvince(post)}
           </Text>

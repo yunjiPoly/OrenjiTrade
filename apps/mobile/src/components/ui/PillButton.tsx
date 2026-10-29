@@ -9,6 +9,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
+import { HANDLE_LABEL_STYLE, HANDLE_TEXT_PROPS } from '@/src/components/ui/HandleText';
 import { Text } from '@/src/components/ui/Text';
 import { fontWeight, lightPalette, spacing, textStyle, useTheme } from '@/src/theme';
 
@@ -44,6 +45,11 @@ export interface PillButtonProps {
    * take the screen at the largest sizes; a long press shows it enlarged (iOS).
    */
   maxFontSizeMultiplier?: number;
+  /**
+   * The label names a collector by handle ("Message {handle}"): one line, capped, its end cut
+   * with "…" where the pill is too narrow (`HANDLE_TEXT_PROPS`), so the handle never breaks (owner decision of 2026-10-28).
+   */
+  handleInLabel?: boolean;
   style?: StyleProp<ViewStyle>;
   testID?: string;
 }
@@ -64,6 +70,7 @@ export function PillButton({
   accessibilityHint,
   accessibilityLabel,
   maxFontSizeMultiplier,
+  handleInLabel = false,
   style,
   testID,
 }: PillButtonProps) {
@@ -100,13 +107,14 @@ export function PillButton({
           ];
   const fontSize = filled ? (size === 'large' ? 16 : 15) : variant === 'outline' ? 15 : 14;
   const text = loading && loadingLabel ? loadingLabel : label;
+  const capped = handleInLabel || maxFontSizeMultiplier !== undefined;
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={loading ? text : (accessibilityLabel ?? text)}
       accessibilityHint={accessibilityHint}
-      accessibilityShowsLargeContentViewer={maxFontSizeMultiplier !== undefined}
-      accessibilityLargeContentTitle={maxFontSizeMultiplier !== undefined ? text : undefined}
+      accessibilityShowsLargeContentViewer={capped}
+      accessibilityLargeContentTitle={capped ? text : undefined}
       aria-disabled={inactive}
       aria-busy={loading}
       disabled={inactive}
@@ -114,20 +122,20 @@ export function PillButton({
       testID={testID}
       style={({ pressed }) => [shape, pressed && styles.pressed, style]}
     >
-      <View style={styles.content}>
+      <View style={[styles.content, handleInLabel && styles.contentFits]}>
         {loading ? (
           <ActivityIndicator size="small" color={color} />
         ) : icon ? (
           <MaterialCommunityIcons name={icon} size={size === 'large' ? 20 : 18} color={color} />
         ) : null}
         <Text
-          maxFontSizeMultiplier={maxFontSizeMultiplier}
+          {...(handleInLabel ? HANDLE_TEXT_PROPS : { maxFontSizeMultiplier, numberOfLines: 2 })}
           style={[
             textStyle(size === 'large' ? 'md' : 'sm'),
             filled ? styles.label : styles.secondLabel,
             { color, fontSize },
+            handleInLabel && HANDLE_LABEL_STYLE,
           ]}
-          numberOfLines={2}
         >
           {text}
         </Text>
@@ -172,6 +180,7 @@ const styles = StyleSheet.create({
   },
   busy: { opacity: 0.6 },
   content: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  contentFits: { maxWidth: '100%' },
   label: { fontWeight: fontWeight.bold, textAlign: 'center' },
   secondLabel: { fontWeight: fontWeight.semibold, textAlign: 'center' },
   pressed: { opacity: 0.85 },

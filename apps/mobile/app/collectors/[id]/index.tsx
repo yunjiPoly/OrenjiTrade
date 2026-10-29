@@ -237,6 +237,7 @@ export default function CollectorScreen() {
             <ListRow
               icon="flag-outline"
               label={PROFILE_COPY.report(data.handle)}
+              handleInLabel
               kind="button"
               onPress={() => {
                 setMenuOpen(false);
@@ -251,6 +252,7 @@ export default function CollectorScreen() {
               <ListRow
                 icon="lock-open-variant-outline"
                 label={PROFILE_COPY.unblock(data.handle)}
+                handleInLabel
                 kind="button"
                 onPress={() => {
                   setMenuOpen(false);
@@ -264,6 +266,7 @@ export default function CollectorScreen() {
               <ListRow
                 icon="cancel"
                 label={PROFILE_COPY.block(data.handle)}
+                handleInLabel
                 kind="button"
                 tone="danger"
                 onPress={() => {

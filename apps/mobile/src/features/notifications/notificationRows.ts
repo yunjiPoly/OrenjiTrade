@@ -103,6 +103,11 @@ export interface RowText {
   strong: string;
   rest: string;
   sub: string;
+  /**
+   * The bold subject is a collector's handle (a sale's seller, a rating's rater): it follows the
+   * text size only up to the handle cap, so it never breaks (owner decision of 2026-10-28).
+   */
+  strongIsHandle?: boolean;
 }
 
 function text(data: Notice['data'] | undefined, key: string): string | null {
@@ -177,6 +182,7 @@ export function rowText(notification: NotificationResponse): RowText {
       const tracking = data?.['hasTracking'];
       return {
         strong: seller ?? copy.sale.someone,
+        strongIsHandle: !!seller,
         rest,
         sub:
           tracking === true
@@ -189,6 +195,7 @@ export function rowText(notification: NotificationResponse): RowText {
     case 'RATING_RECEIVED':
       return {
         strong: text(data, 'raterHandle') ?? copy.rating.someone,
+        strongIsHandle: !!text(data, 'raterHandle'),
         rest: copy.rating.rest(wholeNumber(data, 'overall')),
         sub: copy.rating.sub,
       };

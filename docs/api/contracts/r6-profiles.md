@@ -25,11 +25,13 @@ One request per part; nothing new on the responses.
 | Looking for | `GET /collectors/{handle}/wishlist` | 404 while "Let others see what you want" is off (the owner always reads theirs; the phone's Profile tab reads `GET /wishlist`, which carries the wish ids) |
 | Ratings & references | the profile's `rating`, `GET /collectors/{handle}/references?limit=10` (the 2 latest shown), and for "See all references" `GET /collectors/{handle}/ratings` | as Phase 7 |
 
-**Blocks** (today's rule, kept): a block in either direction leaves `GET /collectors/{handle}`
-answering 200 with `isBlocked: true` and `canMessage: false`, and the cards, binders and wishes
-answering 404 both ways. The phone shows the header and "Unblock" to the collector who blocked
-(`GET /me/blocks` tells the direction) and "This collector is not available" to the one who was
-blocked.
+**Blocks** (R6's rule, replaced by the owner's decision of 2026-10-28, contract
+[`od-2026-10-28-suspensions-blocks.md`](od-2026-10-28-suspensions-blocks.md)): the collector who
+blocked reads `GET /collectors/{handle}` with `isBlocked: true` and `canMessage: false` (the phone
+shows the header and "Unblock"); the collector who was blocked gets the unknown handle's `404`
+from the profile, its ratings and its references, as the cards, binders and wishes already
+answered both ways (the phone shows "This collector is not available"). Until 2026-10-28 the
+blocked side also read the header with `isBlocked: true`.
 
 ## The cards of a deck core stay out of a profile's Cards
 

@@ -25,6 +25,7 @@ import {
   textStyle,
   useTheme,
 } from '@/src/theme';
+import { HandleText } from '@/src/components/ui/HandleText';
 
 import { highlightParts } from './highlight';
 import { SearchInput } from './SearchField';
@@ -355,9 +356,9 @@ function CollectorResult({
         size={40}
       />
       <View style={styles.fill}>
-        <Text style={[textStyle('md'), styles.bold, { color: palette.ink }]}>
+        <HandleText style={[textStyle('md'), styles.bold, { color: palette.ink }]}>
           {collector.handle}
-        </Text>
+        </HandleText>
         <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{place}</Text>
       </View>
       <MaterialCommunityIcons name="chevron-right" size={20} color={palette.textDisabled} />

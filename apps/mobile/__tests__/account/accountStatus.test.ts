@@ -1,5 +1,6 @@
 import { deriveAccountStatus, needsOnboarding } from '@/src/account/accountStatus';
 import { ApiError } from '@/src/api/ApiError';
+import { suspensionReason } from '@/src/features/account/accountCopy';
 
 import { NOT_ONBOARDED, meFixture } from '../support/fixtures';
 
@@ -120,5 +121,16 @@ describe('needsOnboarding', () => {
       )
     ).toBe(false);
     expect(needsOnboarding(undefined)).toBe(false);
+  });
+});
+
+describe('the line under screen 44’s title (owner decision of 2026-10-28)', () => {
+  it('drops the API’s general words, which repeat the title, and keeps any other', () => {
+    expect(suspensionReason('This account is suspended')).toBeNull();
+    expect(suspensionReason('This account is suspended.')).toBeNull();
+    expect(suspensionReason('  ')).toBeNull();
+    expect(suspensionReason(null)).toBeNull();
+    expect(suspensionReason('This account has been deleted')).toBe('This account has been deleted');
+    expect(suspensionReason('Suspended for repeated spam.')).toBe('Suspended for repeated spam.');
   });
 });

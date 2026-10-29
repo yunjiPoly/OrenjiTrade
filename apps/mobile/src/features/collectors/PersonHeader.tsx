@@ -5,6 +5,7 @@ import { Avatar } from '@/src/components/ui/Avatar';
 import { Text } from '@/src/components/ui/Text';
 import { LABEL_MAX_FONT_SCALE } from '@/src/features/settings/SettingsList';
 import { fontWeight, useStackedRows, useTheme } from '@/src/theme';
+import { HandleText } from '@/src/components/ui/HandleText';
 
 /** "@fake.cards · Ontario", or the handle alone while the province is unknown or not shown. */
 export function personLine(handle: string | null, province: string | null | undefined): string {
@@ -62,13 +63,13 @@ export function PersonHeader({
           {displayName}
         </Text>
         {shown ? (
-          <Text
-            maxFontSizeMultiplier={LABEL_MAX_FONT_SCALE}
+          <HandleText
+            numberOfLines={2}
             style={[styles.line, { color: palette.textMuted }]}
             testID={`${testID}-line`}
           >
             {shown}
-          </Text>
+          </HandleText>
         ) : null}
       </View>
     </View>

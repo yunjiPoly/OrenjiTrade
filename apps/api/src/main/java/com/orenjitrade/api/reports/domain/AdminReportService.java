@@ -301,7 +301,8 @@ public class AdminReportService {
                         AuditService.TARGET_USER,
                         reportedId.toString(),
                         suspension);
-                identityAdmin.disableUser(reported.providerUid());
+                // The login stays on (owner decision of 2026-10-28): the collector sees "Account
+                // suspended" with its end date; the API refuses every request of the account.
             }
             case BANNED -> {
                 requireSuspendable(actor, reported);

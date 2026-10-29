@@ -59,6 +59,55 @@ describe('quick replies (spec section 10; default 10)', () => {
     ).toHaveLength(2);
   });
 
+  describe('once the card is marked sold (owner decision of 2026-10-28, R8 follow-up 3)', () => {
+    const SELLING_AFTER = ['Got your e-Transfer', 'Shipped!', 'Thanks for buying!'];
+    const BUYING_AFTER = ['e-Transfer sent!', 'Tracking number?', 'Thanks!'];
+    const buyerAsked = [said(OTHER, 'Is it still available?')];
+    const sale = saleMessageFixture({ sellerId: SELF_ID });
+
+    it.each([
+      ['a seller who never wrote', 'selling', buyerAsked, SELLING_AFTER],
+      ['a seller who wrote', 'selling', [...buyerAsked, said(SELF_ID, 'Yes!')], SELLING_AFTER],
+      ['a buyer the seller never answered', 'buying', [said(SELF_ID, 'Hi!')], BUYING_AFTER],
+      ['a buyer nobody wrote to', 'buying', [], BUYING_AFTER],
+      ['a buyer the seller answered', 'buying', [said(OTHER, 'Yes, $32')], BUYING_AFTER],
+    ] as const)('%s has the replies after the sale', (_who, side, messages, after) => {
+      expect(quickReplies(side, [...messages, sale], SELF_ID, OTHER, true)).toEqual(after);
+    });
+
+    it.each([
+      [
+        'a seller who never wrote',
+        'selling',
+        buyerAsked,
+        ['Yes, still available', 'Send me your address'],
+      ],
+      ['a seller who wrote', 'selling', [...buyerAsked, said(SELF_ID, 'Yes!')], SELLING_AFTER],
+      [
+        'a buyer the seller never answered',
+        'buying',
+        [said(SELF_ID, 'Hi!')],
+        ['Is it still available?', 'How much with shipping?'],
+      ],
+      ['a buyer the seller answered', 'buying', [said(OTHER, 'Yes, $32')], BUYING_AFTER],
+    ] as const)(
+      'after the undo, %s is back to the rule of the messages',
+      (_who, side, messages, replies) => {
+        expect(quickReplies(side, messages, SELF_ID, OTHER, false)).toEqual(replies);
+        // The default (no sale known) is the same rule.
+        expect(quickReplies(side, messages, SELF_ID, OTHER)).toEqual(replies);
+      }
+    );
+
+    it('still hides a reply the reader already sent, and gives none without a card', () => {
+      expect(quickReplies('selling', [said(SELF_ID, 'Shipped!')], SELF_ID, OTHER, true)).toEqual([
+        'Got your e-Transfer',
+        'Thanks for buying!',
+      ]);
+      expect(quickReplies('none', [], SELF_ID, OTHER, true)).toEqual([]);
+    });
+  });
+
   it('selling: until the reader writes, then the replies after it', () => {
     expect(quickReplies('selling', [said(OTHER, 'Still there?')], SELF_ID, OTHER)).toEqual([
       'Yes, still available',

@@ -7,6 +7,7 @@ import { BottomSheet } from '@/src/components/ui/BottomSheet';
 import { ListRow } from '@/src/components/ui/Layout';
 import { Text } from '@/src/components/ui/Text';
 import { fontWeight, PINNED_MAX_FONT_SCALE, useTheme } from '@/src/theme';
+import { HandleText } from '@/src/components/ui/HandleText';
 
 import { CHAT_COPY } from './chatCopy';
 import { chatStatusLine } from './dealRules';
@@ -107,13 +108,9 @@ export function ThreadHeader({
           ) : null}
         </View>
         <View style={styles.grow}>
-          <Text
-            numberOfLines={1}
-            maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
-            style={[styles.handle, { color: palette.ink }]}
-          >
+          <HandleText testID="conversation-handle" style={[styles.handle, { color: palette.ink }]}>
             {other.handle}
-          </Text>
+          </HandleText>
           {status ? (
             <Text
               testID="conversation-status"
@@ -142,6 +139,7 @@ export function ThreadHeader({
             <ListRow
               icon="star-outline"
               label={CHAT_COPY.rate(other.handle)}
+              handleInLabel
               kind="button"
               onPress={() => onAction('rate')}
               testID="conversation-rate"
@@ -176,6 +174,7 @@ export function ThreadHeader({
           <ListRow
             icon="flag-outline"
             label={CHAT_COPY.report(other.handle)}
+            handleInLabel
             kind="button"
             onPress={() => onAction('report')}
             testID="conversation-report"
@@ -184,6 +183,7 @@ export function ThreadHeader({
             <ListRow
               icon="lock-open-variant-outline"
               label={CHAT_COPY.unblock(other.handle)}
+              handleInLabel
               kind="button"
               onPress={() => onAction('unblock')}
               testID="conversation-unblock"
@@ -192,6 +192,7 @@ export function ThreadHeader({
             <ListRow
               icon="cancel"
               label={CHAT_COPY.block(other.handle)}
+              handleInLabel
               kind="button"
               tone="danger"
               onPress={() => onAction('block')}

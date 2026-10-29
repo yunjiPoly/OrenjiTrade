@@ -92,7 +92,8 @@ total; custom labels 2–24 chars, banned-term check; created with category CUST
   "rating": { "average": null, "count": 0 }, "publicBinderCount": 0,
   "canMessage": true, "isBlocked": false }
 ```
-`404` when the profile is PRIVATE to the requester or the user is deleted/suspended.
+`404` when the profile is PRIVATE to the requester or the user is deleted/suspended, and (owner
+decision of 2026-10-28) when the user blocked the requester: the unknown handle's answer.
 `location` is `null` when the collector is not discoverable. `distanceBucket` requires the
 requester to have a trading area and the target to allow distance display.
 
@@ -146,8 +147,10 @@ audit entry, status COMPLETED.
 `GET /admin/users?query=&status=&role=&page=&size=` → `PageResponse<AdminUserSummary>`
 `GET /admin/users/{id}` → `AdminUserDetail` (account, roles, consents, location label only —
 never coordinates —, deletion request, recent audit entries).
-`POST /admin/users/{id}/suspend` body `{ "reason": "…", "until": "…|null" }` → 204
-`POST /admin/users/{id}/unsuspend` → 204
+`POST /admin/users/{id}/suspend` body `{ "reason": "…", "until": "…|null" }` → 204 (the
+Firebase user stays enabled since the owner decision of 2026-10-28: the collector can sign in and
+sees the suspension; every non-public request answers `403 ACCOUNT_SUSPENDED`)
+`POST /admin/users/{id}/unsuspend` → 204 (enables the Firebase user)
 `PUT /admin/users/{id}/roles` body `{ "roles": ["USER","MODERATOR"] }` (SUPER_ADMIN only for
 ADMIN/SUPER_ADMIN grants) → 204
 `GET /admin/audit-logs?actorId=&targetType=&targetId=&action=&from=&to=&page=&size=` →

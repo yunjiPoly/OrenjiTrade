@@ -15,6 +15,7 @@ import { LABEL_MAX_FONT_SCALE, SettingsGroup } from '@/src/features/settings/Set
 import { SettingsPage } from '@/src/features/settings/SettingsPage';
 import { relativeTime } from '@/src/lib/relativeTime';
 import { fontWeight, radius, spacing, useStackedRows, useTheme } from '@/src/theme';
+import { HandleText } from '@/src/components/ui/HandleText';
 
 /**
  * Settings › Blocked collectors (stage R13, mockup v50 screen 54; web: `/settings/blocked`,
@@ -119,16 +120,12 @@ function BlockedRow({
             >
               {user.displayName}
             </Text>
-            <Text
-              maxFontSizeMultiplier={LABEL_MAX_FONT_SCALE}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.4}
+            <HandleText
               style={[styles.line, { color: palette.textMuted }]}
               testID={`blocked-handle-${user.handle}`}
             >
               {COPY.handle(user.handle)}
-            </Text>
+            </HandleText>
             <Text
               maxFontSizeMultiplier={LABEL_MAX_FONT_SCALE}
               style={[styles.line, { color: palette.textMuted }]}
@@ -142,9 +139,9 @@ function BlockedRow({
               {user.displayName}
             </Text>
             {/* Two lines beside Unblock: a long handle keeps "blocked {when}" in view. */}
-            <Text style={[styles.line, { color: palette.textMuted }]} numberOfLines={2}>
+            <HandleText style={[styles.line, { color: palette.textMuted }]} numberOfLines={2}>
               {COPY.line(user.handle, relativeTime(user.blockedAt))}
-            </Text>
+            </HandleText>
           </View>
         )}
       </View>

@@ -20,6 +20,7 @@ import { ListFooter } from '@/src/components/ui/ListFooter';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { Text } from '@/src/components/ui/Text';
 import { fontWeight, spacing, useTheme } from '@/src/theme';
+import { HandleText } from '@/src/components/ui/HandleText';
 
 import { INBOX_COPY } from './chatCopy';
 import { inboxConversations } from './conversationCache';
@@ -93,12 +94,9 @@ function ConversationRow({
       </View>
       <View style={styles.main}>
         <View style={large ? styles.topLarge : styles.top}>
-          <Text
-            numberOfLines={large ? 3 : 1}
-            style={[styles.handle, large && styles.handleLarge, { color: palette.ink }]}
-          >
+          <HandleText style={[styles.handle, large && styles.handleLarge, { color: palette.ink }]}>
             {handle}
-          </Text>
+          </HandleText>
           <Text
             testID={`conversation-time-${handle}`}
             style={[styles.time, { color: unread ? palette.primary : palette.textMuted }]}

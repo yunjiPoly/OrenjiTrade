@@ -274,6 +274,7 @@ describe('the sentence of a row', () => {
       )
     ).toEqual({
       strong: 'duelist.jp',
+      strongIsHandle: true,
       rest: 'marked Ash Blossom & Joyous Spring as sold to you',
       sub: 'Tracking added. Rate them when it arrives.',
     });
@@ -297,12 +298,18 @@ describe('the sentence of a row', () => {
       )
     ).toEqual({
       strong: 'duelist.jp',
+      strongIsHandle: true,
       rest: 'marked Ash Blossom as sold to you',
       sub: 'Open the chat to see the details and rate each other.',
     });
     expect(
       rowText(n({ type: 'RATING_RECEIVED', data: { raterHandle: 'sakura.tcg', overall: 5 } }))
-    ).toEqual({ strong: 'sakura.tcg', rest: 'rated you 5 stars', sub: 'See it on your profile.' });
+    ).toEqual({
+      strong: 'sakura.tcg',
+      strongIsHandle: true,
+      rest: 'rated you 5 stars',
+      sub: 'See it on your profile.',
+    });
     expect(rowText(n({ type: 'RATING_RECEIVED', data: { overall: 1 } }))).toMatchObject({
       strong: 'A collector',
       rest: 'rated you 1 star',

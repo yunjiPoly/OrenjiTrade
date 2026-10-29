@@ -21,6 +21,7 @@ import {
 import { SettingsPage } from '@/src/features/settings/SettingsPage';
 import { useAppStore } from '@/src/store/useAppStore';
 import { fontWeight, radius, useStackedRows, useTheme } from '@/src/theme';
+import { HandleText } from '@/src/components/ui/HandleText';
 
 /**
  * Settings (stage R13, mockup v50 screen 47), behind the Profile tab's gear: the profile card that
@@ -86,16 +87,12 @@ export default function SettingsScreen() {
             // (made smaller to fit when long), then "Edit profile" (review fix 1).
             <>
               {account.handle ? (
-                <Text
-                  maxFontSizeMultiplier={LABEL_MAX_FONT_SCALE}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.4}
+                <HandleText
                   style={[styles.line, { color: palette.textMuted }]}
                   testID="settings-profile-handle"
                 >
                   {COPY.profileCardHandle(account.handle)}
-                </Text>
+                </HandleText>
               ) : null}
               <Text
                 maxFontSizeMultiplier={LABEL_MAX_FONT_SCALE}
@@ -105,9 +102,9 @@ export default function SettingsScreen() {
               </Text>
             </>
           ) : (
-            <Text style={[styles.line, { color: palette.textMuted }]}>
+            <HandleText style={[styles.line, { color: palette.textMuted }]} numberOfLines={2}>
               {COPY.profileCardLine(account.handle)}
-            </Text>
+            </HandleText>
           )}
         </View>
         {stacked ? null : (

@@ -34,6 +34,7 @@ documents for field-level truth. Update a contract if implementation deliberatel
 | R13 | [Settings (47 to 59): an optional `tags` on `PUT /me/profile` (Edit profile's one save, one transaction); no migration, no other API change (extends 1)](r13-settings.md) |
 | R14 | [Report, rating, reference, binders, wishes, import and sets (60 to 69): `dealName` and `soldToYou` on a sale's `RatingEligibilityInteraction` (the rating form's deal line); no migration, no other API change (extends 7 and R4)](r14-report-rate-wish-import-sets.md) |
 | R15 | [Browse without an account (70 to 75): a signed-out caller never sees who a collector is (`PrivacyPolicyService.canSeeWho`: no id, handle, name, avatar, rating, activity or presence in the feed, card holders, binder lists, deck cores, a public binder; name search finds nobody), Home's feed open (GET), `GET /listings/owner` (members), the `guest-discovery` rate limit; no migration (extends 4, S1, R3, R5 and R7)](r15-browse-without-account.md) |
+| OD 10-28 | [Owner decisions of 2026-10-28: a suspension leaves the login on (a ban still disables it); a collector who blocked you reads as an unknown handle on the profile and every section, and their refused messages use the general words; no endpoint, field or migration (extends 1, 5, 7 and R6)](od-2026-10-28-suspensions-blocks.md) |
 
 Stages S3 (printing-aware search, "Who wants it", "Wanted by N", search history) and S4 (photos in
 community posts) of the owner's change of 2026-10-08 have no contract: the owner skipped them on

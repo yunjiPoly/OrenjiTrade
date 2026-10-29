@@ -29,6 +29,7 @@ import {
   useStackedRows,
   useTheme,
 } from '@/src/theme';
+import { HandleText } from '@/src/components/ui/HandleText';
 
 import { PROFILE_COPY } from './profileCopy';
 import { deckCoresFirst, referenceMonth, type UnseenReason } from './profileRules';
@@ -748,12 +749,12 @@ export function RatingsSection({
                   onPress={() => onAuthor(reference.author.handle)}
                   style={({ pressed }) => pressed && styles.pressed}
                 >
-                  <Text style={[styles.refName, { color: palette.ink }]}>
+                  <HandleText style={[styles.refName, { color: palette.ink }]}>
                     {reference.author.handle}
                     <Text style={[styles.refWhen, { color: palette.textMuted }]}>
                       {` · ${referenceMonth(reference.createdAt)}`}
                     </Text>
-                  </Text>
+                  </HandleText>
                 </Pressable>
                 <Text style={[styles.refBody, { color: palette.ink }]}>{reference.body}</Text>
               </View>

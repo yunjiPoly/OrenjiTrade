@@ -13,11 +13,15 @@ import { PillButton } from '@/src/components/ui/PillButton';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Text } from '@/src/components/ui/Text';
-import { DELETION_COPY, SUSPENDED_COPY } from '@/src/features/account/accountCopy';
+import {
+  DELETION_COPY,
+  SUSPENDED_COPY,
+  suspensionReason,
+} from '@/src/features/account/accountCopy';
 import { exportMyData } from '@/src/features/account/exportData';
 import { StatusPage, StatusText } from '@/src/features/account/StatusPage';
 import { formatLongDate } from '@/src/lib/dates';
-import { fontWeight, useTheme } from '@/src/theme';
+import { PINNED_MAX_FONT_SCALE, fontWeight, useTheme } from '@/src/theme';
 
 /** The flow lock's name while "Deletion cancelled" shows in place of the deletion. */
 export const DELETION_CANCELLED_FLOW = 'deletion-cancelled';
@@ -103,6 +107,7 @@ export default function SuspendedScreen() {
     <PillButton
       label={SUSPENDED_COPY.signOut}
       variant="quiet"
+      maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
       disabled={working !== null}
       onPress={() => void session.signOut()}
       testID="suspended-sign-out"
@@ -116,9 +121,11 @@ export default function SuspendedScreen() {
         tone="accent"
         title={DELETION_COPY.cancelledTitle}
         testID="screen-suspended"
+        pinActions
         actions={
           <PillButton
             label={DELETION_COPY.continue}
+            maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
             onPress={() => void proceed()}
             testID="deletion-cancelled-continue"
           />
@@ -136,11 +143,13 @@ export default function SuspendedScreen() {
         tone="warning"
         title={DELETION_COPY.title}
         testID="screen-suspended"
+        pinActions
         actions={
           requests.isPending ? null : (
             <>
               <PillButton
                 label={DELETION_COPY.cancel}
+                maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
                 loading={working === 'cancel'}
                 loadingLabel={DELETION_COPY.cancelling}
                 disabled={!request || working === 'export'}
@@ -149,6 +158,7 @@ export default function SuspendedScreen() {
               />
               <PillButton
                 label={DELETION_COPY.download}
+                maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
                 variant="outline"
                 icon="download"
                 loading={working === 'export'}
@@ -192,16 +202,19 @@ export default function SuspendedScreen() {
   }
 
   const suspension = account.suspension;
+  const reason = suspensionReason(suspension?.message);
   return (
     <StatusPage
       icon="shield-alert-outline"
       tone="danger"
       title={account.status === 'suspended' ? SUSPENDED_COPY.title : SUSPENDED_COPY.activeTitle}
       testID="screen-suspended"
+      pinActions
       actions={
         <>
           <PillButton
             label={SUSPENDED_COPY.guidelines}
+            maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
             variant="outline"
             onPress={() =>
               router.push({ pathname: '/legal/[key]', params: { key: 'community-guidelines' } })
@@ -212,9 +225,7 @@ export default function SuspendedScreen() {
         </>
       }
     >
-      <StatusText testID="suspension-message">
-        {suspension?.message || SUSPENDED_COPY.defaultReason}
-      </StatusText>
+      {reason ? <StatusText testID="suspension-message">{reason}</StatusText> : null}
       {suspension?.until ? (
         <StatusText strong testID="suspension-until">
           {SUSPENDED_COPY.endsOn(formatLongDate(suspension.until))}

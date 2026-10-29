@@ -1552,7 +1552,7 @@ export interface paths {
         put?: never;
         /**
          * Start (or reopen) a conversation with a collector
-         * @description Idempotent: returns the existing conversation of the pair (200) or creates it (201); never 409. 403 MESSAGING_BLOCKED when a block exists in either direction or, for a new conversation, when the recipient's messaging permission refuses the caller (NOBODY, or MEMBERS_WITH_PROFILE and the caller has no saved profile). 404 for unknown, suspended or deleted recipients; 400 for oneself. Stage R4: `subjectItemId` (a card) or `subjectBinderId` (a deck core) pins what the chat is about, the latest wins; it must be the recipient's and public, or the caller's own (404 when private, deleted or sold; 400 for both at once, for someone else's, and for a binder that is not a deck core).
+         * @description Idempotent: returns the existing conversation of the pair (200) or creates it (201); never 409. 403 MESSAGING_BLOCKED when a block exists in either direction or, for a new conversation, when the recipient's messaging permission refuses the caller (NOBODY, or MEMBERS_WITH_PROFILE and the caller has no saved profile); a caller the recipient blocked reads the NOBODY recipient's "This collector does not accept new conversations", the caller who blocked them "You cannot message this collector". 404 for unknown, suspended or deleted recipients; 400 for oneself. Stage R4: `subjectItemId` (a card) or `subjectBinderId` (a deck core) pins what the chat is about, the latest wins; it must be the recipient's and public, or the caller's own (404 when private, deleted or sold; 400 for both at once, for someone else's, and for a binder that is not a deck core).
          */
         post: operations["startConversation"];
         delete?: never;
@@ -1616,7 +1616,7 @@ export interface paths {
         put?: never;
         /**
          * Send a message
-         * @description TEXT needs `body` (≤ 4000 characters); CARD_LINK `cardPrintingId`, or `inventoryItemId` of one of the caller's own cards (stage R4: its picture, code and price as typed, and it becomes the chat's subject); BINDER_LINK `binderId` of a public binder; IMAGE `imageUploadId` of POST /uploads/images (within 1 h); OFFER_LINK `offerId` of an offer between the two participants (Phase 8). SYSTEM is refused (400). Moderation: 422 MESSAGE_BLOCKED for content the rules refuse (generic reason), FLAG rules store the message as FLAGGED; 429 RATE_LIMITED above the rate rule (30 per minute). 403 MESSAGING_BLOCKED when a block exists or the other participant cannot receive messages. Pushed to both participants on /user/queue/messages.
+         * @description TEXT needs `body` (≤ 4000 characters); CARD_LINK `cardPrintingId`, or `inventoryItemId` of one of the caller's own cards (stage R4: its picture, code and price as typed, and it becomes the chat's subject); BINDER_LINK `binderId` of a public binder; IMAGE `imageUploadId` of POST /uploads/images (within 1 h); OFFER_LINK `offerId` of an offer between the two participants (Phase 8). SYSTEM is refused (400). Moderation: 422 MESSAGE_BLOCKED for content the rules refuse (generic reason), FLAG rules store the message as FLAGGED; 429 RATE_LIMITED above the rate rule (30 per minute). 403 MESSAGING_BLOCKED when a block exists or the other participant cannot receive messages (the same words for a caller the other blocked as for an inactive participant). Pushed to both participants on /user/queue/messages.
          */
         post: operations["sendMessage"];
         delete?: never;
@@ -1808,7 +1808,7 @@ export interface paths {
         put?: never;
         /**
          * Lift a suspension (ADMIN, SUPER_ADMIN)
-         * @description 409 when the account is not suspended. Audited.
+         * @description Lifts the suspension (and a ban mark) and enables the identity-provider user. 409 when the account is not suspended. Audited.
          */
         post: operations["unsuspendUser"];
         delete?: never;
@@ -1828,7 +1828,7 @@ export interface paths {
         put?: never;
         /**
          * Suspend an account (ADMIN, SUPER_ADMIN)
-         * @description Blocks every API call of the account (403 ACCOUNT_SUSPENDED) and disables the identity-provider user. Audited.
+         * @description Refuses every non-public API call of the account (403 ACCOUNT_SUSPENDED, with suspendedUntil when temporary) and its realtime connection. The identity-provider user stays enabled: the collector can sign in and is shown the suspension. Audited.
          */
         post: operations["suspendUser"];
         delete?: never;
@@ -1908,7 +1908,7 @@ export interface paths {
         put?: never;
         /**
          * Decide a report (MODERATOR+; suspensions and bans ADMIN+)
-         * @description ACTIONED with an action (WARNING: a notice to the collector; LISTINGS_PAUSED: their public listings are paused; SUSPENDED: suspension with the note as reason and an optional suspendUntil; BANNED: suspension without end plus the ban mark) or DISMISSED (action NONE). SUSPENDED and BANNED need ADMIN (403 for moderators); an administrator's account needs a SUPER_ADMIN. Audited (`REPORT_RESOLVED` with the action; `user.suspend` / `user.ban` on the account). With notifyReporter the reporter gets a REPORT_DECISION notification without specifics. 409 for decided reports.
+         * @description ACTIONED with an action (WARNING: a notice to the collector; LISTINGS_PAUSED: their public listings are paused; SUSPENDED: suspension with the note as reason and an optional suspendUntil, the login left on; BANNED: suspension without end plus the ban mark, the identity-provider user disabled) or DISMISSED (action NONE). SUSPENDED and BANNED need ADMIN (403 for moderators); an administrator's account needs a SUPER_ADMIN. Audited (`REPORT_RESOLVED` with the action; `user.suspend` / `user.ban` on the account). With notifyReporter the reporter gets a REPORT_DECISION notification without specifics. 409 for decided reports.
          */
         post: operations["resolveReport"];
         delete?: never;
@@ -3704,7 +3704,7 @@ export interface paths {
         };
         /**
          * Public profile of a collector
-         * @description Handle lookup is case-insensitive. 404 when the account does not exist, is suspended, pending deletion or deleted, or when the profile is PRIVATE (for everyone but its owner). `location` (state/province + country) is null unless the collector is discoverable and set a location; its `city` is the collector's own optional city, present only while they show it on their profile. The only response with another collector's city; no coordinates or distances anywhere (ADR 0017).
+         * @description Handle lookup is case-insensitive. 404 when the account does not exist, is suspended, pending deletion or deleted, or when the profile is PRIVATE (for everyone but its owner), and for a caller the collector blocked (the unknown handle's answer; the caller who blocked them keeps the profile with isBlocked). `location` (state/province + country) is null unless the collector is discoverable and set a location; its `city` is the collector's own optional city, present only while they show it on their profile. The only response with another collector's city; no coordinates or distances anywhere (ADR 0017).
          */
         get: operations["getCollector"];
         put?: never;
