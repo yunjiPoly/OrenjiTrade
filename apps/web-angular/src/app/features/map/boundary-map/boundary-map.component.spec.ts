@@ -97,6 +97,11 @@ describe('BoundaryMapComponent', () => {
     return [...element.querySelectorAll<SVGPathElement>('.leaflet-overlay-pane path')];
   }
 
+  /** The outlines drawn over the shapes, in their own non-interactive pane. */
+  function traces(): SVGPathElement[] {
+    return [...element.querySelectorAll<SVGPathElement>('.leaflet-trace-pane path')];
+  }
+
   it('draws the bundled boundaries without any tile, with the Natural Earth credit', () => {
     expect(load).toHaveBeenCalledWith('americas-north');
     expect(paths()).toHaveLength(3);
@@ -105,9 +110,52 @@ describe('BoundaryMapComponent', () => {
     expect(element.querySelector('.leaflet-control-attribution')?.textContent).toContain(
       'Made with Natural Earth',
     );
-    expect(element.querySelector('[data-testid="boundary-map"]')?.getAttribute('aria-label')).toBe(
-      'Map of states and provinces',
+    const canvas = element.querySelector('[data-testid="boundary-map"]');
+    expect(canvas?.getAttribute('aria-label')).toBe('Map of states and provinces');
+    // A role that allows the name (a role-less div may not carry aria-label).
+    expect(canvas?.getAttribute('role')).toBe('region');
+    expect(canvas?.getAttribute('aria-roledescription')).toBe('map');
+  });
+
+  it('keeps the shapes out of the Tab order: the state list is the keyboard path', () => {
+    for (const path of paths().filter((p) => p.getAttribute('data-code'))) {
+      expect(path.getAttribute('tabindex')).toBe('-1');
+    }
+    expect(element.querySelector('.leaflet-overlay-pane')?.getAttribute('aria-hidden')).toBe(
+      'true',
     );
+  });
+
+  it('never moves a shape in the DOM on hover, so a real click under the mouse still lands', async () => {
+    fixture.componentRef.setInput('home', 'CA-QC');
+    fixture.componentRef.setInput('selected', 'CA-QC');
+    fixture.detectChanges();
+    await settle();
+    const group = paths()[0].parentElement!;
+    const moved: MutationRecord[] = [];
+    const observer = new MutationObserver((records) => moved.push(...records));
+    observer.observe(group, { childList: true });
+    const ontario = paths().find((path) => path.getAttribute('data-code') === 'CA-ON')!;
+    ontario.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    ontario.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+    ontario.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    await settle();
+    observer.disconnect();
+    expect(moved).toHaveLength(0);
+    expect(paths().map((path) => path.getAttribute('data-code'))).toEqual(['CA-QC', 'CA-ON', null]);
+    // The hover outline is drawn over it, in the trace pane that takes no pointer events.
+    const pane = element.querySelector<HTMLElement>('.leaflet-trace-pane')!;
+    expect(pane.style.pointerEvents).toBe('none');
+    expect(traces().map((path) => path.getAttribute('stroke'))).toEqual([
+      '#2dd4bf',
+      '#111111',
+      '#f4761a',
+    ]);
+    ontario.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(selected).toEqual(['CA-ON']);
+    ontario.dispatchEvent(new MouseEvent('mouseout', { bubbles: true }));
+    await settle();
+    expect(traces().map((path) => path.getAttribute('stroke'))).toEqual(['#2dd4bf', '#f4761a']);
   });
 
   it('shades states with the map steps by binder count and emits the clicked state', () => {
@@ -126,25 +174,25 @@ describe('BoundaryMapComponent', () => {
     fixture.componentRef.setInput('counts', new Map([['CA-ON', 1]]));
     fixture.detectChanges();
     await settle();
-    // The selected state is brought to the front (drawn last), with a 2 px orange outline.
+    // The selected state gets a 2 px orange outline over the shapes; its shape keeps its place.
     const ontario = paths().find((path) => path.getAttribute('data-code') === 'CA-ON')!;
-    expect(ontario.getAttribute('stroke-width')).toBe('2');
-    expect(ontario.getAttribute('stroke')).toBe('#f4761a');
     expect(ontario.getAttribute('fill')).toBe('#5c3418');
+    expect(ontario.getAttribute('stroke-width')).toBe('0.8');
+    expect(traces()).toHaveLength(1);
+    expect(traces()[0].getAttribute('stroke-width')).toBe('2');
+    expect(traces()[0].getAttribute('stroke')).toBe('#f4761a');
     fixture.componentRef.setInput('highlight', 'CA-QC');
     fixture.detectChanges();
     await settle();
-    const quebec = paths().find((path) => path.getAttribute('data-code') === 'CA-QC')!;
-    expect(quebec.getAttribute('stroke-width')).toBe('1.5');
+    // The highlighted one in a 1.5 ink outline, under the selected one.
+    expect(traces().map((path) => path.getAttribute('stroke-width'))).toEqual(['1.5', '2']);
   });
 
   it("draws the viewer's province with a teal dashed outline that takes no click", async () => {
     fixture.componentRef.setInput('home', 'CA-QC');
     fixture.detectChanges();
     await settle();
-    const dashed = [...element.querySelectorAll('.leaflet-overlay-pane path')].filter(
-      (path) => path.getAttribute('stroke-dasharray') === '4 3',
-    );
+    const dashed = traces().filter((path) => path.getAttribute('stroke-dasharray') === '4 3');
     expect(dashed).toHaveLength(1);
     expect(dashed[0].getAttribute('stroke')).toBe('#2dd4bf');
     expect(dashed[0].getAttribute('fill')).toBe('none');

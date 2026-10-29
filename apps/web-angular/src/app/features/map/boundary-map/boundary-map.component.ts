@@ -33,6 +33,12 @@ type GeoJsonInput = Parameters<LeafletModule['geoJSON']>[0];
 /** Non-injected global style bundle emitted by angular.json (`bundleName: leaflet`). */
 const LEAFLET_CSS_HREF = 'leaflet.css';
 const CSS_MARKER_ATTR = 'data-orenji-leaflet-css';
+/**
+ * The pane of the outlines drawn over the shapes (your province, the hovered, highlighted and
+ * selected states): its own SVG above the shapes, taking no pointer events. Hover never moves an
+ * interactive path in the DOM (a path re-appended under a pressed mouse loses its click).
+ */
+const TRACE_PANE = 'tracePane';
 const NATURAL_EARTH_CREDIT =
   'Made with <a href="https://www.naturalearthdata.com/" target="_blank" rel="noopener">Natural Earth</a>';
 
@@ -86,6 +92,8 @@ interface Palette {
       #canvas
       class="bmap__canvas"
       data-testid="boundary-map"
+      role="region"
+      aria-roledescription="map"
       [attr.aria-label]="label()"
       aria-describedby="boundary-map-hint"
     ></div>
@@ -165,6 +173,7 @@ export class BoundaryMapComponent {
   private outlines: Leaflet.GeoJSON | null = null;
   private shapes: Leaflet.GeoJSON | null = null;
   private homeLayer: Leaflet.GeoJSON | null = null;
+  private traceLayer: Leaflet.GeoJSON | null = null;
   private subdivisionFeatures: BoundaryFeature[] = [];
   private hovered: string | null = null;
   private fittedHome = false;
@@ -240,6 +249,11 @@ export class BoundaryMapComponent {
         map.attributionControl.setPrefix(false);
         map.attributionControl.addAttribution(NATURAL_EARTH_CREDIT);
       }
+      const trace = map.createPane(TRACE_PANE);
+      trace.style.zIndex = '450';
+      trace.style.pointerEvents = 'none';
+      trace.setAttribute('aria-hidden', 'true');
+      map.getPane('overlayPane')?.setAttribute('aria-hidden', 'true');
       this.map = map;
       this.fitRegion(this.region());
       if (typeof ResizeObserver !== 'undefined') {
@@ -299,7 +313,6 @@ export class BoundaryMapComponent {
       this.fitRegion(region);
     }
     this.restyle();
-    this.drawHome(home);
     this.status.set('ready');
   }
 
@@ -320,17 +333,30 @@ export class BoundaryMapComponent {
     path.on('click', () => this.subdivisionSelected.emit(code));
     path.on('mouseover', () => {
       this.hovered = code;
-      this.restyleCode(code);
+      this.drawTrace();
     });
     path.on('mouseout', () => {
-      this.hovered = null;
-      this.restyleCode(code);
+      if (this.hovered === code) {
+        this.hovered = null;
+        this.drawTrace();
+      }
     });
     // The subdivision code (never a coordinate) identifies the shape for styles and tests.
     path.on('add', () => {
       const element = path.getElement();
-      element?.classList.add('orenji-boundary');
-      element?.setAttribute('data-code', code);
+      if (!element) {
+        return;
+      }
+      element.classList.add('orenji-boundary');
+      element.setAttribute('data-code', code);
+      // The tooltip's focus listeners make an SVG path a Tab stop in Chromium: hundreds of unnamed,
+      // invisible stops before Search's overlays. The state list is the keyboard path (spec 6.4).
+      // (Leaflet's `off(element, types)` with two arguments removes every listener of those types.)
+      const off = this.L?.DomEvent.off as unknown as
+        ((el: Element, types: string) => void) | undefined;
+      off?.(element, 'focus blur');
+      element.setAttribute('tabindex', '-1');
+      element.setAttribute('focusable', 'false');
     });
   }
 
@@ -382,29 +408,72 @@ export class BoundaryMapComponent {
     }
   }
 
-  /** The teal dashed outline of the viewer's province, above every shape and not clickable. */
-  private drawHome(code: string | null): void {
+  /**
+   * The teal dashed outline of the viewer's province, above every shape and not clickable; the
+   * hovered and selected outlines are drawn above it.
+   */
+  private drawHome(code: string | null, palette = this.palette()): void {
     this.homeLayer?.remove();
     this.homeLayer = null;
     const L = this.L;
     const map = this.map;
-    if (!L || !map || !code) {
+    const features = code
+      ? this.subdivisionFeatures.filter((feature) => feature.properties.code === code)
+      : [];
+    if (L && map && features.length > 0) {
+      this.homeLayer = L.geoJSON(features as unknown as GeoJsonInput, {
+        interactive: false,
+        pane: TRACE_PANE,
+        style: () => ({
+          color: palette.home,
+          weight: 1.5,
+          dashArray: '4 3',
+          fill: false,
+          opacity: 1,
+        }),
+      }).addTo(map);
+    }
+    this.drawTrace(palette);
+  }
+
+  /**
+   * The hovered or list-highlighted state (1.5 ink) and the selected one (2 orange), drawn as
+   * outlines in their own non-interactive pane: the shapes themselves are never re-ordered.
+   */
+  private drawTrace(palette = this.palette()): void {
+    this.traceLayer?.remove();
+    this.traceLayer = null;
+    const L = this.L;
+    const map = this.map;
+    if (!L || !map) {
       return;
     }
-    const features = this.subdivisionFeatures.filter((feature) => feature.properties.code === code);
+    const selected = this.selected();
+    const traced = new Set([this.hovered, this.highlight()].filter((code) => !!code));
+    const features = this.subdivisionFeatures
+      .filter((feature) => {
+        const code = feature.properties.code;
+        return !!code && (code === selected || traced.has(code));
+      })
+      // The selected outline last, so it stays on top of a traced neighbour.
+      .sort(
+        (a, b) => Number(a.properties.code === selected) - Number(b.properties.code === selected),
+      );
     if (features.length === 0) {
       return;
     }
-    const palette = this.palette();
-    this.homeLayer = L.geoJSON(features as unknown as GeoJsonInput, {
+    this.traceLayer = L.geoJSON(features as unknown as GeoJsonInput, {
       interactive: false,
-      style: () => ({
-        color: palette.home,
-        weight: 1.5,
-        dashArray: '4 3',
-        fill: false,
-        opacity: 1,
-      }),
+      pane: TRACE_PANE,
+      style: (feature) => {
+        const isSelected = (feature as unknown as BoundaryFeature).properties.code === selected;
+        return {
+          color: isSelected ? palette.selected : palette.hover,
+          weight: isSelected ? 2 : 1.5,
+          fill: false,
+          opacity: 1,
+        };
+      },
     }).addTo(map);
   }
 
@@ -419,6 +488,9 @@ export class BoundaryMapComponent {
     const styles = getComputedStyle(this.host.nativeElement);
     const token = (name: string, fallback: string) =>
       styles.getPropertyValue(name).trim() || fallback;
+    // In light, borders of the page's background left white land with no visible edge (step0 is
+    // white on an off-white page): a quiet grey line draws every state's edge (spec 2.6 and 6.4).
+    const light = this.theme.resolved() === 'light';
     return {
       steps: [
         token('--color-map-step0', '#2c2724'),
@@ -427,7 +499,9 @@ export class BoundaryMapComponent {
         token('--color-map-step3', '#c9661f'),
         token('--color-map-step4', '#ff8f3d'),
       ],
-      line: token('--color-background', '#141210'),
+      line: light
+        ? token('--color-text-disabled', '#a8a29e')
+        : token('--color-background', '#141210'),
       outline: token('--color-border-strong', '#808080'),
       hover: token('--color-ink', '#111111'),
       selected: token('--color-primary', '#f4761a'),
@@ -444,25 +518,19 @@ export class BoundaryMapComponent {
       this.restyleCode(code, palette);
     }
     this.outlines?.setStyle({ color: palette.outline, weight: 1, fill: false, opacity: 0.6 });
-    this.drawHome(this.home());
+    this.drawHome(this.home(), palette);
   }
 
   private restyleCode(code: string, palette = this.palette()): void {
     const level = shadeLevel(this.counts().get(code));
-    const selected = this.selected() === code;
-    const traced = this.hovered === code || this.highlight() === code;
     for (const path of this.layers.get(code) ?? []) {
       path.setStyle({
-        color: selected ? palette.selected : traced ? palette.hover : palette.line,
-        weight: selected ? 2 : traced ? 1.5 : 0.8,
+        color: palette.line,
+        weight: 0.8,
         opacity: 1,
         fillColor: palette.steps[level],
         fillOpacity: 1,
       });
-      if (selected || traced) {
-        path.bringToFront();
-      }
     }
-    this.homeLayer?.bringToFront();
   }
 }

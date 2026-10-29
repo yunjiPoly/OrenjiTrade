@@ -37,11 +37,26 @@ describe('WhoHasComponent (spec 7.3 and 7.4)', () => {
   let element: HTMLElement;
   let holders: ReturnType<typeof vi.fn>;
   let message: ReturnType<typeof vi.fn>;
+  let cores: ReturnType<typeof vi.fn>;
   const authenticated = signal(true);
 
-  async function render(rows: unknown[], totalPages = 1) {
+  async function render(
+    rows: unknown[],
+    totalPages = 1,
+    options: { region?: string; printingId?: string | null } = {},
+  ) {
     holders = vi.fn(() => of({ items: rows, page: 0, totalPages }));
     message = vi.fn();
+    cores = vi.fn(() =>
+      of([
+        {
+          id: 'core-1',
+          name: 'Yubel core',
+          askingPriceText: '$95',
+          owner: { handle: 'duelist.jp', place: { subdivisionName: 'Quebec' } },
+        },
+      ]),
+    );
     TestBed.configureTestingModule({
       imports: [WhoHasComponent],
       providers: [
@@ -50,15 +65,7 @@ describe('WhoHasComponent (spec 7.3 and 7.4)', () => {
           provide: SearchService,
           useValue: {
             searchCardHolders: holders,
-            searchDeckCores: () =>
-              of([
-                {
-                  id: 'core-1',
-                  name: 'Yubel core',
-                  askingPriceText: '$95',
-                  owner: { handle: 'duelist.jp', place: { subdivisionName: 'Quebec' } },
-                },
-              ]),
+            searchDeckCores: cores,
           },
         },
         { provide: AuthService, useValue: { isAuthenticated: authenticated } },
@@ -69,8 +76,11 @@ describe('WhoHasComponent (spec 7.3 and 7.4)', () => {
     fixture = TestBed.createComponent(WhoHasComponent);
     fixture.componentRef.setInput('cardId', 'card-1');
     fixture.componentRef.setInput('cardName', 'Ash Blossom & Joyous Spring');
-    fixture.componentRef.setInput('region', 'americas-north');
+    fixture.componentRef.setInput('region', options.region ?? 'americas-north');
     fixture.componentRef.setInput('regionName', 'Americas (North)');
+    if (options.printingId !== undefined) {
+      fixture.componentRef.setInput('printingId', options.printingId);
+    }
     fixture.componentRef.setInput('viewer', { subdivisionCode: 'CA-QC', countryCode: 'CA' });
     element = fixture.nativeElement as HTMLElement;
     fixture.detectChanges();
@@ -115,6 +125,64 @@ describe('WhoHasComponent (spec 7.3 and 7.4)', () => {
       element.querySelector(`#${row.getAttribute('aria-describedby')}`)?.textContent,
     ).toContain('NM, ships tracked');
     expect(element.querySelector('[data-testid="holder-price"]')?.textContent).toBe('85% TCG');
+  });
+
+  it('asks the browsed region (not the default) for the holders and the deck cores', async () => {
+    await render([result('1', 'FR-IDF', 'Île-de-France', 'a')], 1, { region: 'europe' });
+    expect(holders).toHaveBeenCalledWith(
+      expect.objectContaining({ cardId: 'card-1', region: 'europe' }),
+      'body',
+      false,
+      expect.anything(),
+    );
+    expect(cores).toHaveBeenCalledWith(
+      expect.objectContaining({ cardId: 'card-1', region: 'europe' }),
+      'body',
+      false,
+      expect.anything(),
+    );
+  });
+
+  it('a picked printing reaches the holder search, and a new pick asks again (spec 7.3)', async () => {
+    await render([result('1', 'CA-QC', 'Quebec', 'a')], 1, { printingId: 'p-azr-fr001' });
+    expect(holders).toHaveBeenLastCalledWith(
+      expect.objectContaining({ printingId: 'p-azr-fr001', region: 'americas-north' }),
+      'body',
+      false,
+      expect.anything(),
+    );
+    expect(holders.mock.calls[0][0]).not.toHaveProperty('cardId');
+    fixture.componentRef.setInput('printingId', 'p-azr-en001');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(holders).toHaveBeenLastCalledWith(
+      expect.objectContaining({ printingId: 'p-azr-en001' }),
+      'body',
+      false,
+      expect.anything(),
+    );
+    fixture.componentRef.setInput('printingId', null);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(holders).toHaveBeenLastCalledWith(
+      expect.objectContaining({ cardId: 'card-1' }),
+      'body',
+      false,
+      expect.anything(),
+    );
+  });
+
+  it('Esc hides the full-note tooltip until the pointer or the focus leaves (SC 1.4.13)', async () => {
+    await render([result('1', 'CA-QC', 'Quebec', 'a', 'NM, ships tracked')]);
+    const row = element.querySelector<HTMLElement>('[data-testid="holder-row"]')!;
+    row.focus();
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true });
+    row.dispatchEvent(escape);
+    fixture.detectChanges();
+    expect(row.classList).toContain('wh__row--tip-off');
+    row.dispatchEvent(new MouseEvent('mouseleave'));
+    fixture.detectChanges();
+    expect(row.classList).not.toContain('wh__row--tip-off');
   });
 
   it('Message opens the chat drawer about this copy, labelled with the handle and the card', async () => {

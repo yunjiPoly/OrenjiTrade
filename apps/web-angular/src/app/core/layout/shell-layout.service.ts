@@ -77,6 +77,7 @@ export class ShellLayout {
   private readonly mediumState = signal(false);
   private readonly skipMapState = signal<string | null>(null);
   private readonly chatOpenState = signal(false);
+  private readonly dockState = signal(false);
 
   readonly data = this.dataState.asReadonly();
   readonly area = computed(() => this.dataState().area);
@@ -144,6 +145,13 @@ export class ShellLayout {
   }
 
   /** A page that shows the map registers the element after it; `null` when it leaves. */
+  /** A bulk dock at the bottom of a list pane (Search › Wishlist): the toasts rise above it. */
+  readonly dockOpen = this.dockState.asReadonly();
+
+  setDockOpen(open: boolean): void {
+    this.dockState.set(open);
+  }
+
   setSkipMapTarget(id: string | null): void {
     this.skipMapState.set(id);
   }

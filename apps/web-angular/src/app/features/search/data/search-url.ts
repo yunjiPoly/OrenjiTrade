@@ -65,3 +65,44 @@ export function parseSearchUrl(input: SearchUrlInput): SearchUrl {
 export function showsStateList(url: Pick<SearchUrl, 'state' | 'q'>): boolean {
   return !url.state && !url.q;
 }
+
+export interface SwitchInput {
+  /** The URL's region and game (undefined on a first visit without them). */
+  requestedRegion: string | undefined;
+  requestedGame: string | undefined;
+  /** The browsed region and game (the pills). */
+  region: string;
+  game: string;
+  /** The URL's state. */
+  state: string | undefined;
+  /** Whether the browsed region has that subdivision. */
+  regionHas: (code: string) => boolean;
+}
+
+/**
+ * The URL patch that mirrors the pills into the URL (one navigation). When the region changed, a
+ * state of the old region (it would answer 404 on every Try again) and the open binder go; a
+ * chosen wish stays, its holders follow the region. When the game changed, the open binder and
+ * the chosen wish of the old game go.
+ */
+export function switchPatch(input: SwitchInput): Record<string, string | null> {
+  const patch: Record<string, string | null> = {};
+  if (input.requestedRegion !== input.region) {
+    patch['region'] = input.region;
+    if (input.requestedRegion) {
+      const state = (input.state ?? '').trim().toUpperCase();
+      if (state && state !== WHOLE_REGION.toUpperCase() && !input.regionHas(state)) {
+        patch['state'] = null;
+      }
+      patch['open'] = null;
+    }
+  }
+  if (input.requestedGame !== input.game) {
+    patch['game'] = input.game;
+    if (input.requestedGame) {
+      patch['open'] = null;
+      patch['wish'] = null;
+    }
+  }
+  return patch;
+}

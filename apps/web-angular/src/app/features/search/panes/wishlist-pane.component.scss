@@ -238,6 +238,12 @@
   font-size: var(--font-size-meta);
 }
 
+// On the tinted current or hovered row, the darker (light) or lighter (dark) teal keeps 4.5:1.
+.wp__row--active .wp__available,
+.wp__open:hover .wp__available {
+  color: var(--color-on-accent-container);
+}
+
 .wp__available {
   display: inline-flex;
   align-items: center;
@@ -286,13 +292,41 @@
   position: sticky;
   bottom: 0;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
+  gap: 8px;
   margin: 16px -24px -24px;
   padding: 14px 24px;
   border-top: 1px solid var(--color-border);
   background: var(--color-surface-elevated);
+}
+
+.wp__dock-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.wp__dock-error {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+}
+
+// md: the pane's padding is 16 (search-page.component.scss).
+@media (max-width: 1279.98px) {
+  .wp__dock {
+    margin: 16px -16px -16px;
+    padding: 14px 16px;
+  }
+}
+
+// Below 960 the page scrolls: the dock sits above the tab bar.
+@media (max-width: 959.98px) {
+  .wp__dock {
+    bottom: calc(64px + env(safe-area-inset-bottom));
+    margin-bottom: 0;
+  }
 }
 
 .wp__danger {

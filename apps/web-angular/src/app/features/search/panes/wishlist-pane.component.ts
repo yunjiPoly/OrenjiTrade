@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   computed,
   effect,
   inject,
@@ -17,6 +18,7 @@ import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ToastService } from '../../../core/feedback/toast.service';
 import { silentErrors } from '../../../core/http/http-context';
+import { ShellLayout } from '../../../core/layout/shell-layout.service';
 import { ShellIconComponent } from '../../../core/layout/shell-icon/shell-icon.component';
 import { printingCode } from '../../../shared/inventory/inventory-labels';
 import {
@@ -39,6 +41,16 @@ export function wishTerms(
   return [copy, wish.nearMintOnly ? 'NM only' : null, wish.priceTerm?.label ?? null]
     .filter(Boolean)
     .join(' · ');
+}
+
+/** The bulk remove's confirmation: "for it" for one wish, "for them" for several. */
+export function removeConfirmation(count: number): ConfirmDialogData {
+  return {
+    title: count === 1 ? 'Remove this wish?' : `Remove ${count} wishes?`,
+    message: count === 1 ? 'You stop getting alerts for it.' : 'You stop getting alerts for them.',
+    confirmLabel: 'Remove from wishlist',
+    tone: 'danger',
+  };
 }
 
 /** "You have 20 wishes, the most each collector can have. Every collector has the same limits." */
@@ -224,10 +236,30 @@ export function wishLimitLine(used: number, limit: number | null): string | null
       </div>
       @if (selecting() && picked().size > 0) {
         <div class="wp__dock" role="region" aria-label="Selected wishes">
-          <span>{{ picked().size }} selected</span>
-          <button type="button" class="wp__danger" [disabled]="removing()" (click)="removePicked()">
-            Remove from wishlist
-          </button>
+          @if (removeError(); as error) {
+            <p class="wp__dock-error" role="alert" data-testid="wish-remove-error">
+              {{ error }}
+              <button
+                type="button"
+                class="wp__text"
+                [disabled]="removing()"
+                (click)="removePicked(false)"
+              >
+                Try again
+              </button>
+            </p>
+          }
+          <div class="wp__dock-row">
+            <span>{{ picked().size }} selected</span>
+            <button
+              type="button"
+              class="wp__danger"
+              [disabled]="removing()"
+              (click)="removePicked()"
+            >
+              Remove from wishlist
+            </button>
+          </div>
         </div>
       }
     }
@@ -256,6 +288,9 @@ export class WishlistPaneComponent {
   protected readonly selecting = signal(false);
   protected readonly picked = signal<ReadonlySet<string>>(new Set());
   protected readonly removing = signal(false);
+  /** A bulk remove that failed: what stays selected, said plainly, with Try again. */
+  protected readonly removeError = signal<string | null>(null);
+  private readonly layout = inject(ShellLayout);
   private readonly available = signal<ReadonlySet<string>>(new Set());
 
   /** The browsed game's wishes only (stage G). */
@@ -277,6 +312,12 @@ export class WishlistPaneComponent {
   protected readonly terms = wishTerms;
 
   constructor() {
+    // The toasts rise above the dock while it shows (WD review U15).
+    effect(() => {
+      const open = this.selecting() && this.picked().size > 0;
+      untracked(() => this.layout.setDockOpen(open));
+    });
+    inject(DestroyRef).onDestroy(() => this.layout.setDockOpen(false));
     effect(() => {
       if (this.auth.isAuthenticated()) {
         untracked(() => {
@@ -386,6 +427,7 @@ export class WishlistPaneComponent {
   protected toggleSelecting(): void {
     this.selecting.set(!this.selecting());
     this.picked.set(new Set());
+    this.removeError.set(null);
   }
 
   protected togglePick(id: string): void {
@@ -398,47 +440,61 @@ export class WishlistPaneComponent {
     this.picked.set(next);
   }
 
-  protected async removePicked(): Promise<void> {
+  /**
+   * Removes the picked wishes one by one (after the confirmation; "Try again" skips it). When one
+   * fails, the wishes not removed stay selected and the dock says so with Try again.
+   */
+  protected async removePicked(confirm = true): Promise<void> {
     const ids = [...this.picked()];
     const count = ids.length;
-    const confirmed = await firstValueFrom(
-      this.dialog
-        .open<ConfirmDialogComponent, ConfirmDialogData, boolean>(ConfirmDialogComponent, {
-          data: {
-            title: count === 1 ? 'Remove this wish?' : `Remove ${count} wishes?`,
-            message: 'You stop getting alerts for it.',
-            confirmLabel: 'Remove from wishlist',
-            tone: 'danger',
-          },
-          autoFocus: 'first-tabbable',
-          restoreFocus: true,
-        })
-        .afterClosed(),
-    );
-    if (!confirmed) {
-      return;
+    if (confirm) {
+      const confirmed = await firstValueFrom(
+        this.dialog
+          .open<ConfirmDialogComponent, ConfirmDialogData, boolean>(ConfirmDialogComponent, {
+            data: removeConfirmation(count),
+            autoFocus: 'first-tabbable',
+            restoreFocus: true,
+          })
+          .afterClosed(),
+      );
+      if (!confirmed) {
+        return;
+      }
     }
     this.removing.set(true);
+    this.removeError.set(null);
     let removed = 0;
+    const left = new Set(ids);
     for (const id of ids) {
       const wish = this.store.find(id);
       if (!wish) {
+        left.delete(id);
         continue;
       }
       try {
         await this.store.remove(wish);
+        left.delete(id);
         removed++;
       } catch {
         break;
       }
     }
     this.removing.set(false);
-    this.picked.set(new Set());
-    this.selecting.set(false);
     if (removed > 0) {
       this.toasts.show({
         title: removed === 1 ? 'Removed from your wishlist' : `${removed} wishes removed`,
       });
     }
+    if (left.size > 0) {
+      this.picked.set(left);
+      this.removeError.set(
+        left.size === 1
+          ? 'This wish could not be removed.'
+          : `${left.size} wishes could not be removed.`,
+      );
+      return;
+    }
+    this.picked.set(new Set());
+    this.selecting.set(false);
   }
 }

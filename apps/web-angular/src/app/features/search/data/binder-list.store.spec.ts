@@ -60,6 +60,24 @@ describe('BinderListStore (Search › Binders, spec 6.3)', () => {
     expect(store.items().map((b) => b.id)).toEqual(['b1', 'b1']);
   });
 
+  it('asks the browsed region and game, not the default, for a state and for the whole region', () => {
+    const store = TestBed.inject(BinderListStore);
+    store.load({ ...query, region: 'europe', game: 'pokemon', state: 'FR-IDF' });
+    expect(subdivision).toHaveBeenLastCalledWith(
+      expect.objectContaining({ region: 'europe', code: 'FR-IDF', game: 'pokemon' }),
+      'body',
+      false,
+      expect.anything(),
+    );
+    store.load({ ...query, region: 'europe', game: 'pokemon', state: null });
+    expect(region).toHaveBeenLastCalledWith(
+      expect.objectContaining({ region: 'europe', game: 'pokemon' }),
+      'body',
+      false,
+      expect.anything(),
+    );
+  });
+
   it('keeps an error to retry', () => {
     subdivision.mockReturnValueOnce(throwError(() => new Error('offline')));
     const store = TestBed.inject(BinderListStore);

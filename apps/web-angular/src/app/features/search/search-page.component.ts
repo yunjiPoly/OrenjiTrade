@@ -32,7 +32,13 @@ import { WishlistActions } from '../../shared/wishlist/wishlist-actions.service'
 import { RegionMapStore } from '../map/data/region-map.store';
 import { WishlistStore } from '../wishlist/data/wishlist.store';
 import { BinderListStore } from './data/binder-list.store';
-import { BinderKind, SearchTab, WHOLE_REGION, parseSearchUrl } from './data/search-url';
+import {
+  BinderKind,
+  SearchTab,
+  WHOLE_REGION,
+  parseSearchUrl,
+  switchPatch,
+} from './data/search-url';
 import { BinderDrillInComponent } from './drill-in/binder-drill-in.component';
 import { SearchMapComponent } from './map/search-map.component';
 import { BindersPaneComponent } from './panes/binders-pane.component';
@@ -270,14 +276,19 @@ export class SearchPageComponent {
             return;
           }
         }
-        const patch: Record<string, string> = {};
+        const patch = switchPatch({
+          requestedRegion,
+          requestedGame,
+          region,
+          game,
+          state: this.state(),
+          regionHas: (code) => this.names().has(code),
+        });
         if (requestedRegion !== region) {
           this.appliedRegion = region;
-          patch['region'] = region;
         }
         if (requestedGame !== game) {
           this.appliedGame = game;
-          patch['game'] = game;
         }
         if (Object.keys(patch).length > 0) {
           this.mergeUrl(patch, true);

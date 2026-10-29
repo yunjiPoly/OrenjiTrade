@@ -118,6 +118,7 @@ type Status = 'loading' | 'ready' | 'error';
                 <li
                   class="wh__row"
                   [class.wh__row--guest]="!handle"
+                  [class.wh__row--tip-off]="tipOff() === result.item.id"
                   [attr.data-item]="result.item.id"
                   [attr.tabindex]="active ? 0 : -1"
                   [attr.aria-label]="rowLabel(result)"
@@ -126,6 +127,9 @@ type Status = 'loading' | 'ready' | 'error';
                   (focus)="activeId.set(result.item.id)"
                   (click)="onRowClick($event, result)"
                   (keydown.enter)="onRowEnter($event, result)"
+                  (keydown.escape)="dismissTip($event, result)"
+                  (mouseleave)="tipOff.set(null)"
+                  (focusout)="tipOff.set(null)"
                 >
                   <span class="wh__avatar">
                     @if (handle) {
@@ -255,6 +259,8 @@ export class WhoHasComponent {
   protected readonly rows = signal<CardHolderResult[]>([]);
   protected readonly deckCores = signal<PublicBinderSummary[]>([]);
   protected readonly activeId = signal<string | null>(null);
+  /** The row whose full-note tooltip Esc dismissed (until the pointer or the focus leaves). */
+  protected readonly tipOff = signal<string | null>(null);
   private readonly page = signal(0);
   private readonly totalPages = signal(0);
   private readonly error = signal<ApiError | null>(null);
@@ -417,6 +423,14 @@ export class WhoHasComponent {
       return;
     }
     this.openRow(result);
+  }
+
+  /** Esc hides the row's full-note tooltip; a second Esc goes on to the page (a drawer). */
+  protected dismissTip(event: Event, result: CardHolderResult): void {
+    if (result.item.publicNotes && this.tipOff() !== result.item.id) {
+      this.tipOff.set(result.item.id);
+      event.stopPropagation();
+    }
   }
 
   /** Enter on a row (not on its link or button) opens the holder's profile. */
