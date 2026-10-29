@@ -115,10 +115,14 @@ tags:
     id: 'chat-safety-tip'
 - takeScreenshot: r15-chat-after-sign-in
 
-# Back: the card page the guest was on, now with who holds it.
+# Back: the card page the guest was on, now with who holds it. It keeps the place the guest had
+# scrolled to (Ben's row, under every province before Wyoming; the more holders the suite has
+# made, the further down), so the page goes back up to the card's name.
 - runFlow: subflows/go-back.yaml
-- extendedWaitUntil:
-    visible:
-      id: 'card-name'
-      text: ${output.card.name}
-    timeout: 30000
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'card-name'
+- assertVisible:
+    id: 'card-name'
+    text: ${output.card.name}
