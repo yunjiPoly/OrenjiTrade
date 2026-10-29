@@ -38,6 +38,7 @@ import {
   ratingText,
 } from '../../shared/discovery/binder-view/binder-parts.component';
 import { DeckCoreGalleryComponent } from '../../shared/discovery/binder-view/deck-core-gallery.component';
+import { ShipNotesComponent } from '../../shared/discovery/binder-view/ship-notes.component';
 import { gameInfo } from '../../shared/domain/games';
 import { ChatDrawer } from '../../shared/messaging/chat-drawer.service';
 import { ReportActionsService } from '../../shared/reports/report-actions.service';
@@ -77,6 +78,7 @@ function binderGame(binder: PublicBinderResponse | null): string | null {
     GameMonogramComponent,
     KeyCardsComponent,
     ShellIconComponent,
+    ShipNotesComponent,
   ],
   providers: [BinderViewStore],
   templateUrl: './public-binder-page.component.html',

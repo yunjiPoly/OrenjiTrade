@@ -21,6 +21,7 @@ import { ApiError, toApiError } from '../../../core/http/api-error';
 import { silentErrors } from '../../../core/http/http-context';
 import { itemPriceText } from '../../../features/inventory/data/item-price';
 import { ChatDrawer } from '../../messaging/chat-drawer.service';
+import { WhoHasCoresComponent } from './who-has-cores.component';
 import { AvatarComponent } from '../../ui/avatar/avatar.component';
 import { ShellIconComponent } from '../../../core/layout/shell-icon/shell-icon.component';
 import { printingCode } from '../../inventory/inventory-labels';
@@ -54,7 +55,7 @@ type Status = 'loading' | 'ready' | 'error';
  */
 @Component({
   selector: 'app-who-has',
-  imports: [RouterLink, AvatarComponent, ShellIconComponent],
+  imports: [RouterLink, AvatarComponent, ShellIconComponent, WhoHasCoresComponent],
   template: `
     @if (status() === 'loading' && rows().length === 0) {
       <div class="wh__skeleton" aria-busy="true" data-testid="who-has-skeleton">
@@ -92,36 +93,7 @@ type Status = 'loading' | 'ready' | 'error';
         </nav>
       }
       @if (deckCores().length > 0) {
-        <section class="wh__cores" aria-labelledby="{{ prefix() }}-cores-title">
-          <h3 class="wh__cores-title" id="{{ prefix() }}-cores-title">
-            <span class="wh__cores-icon" aria-hidden="true"
-              ><app-shell-icon name="layers" [size]="16"
-            /></span>
-            Also in a deck core
-            <span class="wh__cores-lead">Sold together, with photos and one price</span>
-          </h3>
-          <ul class="wh__cores-list">
-            @for (core of deckCores(); track core.id) {
-              <li>
-                <a class="wh__core" [routerLink]="['/binders', core.id]">
-                  <span class="wh__core-photo" aria-hidden="true">
-                    @if (core.photos?.[0]?.url; as url) {
-                      <img [src]="url" alt="" loading="lazy" decoding="async" />
-                    }
-                  </span>
-                  <span class="wh__core-text">
-                    <span class="wh__core-name">{{ core.name }}</span>
-                    <span class="wh__core-meta">{{ coreMeta(core) }}</span>
-                  </span>
-                  @if (core.askingPriceText) {
-                    <span class="wh__core-price">{{ core.askingPriceText }}</span>
-                  }
-                  <app-shell-icon class="wh__muted" name="chevronRight" [size]="18" />
-                </a>
-              </li>
-            }
-          </ul>
-        </section>
+        <app-who-has-cores [cores]="deckCores()" [prefix]="prefix()" />
       }
       <div class="wh__groups" tabindex="-1" (keydown)="onKeydown($event)">
         @for (group of groups(); track group.key) {
@@ -404,12 +376,6 @@ export class WhoHasComponent {
 
   protected price(result: CardHolderResult): string | null {
     return holderPrice(result);
-  }
-
-  protected coreMeta(core: PublicBinderSummary): string {
-    return [core.owner?.handle ?? 'A collector', core.owner?.place?.subdivisionName]
-      .filter(Boolean)
-      .join(' · ');
   }
 
   /** "duelist.jp, Quebec, RA01-EN008 · Secret Rare, $32, 2 copies" (the note is the description). */
