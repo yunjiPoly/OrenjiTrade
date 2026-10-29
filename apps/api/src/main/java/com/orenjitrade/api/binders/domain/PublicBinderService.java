@@ -10,6 +10,7 @@ import com.orenjitrade.api.limits.domain.Limits;
 import com.orenjitrade.api.location.domain.LocationService;
 import com.orenjitrade.api.location.domain.PublicPlace;
 import com.orenjitrade.api.profiles.domain.BlockRelationProvider;
+import com.orenjitrade.api.profiles.domain.CollectorLookup;
 import com.orenjitrade.api.profiles.domain.PrivacySettingsService;
 import com.orenjitrade.api.profiles.domain.PrivacySettingsView;
 import com.orenjitrade.api.profiles.domain.ProfileService;
@@ -49,6 +50,7 @@ public class PublicBinderService {
     private final BinderRepository repository;
     private final BinderService binderService;
     private final UserAccountService userAccountService;
+    private final CollectorLookup collectors;
     private final ProfileService profileService;
     private final PrivacySettingsService privacySettingsService;
     private final LocationService locationService;
@@ -62,6 +64,7 @@ public class PublicBinderService {
             BinderRepository repository,
             BinderService binderService,
             UserAccountService userAccountService,
+            CollectorLookup collectors,
             ProfileService profileService,
             PrivacySettingsService privacySettingsService,
             LocationService locationService,
@@ -73,6 +76,7 @@ public class PublicBinderService {
         this.repository = repository;
         this.binderService = binderService;
         this.userAccountService = userAccountService;
+        this.collectors = collectors;
         this.profileService = profileService;
         this.privacySettingsService = privacySettingsService;
         this.locationService = locationService;
@@ -89,15 +93,14 @@ public class PublicBinderService {
      */
     @Transactional(readOnly = true)
     public PublicOwner requireOwner(@Nullable UUID viewerId, String handle) {
-        Instant now = timeProvider.now();
+        // A collector who blocked the viewer is a miss of the lookup itself: the unknown handle's
+        // answer at the same cost (owner decision of 2026-10-28).
         UserAccountSnapshot account =
-                userAccountService
-                        .findByHandle(handle)
-                        .filter(candidate -> isPubliclyVisible(candidate, now))
+                collectors
+                        .visibleByHandle(viewerId, handle)
                         .orElseThrow(() -> ApiException.notFound(COLLECTOR_NOT_FOUND));
         boolean other = !account.id().equals(viewerId);
-        // A block first, before any of the collector's data is read: the blocked side gets the
-        // unknown handle's answer (owner decision of 2026-10-28).
+        // The viewer who blocked the collector (also when both did) gets the same 404.
         if (other && isBlocked(viewerId, account.id())) {
             throw ApiException.notFound(COLLECTOR_NOT_FOUND);
         }

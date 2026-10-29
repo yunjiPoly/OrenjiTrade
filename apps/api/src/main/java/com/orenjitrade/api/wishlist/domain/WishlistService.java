@@ -16,6 +16,7 @@ import com.orenjitrade.api.moderation.domain.ModerationScope;
 import com.orenjitrade.api.moderation.domain.ModerationVerdict;
 import com.orenjitrade.api.moderation.domain.TextModerationService;
 import com.orenjitrade.api.profiles.domain.BlockRelationProvider;
+import com.orenjitrade.api.profiles.domain.CollectorLookup;
 import com.orenjitrade.api.profiles.domain.PrivacyPolicyService;
 import com.orenjitrade.api.profiles.domain.PrivacySettingsService;
 import com.orenjitrade.api.profiles.domain.PrivacySettingsView;
@@ -86,6 +87,7 @@ public class WishlistService {
     private final Limits limits;
     private final TextModerationService moderation;
     private final UserAccountService accounts;
+    private final CollectorLookup collectors;
     private final PrivacySettingsService privacySettings;
     private final PrivacyPolicyService privacyPolicy;
     private final ObjectProvider<BlockRelationProvider> blocks;
@@ -104,6 +106,7 @@ public class WishlistService {
             Limits limits,
             TextModerationService moderation,
             UserAccountService accounts,
+            CollectorLookup collectors,
             PrivacySettingsService privacySettings,
             PrivacyPolicyService privacyPolicy,
             ObjectProvider<BlockRelationProvider> blocks,
@@ -120,6 +123,7 @@ public class WishlistService {
         this.limits = limits;
         this.moderation = moderation;
         this.accounts = accounts;
+        this.collectors = collectors;
         this.privacySettings = privacySettings;
         this.privacyPolicy = privacyPolicy;
         this.blocks = blocks;
@@ -384,14 +388,14 @@ public class WishlistService {
      */
     @Transactional(readOnly = true)
     public List<WishlistItemView> publicSummary(@Nullable UUID viewerId, String handle) {
-        Instant now = timeProvider.now();
+        // A collector who blocked the viewer is a miss of the lookup itself: the unknown handle's
+        // answer at the same cost (owner decision of 2026-10-28).
         UserAccountSnapshot account =
-                accounts.findByHandle(handle)
-                        .filter(candidate -> isPubliclyVisible(candidate, now))
+                collectors
+                        .visibleByHandle(viewerId, handle)
                         .orElseThrow(() -> ApiException.notFound(WISHLIST_NOT_FOUND));
         UUID targetId = account.id();
-        // A block first, before any of the collector's data is read: the blocked side gets the
-        // unknown handle's answer (owner decision of 2026-10-28).
+        // The viewer who blocked the collector (also when both did) gets the same 404.
         boolean blocked = false;
         if (viewerId != null && !viewerId.equals(targetId)) {
             @Nullable BlockRelationProvider provider = blocks.getIfAvailable();

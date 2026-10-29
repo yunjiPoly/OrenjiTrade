@@ -81,23 +81,6 @@ public class BlockRepository {
                 .single();
     }
 
-    /**
-     * Whether {@code ownerId} blocked {@code viewerId} while {@code viewerId} did not block {@code
-     * ownerId}, in one query: the owner's things are then answered to the viewer as if they did not
-     * exist (owner decision of 2026-10-28); a viewer who blocked the owner keeps the blocker's
-     * view.
-     */
-    public boolean hidesFrom(UUID ownerId, UUID viewerId) {
-        return jdbc.sql(
-                        "SELECT EXISTS (SELECT 1 FROM user_block WHERE blocker_id = :owner AND"
-                                + " blocked_id = :viewer) AND NOT EXISTS (SELECT 1 FROM user_block"
-                                + " WHERE blocker_id = :viewer AND blocked_id = :owner)")
-                .param("owner", ownerId)
-                .param("viewer", viewerId)
-                .query(Boolean.class)
-                .single();
-    }
-
     /** Blocks created by {@code blockerId}, newest first. */
     public List<Row> blockedBy(UUID blockerId) {
         return jdbc.sql(

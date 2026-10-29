@@ -4,13 +4,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.orenjitrade.api.admin.AbstractPhase7IT;
 import com.orenjitrade.api.auth.domain.AccountStatus;
+import com.orenjitrade.api.messaging.MessagingTestSupport;
+import com.orenjitrade.api.profiles.infra.CollectorHandleRepository;
 import com.orenjitrade.api.ratings.domain.InteractionKind;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
 import org.springframework.test.web.servlet.client.EntityExchangeResult;
 import tools.jackson.databind.JsonNode;
@@ -25,6 +29,8 @@ import tools.jackson.databind.node.ObjectNode;
  * collector who cannot receive messages; yours say that you blocked them.
  */
 class BlockAnsweredAsNotFoundIT extends AbstractPhase7IT {
+
+    @Autowired private CollectorHandleRepository handles;
 
     /** The profile and every read under it. */
     private static final List<String> SECTIONS =
@@ -183,6 +189,40 @@ class BlockAnsweredAsNotFoundIT extends AbstractPhase7IT {
                 .hasSize(1);
     }
 
+    /**
+     * Review fix 1 (P9, F9): the handle lookup itself is the miss for a collector who blocked the
+     * viewer, as for an unknown handle and a suspended account: one query decides it, so no extra
+     * round trip (and no timing) tells a block apart; the blocker, both sides of a mutual block,
+     * others, guests and an expired suspension are found.
+     */
+    @Test
+    void theHandleLookupMissesACollectorWhoBlockedTheViewerInTheSameQuery() {
+        Collector blocker = member("nf-lookup-blocker");
+        Collector blocked = member("nf-lookup-blocked");
+        Collector bystander = member("nf-lookup-bystander");
+        Collector suspended = member("nf-lookup-suspended");
+        Collector over = member("nf-lookup-over");
+        block(blocker, blocked);
+        testUsers.setStatus(suspended.id(), AccountStatus.SUSPENDED, null);
+        testUsers.setStatus(over.id(), AccountStatus.SUSPENDED, Instant.now().minusSeconds(60));
+        Instant now = Instant.now();
+
+        assertThat(handles.visibleId(blocker.handle(), blocked.id(), now)).isEmpty();
+        assertThat(handles.visibleId("nf_lookup_nobody", blocked.id(), now)).isEmpty();
+        assertThat(handles.visibleId(suspended.handle(), blocked.id(), now)).isEmpty();
+        assertThat(handles.visibleId(blocker.handle(), bystander.id(), now)).contains(blocker.id());
+        assertThat(handles.visibleId(blocker.handle(), null, now)).contains(blocker.id());
+        assertThat(handles.visibleId(blocked.handle(), blocker.id(), now))
+                .as("the blocker finds the collector they blocked")
+                .contains(blocked.id());
+        assertThat(handles.visibleId(blocker.handle(), blocker.id(), now)).contains(blocker.id());
+        assertThat(handles.visibleId(over.handle(), blocked.id(), now)).contains(over.id());
+        block(blocked, blocker);
+        assertThat(handles.visibleId(blocker.handle(), blocked.id(), now))
+                .as("both blocked each other: each is the blocker")
+                .contains(blocker.id());
+    }
+
     @Test
     void othersAndSignedOutVisitorsAreNotAffected() {
         Collector blocker = blockerWithAProfile("nf-others");
@@ -234,17 +274,38 @@ class BlockAnsweredAsNotFoundIT extends AbstractPhase7IT {
                 .as("the blocked side's refused message reads as for an inactive participant")
                 .isEqualTo(comparable(inactive.body(), awayChat));
 
-        Answer started =
+        // A new conversation, on the same route, with a collector who accepts none (review fix 1,
+        // P2 and F1): the blocked side reads exactly that refusal, never words of its own.
+        Collector closed = member("nf-msg-closed");
+        callJson(
+                HttpMethod.PUT,
+                "/api/v1/me/settings/privacy",
+                closed.uid(),
+                MessagingTestSupport.privacy("NOBODY", true),
+                200);
+        Answer nobody =
                 answer(
                         HttpMethod.POST,
                         "/api/v1/conversations",
-                        blocked.uid(),
-                        Map.of("recipientId", blocker.id().toString()));
-        assertThat(started.status()).isEqualTo(inactive.status());
-        for (String field : List.of("errorCode", "title", "type", "message", "detail")) {
-            assertThat(started.body().path(field))
-                    .as("a new conversation refused for a block: %s as for an inactive one", field)
-                    .isEqualTo(inactive.body().path(field));
+                        sender.uid(),
+                        Map.of("recipientId", closed.id().toString()));
+        assertThat(nobody.status()).isEqualTo(403);
+        assertThat(nobody.body().path("message").asString())
+                .isEqualTo("This collector does not accept new conversations");
+        for (Collector caller : List.of(blocked, member("nf-msg-new"))) {
+            if (!caller.equals(blocked)) {
+                block(blocker, caller);
+            }
+            Answer started =
+                    answer(
+                            HttpMethod.POST,
+                            "/api/v1/conversations",
+                            caller.uid(),
+                            Map.of("recipientId", blocker.id().toString()));
+            assertThat(started.status()).isEqualTo(nobody.status());
+            assertThat(comparable(started.body(), "/api/v1/conversations"))
+                    .as("a new conversation refused for a block reads as for a NOBODY recipient")
+                    .isEqualTo(comparable(nobody.body(), "/api/v1/conversations"));
         }
 
         // The blocker is told why.

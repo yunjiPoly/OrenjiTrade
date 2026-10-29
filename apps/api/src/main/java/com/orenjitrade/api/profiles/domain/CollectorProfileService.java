@@ -8,7 +8,6 @@ import com.orenjitrade.api.profiles.domain.CollectorProfileView.LastActiveBucket
 import com.orenjitrade.api.profiles.domain.CollectorProfileView.OnlineStatus;
 import com.orenjitrade.api.profiles.domain.ProfileService.PublicProfileParts;
 import com.orenjitrade.api.profiles.events.CollectorProfileViewed;
-import com.orenjitrade.api.users.domain.UserAccountService;
 import com.orenjitrade.api.users.domain.UserAccountSnapshot;
 import java.time.Duration;
 import java.time.Instant;
@@ -36,7 +35,7 @@ public class CollectorProfileService {
 
     static final String NOT_FOUND = "Collector not found";
 
-    private final UserAccountService userAccountService;
+    private final CollectorLookup lookup;
     private final ProfileService profileService;
     private final PrivacySettingsService privacySettingsService;
     private final PrivacyPolicyService privacyPolicy;
@@ -49,7 +48,7 @@ public class CollectorProfileService {
     private final ApplicationEventPublisher events;
 
     public CollectorProfileService(
-            UserAccountService userAccountService,
+            CollectorLookup lookup,
             ProfileService profileService,
             PrivacySettingsService privacySettingsService,
             PrivacyPolicyService privacyPolicy,
@@ -60,7 +59,7 @@ public class CollectorProfileService {
             ObjectProvider<BlockRelationProvider> blocks,
             ObjectProvider<PresenceProvider> presence,
             ApplicationEventPublisher events) {
-        this.userAccountService = userAccountService;
+        this.lookup = lookup;
         this.profileService = profileService;
         this.privacySettingsService = privacySettingsService;
         this.privacyPolicy = privacyPolicy;
@@ -77,12 +76,9 @@ public class CollectorProfileService {
     public CollectorProfileView view(@Nullable UUID viewerId, String handle) {
         Instant now = timeProvider.now();
         UserAccountSnapshot account =
-                userAccountService
-                        .findByHandle(handle)
-                        .filter(candidate -> isPubliclyVisible(candidate, now))
+                lookup.visibleByHandle(viewerId, handle)
                         .orElseThrow(() -> ApiException.notFound(NOT_FOUND));
         UUID targetId = account.id();
-        requireNotHiddenByBlock(viewerId, targetId);
         PrivacySettingsView privacy = privacySettingsService.settingsOf(targetId);
         ViewerContext viewer = viewerContext(viewerId, targetId);
         if (!privacyPolicy.canViewProfile(viewer, targetId, privacy)) {
@@ -139,35 +135,15 @@ public class CollectorProfileService {
      */
     @Transactional(readOnly = true)
     public UUID requireVisibleCollector(@Nullable UUID viewerId, String handle) {
-        Instant now = timeProvider.now();
         UserAccountSnapshot account =
-                userAccountService
-                        .findByHandle(handle)
-                        .filter(candidate -> isPubliclyVisible(candidate, now))
+                lookup.visibleByHandle(viewerId, handle)
                         .orElseThrow(() -> ApiException.notFound(NOT_FOUND));
         UUID targetId = account.id();
-        requireNotHiddenByBlock(viewerId, targetId);
         PrivacySettingsView privacy = privacySettingsService.settingsOf(targetId);
         if (!privacyPolicy.canViewProfile(viewerContext(viewerId, targetId), targetId, privacy)) {
             throw ApiException.notFound(NOT_FOUND);
         }
         return targetId;
-    }
-
-    /**
-     * A collector who blocked the viewer does not exist for them (owner decision of 2026-10-28, R13
-     * follow-up 7): the same {@code 404} as an unknown handle, decided right after the account is
-     * found and before any of its data (privacy settings, profile, ratings) is read. The blocker
-     * keeps their view ("You blocked {handle}", Unblock), also when both blocked each other.
-     */
-    private void requireNotHiddenByBlock(@Nullable UUID viewerId, UUID targetId) {
-        if (viewerId == null || viewerId.equals(targetId)) {
-            return;
-        }
-        @Nullable BlockRelationProvider blockProvider = blocks.getIfAvailable();
-        if (blockProvider != null && blockProvider.isHiddenByBlock(viewerId, targetId)) {
-            throw ApiException.notFound(NOT_FOUND);
-        }
     }
 
     /** Active accounts, including those whose temporary suspension has already expired. */

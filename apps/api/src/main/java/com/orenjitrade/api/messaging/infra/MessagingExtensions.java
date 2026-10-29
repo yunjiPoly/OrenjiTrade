@@ -35,11 +35,6 @@ public class MessagingExtensions {
             }
 
             @Override
-            public boolean isHiddenByBlock(UUID viewerId, UUID ownerId) {
-                return blockService.isHiddenByBlock(viewerId, ownerId);
-            }
-
-            @Override
             public Set<UUID> blockedAmong(UUID viewerId, Collection<UUID> targetIds) {
                 Set<UUID> hidden = blockService.hiddenFrom(viewerId);
                 if (hidden.isEmpty()) {

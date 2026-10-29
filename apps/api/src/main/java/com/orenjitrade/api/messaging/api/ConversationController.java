@@ -99,15 +99,15 @@ public class ConversationController {
                         + " (201); never 409. 403 MESSAGING_BLOCKED when a block exists in either"
                         + " direction or, for a new conversation, when the recipient's messaging"
                         + " permission refuses the caller (NOBODY, or MEMBERS_WITH_PROFILE and the"
-                        + " caller has no saved profile); a caller the recipient blocked reads"
-                        + " \"This collector cannot receive messages right now\", the caller who"
-                        + " blocked them \"You cannot message this collector\". 404 for unknown,"
-                        + " suspended or deleted recipients; 400 for oneself. Stage R4:"
-                        + " `subjectItemId` (a card) or `subjectBinderId` (a deck core) pins what"
-                        + " the chat is about, the latest wins; it must be the recipient's and"
-                        + " public, or the caller's own (404 when private, deleted or sold; 400 for"
-                        + " both at once, for someone else's, and for a binder that is not a deck"
-                        + " core).")
+                        + " caller has no saved profile); a caller the recipient blocked reads the"
+                        + " NOBODY recipient's \"This collector does not accept new"
+                        + " conversations\", the caller who blocked them \"You cannot message this"
+                        + " collector\". 404 for unknown, suspended or deleted recipients; 400 for"
+                        + " oneself. Stage R4: `subjectItemId` (a card) or `subjectBinderId` (a"
+                        + " deck core) pins what the chat is about, the latest wins; it must be the"
+                        + " recipient's and public, or the caller's own (404 when private, deleted"
+                        + " or sold; 400 for both at once, for someone else's, and for a binder"
+                        + " that is not a deck core).")
     @ApiResponse(responseCode = "200", description = "The existing conversation")
     @ApiResponse(responseCode = "201", description = "The new conversation")
     @ApiResponse(
