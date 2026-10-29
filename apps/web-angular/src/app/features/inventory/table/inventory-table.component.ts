@@ -34,6 +34,7 @@ import {
   SelectionChange,
   spokenAge,
 } from '../items/inventory-row';
+import { DragGhostComponent } from '../ui/drag-ghost.component';
 import { VisibilityTagComponent } from '../ui/visibility-tag.component';
 import { PriceEditorComponent } from './price-editor.component';
 
@@ -64,6 +65,7 @@ export interface RowDrag {
     MatIconModule,
     MatMenuModule,
     CardImageComponent,
+    DragGhostComponent,
     GameMonogramComponent,
     PriceEditorComponent,
     VisibilityTagComponent,
@@ -133,14 +135,7 @@ export interface RowDrag {
             (click)="onRowClick($event, it)"
           >
             <div class="tbl__placeholder" *cdkDragPlaceholder></div>
-            <div class="drag-ghost" *cdkDragPreview>
-              <span class="drag-ghost__fan">
-                @for (art of ghostArts(); track $index) {
-                  <app-card-image size="fill" [src]="art" />
-                }
-              </span>
-              <span class="drag-ghost__label">{{ ghostLabel() }}</span>
-            </div>
+            <app-drag-ghost *cdkDragPreview [arts]="dragArts()" [count]="dragCount()" />
             <div role="gridcell" class="c c-sel">
               <input
                 type="checkbox"
@@ -416,11 +411,6 @@ export class InventoryTableComponent {
   protected readonly preview = signal<string | null>(null);
   protected readonly dragging = signal(false);
   protected readonly rowCount = computed(() => (this.totalRows() ?? this.rows().length) + 1);
-  protected readonly ghostArts = computed(() => this.dragArts().slice(0, 3));
-  protected readonly ghostLabel = computed(() => {
-    const count = this.dragCount();
-    return `${count} ${count === 1 ? 'card' : 'cards'}`;
-  });
 
   protected image(item: InventoryItemResponse): string | null {
     return printingImageUrl(item.printing);

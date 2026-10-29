@@ -268,60 +268,6 @@ mark {
   color: var(--color-danger);
 }
 
-.many {
-  margin-top: 8px;
-  padding-top: 4px;
-  border-top: 1px solid var(--color-border);
-}
-
-.many__row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  margin-bottom: 8px;
-  padding: 12px;
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  background: var(--color-surface);
-  color: var(--color-ink);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.many__row:hover {
-  background: var(--color-surface-variant);
-}
-
-.many__row:focus-visible,
-.back:focus-visible,
-.chip:focus-visible {
-  outline: var(--focus-width) solid var(--color-focus-ring);
-  outline-offset: 2px;
-}
-
-.many__row mat-icon {
-  color: var(--color-text-secondary);
-}
-
-.many__text {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.many__title {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-}
-
-.many__body {
-  color: var(--color-text-muted);
-  font-size: var(--font-size-meta);
-}
-
 .back {
   display: inline-flex;
   align-items: center;

@@ -53,7 +53,8 @@ import {
 import { InventoryStore } from './data/inventory.store';
 import { itemPriceText } from './data/item-price';
 import { itemVisibilityTag } from './data/visibility-status';
-import { AddCardsDrawerComponent, AddManyChoice } from './drawer/add-cards-drawer.component';
+import { AddCardsDrawerComponent } from './drawer/add-cards-drawer.component';
+import { AddManyChoice } from './drawer/add-many.component';
 import { EditCardDrawerComponent } from './drawer/edit-card-drawer.component';
 import { InventoryGridComponent } from './grid/inventory-grid.component';
 import { ImportHandoff, sourceOfFile } from './import/import-handoff.service';

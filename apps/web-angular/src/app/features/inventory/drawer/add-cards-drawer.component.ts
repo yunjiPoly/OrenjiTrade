@@ -57,13 +57,11 @@ import {
 import { binderGameError } from '../data/inventory-actions.service';
 import { InventoryStore } from '../data/inventory.store';
 import { lastPriceMode, rememberPriceMode } from '../data/item-price';
+import { AddManyChoice, AddManyComponent } from './add-many.component';
 import { CardFieldsComponent } from './card-fields.component';
 import { DrawerFrameComponent } from './drawer-frame.component';
 
 type Step = 'search' | 'printing' | 'details';
-
-/** What "Add many at once" opens. */
-export type AddManyChoice = 'quick' | 'ydk' | 'csv';
 
 interface Kept {
   binderId: string | null;
@@ -86,6 +84,7 @@ const ALL = '';
   imports: [
     MatButtonModule,
     MatIconModule,
+    AddManyComponent,
     CardFieldsComponent,
     CardImageComponent,
     DrawerFrameComponent,

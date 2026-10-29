@@ -65,176 +65,30 @@
     </header>
 
     @if (phase() === 'done' && done(); as d) {
-      <section class="done" aria-labelledby="done-title">
-        <span class="done__icon" aria-hidden="true"><mat-icon>check_circle</mat-icon></span>
-        <h2 id="done-title" class="done__title" data-testid="import-done">{{ d.title }}</h2>
-        <p class="done__body">{{ d.body }}</p>
-        <p class="done__note">The new cards are first in Inventory, sorted by Recently added.</p>
-        <div class="done__actions">
-          <button
-            matButton="filled"
-            type="button"
-            (click)="goToInventory()"
-            data-testid="import-go"
-          >
-            Go to my inventory
-          </button>
-          <button matButton type="button" (click)="reset()">Import another file</button>
-        </div>
-        @if (unmatchedDone().length) {
-          <div class="done__out" role="region" aria-labelledby="done-out">
-            <h3 id="done-out" class="done__out-title">
-              Not recognised · {{ unmatchedDone().length }}
-              <span
-                >{{
-                  unmatchedDone().length === 1
-                    ? '1 line of your file stayed out.'
-                    : unmatchedDone().length + ' lines of your file stayed out.'
-                }}
-                Everything else was added.</span
-              >
-            </h3>
-            <ul>
-              @for (row of unmatchedDone(); track row.id) {
-                <li class="done__out-row">
-                  <span class="mono muted">{{ line(row) }}</span>
-                  <span class="done__out-text"
-                    ><strong>{{ name(row) }}</strong> {{ why(row) }}</span
-                  >
-                  <a matButton="outlined" routerLink="/inventory" [queryParams]="{ add: 'new' }">
-                    <mat-icon aria-hidden="true">add</mat-icon> Add by name
-                  </a>
-                </li>
-              }
-            </ul>
-          </div>
-        }
-      </section>
+      <app-import-done
+        [done]="d"
+        [unmatched]="unmatchedDone()"
+        (go)="goToInventory()"
+        (another)="reset()"
+      />
     } @else {
       <div class="imp__cols">
-        <aside class="src" aria-labelledby="src-title">
-          <h2 id="src-title" class="src__title">Your file</h2>
-          <app-segmented
-            block
-            size="sm"
-            label="Source"
-            [options]="sources"
-            [value]="choice()"
-            [disabled]="phase() === 'uploading' || phase() === 'committing'"
-            (valueChange)="chooseSource($event)"
-          />
-          <p class="muted small">{{ info[choice()].description }}</p>
-          @if (choice() === 'COLLECTR_CSV') {
-            <label class="src__game">
-              <span>Game of rows that name none</span>
-              <select [value]="csvGame()" (change)="csvGame.set($any($event.target).value)">
-                <option value="">Any game</option>
-                @for (g of games.games() ?? []; track g.slug) {
-                  @if (g.hasCards !== false) {
-                    <option [value]="g.slug">{{ g.name }}</option>
-                  }
-                }
-              </select>
-            </label>
-          }
-          <div
-            class="drop"
-            [class.drop--over]="over()"
-            [class.drop--file]="!!fileName()"
-            (dragover)="onDragOver($event)"
-            (dragleave)="over.set(false)"
-            (drop)="onDrop($event)"
-            data-testid="import-drop"
-          >
-            <span class="drop__icon" aria-hidden="true"
-              ><mat-icon>{{ fileName() ? 'description' : 'upload_file' }}</mat-icon></span
-            >
-            @if (fileName(); as name) {
-              <span class="drop__name">{{ name }}</span>
-              <span class="muted small">{{ fileMeta() }}</span>
-              <button
-                matButton="outlined"
-                type="button"
-                (click)="pickFile()"
-                [disabled]="phase() === 'uploading'"
-              >
-                <mat-icon aria-hidden="true">upload</mat-icon> Choose another file
-              </button>
-              <span class="muted small">or drop a new file here</span>
-            } @else {
-              <span class="drop__text">Drop the file here, or</span>
-              <button
-                matButton="outlined"
-                type="button"
-                (click)="pickFile()"
-                data-testid="import-choose"
-              >
-                Choose a file
-              </button>
-            }
-            <input
-              #fileInput
-              class="visually-hidden"
-              type="file"
-              tabindex="-1"
-              aria-hidden="true"
-              [accept]="choice() === 'YDK' ? '.ydk,text/plain' : '.csv,text/csv'"
-              (change)="onFile($event)"
-              data-testid="import-file"
-            />
-          </div>
-          <p class="src__limits small" data-testid="import-limits">
-            <mat-icon aria-hidden="true">info</mat-icon>
-            @if (limitsText(); as text) {
-              {{ text }}
-            } @else if (limitsError()) {
-              The limits could not load.
-              <button type="button" class="link" (click)="loadLimits()">Try again</button>
-            } @else {
-              Reading the limits…
-            }
-          </p>
-          <button
-            type="button"
-            class="link src__paste"
-            [attr.aria-expanded]="pasteOpen()"
-            aria-controls="paste-box"
-            (click)="pasteOpen.set(!pasteOpen())"
-          >
-            Paste the text of the file instead
-            <mat-icon aria-hidden="true">{{
-              pasteOpen() ? 'expand_less' : 'expand_more'
-            }}</mat-icon>
-          </button>
-          @if (pasteOpen()) {
-            <div id="paste-box" class="paste">
-              <textarea
-                rows="12"
-                class="mono"
-                aria-label="Text of the file"
-                [placeholder]="
-                  choice() === 'YDK'
-                    ? '#main\n89631139\n…'
-                    : 'Product Name,Set,Card Number,Quantity\n…'
-                "
-                [value]="pasted()"
-                (input)="pasted.set($any($event.target).value)"
-                data-testid="import-paste"
-              ></textarea>
-              <button
-                matButton="outlined"
-                type="button"
-                (click)="uploadPasted()"
-                [disabled]="phase() === 'uploading'"
-              >
-                Check these cards
-              </button>
-            </div>
-          }
-          <p class="muted small src__kept">
-            <mat-icon aria-hidden="true">schedule</mat-icon> {{ keptText() }}
-          </p>
-        </aside>
+        <app-import-source
+          [choice]="choice()"
+          [csvGame]="csvGame()"
+          [games]="games.games() ?? []"
+          [fileName]="fileName()"
+          [fileMeta]="fileMeta()"
+          [limitsText]="limitsText()"
+          [limitsError]="limitsError()"
+          [keptText]="keptText()"
+          [busy]="phase() === 'uploading' || phase() === 'committing'"
+          (chooseSource)="chooseSource($event)"
+          (csvGameChange)="csvGame.set($event)"
+          (file)="upload($event)"
+          (pasteText)="uploadPasted($event)"
+          (retryLimits)="loadLimits()"
+        />
 
         <section class="chk" aria-labelledby="chk-title" aria-live="polite">
           <h2 id="chk-title" class="chk__title">Check the cards</h2>
@@ -318,179 +172,20 @@
               </div>
             }
 
-            <div class="tbl" role="table" aria-label="Lines of your file">
-              <div class="tr tr--head" role="row">
-                <span role="columnheader" class="c-inc"
-                  ><span class="visually-hidden">Include</span></span
-                >
-                <span role="columnheader" class="c-art"
-                  ><span class="visually-hidden">Picture</span></span
-                >
-                <span role="columnheader">Card</span>
-                <span role="columnheader">Printing</span>
-                <span role="columnheader">Copies</span>
-                <span role="columnheader">Status</span>
-              </div>
-              @for (group of groups(); track group.key) {
-                @if (group.title) {
-                  <div class="tr tr--section" role="row">
-                    <span role="cell" class="c-inc">
-                      <input
-                        type="checkbox"
-                        [checked]="group.include"
-                        [disabled]="working()"
-                        [attr.aria-label]="'Include the ' + group.title"
-                        (change)="includeSection(group.key, $any($event.target).checked)"
-                      />
-                    </span>
-                    <span role="cell" class="section">
-                      <strong>{{ group.title }}</strong>
-                      <span class="muted small"
-                        >{{ group.rows.length }} cards · {{ group.copies }} copies</span
-                      >
-                    </span>
-                    <span role="cell" class="section__hide">
-                      <button
-                        type="button"
-                        class="link"
-                        [attr.aria-expanded]="!sectionHidden(group.key)"
-                        (click)="toggleHidden(group.key)"
-                      >
-                        {{ sectionHidden(group.key) ? 'Show' : 'Hide' }}
-                        <mat-icon aria-hidden="true">{{
-                          sectionHidden(group.key) ? 'expand_more' : 'expand_less'
-                        }}</mat-icon>
-                      </button>
-                    </span>
-                  </div>
-                }
-                @if (!sectionHidden(group.key)) {
-                  @for (row of group.rows; track row.id) {
-                    @let st = state(row);
-                    <div
-                      class="tr"
-                      role="row"
-                      [class.tr--choose]="st === 'choose'"
-                      [class.tr--out]="st === 'out' || st === 'unmatched'"
-                      [attr.data-testid]="'import-row-' + row.position"
-                    >
-                      <span role="cell" class="c-inc">
-                        @if (st !== 'unmatched') {
-                          <input
-                            type="checkbox"
-                            [checked]="row.included"
-                            [disabled]="isBusy(row)"
-                            [attr.aria-label]="'Include ' + name(row)"
-                            (change)="include(row, $any($event.target).checked)"
-                          />
-                        } @else {
-                          <span class="dashed" aria-hidden="true"></span>
-                        }
-                      </span>
-                      <span role="cell" class="c-art">
-                        <app-card-image
-                          size="fill"
-                          [src]="image(row)"
-                          [game]="row.card?.game ?? 'yugioh'"
-                          alt=""
-                        />
-                      </span>
-                      <span role="cell" class="c-name">
-                        <span class="name">{{ name(row) }}</span>
-                        <span class="mono muted small">{{ line(row) }}</span>
-                      </span>
-                      <span role="cell" class="c-print">
-                        @if (st === 'unmatched') {
-                          <span class="small">{{ why(row) }}</span>
-                          <a
-                            class="link small"
-                            routerLink="/inventory"
-                            [queryParams]="{ add: 'new' }"
-                            >Add it by name</a
-                          >
-                        } @else {
-                          <button
-                            type="button"
-                            class="print"
-                            [class.print--choose]="st === 'choose'"
-                            [matMenuTriggerFor]="printMenu"
-                            [matMenuTriggerData]="{ row: row }"
-                            (menuOpened)="loadPrintings(row)"
-                            [disabled]="isBusy(row)"
-                            [attr.aria-label]="
-                              row.printing
-                                ? 'Printing: ' + code(row.printing) + '. Change it'
-                                : 'Choose a printing of ' + name(row)
-                            "
-                          >
-                            @if (row.printing; as pr) {
-                              <span class="print__text"
-                                ><span class="mono">{{ code(pr) }}</span> · {{ pr.rarity
-                                }}<span class="muted small print__set">{{ pr.setName }}</span></span
-                              >
-                            } @else {
-                              <span class="print__text">Choose a printing</span>
-                            }
-                            <mat-icon aria-hidden="true">expand_more</mat-icon>
-                          </button>
-                        }
-                      </span>
-                      <span role="cell" class="c-copies">
-                        @if (st === 'unmatched') {
-                          <span class="muted">×{{ row.fileQuantity }}</span>
-                        } @else {
-                          <span
-                            class="stepper"
-                            role="group"
-                            [attr.aria-label]="'Copies of ' + name(row)"
-                          >
-                            <button
-                              type="button"
-                              [disabled]="isBusy(row) || row.quantity <= 1"
-                              [attr.aria-label]="'One less ' + name(row)"
-                              (click)="step(row, -1)"
-                            >
-                              <mat-icon aria-hidden="true">remove</mat-icon>
-                            </button>
-                            <span>{{ row.quantity }}</span>
-                            <button
-                              type="button"
-                              [disabled]="isBusy(row) || row.quantity >= 9999"
-                              [attr.aria-label]="'One more ' + name(row)"
-                              (click)="step(row, 1)"
-                            >
-                              <mat-icon aria-hidden="true">add</mat-icon>
-                            </button>
-                          </span>
-                        }
-                      </span>
-                      <span role="cell" class="c-status">
-                        <span class="status" [class]="'status status--' + st">
-                          <mat-icon aria-hidden="true">{{
-                            st === 'ready'
-                              ? 'check'
-                              : st === 'choose'
-                                ? 'circle'
-                                : st === 'out'
-                                  ? 'remove'
-                                  : 'block'
-                          }}</mat-icon>
-                          {{ stateLabel[st] }}
-                        </span>
-                      </span>
-                    </div>
-                  }
-                }
-              } @empty {
-                <p class="muted tbl__none">No line here.</p>
-              }
-              @if (rowsError()) {
-                <p class="tbl__none" role="alert">
-                  The lines could not load.
-                  <button type="button" class="link" (click)="loadRows(true)">Try again</button>
-                </p>
-              }
-            </div>
+            <app-import-rows
+              [preview]="pv"
+              [rows]="rows()"
+              [busyRows]="busyRows()"
+              [printings]="printings()"
+              [working]="working()"
+              [rowsError]="rowsError()"
+              (printing)="setPrinting($event.row, $event.printing)"
+              (step)="step($event.row, $event.direction)"
+              (include)="include($event.row, $event.included)"
+              (includeSection)="includeSection($event.key, $event.include)"
+              (loadPrintings)="loadPrintings($event)"
+              (retry)="loadRows(true)"
+            />
             @if (rows().length < rowsTotal()) {
               <div class="more">
                 <button
@@ -512,8 +207,10 @@
         <footer class="foot">
           <p class="foot__text">
             @if (footer(); as f) {
-              <strong>{{ f.strong }}</strong
-              >{{ f.rest }}
+              <span
+                ><strong>{{ f.strong }}</strong
+                >{{ f.rest }}</span
+              >
             }
             @if (blocked()) {
               <span class="foot__hint" id="foot-hint"
@@ -546,25 +243,4 @@
       }
     }
   </div>
-
-  <mat-menu #printMenu="matMenu" class="import-print-menu">
-    <ng-template matMenuContent let-row="row">
-      <p class="menu-hint" role="presentation">Pick the one on your card.</p>
-      @for (printing of rowPrintings(row); track printing.id) {
-        <button mat-menu-item type="button" (click)="setPrinting(row, printing)">
-          <span class="menu-binder">
-            <span
-              ><span class="mono">{{ code(printing) }}</span>
-              @if (printing.id === newest(row)) {
-                <span class="menu-new">Newest</span>
-              }
-            </span>
-            <span class="menu-hint">{{ printing.setName }} · {{ printing.rarity }}</span>
-          </span>
-        </button>
-      } @empty {
-        <p class="menu-hint" role="presentation">Loading the printings…</p>
-      }
-    </ng-template>
-  </mat-menu>
 }

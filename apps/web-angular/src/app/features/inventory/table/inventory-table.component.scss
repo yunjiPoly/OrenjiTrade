@@ -214,10 +214,6 @@
   opacity: 1;
 }
 
-.cellbtn--tag {
-  padding: 0 4px;
-}
-
 .c-copies {
   position: relative;
   font-variant-numeric: tabular-nums;
@@ -347,47 +343,6 @@
   opacity: 0.6;
 }
 
-// The drag ghost (spec 9.7): up to three fanned thumbnails and "3 cards".
-.drag-ghost {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px 8px 8px;
-  border: 1px solid var(--color-border-strong);
-  border-radius: 12px;
-  background: var(--color-surface-elevated);
-  box-shadow: var(--elevation-menu);
-  color: var(--color-ink);
-  font-weight: var(--font-weight-semibold);
-}
-
-.drag-ghost__fan {
-  display: inline-flex;
-}
-
-.drag-ghost__fan app-card-image {
-  --card-image-width: 30px;
-  --card-image-radius: 3px;
-  margin-right: -14px;
-}
-
-.drag-ghost__fan app-card-image:nth-child(1) {
-  transform: rotate(-8deg);
-}
-
-.drag-ghost__fan app-card-image:nth-child(3) {
-  transform: rotate(8deg);
-}
-
-.drag-ghost__label {
-  margin-left: 16px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--color-primary);
-  color: var(--color-on-primary);
-  font-size: var(--font-size-meta);
-}
-
 // md (inner 904): Binder and Updated drop.
 @container invtable (max-width: 1000px) {
   .tbl__row {
@@ -404,10 +359,6 @@
 @container invtable (max-width: 720px) {
   .tbl__row {
     grid-template-columns: 40px 56px minmax(0, 1fr) 136px 72px 40px;
-  }
-
-  .tbl__row--head .c-price {
-    order: 4;
   }
 
   .c-vis,
@@ -455,11 +406,6 @@
 
   .c-copies {
     display: none;
-  }
-
-  .tbl__row--head .c-card,
-  .tbl__row--head .c-price {
-    font-size: 0;
   }
 }
 

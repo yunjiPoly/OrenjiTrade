@@ -1,13 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  ElementRef,
-  computed,
-  inject,
-  input,
-  signal,
-  viewChild,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
@@ -27,45 +18,30 @@ import { ApiError, toApiError } from '../../../core/http/api-error';
 import { SKIP_LIMIT_DIALOG, silentErrors } from '../../../core/http/http-context';
 import { ShellTabTitleDirective } from '../../../core/layout/shell-tab-title.directive';
 import { GamesStore } from '../../../shared/catalog/games.store';
-import { printingCode, printingImageUrl } from '../../../shared/inventory/inventory-labels';
-import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
 import { GameMonogramComponent } from '../../../shared/ui/game-monogram/game-monogram.component';
-import {
-  SegmentOption,
-  SegmentedComponent,
-} from '../../../shared/ui/segmented/segmented.component';
+import { ImportDoneComponent } from './import-done.component';
 import { ImportHandoff, ImportSourceChoice, sourceOfFile } from './import-handoff.service';
 import {
   IMPORT_SOURCES,
   ImportProblem,
-  ROW_STATE_LABEL,
-  RowState,
   addLabel,
   doneLines,
-  fileLine,
   footerLine,
   formatBytes,
   importRefusal,
   keptLine,
   limitsLine,
   refusalBeforeUpload,
-  rowName,
-  rowState,
   sectionsLine,
-  unmatchedWhy,
 } from './import-labels';
+import { ImportRowsComponent } from './import-rows.component';
+import { ImportSourceComponent } from './import-source.component';
 
 type Phase = 'source' | 'uploading' | 'check' | 'committing' | 'done';
 type RowFilter = 'all' | 'choose' | 'unmatched';
-type Section = 'main' | 'extra' | 'side';
 
 const ROWS_PAGE = 100;
-
-const SOURCES: readonly SegmentOption<ImportSourceChoice>[] = [
-  { value: 'YDK', label: IMPORT_SOURCES.YDK.toggle },
-  { value: 'COLLECTR_CSV', label: IMPORT_SOURCES.COLLECTR_CSV.toggle },
-];
 
 /**
  * `/inventory/import` (spec 9.11, boards W16 and W17; a lazy workspace page): Source · Check ·
@@ -83,10 +59,11 @@ const SOURCES: readonly SegmentOption<ImportSourceChoice>[] = [
     MatIconModule,
     MatMenuModule,
     RouterLink,
-    CardImageComponent,
     EmptyStateComponent,
     GameMonogramComponent,
-    SegmentedComponent,
+    ImportDoneComponent,
+    ImportRowsComponent,
+    ImportSourceComponent,
     ShellTabTitleDirective,
   ],
   templateUrl: './import-page.component.html',
@@ -104,10 +81,7 @@ export class ImportPageComponent {
   /** `?source=ydk|csv` (Add cards' menu, a dropped file). */
   readonly source = input<string | undefined>();
 
-  private readonly fileInput = viewChild<ElementRef<HTMLInputElement>>('fileInput');
-  protected readonly sources = SOURCES;
   protected readonly info = IMPORT_SOURCES;
-  protected readonly stateLabel = ROW_STATE_LABEL;
   protected readonly signedIn = signal<boolean | null>(null);
   protected readonly phase = signal<Phase>('source');
   protected readonly choice = signal<ImportSourceChoice>('YDK');
@@ -116,10 +90,7 @@ export class ImportPageComponent {
   protected readonly limitsError = signal(false);
   protected readonly fileName = signal<string | null>(null);
   protected readonly fileSize = signal<number | null>(null);
-  protected readonly pasteOpen = signal(false);
-  protected readonly pasted = signal('');
   protected readonly problem = signal<ImportProblem | null>(null);
-  protected readonly over = signal(false);
   protected readonly preview = signal<InventoryImportResponse | null>(null);
   protected readonly rows = signal<InventoryImportRow[]>([]);
   protected readonly rowsTotal = signal(0);
@@ -128,7 +99,6 @@ export class ImportPageComponent {
   protected readonly rowsError = signal(false);
   protected readonly filter = signal<RowFilter>('all');
   protected readonly busyRows = signal<ReadonlySet<string>>(new Set());
-  protected readonly hidden = signal<ReadonlySet<Section>>(new Set());
   protected readonly printings = signal<Record<string, PrintingSummary[]>>({});
   protected readonly working = signal(false);
   protected readonly unmatchedDone = signal<InventoryImportRow[]>([]);
@@ -154,44 +124,6 @@ export class ImportPageComponent {
     const preview = this.preview();
     return preview ? doneLines(preview) : null;
   });
-  /** Rows by deck section (a deck file), or one group (a CSV). */
-  protected readonly groups = computed(() => {
-    const rows = this.rows();
-    const preview = this.preview();
-    if (preview?.source !== 'YDK') {
-      return [{ key: 'all' as const, title: null, rows, include: true, copies: 0 }];
-    }
-    const sections = preview.sections;
-    // A row lists under the first section that holds its copies (main, extra, then side).
-    const sectionOf = (row: InventoryImportRow): Section =>
-      (row.deck?.main ?? 0) > 0 ? 'main' : (row.deck?.extra ?? 0) > 0 ? 'extra' : 'side';
-    const of = (key: Section) => rows.filter((row) => sectionOf(row) === key);
-    return (
-      [
-        {
-          key: 'main' as const,
-          title: 'Main deck',
-          include: sections?.includeMain ?? true,
-          copies: sections?.mainCopies ?? 0,
-        },
-        {
-          key: 'extra' as const,
-          title: 'Extra deck',
-          include: sections?.includeExtra ?? true,
-          copies: sections?.extraCopies ?? 0,
-        },
-        {
-          key: 'side' as const,
-          title: 'Side deck',
-          include: sections?.includeSide ?? true,
-          copies: sections?.sideCopies ?? 0,
-        },
-      ] as const
-    )
-      .map((group) => ({ ...group, rows: of(group.key) }))
-      .filter((group) => group.rows.length > 0);
-  });
-
   constructor() {
     void this.auth.ready().then(async () => {
       const signedIn = this.auth.isAuthenticated();
@@ -235,41 +167,7 @@ export class ImportPageComponent {
     this.problem.set(null);
   }
 
-  protected pickFile(): void {
-    this.fileInput()?.nativeElement.click();
-  }
-
-  protected onFile(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    input.value = '';
-    if (file) {
-      void this.upload(file);
-    }
-  }
-
-  protected onDragOver(event: DragEvent): void {
-    if (event.dataTransfer?.types.includes('Files')) {
-      event.preventDefault();
-      this.over.set(true);
-    }
-  }
-
-  protected onDrop(event: DragEvent): void {
-    event.preventDefault();
-    this.over.set(false);
-    const file = event.dataTransfer?.files?.[0];
-    if (file) {
-      const source = sourceOfFile(file.name);
-      if (source) {
-        this.choice.set(source);
-      }
-      void this.upload(file);
-    }
-  }
-
-  protected async uploadPasted(): Promise<void> {
-    const text = this.pasted();
+  protected async uploadPasted(text: string): Promise<void> {
     if (!text.trim()) {
       this.problem.set({
         title: 'Nothing to check yet',
@@ -340,7 +238,6 @@ export class ImportPageComponent {
     this.preview.set(preview);
     this.phase.set('check');
     this.filter.set('all');
-    this.hidden.set(new Set());
     void this.loadRows(true);
   }
 
@@ -388,60 +285,6 @@ export class ImportPageComponent {
     } finally {
       this.rowsLoading.set(false);
     }
-  }
-
-  protected state(row: InventoryImportRow): RowState {
-    return rowState(row);
-  }
-
-  protected name(row: InventoryImportRow): string {
-    return rowName(row);
-  }
-
-  protected line(row: InventoryImportRow): string {
-    return fileLine(row);
-  }
-
-  protected why(row: InventoryImportRow): string {
-    return unmatchedWhy(row);
-  }
-
-  protected image(row: InventoryImportRow): string | null {
-    return printingImageUrl(row.printing) ?? row.card?.imageUrl ?? null;
-  }
-
-  protected code(printing: PrintingSummary | null | undefined): string {
-    return printingCode(printing);
-  }
-
-  protected sectionHidden(key: string): boolean {
-    return this.hidden().has(key as Section);
-  }
-
-  protected toggleHidden(key: string): void {
-    const next = new Set(this.hidden());
-    if (next.has(key as Section)) {
-      next.delete(key as Section);
-    } else {
-      next.add(key as Section);
-    }
-    this.hidden.set(next);
-  }
-
-  /** The printings a row may take (its file narrowed them to `suggestedPrintingIds`). */
-  protected rowPrintings(row: InventoryImportRow): PrintingSummary[] {
-    const all = row.card ? (this.printings()[row.card.id] ?? []) : [];
-    const suggested = new Set(row.suggestedPrintingIds);
-    const narrowed = suggested.size
-      ? all.filter((printing) => suggested.has(printing.id ?? ''))
-      : all;
-    return [...narrowed].sort((a, b) =>
-      (b.setReleaseDate ?? '').localeCompare(a.setReleaseDate ?? ''),
-    );
-  }
-
-  protected newest(row: InventoryImportRow): string | null {
-    return this.rowPrintings(row)[0]?.id ?? null;
   }
 
   /** Loads a card's printings when its menu opens. */
@@ -593,7 +436,6 @@ export class ImportPageComponent {
     this.problem.set(null);
     this.fileName.set(null);
     this.fileSize.set(null);
-    this.pasted.set('');
     this.phase.set('source');
   }
 
@@ -609,10 +451,6 @@ export class ImportPageComponent {
     return [this.info[this.choice()].label, size !== null ? formatBytes(size) : null]
       .filter(Boolean)
       .join(' · ');
-  }
-
-  protected isBusy(row: InventoryImportRow): boolean {
-    return this.busyRows().has(row.id);
   }
 
   private async patchRow(

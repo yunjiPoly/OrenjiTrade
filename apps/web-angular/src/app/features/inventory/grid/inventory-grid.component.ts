@@ -22,6 +22,7 @@ import type { InventoryItemResponse } from '@orenji/api-client';
 import { printingCode, printingImageUrl } from '../../../shared/inventory/inventory-labels';
 import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import { InventoryRow, SelectionChange } from '../items/inventory-row';
+import { DragGhostComponent } from '../ui/drag-ghost.component';
 import { RowDrag } from '../table/inventory-table.component';
 
 /**
@@ -39,6 +40,7 @@ import { RowDrag } from '../table/inventory-table.component';
     CdkDropList,
     MatIconModule,
     CardImageComponent,
+    DragGhostComponent,
   ],
   template: `
     <ul
@@ -73,16 +75,7 @@ import { RowDrag } from '../table/inventory-table.component';
           (click)="onClick($event, it, row)"
         >
           <div class="tile__ph" *cdkDragPlaceholder></div>
-          <div class="drag-ghost" *cdkDragPreview>
-            <span class="drag-ghost__fan">
-              @for (art of dragArts().slice(0, 3); track $index) {
-                <app-card-image size="fill" [src]="art" />
-              }
-            </span>
-            <span class="drag-ghost__label"
-              >{{ dragCount() }} {{ dragCount() === 1 ? 'card' : 'cards' }}</span
-            >
-          </div>
+          <app-drag-ghost *cdkDragPreview [arts]="dragArts()" [count]="dragCount()" />
           <span class="tile__art">
             <app-card-image size="fill" [src]="image(it)" [game]="it.card.game" alt="" />
             <span
@@ -227,33 +220,6 @@ import { RowDrag } from '../table/inventory-table.component';
       min-height: 200px;
       border: 1px dashed var(--color-border-strong);
       border-radius: 12px;
-    }
-    .drag-ghost {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 12px 8px 8px;
-      border: 1px solid var(--color-border-strong);
-      border-radius: 12px;
-      background: var(--color-surface-elevated);
-      box-shadow: var(--elevation-menu);
-      color: var(--color-ink);
-      font-weight: var(--font-weight-semibold);
-    }
-    .drag-ghost__fan {
-      display: inline-flex;
-    }
-    .drag-ghost__fan app-card-image {
-      --card-image-width: 30px;
-      margin-right: -14px;
-    }
-    .drag-ghost__label {
-      margin-left: 16px;
-      padding: 2px 8px;
-      border-radius: 999px;
-      background: var(--color-primary);
-      color: var(--color-on-primary);
-      font-size: var(--font-size-meta);
     }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,

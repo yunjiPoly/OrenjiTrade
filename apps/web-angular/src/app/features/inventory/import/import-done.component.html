@@ -1,0 +1,40 @@
+<section class="done" aria-labelledby="done-title">
+  <span class="done__icon" aria-hidden="true"><mat-icon>check_circle</mat-icon></span>
+  <h2 id="done-title" class="done__title" data-testid="import-done">{{ done().title }}</h2>
+  <p class="done__body">{{ done().body }}</p>
+  <p class="done__note">The new cards are first in Inventory, sorted by Recently added.</p>
+  <div class="done__actions">
+    <button matButton="filled" type="button" (click)="go.emit()" data-testid="import-go">
+      Go to my inventory
+    </button>
+    <button matButton type="button" (click)="another.emit()">Import another file</button>
+  </div>
+  @if (unmatched().length) {
+    <div class="done__out" role="region" aria-labelledby="done-out">
+      <h3 id="done-out" class="done__out-title">
+        Not recognised · {{ unmatched().length }}
+        <span
+          >{{
+            unmatched().length === 1
+              ? '1 line of your file stayed out.'
+              : unmatched().length + ' lines of your file stayed out.'
+          }}
+          Everything else was added.</span
+        >
+      </h3>
+      <ul>
+        @for (row of unmatched(); track row.id) {
+          <li class="done__out-row">
+            <span class="mono muted">{{ line(row) }}</span>
+            <span class="done__out-text"
+              ><strong>{{ name(row) }}</strong> {{ why(row) }}</span
+            >
+            <a matButton="outlined" routerLink="/inventory" [queryParams]="{ add: 'new' }">
+              <mat-icon aria-hidden="true">add</mat-icon> Add by name
+            </a>
+          </li>
+        }
+      </ul>
+    </div>
+  }
+</section>

@@ -160,31 +160,7 @@
       }
 
       @if (!query().trim()) {
-        <section class="many" aria-labelledby="add-many">
-          <h3 id="add-many" class="label">Add many at once</h3>
-          <button type="button" class="many__row" (click)="many.emit('quick')">
-            <mat-icon aria-hidden="true">playlist_add</mat-icon>
-            <span class="many__text">
-              <span class="many__title">Quick add rows</span>
-              <span class="many__body">Type codes one after another, right in the table</span>
-            </span>
-            <kbd aria-hidden="true">Shift+N</kbd>
-          </button>
-          <button type="button" class="many__row" (click)="many.emit('ydk')">
-            <mat-icon aria-hidden="true">description</mat-icon>
-            <span class="many__text">
-              <span class="many__title">Import a deck</span>
-              <span class="many__body">.ydk file from YGOPRODeck or EDOPro</span>
-            </span>
-          </button>
-          <button type="button" class="many__row" (click)="many.emit('csv')">
-            <mat-icon aria-hidden="true">table_view</mat-icon>
-            <span class="many__text">
-              <span class="many__title">Import from Collectr</span>
-              <span class="many__body">.csv export. You check every match before it's added</span>
-            </span>
-          </button>
-        </section>
+        <app-add-many (choose)="many.emit($event)" />
       }
     }
 
