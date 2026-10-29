@@ -1,8 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import type { CardHolderResult } from '@orenji/api-client';
+import { AuthService } from '../../../core/auth/auth.service';
+import { SessionService } from '../../../core/auth/session.service';
+import { ChatDrawer } from '../../../shared/messaging/chat-drawer.service';
 import { editionLabel, languageLabel } from '../../../shared/catalog/catalog-labels';
 import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import {
@@ -18,7 +21,8 @@ import { FreshnessBadgeComponent } from '../../../shared/ui/freshness-badge/fres
 /**
  * One "who in my region has this card" result: the listed copy (picture, printing, chips, price,
  * freshness, public note) and its holder (state/province and country only, ADR 0017). Offers left
- * the web (decision 2): deals happen in the chat.
+ * the web (decision 2): deals happen in the chat, and "Message" opens it about this copy in the chat
+ * drawer (web stage WC, spec 10.6; `/messages/:id` below 960). Members only, never on one's own.
  */
 @Component({
   selector: 'app-holder-row',
@@ -70,12 +74,28 @@ import { FreshnessBadgeComponent } from '../../../shared/ui/freshness-badge/fres
             <span class="hr__place">{{ r.collector.place.label }}</span>
           </div>
         </div>
-        @if (r.item.binder; as binder) {
-          <a matButton="outlined" class="hr__binder" [routerLink]="['/binders', binder.id]">
-            <mat-icon aria-hidden="true">menu_book</mat-icon>
-            View binder
-          </a>
-        }
+        <div class="hr__actions">
+          @if (canMessage()) {
+            <button
+              matButton="filled"
+              type="button"
+              class="hr__message"
+              data-testid="holder-message"
+              [attr.aria-label]="'Message ' + r.collector.handle + ' about ' + r.item.card.name"
+              [disabled]="drawer.starting() === r.collector.id"
+              (click)="message($event)"
+            >
+              <mat-icon aria-hidden="true">chat</mat-icon>
+              Message
+            </button>
+          }
+          @if (r.item.binder; as binder) {
+            <a matButton="outlined" class="hr__binder" [routerLink]="['/binders', binder.id]">
+              <mat-icon aria-hidden="true">menu_book</mat-icon>
+              View binder
+            </a>
+          }
+        </div>
       </div>
     </article>
   `,
@@ -128,6 +148,12 @@ import { FreshnessBadgeComponent } from '../../../shared/ui/freshness-badge/fres
       gap: var(--spacing-2);
       text-align: right;
     }
+    .hr__actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: var(--spacing-2);
+    }
     .hr__price {
       margin: 0;
       font-family: var(--font-display);
@@ -167,6 +193,9 @@ import { FreshnessBadgeComponent } from '../../../shared/ui/freshness-badge/fres
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HolderRowComponent {
+  protected readonly drawer = inject(ChatDrawer);
+  private readonly auth = inject(AuthService);
+  private readonly session = inject(SessionService);
   readonly result = input.required<CardHolderResult>();
   readonly signedIn = input(false);
 
@@ -179,4 +208,17 @@ export class HolderRowComponent {
     const item = this.result().item;
     return formatPrice(item.askingPrice, item.currency) ?? 'No price';
   });
+  /** A member, about someone else's copy (a guest's rows carry no id, R15). */
+  protected readonly canMessage = computed(() => {
+    const id = this.result().collector.id;
+    return !!id && this.auth.isAuthenticated() && id !== this.session.me()?.id;
+  });
+
+  protected message(event: Event): void {
+    const r = this.result();
+    void this.drawer.message(
+      { recipientId: r.collector.id, subjectItemId: r.item.id },
+      event.currentTarget,
+    );
+  }
 }

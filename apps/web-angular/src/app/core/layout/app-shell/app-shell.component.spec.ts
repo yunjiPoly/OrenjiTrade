@@ -1,9 +1,9 @@
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { Component, signal } from '@angular/core';
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, DeferBlockBehavior, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
-import { NEVER } from 'rxjs';
+import { NEVER, Subject } from 'rxjs';
 import { provideApiClient } from '../../api/provide-api-client';
 import { AuthService } from '../../auth/auth.service';
 import { SessionService, SessionStatus } from '../../auth/session.service';
@@ -11,6 +11,7 @@ import { NotificationCenter } from '../../notifications/notification-center.serv
 import { RealtimeService } from '../../realtime/realtime.service';
 import { NARROW_QUERY, ShellLayout } from '../shell-layout.service';
 import { ShellTabTitleDirective } from '../shell-tab-title.directive';
+import { ChatDrawer } from '../../../shared/messaging/chat-drawer.service';
 import { AppShellComponent } from './app-shell.component';
 
 @Component({ template: '<h1>Page</h1>' })
@@ -89,6 +90,7 @@ function shellProviders(): unknown[] {
         authState,
         user: signal(null),
         ready: async () => undefined,
+        changes$: new Subject(),
       },
     },
     {
@@ -198,6 +200,32 @@ describe('AppShellComponent (spec 4, boards W1 and W3)', () => {
   });
 });
 
+describe('AppShellComponent beside the chat drawer (web WC, spec 4.8)', () => {
+  it('pushes the page by the drawer’s 440 at lg and xl, so nothing sits under it (WC review U1, A3)', async () => {
+    const state = signal<unknown>(null);
+    await TestBed.configureTestingModule({
+      imports: [AppShellComponent],
+      providers: [
+        ...shellProviders(),
+        { provide: ChatDrawer, useValue: { state, starting: signal(null) } },
+      ],
+      // The drawer's own chunk stays out of this test.
+      deferBlockBehavior: DeferBlockBehavior.Manual,
+    }).compileComponents();
+    const fixture = TestBed.createComponent(AppShellComponent);
+    const element = fixture.nativeElement as HTMLElement;
+    await settle(fixture);
+    const shell = () => element.querySelector('.shell')!;
+    expect(shell().classList.contains('shell--drawer')).toBe(false);
+    state.set({ conversation: { id: 'c1' }, opener: null });
+    await settle(fixture);
+    expect(shell().classList.contains('shell--drawer')).toBe(true);
+    state.set(null);
+    await settle(fixture);
+    expect(shell().classList.contains('shell--drawer')).toBe(false);
+  });
+});
+
 describe('AppShellComponent below 960: the phone’s per-tab bars (spec 16, board W29)', () => {
   let fixture: ComponentFixture<AppShellComponent>;
   let element: HTMLElement;
@@ -293,6 +321,20 @@ describe('AppShellComponent below 960: the phone’s per-tab bars (spec 16, boar
     const h1 = element.querySelector('main h1');
     expect(h1?.textContent).toBe('Inventory');
     expect(h1?.classList.contains('visually-hidden')).toBe(true);
+  });
+
+  it('opens a chat above the tabs: no per-tab bar and no tab bar meanwhile (WC review U2, A4, A5)', async () => {
+    await go('/inventory');
+    const layout = TestBed.inject(ShellLayout);
+    layout.setChatOpen(true);
+    await settle(fixture);
+    expect(element.querySelector('[data-testid="top-bar"]')).toBeNull();
+    expect(element.querySelector('[data-testid="tab-inventory"]')).toBeNull();
+    expect(element.querySelector('.shell')!.classList.contains('shell--chat')).toBe(true);
+    layout.setChatOpen(false);
+    await settle(fixture);
+    expect(element.querySelector('[data-testid="top-bar"]')).not.toBeNull();
+    expect(element.querySelector('[data-testid="tab-inventory"]')).not.toBeNull();
   });
 
   it('gives Home its two pills and the bell, and Search its title with both pills', async () => {

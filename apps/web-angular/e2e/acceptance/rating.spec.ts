@@ -45,7 +45,7 @@ test.describe('acceptance: rating', () => {
       page.getByRole('dialog', { name: `Rate ${ratee.displayName}` }),
     );
     await expect(dialog).toContainText('Conversation');
-    await dialog.getByRole('button', { name: 'Submit rating' }).click();
+    await dialog.getByRole('button', { name: 'Publish rating' }).click();
     await expect(dialog.getByText('Choose an overall score from 1 to 5 stars.')).toBeVisible();
     await dialog
       .getByRole('radiogroup', { name: 'Overall' })
@@ -53,7 +53,7 @@ test.describe('acceptance: rating', () => {
       .click();
     const comment = `Friendly and on time (${suffix()}).`;
     await dialog.getByRole('textbox', { name: 'Comment (optional)' }).fill(comment);
-    await dialog.getByRole('button', { name: 'Submit rating' }).click();
+    await dialog.getByRole('button', { name: 'Publish rating' }).click();
     await expect(
       page.getByText(`Thanks! Your rating of ${ratee.displayName} is published.`),
     ).toBeVisible();

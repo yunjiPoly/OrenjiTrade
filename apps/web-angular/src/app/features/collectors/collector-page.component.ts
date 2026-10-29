@@ -32,6 +32,7 @@ import { ApiError, toApiError } from '../../core/http/api-error';
 import { friendlyMessage } from '../../core/http/api-error-messages';
 import { silentErrors } from '../../core/http/http-context';
 import { BlockActionsService } from '../../shared/messaging/block-actions.service';
+import { ChatDrawer } from '../../shared/messaging/chat-drawer.service';
 import { ConversationStarterService } from '../../shared/messaging/conversation-starter.service';
 import { ReportActionsService } from '../../shared/reports/report-actions.service';
 import { EmptyStateComponent } from '../../shared/ui/empty-state/empty-state.component';
@@ -167,6 +168,7 @@ export class CollectorPageComponent {
   private readonly injector = inject(Injector);
   private readonly doc = inject(DOCUMENT);
   protected readonly starter = inject(ConversationStarterService);
+  private readonly chatDrawer = inject(ChatDrawer);
 
   /** Bound from the `:handle` route parameter. */
   readonly handle = input.required<string>();
@@ -262,12 +264,12 @@ export class CollectorPageComponent {
     section?.querySelector<HTMLElement>('h2')?.focus({ preventScroll: true });
   }
 
-  /** "Message": open (or start) the conversation on the Messages page. */
+  /**
+   * "Message": open (or start) the conversation in the chat drawer beside the profile (web stage
+   * WC, spec 10.6), or on `/messages/:id` below 960.
+   */
   protected async openConversation(recipientId: string): Promise<void> {
-    const conversation = await this.starter.start(recipientId);
-    if (conversation) {
-      void this.router.navigate(['/messages', conversation.id]);
-    }
+    await this.chatDrawer.message({ recipientId }, this.doc.activeElement);
   }
 
   /** Public binders, a preview of the public cards (Phase 3) and the public wishlist (Phase 6). */

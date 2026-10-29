@@ -86,7 +86,8 @@ const SCORES = [1, 2, 3, 4, 5] as const;
       border: 0;
       border-radius: var(--radius-sm);
       background: none;
-      color: color-mix(in srgb, var(--color-text-muted) 40%, transparent);
+      /* An unselected star keeps 3:1 on the dialog's surface (WCAG 1.4.11; WC review A10). */
+      color: color-mix(in srgb, var(--color-text-muted) 72%, transparent);
       font-size: 26px;
       line-height: 1;
       cursor: pointer;

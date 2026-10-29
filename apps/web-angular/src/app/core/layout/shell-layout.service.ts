@@ -76,6 +76,7 @@ export class ShellLayout {
   private readonly narrowState = signal(false);
   private readonly mediumState = signal(false);
   private readonly skipMapState = signal<string | null>(null);
+  private readonly chatOpenState = signal(false);
 
   readonly data = this.dataState.asReadonly();
   readonly area = computed(() => this.dataState().area);
@@ -101,6 +102,13 @@ export class ShellLayout {
   readonly medium = this.mediumState.asReadonly();
   /** Id of the element "Skip the map" jumps to, while a page shows the map. */
   readonly skipMapTarget = this.skipMapState.asReadonly();
+  /**
+   * A chat is open below 960 (`/messages/:id`): as on the phone, where a chat opens above the
+   * tabs, the shell shows neither the per-tab top bar nor the tab bar, and the chat's own header
+   * (Back, the handle, Deal, "⋯") leads. The chat, its deal sheet and a 200 percent zoom keep the
+   * whole height (WC review U2, A4, A5).
+   */
+  readonly inChat = computed(() => this.narrowState() && this.chatOpenState());
 
   constructor() {
     const destroyRef = inject(DestroyRef);
@@ -129,6 +137,11 @@ export class ShellLayout {
    * Ctrl/Cmd+K or a first letter right after the page loaded): the component takes it over.
    */
   readonly searchHandoff = { focused: false, text: '' };
+
+  /** The Messages page shows a chat (`true`) or the inbox (`false`; also when it leaves). */
+  setChatOpen(open: boolean): void {
+    this.chatOpenState.set(open);
+  }
 
   /** A page that shows the map registers the element after it; `null` when it leaves. */
   setSkipMapTarget(id: string | null): void {

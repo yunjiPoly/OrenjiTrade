@@ -57,8 +57,9 @@ export function friendlyError(error: ApiError): FriendlyError {
     case 'MESSAGING_BLOCKED':
       return {
         title: 'Messaging unavailable',
-        message:
-          'You cannot message this collector. They may have blocked messages or you blocked them.',
+        // The same words for every refusal (a block, an inactive collector, the messaging
+        // permission): a block is never told apart (owner decision of 2026-10-28).
+        message: 'This collector cannot receive messages right now.',
       };
     case 'MESSAGE_BLOCKED':
       return {

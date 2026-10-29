@@ -76,12 +76,17 @@ export class RatingActionsService {
   ): Promise<RatingResponse | null> {
     const rating = await firstValueFrom(
       this.dialog
-        .open<RateCollectorDialogComponent, RateDialogData, RatingResponse>(
+        .open<RateCollectorDialogComponent, RateDialogData, RatingResponse | 'reference'>(
           RateCollectorDialogComponent,
           { data, panelClass: 'app-dialog--md', autoFocus: 'dialog' },
         )
         .afterClosed(),
     );
+    if (rating === 'reference') {
+      // "Write a reference instead" (spec 10.5).
+      await this.writeReference(data.collector);
+      return null;
+    }
     if (rating) {
       this.snackBar.open(confirmation, 'OK', { duration: 5000 });
     }

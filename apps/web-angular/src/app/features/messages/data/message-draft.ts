@@ -8,6 +8,8 @@ export const IMAGE_TYPES: readonly string[] = ['image/jpeg', 'image/png', 'image
 
 export type DraftAttachment =
   | { kind: 'card'; card: CardLinkChoice }
+  /** One of the caller's own cards (stage R4's `inventoryItemId`): it pins the chat's subject. */
+  | { kind: 'item'; itemId: string; name: string }
   | { kind: 'binder'; binder: BinderLinkChoice }
   | { kind: 'image'; file: File; previewUrl: string };
 
@@ -54,6 +56,12 @@ export function sendRequest(draft: MessageDraft, imageUploadId?: string): SendMe
         kind: SendMessageRequestKindEnum.CardLink,
         body,
         cardPrintingId: attachment.card.printingId,
+      };
+    case 'item':
+      return {
+        kind: SendMessageRequestKindEnum.CardLink,
+        body,
+        inventoryItemId: attachment.itemId,
       };
     case 'binder':
       return {

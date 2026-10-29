@@ -1,6 +1,8 @@
 import { DOCUMENT } from '@angular/common';
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { ChatDrawerComponent } from '../../../features/messages/drawer/chat-drawer.component';
+import { ChatDrawer } from '../../../shared/messaging/chat-drawer.service';
 import { ToastHostComponent } from '../../feedback/toast-host.component';
 import { KeyboardShortcuts } from '../../keyboard/keyboard-shortcuts.service';
 import { FooterComponent } from '../footer/footer.component';
@@ -15,7 +17,7 @@ import { UnreadChatsProbeComponent } from '../unread-chats/unread-chats-probe.co
  * The application frame of the web redesign (spec 4, boards W1, W28 and W29): the skip links
  * ("Skip to content", and "Skip the map" while a page shows the map), the top bar (64), the
  * session banner, the rail (72) beside the routed content at 960 px and wider, the footer of
- * reading pages, the bottom tab bar below 960 px, and the toasts. It replaces the old toolbar,
+ * reading pages, the bottom tab bar below 960 px, the toasts and the chat drawer (web stage WC). It replaces the old toolbar,
  * the top-bar search box, the map page's side panel and the bottom navigation (spec 2.7).
  */
 @Component({
@@ -29,6 +31,7 @@ import { UnreadChatsProbeComponent } from '../unread-chats/unread-chats-probe.co
     FooterComponent,
     ToastHostComponent,
     UnreadChatsProbeComponent,
+    ChatDrawerComponent,
   ],
   template: `
     <div class="skip-links">
@@ -49,8 +52,15 @@ import { UnreadChatsProbeComponent } from '../unread-chats/unread-chats-probe.co
         >
       }
     </div>
-    <app-top-bar />
-    <div class="shell" [class.shell--narrow]="layout.narrow()">
+    @if (!layout.inChat()) {
+      <app-top-bar />
+    }
+    <div
+      class="shell"
+      [class.shell--narrow]="layout.narrow()"
+      [class.shell--drawer]="drawerPushes()"
+      [class.shell--chat]="layout.inChat()"
+    >
       @if (!layout.narrow()) {
         <app-rail class="shell__rail" />
       }
@@ -65,12 +75,18 @@ import { UnreadChatsProbeComponent } from '../unread-chats/unread-chats-probe.co
         }
       </div>
     </div>
-    @if (layout.narrow()) {
+    @if (layout.narrow() && !layout.inChat()) {
       <app-tab-bar />
     }
     <app-toast-host />
     @defer (on idle) {
       <app-unread-chats-probe />
+    }
+    <!-- The chat drawer (spec 10.6): a lazy chunk shared with Messages, one chat at a time. -->
+    @if (chatDrawer.state(); as drawer) {
+      @defer (on immediate) {
+        <app-chat-drawer [conversation]="drawer.conversation" />
+      }
     }
   `,
   styles: `
@@ -126,6 +142,17 @@ import { UnreadChatsProbeComponent } from '../unread-chats/unread-chats-probe.co
     .shell--narrow .shell__content {
       padding-bottom: calc(64px + env(safe-area-inset-bottom));
     }
+    /* A chat below 960 opens above the tabs, as on the phone: no tab bar under it. */
+    .shell--narrow.shell--chat .shell__content {
+      padding-bottom: 0;
+    }
+    /*
+     * At lg and xl the chat drawer pushes the page (spec 4.8): the content reflows beside its 440,
+     * so nothing focusable sits under it (WCAG 2.4.11; WC review U1, A3). At md it overlays.
+     */
+    .shell--drawer .shell__content {
+      padding-right: 440px;
+    }
     /* sm: the phone's design, centred at 640 (spec 16). */
     @media (min-width: 600px) and (max-width: 959.98px) {
       .shell--narrow .shell__main {
@@ -139,7 +166,12 @@ import { UnreadChatsProbeComponent } from '../unread-chats/unread-chats-probe.co
 })
 export class AppShellComponent {
   protected readonly layout = inject(ShellLayout);
+  protected readonly chatDrawer = inject(ChatDrawer);
   private readonly document = inject(DOCUMENT);
+  /** The chat drawer is open at lg or xl, where drawers push the content (spec 4.8). */
+  protected readonly drawerPushes = computed(
+    () => !!this.chatDrawer.state() && !this.layout.narrow() && !this.layout.medium(),
+  );
 
   constructor() {
     inject(KeyboardShortcuts).start();

@@ -177,3 +177,31 @@ waits for that conversation in turn.
 - Quick replies (review fix 1, P2): the ten fixed texts repeat by design (one seller answering six
   buyers "Yes, still available" was flagged for repeated content), so an exact quick reply skips
   the repeated-content threshold; rate limits and banned terms still apply (spec section 13).
+
+## The web (stage WC of the web redesign, 2026-10-29)
+
+No API change: the web's Messages (spec 10, boards W18 to W21) uses the endpoints above as the
+phone does.
+
+- `POST /conversations` with `subjectItemId` (a holder of Who has this card) or `subjectBinderId`
+  (a public binder that sells as a deck core) from the chat drawer's "Message"; no subject from a
+  profile or a plain binder.
+- `GET /conversations/{id}` after a pin, a sale or an undo; the realtime queue
+  `/user/queue/conversations` is subscribed, so the pinned bar follows the other collector's pin.
+- A `CARD_LINK` with `inventoryItemId` from "Share a card from your inventory" (the item's price
+  shows on the 280 card from `payload.item.askingPriceText`).
+- `POST /conversations/{id}/sales` always names the subject the seller's chat shows
+  (`subjectItemId` / `subjectBinderId`), so `SUBJECT_CHANGED` closes the dialog with "{buyer} opened
+  another of your listings. Check the card above, then mark it sold."; `POST /sales/{id}/undo` from
+  the toast, the sale's note (while its 10 minutes last) and the deal panel; the pushed copy of an
+  undone sale (`sale.undone: true`) leaves the thread.
+- The address and the e-Transfer email are never saved on the web (decision 9): they are typed in
+  their dialog and sent as an ordinary message; nothing reaches localStorage, sessionStorage or
+  IndexedDB (`e2e/messages-deal.spec.ts` reads all three).
+- Tracking numbers are never logged by the web (the E2E checks the console of both collectors).
+- Refusals are worded by `errorCode` and the same for every reason: 403 `MESSAGING_BLOCKED` reads
+  "This collector cannot receive messages right now." (owner decision of 2026-10-28).
+- "More from {seller}" (the buyer's deal panel) reads `GET /collectors/{handle}/inventory?size=5&
+  excludeDeckCoreItems=true` (no place in the answer; a block answers 404 both ways; in
+  `GeoPrivacyContractTest`); the panel's "WITH" reads the rating and "Member since" from
+  `GET /collectors/{handle}` and the place from the chat's participant, never the profile's city.

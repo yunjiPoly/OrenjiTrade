@@ -29,17 +29,30 @@ describe('QuantityStepperComponent', () => {
     expect(emitted).toEqual([3, 1]);
   });
 
-  it('never goes below one copy', async () => {
+  it('never goes below one copy, and keeps the focus on a button at its limit', async () => {
     fixture.componentRef.setInput('value', 1);
     await fixture.whenStable();
-    expect(button('Decrease').disabled).toBe(true);
-    expect(button('Increase').disabled).toBe(false);
+    expect(button('Decrease').getAttribute('aria-disabled')).toBe('true');
+    expect(button('Decrease').disabled).toBe(false);
+    expect(button('Increase').getAttribute('aria-disabled')).toBeNull();
+    button('Decrease').focus();
+    button('Decrease').click();
+    expect(emitted).toEqual([]);
+    expect(document.activeElement).toBe(button('Decrease'));
+
+    fixture.componentRef.setInput('max', 1);
+    await fixture.whenStable();
+    button('Increase').click();
+    expect(emitted).toEqual([]);
+    expect(button('Increase').getAttribute('aria-disabled')).toBe('true');
   });
 
-  it('disables both buttons while an update is pending', async () => {
+  it('turns both buttons off while an update is pending', async () => {
     fixture.componentRef.setInput('disabled', true);
     await fixture.whenStable();
-    expect(button('Decrease').disabled).toBe(true);
-    expect(button('Increase').disabled).toBe(true);
+    expect(button('Decrease').getAttribute('aria-disabled')).toBe('true');
+    expect(button('Increase').getAttribute('aria-disabled')).toBe('true');
+    button('Increase').click();
+    expect(emitted).toEqual([]);
   });
 });

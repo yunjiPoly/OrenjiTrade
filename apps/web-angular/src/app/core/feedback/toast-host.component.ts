@@ -8,6 +8,7 @@ import {
   inject,
 } from '@angular/core';
 import { ShellIconComponent } from '../layout/shell-icon/shell-icon.component';
+import { ShellLayout } from '../layout/shell-layout.service';
 import { ToastService } from './toast.service';
 
 /**
@@ -151,20 +152,44 @@ import { ToastService } from './toast.service';
         opacity: 0;
       }
     }
+    /*
+     * On Messages the toasts stay inside the inbox column (340 at lg, 300 at md), off the chat's
+     * "+" and field (WC review U11).
+     */
+    :host(.toasts-host--inbox) {
+      width: min(292px, calc(100vw - 72px - 48px));
+    }
+    @media (max-width: 1279.98px) {
+      :host(.toasts-host--inbox) {
+        width: 252px;
+      }
+    }
     @media (max-width: 959.98px) {
-      :host {
+      :host,
+      :host(.toasts-host--inbox) {
         left: 16px;
         right: 16px;
         width: auto;
         bottom: calc(64px + env(safe-area-inset-bottom) + 12px);
       }
+      /* A chat above the tabs: under its header, off the composer. */
+      :host(.toasts-host--chat) {
+        top: 76px;
+        bottom: auto;
+      }
     }
   `,
-  host: { 'aria-live': 'polite', 'aria-relevant': 'additions' },
+  host: {
+    'aria-live': 'polite',
+    'aria-relevant': 'additions',
+    '[class.toasts-host--inbox]': "layout.area() === 'messages' && !layout.narrow()",
+    '[class.toasts-host--chat]': 'layout.inChat()',
+  },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ToastHostComponent {
   protected readonly service = inject(ToastService);
+  protected readonly layout = inject(ShellLayout);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly document = inject(DOCUMENT);
   /** Where the focus was before it entered the toasts. */

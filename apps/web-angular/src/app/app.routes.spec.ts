@@ -1,9 +1,11 @@
-import { Route } from '@angular/router';
-import { routes } from './app.routes';
+import { Route, UrlSegment } from '@angular/router';
+import { messagesMatcher, routes } from './app.routes';
 import { ShellRouteData } from './core/layout/shell-layout.service';
 
 function route(path: string): Route {
-  const found = routes.find((entry) => entry.path === path);
+  const found = routes.find(
+    (entry) => entry.path === path || (path === 'messages' && entry.matcher === messagesMatcher),
+  );
   expect(found, path).toBeTruthy();
   return found!;
 }
@@ -59,5 +61,22 @@ describe('the routes of the web redesign (spec 4.11)', () => {
       expect(notice?.loadComponent).toBeTruthy();
     }
     expect(route('messages/community/:room').loadComponent).toBeTruthy();
+  });
+
+  it('serves /messages and /messages/:id from one route, so the page is reused (WC review F5)', () => {
+    const segments = (url: string) => url.split('/').map((path) => new UrlSegment(path, {}));
+    expect(messagesMatcher(segments('messages'))?.posParams).toBeUndefined();
+    expect(messagesMatcher(segments('messages'))?.consumed).toHaveLength(1);
+    expect(messagesMatcher(segments('messages/c-1'))?.posParams?.['id']?.path).toBe('c-1');
+    expect(messagesMatcher(segments('messages/community/yugioh'))).toBeNull();
+    expect(messagesMatcher(segments('notifications'))).toBeNull();
+    // The room route comes first; the matcher is the only other Messages route.
+    const messages = routes.filter(
+      (entry) => entry.path?.startsWith('messages') || entry.matcher === messagesMatcher,
+    );
+    expect(messages.map((entry) => entry.path ?? 'matcher')).toEqual([
+      'messages/community/:room',
+      'matcher',
+    ]);
   });
 });

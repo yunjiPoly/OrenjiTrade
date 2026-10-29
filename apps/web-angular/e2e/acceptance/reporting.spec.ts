@@ -31,12 +31,12 @@ test.describe('acceptance: collector reporting', () => {
     await page.goto(`/collectors/${reported.handle}`);
     await expect(page.getByRole('heading', { level: 1, name: reported.displayName })).toBeVisible();
     await page.getByRole('button', { name: `Report ${reported.displayName}` }).click();
-    const dialog = await dialogReady(page.getByRole('dialog', { name: 'Report collector' }));
-    await expect(dialog.getByText('Why are you reporting this user?')).toBeVisible();
-    const confirm = dialog.getByRole('button', { name: 'Confirm' });
+    const dialog = await dialogReady(page.getByRole('dialog', { name: /^Report / }));
+    await expect(dialog.getByText('Why are you reporting them?')).toBeVisible();
+    const confirm = dialog.getByRole('button', { name: 'Send report' });
     await expect(confirm).toBeDisabled();
     await dialog
-      .getByRole('radiogroup', { name: 'Why are you reporting this user?' })
+      .getByRole('radiogroup', { name: 'Why are you reporting them?' })
       .getByRole('radio', { name: 'Scam or fraud' })
       .check();
     await expect(confirm).toBeEnabled();

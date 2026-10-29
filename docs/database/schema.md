@@ -1289,7 +1289,7 @@ applied by id lists from the messaging module.
 | `created_by` | `uuid` | FK → `user_account.id` (`SET NULL`); empty conversations are listed for their creator only |
 | `created_at`, `updated_at` | `timestamptz` | |
 | `last_message_id`, `last_message_at`, `last_message_kind`, `last_message_sender_id` | | denormalised last message (updated in the message transaction); `ck_conversation_last_kind` |
-| `last_message_preview` | `text` | **PRIVATE**; ≤ 200 (API writes ≤ 140): text, or "Card: …" / "Binder: …" / "Photo" labels |
+| `last_message_preview` | `text` | **PRIVATE**; ≤ 200 (API writes ≤ 140): text, or "Card: …" / "Binder: …" / "Photo" labels. It never outlives its message: a withdrawn sale note and an account purge that erases the last message (`MessagingAccountData.purge`, WC review R2-2) give the conversation the newest message left as its last one, or none (all `last_message_*` columns `NULL`) |
 | `subject_item_id`, `subject_binder_id` | `uuid` | V127: the chat's subject (its pinned card or deck core, stage R4): FK `inventory_item` / `binder` (`ON DELETE SET NULL`), at most one (`ck_conversation_one_subject`); the latest pin wins; partial indexes `ix_conversation_subject_item`, `ix_conversation_subject_binder` |
 | `subject_set_at`, `subject_set_by` | `timestamptz`, `uuid` | V127: when and by whom it was pinned (FK `user_account`, `SET NULL`): its owner (shared it: the other collector sees it while it is private) or the buyer (it was public then); a sale counts for the subject pinned at or before it |
 

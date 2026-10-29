@@ -33,6 +33,13 @@ export const SETTINGS_ROUTES: Routes = [
         loadComponent: () =>
           import('./location/location-settings.component').then((m) => m.LocationSettingsComponent),
       },
+      {
+        // Web stage WC (spec 13, decision 9): the web saves no address or e-Transfer email.
+        path: 'shipping',
+        title: 'Shipping details',
+        loadComponent: () =>
+          import('./shipping/shipping-settings.component').then((m) => m.ShippingSettingsComponent),
+      },
       // Bookmarks and e-mails from before platform regions (ADR 0017).
       { path: 'trading-area', pathMatch: 'full', redirectTo: 'location' },
       // Offers and payouts left the web (decision 2, spec 4.11).

@@ -3,6 +3,7 @@ import {
   Component,
   ElementRef,
   effect,
+  inject,
   input,
   output,
   untracked,
@@ -17,6 +18,10 @@ import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
+import type { PublicBinderSummary } from '@orenji/api-client';
+import { AuthService } from '../../../core/auth/auth.service';
+import { SessionService } from '../../../core/auth/session.service';
+import { ChatDrawer } from '../../../shared/messaging/chat-drawer.service';
 import { SubdivisionBinders } from '../data/region-map.store';
 
 /**
@@ -91,6 +96,19 @@ import { SubdivisionBinders } from '../data/region-map.store';
                       <mat-icon aria-hidden="true">location_on</mat-icon>
                       {{ place.label }}
                     </span>
+                  }
+                  @if (canMessage(owner.id)) {
+                    <button
+                      matButton="outlined"
+                      type="button"
+                      class="sdp__message"
+                      data-testid="home-message"
+                      [attr.aria-label]="'Message ' + owner.handle + ' about ' + binder.name"
+                      (click)="message(binder, $event)"
+                    >
+                      <mat-icon aria-hidden="true">chat</mat-icon>
+                      Message
+                    </button>
                   }
                 </div>
               }
@@ -186,6 +204,9 @@ import { SubdivisionBinders } from '../data/region-map.store';
       column-gap: var(--spacing-3);
       row-gap: var(--spacing-1);
     }
+    .sdp__message {
+      margin-left: auto;
+    }
     .sdp__owner-place {
       display: inline-flex;
       align-items: center;
@@ -206,6 +227,10 @@ import { SubdivisionBinders } from '../data/region-map.store';
 })
 export class SubdivisionPanelComponent {
   /** "Quebec, Canada". */
+  private readonly chatDrawer = inject(ChatDrawer);
+  private readonly auth = inject(AuthService);
+  private readonly session = inject(SessionService);
+
   readonly title = input.required<string>();
   readonly subtitle = input('');
   readonly binders = input<SubdivisionBinders | null>(null);
@@ -222,5 +247,22 @@ export class SubdivisionPanelComponent {
       const heading = this.heading();
       untracked(() => heading?.nativeElement.focus({ preventScroll: true }));
     });
+  }
+
+  /** Members message another collector about a binder (web stage WC: the chat drawer). */
+  protected canMessage(ownerId: string | null | undefined): boolean {
+    return !!ownerId && this.auth.isAuthenticated() && ownerId !== this.session.me()?.id;
+  }
+
+  /** The chat drawer, about the deck core when the binder sells as one (stage R4). */
+  protected message(binder: PublicBinderSummary, event: Event): void {
+    const owner = binder.owner;
+    if (!owner) {
+      return;
+    }
+    void this.chatDrawer.message(
+      { recipientId: owner.id, ...(binder.sellsAsCore ? { subjectBinderId: binder.id } : {}) },
+      event.currentTarget,
+    );
   }
 }

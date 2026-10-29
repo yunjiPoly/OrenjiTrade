@@ -35,6 +35,10 @@ describe('friendlyError', () => {
 
   it('explains messaging and community refusals without echoing moderation details', () => {
     expect(friendlyError(error('MESSAGING_BLOCKED', 403)).title).toBe('Messaging unavailable');
+    // Owner decision 4 of 2026-10-28: a block reads like an inactive participant (WC review F2).
+    const refusal = friendlyError(error('MESSAGING_BLOCKED', 403, 'You blocked them'));
+    expect(refusal.message).toBe('This collector cannot receive messages right now.');
+    expect(`${refusal.title} ${refusal.message}`).not.toMatch(/block/i);
     expect(friendlyMessage(error('MESSAGE_BLOCKED', 422, 'banned term xyz'))).not.toContain('xyz');
     expect(friendlyMessage(error('POST_BLOCKED', 422))).toContain('not published');
     expect(friendlyMessage(error('DUPLICATE_POST', 409))).toContain('last 24 hours');

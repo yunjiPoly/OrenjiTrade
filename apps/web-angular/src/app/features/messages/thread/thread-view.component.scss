@@ -1,0 +1,190 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.thread {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.thread__chat {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--color-background);
+}
+
+/* The bars above and below the thread keep their height (WC review F4). */
+app-pinned-bar,
+app-message-composer {
+  flex-shrink: 0;
+}
+
+.thread__body {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--color-background);
+}
+
+/* The thread's content centred at max 720 (spec 10.1). */
+.thread__list {
+  flex: 1 1 auto;
+}
+
+.thread__pad {
+  padding: var(--spacing-4);
+}
+
+.thread__skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: var(--spacing-4) var(--spacing-5);
+}
+
+.thread__skeleton-own {
+  align-self: flex-end;
+}
+
+.thread__drop {
+  position: absolute;
+  inset: var(--spacing-3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-2);
+  border: 2px dashed var(--color-primary);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-background) 88%, transparent);
+  color: var(--color-ink);
+  font-weight: var(--font-weight-semibold);
+  pointer-events: none;
+}
+
+/*
+ * The shield tip (36, muted; spec 10.3). It never shrinks: a tip that wraps (the 440 drawer, 390)
+ * keeps both lines inside its padding (WC review F4). Its content is centred at max 720 with the
+ * thread (spec 10.1, WC review U12).
+ */
+.tip {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--spacing-2);
+  min-height: 36px;
+  margin: 0;
+  padding: 6px max(var(--spacing-5), calc((100% - 720px) / 2));
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-background);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-meta);
+
+  mat-icon {
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+    color: var(--color-accent);
+    font-size: 16px;
+  }
+}
+
+.banner {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-2) var(--spacing-5);
+  border-bottom: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-warning) 14%, var(--color-surface));
+  font-size: var(--font-size-sm);
+
+  span {
+    flex: 1 1 auto;
+  }
+}
+
+/* The deal panel: a 320 pane at lg, a 360 drawer at md, a full-screen sheet below 960. */
+.deal-host {
+  overflow-y: auto;
+  background: var(--color-surface);
+}
+
+.deal-host--pane {
+  flex: 0 0 320px;
+  width: 320px;
+  border-left: 1px solid var(--color-border);
+}
+
+.deal-host--drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  width: min(360px, 100%);
+  border-left: 1px solid var(--color-border);
+  box-shadow: var(--elevation-sheet);
+}
+
+.deal-host--sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 1001;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.deal-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  background: var(--color-overlay);
+}
+
+@media (max-width: 959.98px) {
+  .deal-scrim {
+    position: fixed;
+    z-index: 1000;
+  }
+}
+
+@media (max-width: 599.98px) {
+  .tip,
+  .banner {
+    padding-inline: var(--spacing-3);
+  }
+}
+
+/*
+ * A short window (a 200 percent zoom of 1440 × 900 is 720 × 450): the thread keeps at least 160 px
+ * and the chat's column scrolls under its sticky header instead (WCAG 1.4.10; WC review A5).
+ */
+@media (max-height: 560px) {
+  .thread__chat {
+    overflow-y: auto;
+  }
+
+  .thread__chat > app-thread-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+
+  .thread__body {
+    flex-basis: 160px;
+    min-height: 160px;
+  }
+}

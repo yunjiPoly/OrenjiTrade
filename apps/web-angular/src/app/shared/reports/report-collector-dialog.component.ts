@@ -57,12 +57,12 @@ export interface ReportDialogData {
 }
 
 /**
- * "Report collector" modal (product spec § 23): the collector, "Why are you reporting this
- * user?" with the server's reasons as radio buttons (spec order), optional details, Cancel /
- * Confirm. Confirm stays disabled until a reason is chosen; it sends `POST /reports/collectors`
+ * "Report {handle}" (520, product spec § 23, web spec 10.5): the collector, "Why are you reporting
+ * them?" with the server's reasons and their lines as radio rows (spec order), optional details,
+ * Cancel and "Send report", disabled with "Choose a reason first." until a reason is chosen; it sends `POST /reports/collectors`
  * with an `Idempotency-Key` fixed for the dialog (a retry repeats the original answer). Refusals
  * (409 already open, 422 self, 429 daily limit) are explained inline; success turns the dialog
- * into a confirmation. Closes with the {@link ReportConfirmation} once sent.
+ * into "Report sent" with Done and "Follow it in My reports". Closes with the {@link ReportConfirmation} once sent.
  */
 @Component({
   selector: 'app-report-collector-dialog',
@@ -90,21 +90,19 @@ export interface ReportDialogData {
             <strong>{{ data.target.displayName }}</strong
             >. They are not told who reported them.
           </p>
-          <p class="done__muted">
-            You will get a notification once the review is complete. Follow it any time in
-            <a routerLink="/settings/reports" [mat-dialog-close]="confirmation"
-              >Settings → My reports</a
-            >.
-          </p>
+          <p class="done__muted">You will get a notification once the review is complete.</p>
         </div>
       </mat-dialog-content>
-      <mat-dialog-actions align="end">
-        <button #done matButton="filled" type="button" [mat-dialog-close]="confirmation">
+      <mat-dialog-actions align="end" class="done__actions">
+        <a class="done__follow" routerLink="/settings/reports" [mat-dialog-close]="confirmation"
+          >Follow it in My reports</a
+        >
+        <button #done matButton="outlined" type="button" [mat-dialog-close]="confirmation">
           Done
         </button>
       </mat-dialog-actions>
     } @else {
-      <h2 mat-dialog-title>Report collector</h2>
+      <h2 mat-dialog-title>Report {{ data.target.handle || data.target.displayName }}</h2>
       <form (submit)="submit($event)" novalidate>
         <mat-dialog-content>
           <div class="who">
@@ -121,7 +119,7 @@ export interface ReportDialogData {
             </span>
           </div>
 
-          <p class="question" [id]="ids.question">Why are you reporting this user?</p>
+          <p class="question" [id]="ids.question">Why are you reporting them?</p>
 
           @if (reasons.reasons(); as options) {
             <mat-radio-group
@@ -192,15 +190,31 @@ export interface ReportDialogData {
           }
         </mat-dialog-content>
         <mat-dialog-actions align="end">
-          <button matButton type="button" mat-dialog-close>Cancel</button>
+          @if (!reasonValue()) {
+            <span class="hint" data-testid="report-choose-first">Choose a reason first.</span>
+          }
+          <button matButton="outlined" type="button" mat-dialog-close>Cancel</button>
           <button matButton="filled" type="submit" [disabled]="!canConfirm()">
-            {{ submitting() ? 'Sending…' : 'Confirm' }}
+            {{ submitting() ? 'Sending…' : 'Send report' }}
           </button>
         </mat-dialog-actions>
       </form>
     }
   `,
   styles: `
+    .hint {
+      margin-right: auto;
+      color: var(--color-text-muted);
+      font-size: var(--font-size-sm);
+    }
+    .done__actions {
+      gap: var(--spacing-3);
+    }
+    .done__follow {
+      margin-right: auto;
+      color: var(--color-accent);
+      font-weight: var(--font-weight-semibold);
+    }
     .who {
       display: flex;
       align-items: center;

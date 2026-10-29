@@ -373,7 +373,8 @@ document; their shapes live in `core/realtime/realtime-events.ts` with runtime g
   STOMP 1.2 over a native WebSocket (`stomp-frames.ts` codec + `stomp-connection.ts` client, a
   lazy chunk, heartbeats both ways, no dependency) at `wsBaseUrl` (`/config.json`, derived from
   `apiBaseUrl` when empty) with the ID token as `access_token`. Subscribes only to
-  `/user/queue/messages|receipts|typing|presence|notifications` (the last one since Phase 6),
+  `/user/queue/messages|receipts|typing|presence|notifications|conversations` (notifications
+  since Phase 6, conversations since web stage WC),
   sends only `/app/typing`. `state` signal
   (`disabled | connecting | connected | reconnecting`, shown by `RealtimeStatusComponent` as
   "Live" / "Reconnecting…"); exponential backoff 1 s → 30 s with jitter, immediate retry when the
@@ -402,9 +403,85 @@ document; their shapes live in `core/realtime/realtime-events.ts` with runtime g
 - **Map panel** (`features/map/messages-panel.component.ts`): the messenger in the right-hand
   sidenav with the live indicator and "Open full page"; the preview's Message button opens (or
   creates, `POST /conversations`, idempotent) the conversation there; the panel toggle carries the
-  unread badge. **`/messages`, `/messages/:id`**: the full-page messenger, two columns from 840 px,
-  list or thread on phones; the open conversation lives in the URL. The collector profile's
-  Message button opens `/messages/:id` (`shared/messaging/conversation-starter.service.ts`).
+  unread badge. **`/messages`, `/messages/:id`**: the full-page messenger; since web stage WC the
+  inbox beside the chat from 960 px, one pane per route below (section "Messages: the deal beside
+  the chat" below). "Message" buttons open the chat drawer (`shared/messaging/chat-drawer.service.ts`).
+- **Messages: the deal beside the chat (web redesign WC, spec 10, boards W18 to W21).**
+  - **Layout** (`messages-page.component.ts`, `messenger/`): at lg (1280 and wider) the inbox (340,
+    with the page's H1 and Chats | Community projected as `[inboxHeader]`), the chat (its thread
+    centred at 720) and the deal panel (320; "Deal" in the chat's header, `aria-pressed`, its
+    state remembered in this browser under `orenjitrade.messages.dealPanel`); at md (960 to 1279)
+    the inbox (300) and the chat, the deal panel a 360 drawer with a scrim, a focus trap and Esc;
+    below 960 one pane per route, the deal panel a full-screen sheet. Esc in the chat gives the
+    focus back to the inbox row.
+  - **Inbox** (`conversation-list/`): "Search chats" (the page's own search, `/` focuses it),
+    [All | Unread], rows of 76 (44 avatar and online dot, the handle, the phone's times "2 min",
+    "Yesterday", "Sat", "Oct 14", orange when unread, the last message on one line: "You: …", a
+    sale worded for the reader, an old offer as "Offer (no longer available)", the chat's card or
+    deck core as a 28×40 thumbnail), the selected row `surfaceVariant` with a 2 px orange inset;
+    ↑↓ or j k (single-key shortcuts, off with Settings › Appearance's switch), Enter; "No chats
+    yet" with [Search cards]; "No chats match …" with "Show all chats".
+  - **Chat** (`thread/`): the header (36 avatar, the handle, "Online · Quebec", the state or
+    province only; "Deal"; "⋯": Rate {h} when eligible, Mute, Archive, Report {h}, Block {h});
+    the pinned bar (`pinned-bar.component.ts`: 30×42 art, name, "{code} · {rarity}", the price as
+    typed; the seller's "· your card" and the teal outline **Mark as sold**, the only entry; a
+    "Sold" tag after the sale; "No longer listed" for a buyer); the shield tip of the reader's
+    side (it replaces the dismissible trading safety notice of 2026-10-05, spec 20); the thread
+    (bubbles ≤ 480, `chat.otherBubble`, a shared card as the 280 card with its price, the sale
+    note in the `chat.sale*` tokens with "Tracking {n}", [Rate {other}] and, for the seller,
+    Undo for 10 minutes, then gone; undone sales dropped from the thread when their pushed copy
+    arrives); the quick replies of the side (`data/deal-rules.ts`, the phone's rule with the owner
+    decision of 2026-10-28: the later replies for both once sold); the composer
+    (`composer/`: the 40 round "+" menu, the field of 1 to 6 lines, Enter or Ctrl/Cmd+Enter sends,
+    Shift+Enter a new line, a photo dropped on the chat attaches, "Not sent · {reason}" with
+    "Try again"; the draft of each chat kept in memory by `shared/messaging/chat-drafts.service.ts`).
+  - **"+" menu** (`dialogs/`): "Send my address" and "Send my e-Transfer email" open a 440 dialog
+    typed each time (`autocomplete="off"`, the text only in the dialog's signals, sent at once with
+    "Send in this chat", the preview of what the other collector reads, "OrenjiTrade doesn't keep
+    this…"; decision 9: nothing is written to localStorage, sessionStorage or IndexedDB, an E2E
+    reads all three); "Send a photo"; "Share a card from your inventory" (a 520 picker on
+    `GET /inventory/items`, sent as `CARD_LINK` with `inventoryItemId`, which pins the chat's
+    subject) and "Share a binder" (the public binders and deck cores of `GET /binders`).
+  - **Mark as sold** (`dialogs/mark-sold-dialog.component.ts`, 480): the card row, "Copies sold"
+    − 1 + up to the copies held (a deck core sells as one), "Tracking number · optional" (the API's
+    rule as typed), the live sentence ("You keep 1 copy in your inventory." / "It was your last
+    copy…"), `POST /conversations/{id}/sales` with the subject shown (409 `SUBJECT_CHANGED` closes
+    with the news), refusals inline; then the toast "Marked as sold" with Undo
+    (`POST /sales/{id}/undo`). Tracking numbers are never logged by the web.
+  - **Deal panel** (`deal/deal-panel.component.ts`): "THIS CHAT IS ABOUT" (96×140 art, name, code,
+    price, View card / View deck core); the seller's copies, visibility and binder
+    (`GET /inventory/items/{id}`) with "Open in Inventory" (`/inventory?item=`), after the sale
+    "Sold Oct 20 · Tracking …" with Undo and [Rate]; the buyer's "How deals work here" (four steps),
+    "OrenjiTrade never holds the money and does not protect payments." and Trading safely; "WITH"
+    (48 avatar, handle, "★4.9 · 14 ratings" and "Member since" from `GET /collectors/{handle}`, the
+    place from the chat's participant, never the profile's city); the buyer's "More from {seller}"
+    (four 64 tiles from the existing `GET /collectors/{handle}/inventory?excludeDeckCoreItems=true`,
+    the chat's card left out, no counts; a tile puts "Could you add your {card} ({price}) to the
+    same package?" in the composer; 404 shows none).
+  - **Chat drawer** (`drawer/chat-drawer.component.ts`, a `@defer` chunk of the shell that shares
+    the chat's code with Messages; `shared/messaging/chat-drawer.service.ts`): "Message" on a
+    holder of Who has this card (`/search?card=`, about that copy), a public binder (about the deck
+    core when it sells as one), Home's binders and a collector profile opens the chat in a 440
+    non-modal drawer under the top bar (`aria-modal="false"`, no scrim): header (avatar, handle,
+    status, "Open in Messages ↗", Close), pinned bar, tip, thread, quick replies, composer. One at a
+    time (another replaces it, each draft kept); Esc closes it from inside and the focus goes back
+    to the opener; F6 moves between the page and the drawer. At lg and xl it pushes the page; at
+    md it overlays it, and Esc on the page closes it too, the focus staying where it is (a control
+    under the drawer shows again; a menu, a dialog, an open list or a text field's own Esc comes
+    first). Below 960 "Message" goes to `/messages/:id`; going to Messages closes it. One realtime
+    connection for all of it.
+  - **Realtime**: `RealtimeService` also subscribes to `/user/queue/conversations` (stage R4: a pin
+    of the other collector), so the pinned bar and the inbox follow it.
+  - **Refusals** read the same for every reason (owner decision of 2026-10-28): a send refused with
+    403 `MESSAGING_BLOCKED` reads "This collector cannot receive messages right now.", never a
+    block; the blocker alone sees "You blocked {h}…".
+  - **Rate and Report** (`shared/ratings`, `shared/reports`, also from profiles): Rate names the
+    deal ("{card} · sold Oct 20", stage R14's `dealName`), the words Poor, Not great, Okay, Good,
+    Excellent, "Write a reference instead" and "Publish rating"; Report is "Report {handle}" with
+    "Why are you reporting them?", "Send report" disabled with "Choose a reason first.", then
+    "Report sent" with Done and "Follow it in My reports".
+  - **Settings › Shipping details** (`/settings/shipping`): "On the web, OrenjiTrade doesn't save
+    your address or e-Transfer email. …" (decision 9), nothing to fill in.
 - **Blocks**: `shared/messaging/block-actions.service.ts` (confirmation + snack bar) from the thread
   menu and the community post menu; **Settings → Blocked users** (`GET /me/blocks`, Unblock).
 - **`/community`, `/community/:slug`** (`features/community`, behind `featureGuard('publicChat')`;

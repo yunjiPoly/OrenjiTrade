@@ -190,7 +190,9 @@ Findings SLA: Critical 48 h, High 7 days, Medium 30 days, Low next release.
   `grid_cell`, `geo_cell`, `email` reaches `AnalyticsEvent`.
 - Data subject requests (Quebec Law 25 / PIPEDA): export and deletion are admin actions with
   audit entries; deletion completes within 30 days and cascades to media, messages (anonymised
-  for the counterpart), analytics (hash unlinkable). Collectors can also export and delete
+  for the counterpart: the account's text, links and photos erased, and the conversation's
+  last-message preview moved to the newest message left, so no copy of the text stays),
+  analytics (hash unlinkable). Collectors can also export and delete
   themselves (Settings → Account), as the Privacy Policy explains in English and in French.
 - Consent evidence: `user_consent` keeps, per collector, the document type, the version, the
   language the text was shown in (`en` / `fr`, V104), the timestamp, a salted hash of the IP and

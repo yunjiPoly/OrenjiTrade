@@ -1,4 +1,4 @@
-import { Routes } from '@angular/router';
+import { Routes, UrlMatchResult, UrlSegment } from '@angular/router';
 import {
   accountGuard,
   accountStateGuard,
@@ -13,6 +13,16 @@ import {
   offersGoneRedirect,
   wishlistRedirect,
 } from './core/routing/legacy-redirects';
+
+/** `messages` and `messages/:id` (one route config, so the router reuses the page between them). */
+export function messagesMatcher(segments: UrlSegment[]): UrlMatchResult | null {
+  if (segments[0]?.path !== 'messages' || segments.length > 2) {
+    return null;
+  }
+  return segments.length === 2
+    ? { consumed: segments, posParams: { id: segments[1] } }
+    : { consumed: segments };
+}
 
 /**
  * `data.shell` of the web redesign's areas (spec 4.2 pill scope, 4.6 rail, 4.10 footer); `tabBar`
@@ -125,14 +135,6 @@ export const routes: Routes = [
       ),
   },
   {
-    path: 'messages',
-    title: 'Messages',
-    data: { shell: MESSAGES },
-    canActivate: [onboardingGuard],
-    loadComponent: () =>
-      import('./features/messages/messages-page.component').then((m) => m.MessagesPageComponent),
-  },
-  {
     path: 'messages/community/:room',
     title: 'Community',
     data: { shell: MESSAGES },
@@ -141,7 +143,9 @@ export const routes: Routes = [
       import('./features/messages/messages-page.component').then((m) => m.MessagesPageComponent),
   },
   {
-    path: 'messages/:id',
+    // `/messages` and `/messages/:id` are one route: the page (and the focused inbox row) stays
+    // when the first chat opens or Back closes it (spec 10.2; WC review F5, U3, A1).
+    matcher: messagesMatcher,
     title: 'Messages',
     data: { shell: MESSAGES },
     canActivate: [onboardingGuard],
