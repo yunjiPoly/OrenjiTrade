@@ -101,6 +101,11 @@ export class ImportPageComponent {
   protected readonly rowsTotal = signal(0);
   protected readonly rowsPage = signal(0);
   protected readonly rowsLoading = signal(false);
+  /**
+   * The newest rows read (V3-1): a read that a newer one replaced is ignored when it answers, so
+   * two reads answering out of order never put a row's box out of step with the server.
+   */
+  private rowsRequest = 0;
   protected readonly rowsError = signal(false);
   protected readonly filter = signal<RowFilter>('all');
   protected readonly busyRows = signal<ReadonlySet<string>>(new Set());
@@ -296,6 +301,7 @@ export class ImportPageComponent {
     }
     const page = reset ? 0 : this.rowsPage() + 1;
     const filter = this.filter();
+    const request = ++this.rowsRequest;
     this.rowsLoading.set(true);
     this.rowsError.set(false);
     try {
@@ -317,14 +323,23 @@ export class ImportPageComponent {
           { context: silentErrors() },
         ),
       );
+      if (request !== this.rowsRequest) {
+        return;
+      }
       this.rows.set(reset ? (result.items ?? []) : [...this.rows(), ...(result.items ?? [])]);
       this.rowsTotal.set(result.totalItems ?? 0);
       this.rowsPage.set(page);
     } catch (error) {
+      if (request !== this.rowsRequest) {
+        return;
+      }
       this.rowsError.set(true);
       this.expired(error);
     } finally {
-      this.rowsLoading.set(false);
+      // Only the newest read ends the hold: an older one answering first leaves the rows held.
+      if (request === this.rowsRequest) {
+        this.rowsLoading.set(false);
+      }
     }
   }
 

@@ -217,4 +217,52 @@ describe('ImportPageComponent (spec 9.11, R2-1: no row edit is lost while the ch
     await settle();
     expect(knightBox().hasAttribute('aria-disabled')).toBe(false);
   });
+
+  it('ignores a rows read that a newer read replaced when they answer in reverse order (V3-1)', async () => {
+    slowRows = true;
+    const chips = element.querySelectorAll<HTMLButtonElement>('.chips .chip');
+    chips[1].click(); // "Which copy?": the older read
+    await settle();
+    chips[0].click(); // "All": the newer read
+    await settle();
+    expect(rowsAnswers).toHaveLength(2);
+
+    // The newer read answers first: its rows show and the hold ends.
+    rowsAnswers[1].next(page([DRAGON, KNIGHT]));
+    rowsAnswers[1].complete();
+    await settle();
+    expect(knightBox()).toBeTruthy();
+    expect(knightBox().hasAttribute('aria-disabled')).toBe(false);
+
+    // The older read answers last: ignored, so Knight's box stays and no hold comes back.
+    rowsAnswers[0].next(page([DRAGON]));
+    rowsAnswers[0].complete();
+    await settle();
+    expect(knightBox()).toBeTruthy();
+    expect(knightBox().hasAttribute('aria-disabled')).toBe(false);
+  });
+
+  it('keeps the rows held while only the older of two reads has answered (V3-1)', async () => {
+    slowRows = true;
+    const chips = element.querySelectorAll<HTMLButtonElement>('.chips .chip');
+    chips[1].click();
+    await settle();
+    chips[0].click();
+    await settle();
+    expect(rowsAnswers).toHaveLength(2);
+
+    rowsAnswers[0].next(page([DRAGON]));
+    rowsAnswers[0].complete();
+    await settle();
+    // The older list never lands and the rows stay held for the newer read.
+    expect(knightBox()).toBeTruthy();
+    knightBox().click();
+    await settle();
+    expect(updateRow).not.toHaveBeenCalled();
+
+    rowsAnswers[1].next(page([DRAGON, KNIGHT]));
+    rowsAnswers[1].complete();
+    await settle();
+    expect(knightBox().hasAttribute('aria-disabled')).toBe(false);
+  });
 });
