@@ -97,7 +97,7 @@ export function bindersEmptyText(
         />
       </div>
 
-      <div class="bp__body" [id]="listId()" tabindex="-1">
+      <div class="bp__body">
         @if (stateList()) {
           <app-state-list
             [region]="region()"
@@ -291,7 +291,6 @@ export class BindersPaneComponent {
   readonly deckCoreTotal = input(0);
   readonly home = input<string | null>(null);
   readonly openId = input<string | null>(null);
-  readonly listId = input('search-list');
   readonly qChange = output<string>();
   readonly stateChange = output<string | null>();
   readonly kindChange = output<BinderKind>();

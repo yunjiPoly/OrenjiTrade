@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -94,7 +93,6 @@ export function addBodies(
 @Component({
   selector: 'app-set-page',
   imports: [
-    DatePipe,
     RouterLink,
     CardDataAttributionComponent,
     CardImageComponent,
@@ -148,6 +146,20 @@ export class SetPageComponent {
   protected readonly printingCount = computed(
     () => this.set()?.printingCount ?? this.detail()?.printings?.totalItems ?? null,
   );
+  /** "Released Nov 1, 2024 · 101 printings" (the set header may count, spec 7.5 and 17). */
+  protected readonly metaLine = computed(() => {
+    const set = this.set();
+    const count = this.printingCount();
+    const released = set?.releaseDate
+      ? `Released ${new Date(`${set.releaseDate}T12:00:00`).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        })}`
+      : null;
+    const printings = count !== null ? `${count} ${count === 1 ? 'printing' : 'printings'}` : null;
+    return [released, printings].filter(Boolean).join(' · ');
+  });
   protected readonly chosen = computed(() =>
     [...this.counts().values()].reduce((sum, value) => sum + value, 0),
   );

@@ -67,11 +67,15 @@ test.describe('acceptance: map', () => {
     await expect(pageB).toHaveURL(/:\d+\/\?region=americas-north$/);
     const shape = pageB.locator(`.leaflet-overlay-pane path[data-code="${place.subdivisionCode}"]`);
     await expect(shape).toBeAttached({ timeout: 20_000 });
+    // Shaded with a map step (spec 6.4's `map.step1–4`), not the empty step.
+    const empty = await pageB.evaluate(() =>
+      getComputedStyle(document.documentElement).getPropertyValue('--color-map-step0').trim(),
+    );
     await expect
-      .poll(async () => Number(await shape.getAttribute('fill-opacity')), {
+      .poll(async () => (await shape.getAttribute('fill'))?.toLowerCase(), {
         message: "A's state is shaded",
       })
-      .toBeLessThan(1);
+      .not.toBe(empty.toLowerCase());
     await expect(pageB.locator('.leaflet-tile-pane img')).toHaveCount(0);
     expect(await privacy.scanDom(pageB), 'DOM attributes checked').toBeGreaterThan(100);
 

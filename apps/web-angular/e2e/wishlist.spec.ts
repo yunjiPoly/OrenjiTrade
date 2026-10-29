@@ -222,13 +222,19 @@ test.describe('wishlist and notifications', () => {
       await page.getByTestId('card-wish-toggle').click();
       await expect(page.getByTestId('card-wish-toggle')).toHaveText(/On your wishlist/);
       await expect(page.getByText('On your wishlist').last()).toBeVisible();
-      // On a phone-sized screen, where the printing picker makes the dialog scroll.
-      await page.setViewportSize({ width: 375, height: 812 });
-      await page.goto('/search?tab=wishlist&game=pokemon');
+      // The same card from the dialog (OTHER_CARD is a Yu-Gi-Oh! card: one game at a time, its
+      // wish shows under Yu-Gi-Oh!), then on a phone-sized screen, where the printing picker makes
+      // the dialog scroll.
+      await page.goto('/search?tab=wishlist&game=yugioh');
+      await expect(page.getByTestId('wish-row')).toHaveCount(1);
       await page.getByTestId('add-wish').click();
-      await dialog.getByRole('combobox', { name: 'Card name or printing code' }).fill('Ember Wyrm');
-      await page.getByRole('option', { name: new RegExp(`^${OTHER_CARD} Pokémon`) }).click();
+      await dialog.getByRole('combobox', { name: 'Card name or printing code' }).fill(OTHER_CARD);
+      await page
+        .getByRole('option', { name: new RegExp(`^${OTHER_CARD}`) })
+        .first()
+        .click();
       await expect(dialog.getByTestId('wish-card')).toContainText(OTHER_CARD);
+      await page.setViewportSize({ width: 375, height: 812 });
       await dialog.getByRole('button', { name: 'Add to wishlist' }).click();
       await expect(dialog.getByTestId('wish-error')).toContainText(
         'already on your wishlist with the same printing or rarity',
@@ -245,8 +251,8 @@ test.describe('wishlist and notifications', () => {
       await page.setViewportSize({ width: 1280, height: 720 });
 
       // Remove that second wish: Select, its box, [Remove from wishlist], confirmed (spec 6.6).
-      await page.goto('/search?tab=wishlist&game=pokemon');
-      await expect(page.getByTestId('wish-row')).toHaveCount(2);
+      await page.goto('/search?tab=wishlist&game=yugioh');
+      await expect(page.getByTestId('wish-row')).toHaveCount(1);
       await page.getByRole('button', { name: 'Select' }).click();
       await page.getByRole('checkbox', { name: `Select ${OTHER_CARD}` }).check();
       await page.getByRole('button', { name: 'Remove from wishlist' }).click();
@@ -254,7 +260,9 @@ test.describe('wishlist and notifications', () => {
       await expect(confirm).toContainText('You stop getting alerts for it.');
       await confirm.getByRole('button', { name: 'Remove from wishlist' }).click();
       await expect(page.getByText('Removed from your wishlist')).toBeVisible();
-      await expect(page.getByTestId('wish-row')).toHaveCount(1);
+      await expect(page.getByTestId('wish-row')).toHaveCount(0);
+      // The Pokémon wish is still there, under its own game.
+      await expect(page.getByText('No Yu-Gi-Oh! wishes yet')).toBeVisible();
       await expect(bell).toHaveAttribute('data-realtime', 'connected', { timeout: 20_000 });
       // Marker to prove the page is never reloaded while the alert arrives.
       await page.evaluate(

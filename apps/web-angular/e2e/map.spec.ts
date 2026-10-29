@@ -36,7 +36,6 @@ function suffix(): string {
   return Math.random().toString(36).slice(2, 7);
 }
 
-
 interface Seller {
   collector: OnboardedCollector;
   binder: { id: string; name: string };

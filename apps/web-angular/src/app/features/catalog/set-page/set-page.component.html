@@ -18,17 +18,7 @@
           <p class="sp__game">{{ gameLabel() }}</p>
           <p class="sp__code">{{ set.code }}</p>
           <h1 class="sp__name">{{ set.name }}</h1>
-          <p class="sp__meta">
-            @if (set.releaseDate) {
-              Released {{ set.releaseDate | date: 'MMM d, y' }}
-            }
-            @if (set.releaseDate && printingCount() !== null) {
-              ·
-            }
-            @if (printingCount() !== null) {
-              {{ printingCount() }} {{ printingCount() === 1 ? 'printing' : 'printings' }}
-            }
-          </p>
+          <p class="sp__meta">{{ metaLine() }}</p>
         </div>
         <div class="sp__actions">
           <a class="sp__outline" routerLink="/search" [queryParams]="whoHasQuery()"

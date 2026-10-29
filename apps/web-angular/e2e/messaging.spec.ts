@@ -37,7 +37,6 @@ function suffix(): string {
   return Math.random().toString(36).slice(2, 7);
 }
 
-
 /** A 48×48 PNG (fictional test picture). */
 const TEST_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAIAAADYYG7QAAAAT0lEQVR42u3WsQ0AIAgEQMZxJmdyZ11ASmPxl1CScNXztee4z2rm8X4BAQHlgT4d7vaBgIACQZIaCAhIH/I6gID0IUkNBASkD3kdQEDJoAMWbGrTipIFrAAAAABJRU5ErkJggg==',

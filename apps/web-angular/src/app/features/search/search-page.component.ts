@@ -240,38 +240,47 @@ export class SearchPageComponent {
       const printing = this.printing();
       untracked(() => void this.redirectOldCardLink(card, printing));
     });
-    // A link's region and game select them once; the pills' choices are mirrored into the URL.
+    // A link's region and game select them once; the pills' choices are mirrored into the URL in
+    // one navigation (two would race and the second would drop the first's parameter).
     effect(() => {
-      const requested = this.region();
-      const current = this.regionContext.current();
-      untracked(() => {
-        if (requested && requested !== this.appliedRegion && REGION_CODE.test(requested)) {
-          this.appliedRegion = requested;
-          if (requested !== current) {
-            this.regionContext.select(requested);
-            return;
-          }
-        }
-        if (requested !== current) {
-          this.appliedRegion = current;
-          this.mergeUrl({ region: current }, true);
-        }
-      });
-    });
-    effect(() => {
-      const requested = this.game();
-      const current = this.gameContext.current();
+      const requestedRegion = this.region();
+      const requestedGame = this.game();
+      const region = this.regionContext.current();
+      const game = this.gameContext.current();
       const browsable = this.gameContext.browsable();
+      const oldLink = !!this.card() || !!this.printing();
       untracked(() => {
-        if (requested && requested !== this.appliedGame && browsable !== null) {
-          this.appliedGame = requested;
-          if (requested !== current && this.gameContext.select(requested)) {
+        if (oldLink) {
+          return;
+        }
+        if (
+          requestedRegion &&
+          requestedRegion !== this.appliedRegion &&
+          REGION_CODE.test(requestedRegion)
+        ) {
+          this.appliedRegion = requestedRegion;
+          if (requestedRegion !== region) {
+            this.regionContext.select(requestedRegion);
             return;
           }
         }
-        if (requested !== current) {
-          this.appliedGame = current;
-          this.mergeUrl({ game: current }, true);
+        if (requestedGame && requestedGame !== this.appliedGame && browsable !== null) {
+          this.appliedGame = requestedGame;
+          if (requestedGame !== game && this.gameContext.select(requestedGame)) {
+            return;
+          }
+        }
+        const patch: Record<string, string> = {};
+        if (requestedRegion !== region) {
+          this.appliedRegion = region;
+          patch['region'] = region;
+        }
+        if (requestedGame !== game) {
+          this.appliedGame = game;
+          patch['game'] = game;
+        }
+        if (Object.keys(patch).length > 0) {
+          this.mergeUrl(patch, true);
         }
       });
     });

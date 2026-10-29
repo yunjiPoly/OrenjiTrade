@@ -82,7 +82,7 @@ test.describe('card catalog', () => {
     const picker = page.getByRole('dialog', { name: 'Which printing' });
     await expect(picker.getByRole('option')).toHaveCount(3);
     await expect(picker).not.toContainText(/\d+ (holders|copies|listings)/);
-    await picker.getByRole('textbox', { name: 'Set code or set name' }).fill('fr001');
+    await picker.getByRole('searchbox', { name: 'Set code or set name' }).fill('fr001');
     await expect(picker.getByRole('option')).toHaveCount(2);
     await picker
       .getByRole('option', { name: /AZR-FR001 · Azure Dawn · 2024 · Ultra Rare/ })

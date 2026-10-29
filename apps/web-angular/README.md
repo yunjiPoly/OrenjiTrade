@@ -48,14 +48,67 @@ The frame of every page (`core/layout`, spec section 4, boards W1, W3, W28, W29 
 - **Skip links** ("Skip to content", "Skip the map" while the map is shown), the **session
   banner** ("We could not load your account." with "Try again"), and the **footer** of reading
   pages only (`data.shell.layout`).
-- **Routes and old links** (`app.routes.ts`, `core/routing/legacy-redirects.ts`, spec 4.11): Home
-  (`/`, the region's map until stage WE), Search with Cards | Binders | Wishlist (Binders without a
-  text is the map until stage WD), Messages with Chats | Community (`/messages/community/:room`),
+- **Routes and old links** (`/search?card=` and `?printing=` open `/cards/:id` since stage WD) (`app.routes.ts`, `core/routing/legacy-redirects.ts`, spec 4.11): Home
+  (`/`, the region's map until stage WE), Search with Cards | Binders | Wishlist beside the map
+  (stage WD, below), Messages with Chats | Community (`/messages/community/:room`),
   `/profile`; `/map` → Search › Binders, `/cards?q=` → Search › Cards, `/wishlist` → Search ›
   Wishlist, `/community` → Messages › Community, `/offers` and `/trades` → Messages with the toast
   "Offers are no longer available. Deals happen in the chat.", `/checkout` and `/disputes` → a
   notice, `/settings/offers|payouts` → Settings. Only the landing and Legal are indexable
   (decision 6, `OrenjiTitleStrategy`).
+
+## Search, Who has this card, sets, binders and deck cores (web redesign WD)
+
+Spec sections 6 to 8 (boards W3 to W9), contract `docs/api/contracts/wd-web-search.md`.
+
+- **One game at a time** (`core/game/game-context.service.ts`): the game pill lists `GET /games`
+  (a game without cards is "Cards coming soon"); the browsed game is the one picked in this visit,
+  else the one kept in this browser for the account (`orenji.game.<account>`, `orenji.game.guest`,
+  try/catch), else the first profile game that has cards, else Yu-Gi-Oh! (the phone's rule). Home
+  and Search send it as `game=`; Search mirrors `?region=&game=` in its URL; a card, set, binder or
+  deck core of another game makes that game the browsed one.
+- **`/search`** (`features/search`): the list pane (400; 520 with a binder open at lg; 360 at md)
+  beside the map (`map/search-map`, Leaflet in the Search chunk: the map steps, the viewer's
+  province in a teal dashed outline, a hovered row's province in ink, "Show my province", + and −,
+  the legend, "Made with Natural Earth"); `?tab=cards|binders|wishlist&q&state=<code>|all&kind=
+  binders|deckcores&open=<binderId>&wish=<id>` (`data/search-url.ts`).
+  - **Cards** (`panes/cards-pane`): the field focused on arrival, the recent searches of this
+    browser, then the top bar's results at full height (the browsed game's cards, a member's 3
+    collectors, "Search binders and deck cores for …"); Enter opens the active or first card.
+  - **Binders** (`panes/binders-pane`, `data/binder-list.store.ts`): the field, the state chip or
+    "Pick on the map", Binders | Deck cores, "Browse by state or province" (`panes/state-list`:
+    Whole region, your province pinned, countries; one tab stop) or the rows (`panes/binder-row`,
+    cursor pages, "Load more", the spec's empty states). A click on a state lands in its binders.
+    Hovering or focusing a row outlines its province and reads nothing.
+  - **A binder or deck core beside the list** (`drill-in/binder-drill-in`, `?open=`): at lg in the
+    list pane under "← Back to results" (Back restores the scroll and the row's focus), at xl
+    (`min-width: 1920px`) in a middle pane of 520, at md and below its full page. Its open is the
+    only read of the binder (`BinderViewStore.open`, one public binder view); the limit reads
+    "You've opened 30 public binders today. Every collector has the same limits. More tomorrow at
+    …".
+  - **Wishlist** (`panes/wishlist-pane`, `panes/wish-holders`): the alerts and visibility
+    switches, [Add a wish], the browsed game's wishes with "Available" or "None yet"
+    (`GET /wishlist/availability?region&game`), Select and [Remove from wishlist]; the chosen
+    wish's holders in the map's pane. A guest reads "Get told when it's listed".
+  - Below 960, the phone's Search: Map | List on Binders, the map full width with the state card
+    ("See binders").
+- **`/cards/:id`** (`features/catalog/card-page`, Who has this card): the card (art at 160, the
+  game, the name, its first or chosen printing with a link to the set, "Check TCGplayer price ↗",
+  the wishlist toggle, "I have this card", the data credit) and who has it
+  (`shared/discovery/who-has`, shared with the wishlist's holder pane: `sort=province`, groups with
+  sticky headers, "Jump to", "Also in a deck core", rows of one tab stop, "Message" to the chat
+  drawer). "Any printing ▾" opens the printing listbox (`printing-popover`). "I have this card"
+  opens Inventory's Add cards drawer over the page (`card-add-host`, a chunk shared with
+  Inventory). No card text, attributes or market price (decision 10).
+- **`/sets/:id`** (`features/catalog/set-page`): the code, the name, "Released … · n printings",
+  [Who has cards of this set] and the printings grid; "Add from this set" puts a − 0 + stepper on
+  each tile and a footer (the count, Private | Public, a binder of the set's game, [Add n cards]:
+  one create per tile).
+- **`/binders/:id`** (`features/binders`, boards W8 and W9): a deck core's gallery (thumbnails,
+  ←/→, a lightbox), key cards and its sticky panel (price, seller card, Message or Manage in
+  Inventory, the note, "⋯" Share and Report); a binder's header, "Search this binder" and the sort
+  pill (Recently added, Name, Price: `sort=` of the items) and its cards with "Load more"
+  (`shared/discovery/binder-view`).
 
 ## Run
 
@@ -215,10 +268,8 @@ the Emulator UI (http://localhost:4000/auth).
   every piece of state in the URL, paginated grid, printing-code badge); `/cards/:id`
   (`?printing=<id>` selects a printing, `?rarity=` shows "Any printing in <rarity>" and
   `?printing=any` shows "Any printing", both without picking, highlighting or pricing one;
-  hero picture, attributes rendered from the schema's
-  `metadataFields`, printings table with market prices, "Add to inventory" (opens the add-card
-  dialog on that printing), "Who has this in my region" (opens `/search?card=<id>`, the holders
-  of the platform region on screen; ADR 0017) and "Add to wishlist"; `/sets/:id` (cards + paginated checklist). `GamesStore`
+  since stage WD Who has this card and set pages with "Add from this set" (see the WD section above;
+  no attributes, printings table or market price any more). `GamesStore`
   (`GET /games`) also feeds the profile game picker, so hidden games disappear there.
 - **Admin**: `/admin/games` (list incl. hidden, edit names/status/order and the schema JSON with
   live validation and a preview), `/admin/cards` (find cards, catalog sync with polling and the
@@ -313,12 +364,11 @@ Contract: `docs/api/contracts/phase3-inventory.md` (web section). Generated clie
   ends showing what its row holds (WB review R2-1). An open preview (60 minutes) or a cut commit is
   picked up again. The commit returns no item ids, so the imported cards do not open already
   selected (decision 19): Inventory opens sorted by Recently added.
-- **`/binders/:id`** (`features/binders`): public binder (`GET /public/binders/{id}` + items, sent
-  with the ID token when signed in so `binder.views.per_day` counts and blocks apply). Owner
-  card with the owner's state or province only (ADR 0017), game pills, search and
-  availability filter in the URL, public item cards (condition, availability, price, offers,
-  public notes; never private notes). States: not available (404), daily view limit (429),
-  error with retry.
+- **`/binders/:id`** (`features/binders`): public binder or deck core (`GET /public/binders/{id}` +
+  items, sent with the ID token when signed in so `binder.views.per_day` counts and blocks apply;
+  web stage WD's boards W8 and W9, see the WD section). The owner's state or province only (ADR
+  0017); search and sort in the URL; never private notes. States: "This binder isn't public
+  anymore." (404), the daily view limit (429), an error with "Try again".
 - **Collector page**: "View public binder" opens the first public binder; public binders
   (`GET /collectors/{handle}/binders`) and a preview of public cards
   (`GET /collectors/{handle}/inventory`) are listed.
@@ -348,18 +398,8 @@ Generated client only (`RegionsService`, `SearchService`, `PublicBindersService`
   ("Where are you?") and Settings → Location (`PUT/DELETE /me/location`); a gentle prompt invites
   collectors without a location. No GPS, no geolocation API (the CSP's `Permissions-Policy` denies
   it), no map picker.
-- **`/search`** (`features/search`, the mobile Search tab), all state in the URL
-  (`data/search-params.ts`):
-  - `?q=&tab=cards|collectors|binders`: `GET /search` in tabs (cards + printings + sets,
-    collectors with their matching listings, public binders with their owner block). When the
-    query resolves to a card or printing, a banner lists the holders of the region with "All
-    holders and prices".
-  - `?card=|printing=` + `availability`, `condition`, `minPrice`, `maxPrice`, `freshness`,
-    `edition`, `language`, `offers`, `sort=freshness|price`, `page`: the card-holders view
-    (`GET /search/card-holders` in the browsed region) with `HolderFiltersComponent` (reactive
-    form; prices validated inline, min <= max) and paginated `HolderRowComponent`s (listing +
-    holder with their state or province, View binder).
-  - Every search sends the browsed region (the region switcher); there is no centre or distance.
+- **`/search`**: since web stage WD the list beside the map (see the WD section above); every
+  call sends the browsed region and game; there is no centre or distance.
 
 ## Messaging, realtime and community (Phase 5)
 
@@ -862,12 +902,13 @@ src/app/
                 (rules, flags), listings, binders, ratings, notifications, analytics, delist
                 (auto-delist editor), health, payments (transactions, payments, payment detail
                 with refund, webhooks, payment rules), disputes (queue, detail, resolve dialog)
-    catalog/    card search (filters, URL params), card detail (metadata, printings), set page
+    catalog/    card search (filters, URL params), card page (Who has this card, printing
+                picker, the Add drawer host), set page (Add from this set)
     inventory/  /inventory: data/ (params, store, item form, bulk actions, visibility status),
                 binder list, toolbar, summary, items (grid card, table), bulk bar,
                 binders (header, publish menu, form + manager dialogs), editor side panel,
                 add-card dialog
-    binders/    /binders/:id public binder (container + header)
+    binders/    /binders/:id public binder or deck core (boards W8, W9)
     map/        the region's map (Home and Search › Binders since stage WA): boundary map,
                 states list, a state's binders; data/ (RegionMapStore, boundaries)
     messages/   /messages: data/ (ConversationsStore, ThreadStore, drafts, previews, thread
@@ -875,9 +916,10 @@ src/app/
                 composer, realtime status
     community/  Messages › Community: data/ (CommunityStore, helpers), channel sidebar, post
                 composer, post item, replies, moderator remove dialog
-    search/     /search (Cards | Binders | Wishlist): data/ (params), unified results (tabs,
-                collector result), card holders (filters form, result row)
-    wishlist/   Search › Wishlist: data/ (WishlistStore), list (wish card, summary)
+    search/     /search (Cards | Binders | Wishlist beside the map, stage WD): data/ (URL,
+                binder list), panes (cards, binders, state list, rows, wishlist, holder pane),
+                drill-in, map
+    wishlist/   data/ (WishlistStore, used by Search › Wishlist)
     notifications/ /notifications: data/ (NotificationFeedStore, day groups)
     legal, not-found
   shared/
@@ -886,7 +928,8 @@ src/app/
                 attribution (provider credits per game, footer and card/set pages)
     inventory/  inventory labels, item chips, public item card, public binder card
     limits/     limit wording (labels, windows, values)
-    discovery/  discovery labels (filters, ratings, listings), DiscoveryCentreService
+    discovery/  discovery labels, who-has (the holders list), binder-view (store, gallery, owner,
+                cards, key cards), ViewerPlaceService
     search/     UnifiedSearchBox (GET /search/suggest), suggestion grouping and routing
     domain/     games, place / last-active labels
     location/   LocationFields (region, country, state pickers, city), MyLocationStore

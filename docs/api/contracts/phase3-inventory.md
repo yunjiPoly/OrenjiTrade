@@ -56,7 +56,7 @@ ACTIVE 0–14, AGING 15–30, STALE 31–45, HIDDEN 46+ days since `confirmed_at
 
 - `GET /collectors/{handle}/binders` → `[PublicBinderSummary]` (only effective-public binders with ≥1 effective-public item)
 - `GET /public/binders/{id}` → `PublicBinderResponse` `{ id, name, description, owner: {id, handle, displayName, avatarUrl, location: {publicLabel, distanceBucket}}, freshness, itemCount, games: [] }`
-- `GET /public/binders/{id}/items?game=&query=&availability=&page=&size=` → `PageResponse<PublicInventoryItem>` `{ id, printing: PrintingSummary, card, quantity, condition, language, edition, finish, askingPrice, currency, availability, acceptsOffers, publicNotes, images, freshness }` — never `notes`, never owner coordinates.
+- `GET /public/binders/{id}/items?game=&query=&availability=&page=&size=&sort=` (`sort=name|recent|price`, by name by default; web stage WD, [wd-web-search.md](wd-web-search.md)) → `PageResponse<PublicInventoryItem>` `{ id, printing: PrintingSummary, card, quantity, condition, language, edition, finish, askingPrice, currency, availability, acceptsOffers, publicNotes, images, freshness }` — never `notes`, never owner coordinates.
 - `GET /collectors/{handle}/inventory?…` → effective-public items across binders (same shape).
 
 ## Jobs
