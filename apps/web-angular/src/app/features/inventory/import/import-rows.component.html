@@ -21,13 +21,14 @@
         </span>
         <span role="cell" class="section">
           <strong>{{ group.title }}</strong>
-          <span class="muted small">{{ sectionLine(group.rows.length, group.copies) }}</span>
+          <span class="muted small">{{ sectionLine(group.rows.length, copiesOf(group.rows)) }}</span>
         </span>
         <span role="cell" class="section__hide">
           <button
             type="button"
             class="link"
             [attr.aria-expanded]="!sectionHidden(group.key)"
+            [attr.aria-label]="(sectionHidden(group.key) ? 'Show the ' : 'Hide the ') + group.title"
             (click)="toggleHidden(group.key)"
           >
             {{ sectionHidden(group.key) ? 'Show' : 'Hide' }}
@@ -86,7 +87,8 @@
                 [class.print--choose]="st === 'choose'"
                 [matMenuTriggerFor]="printMenu"
                 [matMenuTriggerData]="{ row: row }"
-                (menuOpened)="loadPrintings.emit(row)"
+                (menuOpened)="onMenuOpened(row)"
+                (menuClosed)="onMenuClosed()"
                 [disabled]="isBusy(row)"
                 [attr.aria-label]="
                   row.printing
@@ -97,7 +99,10 @@
                 @if (row.printing; as pr) {
                   <span class="print__text">
                     <span
-                      ><span class="mono">{{ code(pr) }}</span> · {{ pr.rarity }}</span
+                      ><span class="mono">{{ code(pr) }}</span> · {{ pr.rarity }}
+                      @if (variant(row, pr); as v) {
+                        · <strong class="print__variant">{{ v }}</strong>
+                      }</span
                     >
                     <span class="muted small print__set">{{ pr.setName }}</span>
                   </span>
@@ -151,15 +156,19 @@
       }
     }
   } @empty {
-    <p class="muted tbl__none">No line here.</p>
-  }
-  @if (rowsError()) {
-    <p class="tbl__none" role="alert">
-      The lines could not load.
-      <button type="button" class="link" (click)="retry.emit()">Try again</button>
-    </p>
+    @if (!rowsError()) {
+      <div class="tr tr--none" role="row">
+        <span role="cell" class="muted tbl__none">No line here.</span>
+      </div>
+    }
   }
 </div>
+@if (rowsError()) {
+  <p class="tbl__none" role="alert">
+    The lines could not load.
+    <button type="button" class="link" (click)="retry.emit()">Try again</button>
+  </p>
+}
 
 <mat-menu #printMenu="matMenu" class="import-print-menu">
   <ng-template matMenuContent let-row="row">
@@ -174,6 +183,9 @@
             }
           </span>
           <span class="menu-hint">{{ option.setName }} · {{ option.rarity }}</span>
+          @if (variant(row, option); as v) {
+            <span class="menu-variant">{{ v }}</span>
+          }
         </span>
       </button>
     } @empty {

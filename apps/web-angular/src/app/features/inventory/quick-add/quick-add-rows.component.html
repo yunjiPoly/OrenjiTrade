@@ -73,7 +73,7 @@
     >
       @if (chosen(); as c) {
         <span class="mono">{{ c.printingCode }}</span>
-        <span class="qa__chip-sub">{{ c.rarity }}</span>
+        <span class="qa__chip-sub">{{ c.variant ? c.rarity + ' · ' + c.variant : c.rarity }}</span>
       } @else if (searching()) {
         Looking…
       } @else {
@@ -150,8 +150,10 @@
 
     @if (listOpen() && list().length) {
       <div class="qa__pop">
-        <p class="qa__pop-title">Pick the printing on your card</p>
-        <ul id="qa-list" role="listbox" aria-label="Printings">
+        <p class="qa__pop-title" id="qa-list-title">
+          {{ listOfCards() ? 'Pick the card, then its printing' : 'Pick the printing on your card' }}
+        </p>
+        <ul id="qa-list" role="listbox" aria-labelledby="qa-list-title">
           @for (s of list(); track $index; let i = $index) {
             <li
               role="option"
@@ -177,8 +179,11 @@
                   @if (s.kind === 'PRINTING') {
                     <span class="mono">{{ s.printingCode }}</span> · {{ s.setName }} ·
                     {{ s.rarity }}
+                    @if (s.variant) {
+                      · <strong class="qa__variant">{{ s.variant }}</strong>
+                    }
                   } @else {
-                    {{ s.printingCount ?? '' }} printings: pick one
+                    {{ printingsLabel(s.printingCount) }}
                   }
                 </span>
               </span>

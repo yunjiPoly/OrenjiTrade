@@ -17,6 +17,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { RouterLink } from '@angular/router';
 import {
   BinderResponse,
   BindersService,
@@ -85,6 +86,7 @@ interface KeyCard {
     MatIconModule,
     MatSelectModule,
     MatSlideToggleModule,
+    RouterLink,
     DrawerFrameComponent,
     GameMonogramComponent,
     PhotoSlotsComponent,

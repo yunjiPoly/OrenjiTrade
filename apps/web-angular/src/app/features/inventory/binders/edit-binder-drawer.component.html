@@ -22,6 +22,12 @@
     <p class="hd__sub">
       {{ countLine() }} ·
       <button type="button" class="link" (click)="seeCards.emit(b)">See its cards →</button>
+      @if (b.effectivePublic) {
+        ·
+        <a class="link" [routerLink]="['/binders', b.id]" data-testid="edit-binder-public"
+          >View public page</a
+        >
+      }
     </p>
   </div>
 

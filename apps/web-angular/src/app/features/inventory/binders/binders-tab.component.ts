@@ -10,6 +10,7 @@ import {
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
+import { RouterLink } from '@angular/router';
 import type { BinderResponse } from '@orenji/api-client';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
@@ -35,6 +36,7 @@ import { BinderCoverComponent } from '../ui/binder-cover.component';
     MatButtonModule,
     MatIconModule,
     MatMenuModule,
+    RouterLink,
     BinderCoverComponent,
     EmptyStateComponent,
     ErrorStateComponent,
@@ -43,7 +45,11 @@ import { BinderCoverComponent } from '../ui/binder-cover.component';
   ],
   template: `
     @if (error()) {
-      <app-error-state title="Your binders could not load" (retry)="retry.emit()" />
+      <app-error-state
+        title="Your binders could not load"
+        retryLabel="Try again"
+        (retry)="retry.emit()"
+      />
     } @else if (binders() === null) {
       <div class="grid" aria-busy="true">
         <span class="visually-hidden">Loading your binders</span>
@@ -147,6 +153,15 @@ import { BinderCoverComponent } from '../ui/binder-cover.component';
                       ><mat-icon aria-hidden="true">layers</mat-icon>{{ core(binder) }}</span
                     >
                   }
+                  @if (binder.effectivePublic) {
+                    <a
+                      class="card__public"
+                      [routerLink]="['/binders', binder.id]"
+                      [attr.aria-label]="'View the public page of ' + binder.name"
+                      [attr.data-testid]="'binder-public-' + binder.id"
+                      >View public page</a
+                    >
+                  }
                 </div>
                 @if (needsConfirm(binder)) {
                   <div class="card__fresh">
@@ -183,6 +198,11 @@ import { BinderCoverComponent } from '../ui/binder-cover.component';
           <mat-icon>{{ binder.visibility === 'PRIVATE' ? 'public' : 'lock' }}</mat-icon>
           <span>{{ binder.visibility === 'PRIVATE' ? 'Make public' : 'Make private' }}</span>
         </button>
+        @if (binder.effectivePublic) {
+          <a mat-menu-item [routerLink]="['/binders', binder.id]">
+            <mat-icon>open_in_new</mat-icon><span>View public page</span>
+          </a>
+        }
         <button
           mat-menu-item
           type="button"

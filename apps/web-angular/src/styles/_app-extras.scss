@@ -293,6 +293,12 @@
     font-size: var(--font-size-meta);
   }
 
+  .menu-variant {
+    color: var(--color-ink);
+    font-size: var(--font-size-meta);
+    font-weight: var(--font-weight-semibold);
+  }
+
   > .mat-mdc-menu-content > .menu-hint {
     padding: 6px 16px;
   }

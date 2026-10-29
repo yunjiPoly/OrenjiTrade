@@ -57,6 +57,7 @@ import {
 import { binderGameError } from '../data/inventory-actions.service';
 import { InventoryStore } from '../data/inventory.store';
 import { lastPriceMode, rememberPriceMode } from '../data/item-price';
+import { printingVariant, suggestionVariant } from '../data/printing-variant';
 import { AddManyChoice, AddManyComponent } from './add-many.component';
 import { CardFieldsComponent } from './card-fields.component';
 import { DrawerFrameComponent } from './drawer-frame.component';
@@ -96,6 +97,7 @@ const ALL = '';
 })
 export class AddCardsDrawerComponent {
   private readonly catalog = inject(CatalogService);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   protected readonly store = inject(InventoryStore);
   private readonly toasts = inject(ToastService);
   private readonly region = inject(RegionContext);
@@ -226,6 +228,20 @@ export class AddCardsDrawerComponent {
     return printingImageUrl(printing);
   }
 
+  /** What tells a printing from its same-code twins (U2), or null. */
+  protected variant(printing: PrintingSummary): string | null {
+    return printingVariant(printing, this.cardPrintings());
+  }
+
+  /** "Secret Rare · 1st Edition": the rarity and what tells the printing from its twins. */
+  protected rarityLine(printing: PrintingSummary): string {
+    return [printing.rarity, this.variant(printing)].filter(Boolean).join(' · ');
+  }
+
+  protected suggestionVariant(suggestion: CardSuggestion): string | null {
+    return suggestionVariant(suggestion, this.printings());
+  }
+
   protected year(printing: PrintingSummary): string | null {
     return printing.setReleaseDate ? printing.setReleaseDate.slice(0, 4) : null;
   }
@@ -293,6 +309,7 @@ export class AddCardsDrawerComponent {
     this.error.set(null);
     if (this.step() === 'details' && this.cardPrintings().length > 1) {
       this.step.set('printing');
+      this.focusStep();
       return;
     }
     this.step.set('search');
@@ -394,6 +411,7 @@ export class AddCardsDrawerComponent {
             this.toDetails();
           } else {
             this.printing.set(null);
+            this.focusStep();
           }
         },
         error: (error: unknown) => this.cardError.set(friendlyMessage(toApiError(error))),
@@ -412,6 +430,15 @@ export class AddCardsDrawerComponent {
     this.errors.set({});
     this.error.set(null);
     this.step.set('details');
+    this.focusStep();
+  }
+
+  /**
+   * A step replaced the focused one (A1, A2): the focus moves to the new step's heading (the card's
+   * name), which a screen reader then reads.
+   */
+  private focusStep(): void {
+    setTimeout(() => this.host.nativeElement.querySelector<HTMLElement>('[data-step-focus]')?.focus());
   }
 
   private focusField(): void {

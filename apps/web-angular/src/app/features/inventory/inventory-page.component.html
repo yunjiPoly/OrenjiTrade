@@ -115,6 +115,9 @@
         @if (selectedBinder(); as binder) {
           <div class="strip" data-testid="binder-strip">
             <span class="strip__name">{{ binder.name }}</span>
+            @if (binderEnds(binder); as ends) {
+              <span class="strip__muted" data-testid="binder-strip-ends">{{ ends }}</span>
+            }
             @if (binder.sellsAsCore) {
               <span class="strip__core">{{ coreTag(binder.askingPriceText) }}</span>
               <span class="strip__muted"
@@ -133,6 +136,16 @@
               [value]="binderChoice(binder)"
               (valueChange)="setBinderVisibility(binder, $event)"
             />
+            @if (binder.effectivePublic) {
+              <a
+                matButton="outlined"
+                [routerLink]="['/binders', binder.id]"
+                data-testid="binder-public-page"
+              >
+                <mat-icon aria-hidden="true">open_in_new</mat-icon>
+                View public page
+              </a>
+            }
             <button matButton="outlined" type="button" (click)="openBinder(binder)">
               <mat-icon aria-hidden="true">edit</mat-icon>
               Edit binder
@@ -167,14 +180,13 @@
             <button type="button" class="banner__link" (click)="showStale()">Show them</button>
           </div>
         }
-        @if (notVisible() > 0) {
+        @if (notVisibleWords(); as words) {
           <div class="banner" role="status" data-testid="visibility-banner">
             <mat-icon aria-hidden="true">visibility_off</mat-icon>
-            <p class="banner__text">
-              {{ notVisible() }} public
-              {{ notVisible() === 1 ? "card isn't" : "cards aren't" }} visible yet. Put them in a
-              public binder or choose your province.
-            </p>
+            <p class="banner__text">{{ words.text }}</p>
+            @if (words.privacyLink) {
+              <a class="banner__link" routerLink="/settings/privacy">Privacy settings</a>
+            }
             <button type="button" class="banner__link" (click)="showNotVisible()">Show them</button>
           </div>
         }
@@ -220,6 +232,7 @@
         } @else if (store.itemsError() && !store.itemsLoading()) {
           <app-error-state
             title="Couldn't load your cards."
+            retryLabel="Try again"
             [message]="errorMessage()"
             [requestId]="store.itemsError()?.requestId ?? null"
             (retry)="reload()"

@@ -71,12 +71,13 @@
         </p>
       </div>
 
+      @if (status() === 'loading' && options().length === 0) {
+        <p class="hint" role="status">Searching…</p>
+      }
       <div id="add-options" role="listbox" aria-label="Cards and printings" class="results">
-        @if (status() === 'loading' && options().length === 0) {
-          <p class="hint" role="status">Searching…</p>
-        }
+
         @if (cards().length) {
-          <h3 class="label" role="presentation">Cards</h3>
+          <p class="label" aria-hidden="true">Cards</p>
           @for (suggestion of cards(); track suggestion.id; let i = $index) {
             @let p = parts(suggestion.name);
             <div
@@ -119,7 +120,7 @@
           }
         }
         @if (printings().length) {
-          <h3 class="label" role="presentation">Exact printings</h3>
+          <p class="label" aria-hidden="true">Exact printings</p>
           @for (suggestion of printings(); track suggestion.printingId; let i = $index) {
             <div
               class="opt opt--printing"
@@ -135,6 +136,9 @@
               <span class="opt__text">
                 <span class="mono opt__code">{{ suggestion.printingCode }}</span>
                 <span class="opt__meta">{{ suggestion.setName }}</span>
+                @if (suggestionVariant(suggestion); as v) {
+                  <strong class="opt__variant">{{ v }}</strong>
+                }
               </span>
               @if (suggestion.rarity) {
                 <span class="opt__rarity">{{ suggestion.rarity }}</span>
@@ -174,7 +178,7 @@
         <button type="button" class="back" (click)="back()">
           <mat-icon aria-hidden="true">arrow_back</mat-icon> Back to the search
         </button>
-        <p class="pick-title">{{ c.name }}</p>
+        <h3 class="pick-title" tabindex="-1" data-step-focus>{{ c.name }}</h3>
         <p class="hint">
           {{ cardPrintings().length }}
           {{ cardPrintings().length === 1 ? 'printing' : 'printings' }}. Pick the one on your card.
@@ -230,6 +234,9 @@
                       · {{ y }}
                     }
                   </span>
+                  @if (variant(p); as v) {
+                    <strong class="opt__variant">{{ v }}</strong>
+                  }
                 </span>
                 @if (p.rarity) {
                   <span class="opt__rarity">{{ p.rarity }}</span>
@@ -263,12 +270,12 @@
               alt=""
             />
             <span class="opt__text">
-              <span class="chosen__name">{{ c.name }}</span>
+              <h3 class="chosen__name" tabindex="-1" data-step-focus>{{ c.name }}</h3>
               <span class="opt__meta"
                 ><span class="mono">{{ code(p) }}</span> · {{ p.setName }}</span
               >
-              @if (p.rarity) {
-                <span class="opt__meta">{{ p.rarity }}</span>
+              @if (p.rarity || variant(p)) {
+                <span class="opt__meta">{{ rarityLine(p) }}</span>
               }
             </span>
           </div>

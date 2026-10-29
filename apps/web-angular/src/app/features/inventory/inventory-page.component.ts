@@ -1,3 +1,4 @@
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { CDK_DRAG_CONFIG, DragDropConfig } from '@angular/cdk/drag-drop';
 import { DOCUMENT } from '@angular/common';
 import {
@@ -18,6 +19,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { Router, RouterLink } from '@angular/router';
 import type { BinderResponse, InventoryItemResponse } from '@orenji/api-client';
 import { AuthService } from '../../core/auth/auth.service';
+import { ToastService } from '../../core/feedback/toast.service';
 import { isEditableTarget } from '../../core/keyboard/keyboard-shortcuts.service';
 import { friendlyMessage } from '../../core/http/api-error-messages';
 import { ShellLayout } from '../../core/layout/shell-layout.service';
@@ -35,7 +37,7 @@ import { BinderActionsService } from './binders/binder-actions.service';
 import { BindersTabComponent } from './binders/binders-tab.component';
 import { EditBinderDrawerComponent } from './binders/edit-binder-drawer.component';
 import { BulkDockComponent } from './bulk/bulk-dock.component';
-import { binderVisibilityChoice, deckCoreTag } from './data/binder-form';
+import { binderEnds, binderVisibilityChoice, deckCoreTag } from './data/binder-form';
 import { binderGame } from './data/binder-games';
 import { BulkAction } from './data/bulk-actions';
 import { cardFormOf } from './data/card-form';
@@ -52,7 +54,7 @@ import {
 } from './data/inventory-params';
 import { InventoryStore } from './data/inventory.store';
 import { itemPriceText } from './data/item-price';
-import { itemVisibilityTag } from './data/visibility-status';
+import { itemVisibilityTag, notVisibleBanner } from './data/visibility-status';
 import { AddCardsDrawerComponent } from './drawer/add-cards-drawer.component';
 import { AddManyChoice } from './drawer/add-many.component';
 import { EditCardDrawerComponent } from './drawer/edit-card-drawer.component';
@@ -142,6 +144,8 @@ export class InventoryPageComponent {
   protected readonly actions = inject(InventoryActions);
   private readonly binderActions = inject(BinderActionsService);
   protected readonly games = inject(GamesStore);
+  private readonly toasts = inject(ToastService);
+  private readonly announcer = inject(LiveAnnouncer);
 
   /** Query parameters (bound by the router). */
   readonly tab = input<string | undefined>();
@@ -253,8 +257,26 @@ export class InventoryPageComponent {
       },
     ];
   });
+  /**
+   * "16 cards · 30 copies · 13 public" for All cards; inside a binder its own "9 cards · 9 public"
+   * (U6, board W12: the binder's counts; its copies are not counted by the API, so they are left
+   * out); nothing for Unfiled, whose copies and public cards are not counted either.
+   */
   protected readonly summaryLine = computed(() => {
     const summary = this.store.summary();
+    const binderId = this.params().binder;
+    if (binderId === UNFILED) {
+      return null;
+    }
+    const binder = this.selectedBinder();
+    if (binderId) {
+      return binder && binder.itemCount > 0
+        ? {
+            cards: `${binder.itemCount} ${binder.itemCount === 1 ? 'card' : 'cards'}`,
+            rest: ` · ${binder.publicItemCount} public`,
+          }
+        : null;
+    }
     if (!summary || summary.totalItems === 0) {
       return null;
     }
@@ -279,6 +301,10 @@ export class InventoryPageComponent {
     const pub = summary.byVisibility.PUBLIC + summary.byVisibility.TEMPORARILY_PUBLIC;
     return Math.max(0, pub - summary.effectivePublicCount - summary.hiddenCount);
   });
+  /** The banner's words for the cards not visible yet: the real reason (F3). */
+  protected readonly notVisibleWords = computed(() =>
+    notVisibleBanner(this.notVisible(), this.store.ownerVisible()),
+  );
   protected readonly rows = computed<InventoryRow[]>(() => {
     const selection = this.store.selection();
     const busy = this.store.busyItems();
@@ -336,6 +362,7 @@ export class InventoryPageComponent {
   protected readonly dragCount = computed(() => this.drag()?.count ?? 1);
   protected readonly dragArts = computed(() => this.drag()?.arts ?? []);
   protected readonly coreTag = deckCoreTag;
+  protected readonly binderEnds = binderEnds;
   protected readonly binderChoice = binderVisibilityChoice;
 
   private handledAdd: string | null = null;
@@ -403,7 +430,40 @@ export class InventoryPageComponent {
         });
       }
     });
-    // Ctrl/Cmd+Z (outside a text field): the last Undo (spec 4.9).
+    // A search or a filter: how many cards match, said once the list loaded (A12).
+    let announcedKey: string | null = null;
+    effect(() => {
+      const params = this.params();
+      const loading = this.store.itemsLoading();
+      const total = this.store.total();
+      const loaded = this.store.loaded();
+      if (params.tab !== 'cards' || loading || loaded === null || this.store.itemsError()) {
+        return;
+      }
+      const key = JSON.stringify([
+        params.q,
+        params.game,
+        params.visibility,
+        params.freshness,
+        params.binder,
+      ]);
+      if (announcedKey === null) {
+        announcedKey = key;
+        return;
+      }
+      if (key !== announcedKey) {
+        announcedKey = key;
+        untracked(() =>
+          this.announcer.announce(
+            total === 0
+              ? 'No cards match these filters.'
+              : `${total} ${total === 1 ? 'card' : 'cards'} ${hasActiveFilters(params) ? 'match' : 'listed'}`,
+            'polite',
+          ),
+        );
+      }
+    });
+    // Ctrl/Cmd+Z (outside a text field): the last Undo (spec 4.9). Esc clears the selection.
     const onKey = (event: KeyboardEvent) => this.onDocumentKey(event);
     this.document.addEventListener('keydown', onKey);
     inject(DestroyRef).onDestroy(() => this.document.removeEventListener('keydown', onKey));
@@ -526,7 +586,22 @@ export class InventoryPageComponent {
   protected onEditDeleted(item: InventoryItemResponse): void {
     const { next, previous } = this.editNeighbours();
     const target = next ?? previous;
-    this.navigate({ item: target && target.id !== item.id ? target.id : null }, true);
+    const shown = target && target.id !== item.id ? target.id : null;
+    this.navigate({ item: shown }, true);
+    // The deleted card's controls are gone (U10): the next card's drawer, or the list.
+    setTimeout(() => {
+      if (!this.focusLost()) {
+        return;
+      }
+      const title = this.document.getElementById('edit-card-title');
+      if (shown && title) {
+        title.setAttribute('tabindex', '-1');
+        title.focus();
+      } else {
+        this.opener = null;
+        this.focusList(shown);
+      }
+    }, 50);
   }
 
   protected onAddMany(choice: AddManyChoice): void {
@@ -599,16 +674,21 @@ export class InventoryPageComponent {
   protected onEscape(): void {
     if (this.store.selectedCount() > 0) {
       this.store.clearSelection();
+      this.refocusAfterAction();
     }
   }
 
   protected async onBulk(action: BulkAction): Promise<void> {
+    if (this.bulkBusy()) {
+      return;
+    }
     const ids = [...this.store.selection()];
-    this.bulkBusy.set(true);
     try {
-      await this.actions.bulk(action, ids);
+      // Busy only once sent (after "Delete 4 cards?"): the dock keeps its focus meanwhile (A1).
+      await this.actions.bulk(action, ids, () => this.bulkBusy.set(true));
     } finally {
       this.bulkBusy.set(false);
+      this.refocusAfterAction();
     }
   }
 
@@ -757,6 +837,15 @@ export class InventoryPageComponent {
     }
     event.preventDefault();
     const source = sourceOfFile(file.name);
+    if (!source) {
+      // Only a .ydk or a .csv opens Import (spec 9.7, F10): a photo goes on a card.
+      this.toasts.show({
+        title: 'Drop a .ydk or .csv file to import',
+        sub: 'To add photos, open a card and drop them there.',
+        tone: 'info',
+      });
+      return;
+    }
     this.handoff.give(file);
     void this.router.navigate(['/inventory/import'], {
       queryParams: { source: source === 'COLLECTR_CSV' ? 'csv' : 'ydk' },
@@ -770,6 +859,10 @@ export class InventoryPageComponent {
   }
 
   private onDocumentKey(event: KeyboardEvent): void {
+    if (event.key === 'Escape' && !event.defaultPrevented) {
+      this.escapeSelection(event);
+      return;
+    }
     const mod = event.ctrlKey || event.metaKey;
     if (mod && !event.shiftKey && !event.altKey && event.key.toLowerCase() === 'z') {
       if (
@@ -785,8 +878,70 @@ export class InventoryPageComponent {
     }
   }
 
+  /**
+   * Esc anywhere on the page clears the selection (spec 9.6, U1, F7), unless something lies on top
+   * (a menu, a dialog, a drawer) or the focus is in a text field, which handle Esc themselves.
+   */
+  private escapeSelection(event: KeyboardEvent): void {
+    if (
+      this.store.selectedCount() === 0 ||
+      isEditableTarget(event.target) ||
+      this.drawerOpen() ||
+      this.quickOpenTarget(event.target) ||
+      this.document.querySelector(
+        '.cdk-overlay-container :is(.mat-mdc-menu-panel, [role="dialog"], [role="alertdialog"])',
+      )
+    ) {
+      return;
+    }
+    event.preventDefault();
+    this.store.clearSelection();
+    this.refocusAfterAction();
+  }
+
+  private quickOpenTarget(target: EventTarget | null): boolean {
+    return target instanceof Element && !!target.closest('app-quick-add-rows');
+  }
+
+  /** Whether the focus fell out of the page (its control was removed or replaced). */
+  private focusLost(): boolean {
+    const active = this.document.activeElement;
+    return !active || active === this.document.body || !active.isConnected;
+  }
+
+  /**
+   * After a dock action, Esc or a delete the focused control may be gone (the dock leaves with the
+   * selection): the focus goes back to the dock, else to the list's active row (A1, F7, U10).
+   */
+  private refocusAfterAction(): void {
+    setTimeout(() => {
+      if (!this.focusLost()) {
+        return;
+      }
+      const dock = this.document.querySelector<HTMLElement>('app-bulk-dock .dock__count');
+      if (dock) {
+        dock.focus();
+        return;
+      }
+      this.focusList(null);
+    });
+  }
+
+  /** Focuses a row of the list (`id`, else the active one, else the first). */
+  private focusList(id: string | null): void {
+    const table = this.table();
+    if (table) {
+      table.focusActive(id);
+      return;
+    }
+    const grid = this.grid();
+    if (grid) {
+      grid.focus(id ?? this.store.items()[0]?.id ?? null);
+    }
+  }
+
   /** Unsaved changes in the open drawer ask "Discard your changes?" before it shows something else. */
-  private async leaveDrawer(): Promise<boolean> {
+  async leaveDrawer(): Promise<boolean> {
     const edit = this.editDrawer();
     if (edit && !(await edit.confirmLeave())) {
       return false;

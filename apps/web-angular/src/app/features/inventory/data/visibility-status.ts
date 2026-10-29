@@ -155,3 +155,27 @@ export function itemVisibilityTag(
     icon: 'visibility_off',
   };
 }
+
+/** The banner of public cards nobody sees yet (spec 9.3), worded for its real cause (F3). */
+export interface NotVisibleBanner {
+  text: string;
+  /** The owner is hidden from the map with a profile that is not public: Privacy settings fix it. */
+  privacyLink: boolean;
+}
+
+export function notVisibleBanner(
+  count: number,
+  ownerVisible: boolean | null,
+): NotVisibleBanner | null {
+  if (count <= 0) {
+    return null;
+  }
+  const cards = `${count} public ${count === 1 ? "card isn't" : "cards aren't"} visible yet.`;
+  if (ownerVisible === false) {
+    return {
+      text: `${cards} You are hidden from the map and your profile is not public, so collectors can't see your binders.`,
+      privacyLink: true,
+    };
+  }
+  return { text: `${cards} Put them in a public binder or choose your province.`, privacyLink: false };
+}

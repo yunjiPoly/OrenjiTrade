@@ -3,12 +3,15 @@ import {
   Component,
   booleanAttribute,
   computed,
+  effect,
   input,
   output,
   signal,
+  untracked,
+  viewChild,
 } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
-import { MatMenuModule } from '@angular/material/menu';
+import { MatMenu, MatMenuModule } from '@angular/material/menu';
 import { RouterLink } from '@angular/router';
 import type {
   InventoryImportResponse,
@@ -16,6 +19,7 @@ import type {
   PrintingSummary,
 } from '@orenji/api-client';
 import { printingCode, printingImageUrl } from '../../../shared/inventory/inventory-labels';
+import { printingVariant } from '../data/printing-variant';
 import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import {
   ROW_STATE_LABEL,
@@ -57,6 +61,33 @@ export class ImportRowsComponent {
 
   protected readonly stateLabel = ROW_STATE_LABEL;
   protected readonly hidden = signal<ReadonlySet<Section>>(new Set());
+  private readonly printMenu = viewChild('printMenu', { read: MatMenu });
+  /** The row whose printing menu is open while its printings load (A14). */
+  private readonly menuRow = signal<InventoryImportRow | null>(null);
+
+  constructor() {
+    // The menu opened before its printings arrived: the focus moves to the first one once they do.
+    effect(() => {
+      const row = this.menuRow();
+      const loaded = row?.card ? (this.printings()[row.card.id]?.length ?? 0) > 0 : false;
+      if (row && loaded) {
+        untracked(() => {
+          this.menuRow.set(null);
+          setTimeout(() => this.printMenu()?.focusFirstItem('keyboard'));
+        });
+      }
+    });
+  }
+
+  protected onMenuOpened(row: InventoryImportRow): void {
+    const loaded = row.card ? (this.printings()[row.card.id]?.length ?? 0) > 0 : false;
+    this.menuRow.set(loaded ? null : row);
+    this.loadPrintings.emit(row);
+  }
+
+  protected onMenuClosed(): void {
+    this.menuRow.set(null);
+  }
 
   /** Rows by deck section (a deck file), or one group (a CSV). */
   protected readonly groups = computed(() => {
@@ -64,7 +95,7 @@ export class ImportRowsComponent {
     const preview = this.preview();
     if (preview.source !== 'YDK') {
       return [
-        { key: 'all', title: null as string | null, rows: [...rows], include: true, copies: 0 },
+        { key: 'all', title: null as string | null, rows: [...rows], include: true },
       ];
     }
     const sections = preview.sections;
@@ -76,24 +107,32 @@ export class ImportRowsComponent {
         key: 'main',
         title: 'Main deck',
         include: sections?.includeMain ?? true,
-        copies: sections?.mainCopies ?? 0,
       },
       {
         key: 'extra',
         title: 'Extra deck',
         include: sections?.includeExtra ?? true,
-        copies: sections?.extraCopies ?? 0,
       },
       {
         key: 'side',
         title: 'Side deck',
         include: sections?.includeSide ?? true,
-        copies: sections?.sideCopies ?? 0,
       },
     ]
       .map((group) => ({ ...group, rows: rows.filter((row) => sectionOf(row) === group.key) }))
       .filter((group) => group.rows.length > 0);
   });
+
+  /** The copies the rows shown add (U7: a card of two sections lists once, with all its copies). */
+  protected copiesOf(rows: readonly InventoryImportRow[]): number {
+    return rows.reduce((total, row) => total + (row.quantity ?? 0), 0);
+  }
+
+  /** What tells a printing from its same-code twins among the card's printings (U2), or null. */
+  protected variant(row: InventoryImportRow, printing: PrintingSummary): string | null {
+    const all = row.card ? (this.printings()[row.card.id] ?? []) : [];
+    return printingVariant(printing, all.length ? all : [printing]);
+  }
 
   protected sectionLine(cards: number, copies: number): string {
     return `${cards} ${cards === 1 ? 'card' : 'cards'} · ${copies} ${copies === 1 ? 'copy' : 'copies'}`;

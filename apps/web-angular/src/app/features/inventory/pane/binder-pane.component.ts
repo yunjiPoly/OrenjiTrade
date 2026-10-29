@@ -21,6 +21,7 @@ import {
   groupBindersByGame,
   onlyGameLabel,
 } from '../data/binder-games';
+import { binderEnds } from '../data/binder-form';
 import { UNFILED } from '../data/inventory-params';
 import { BinderCoverComponent } from '../ui/binder-cover.component';
 
@@ -162,6 +163,9 @@ export type BinderPaneAction =
                       @if (binder.sellsAsCore) {
                         <span class="bp__core">{{ coreTag(binder) }}</span>
                       }
+                      @if (ends(binder); as e) {
+                        <span class="bp__ends">Public · {{ e }}</span>
+                      }
                       @if (drag()?.over === binder.id && targetable(binder)) {
                         <span class="bp__drop">{{ dropLabel() }}</span>
                       }
@@ -209,6 +213,12 @@ export type BinderPaneAction =
           <mat-icon>{{ binder.visibility === 'PRIVATE' ? 'public' : 'lock' }}</mat-icon>
           <span>{{ binder.visibility === 'PRIVATE' ? 'Make public' : 'Make private' }}</span>
         </button>
+        @if (binder.effectivePublic) {
+          <a mat-menu-item [routerLink]="['/binders', binder.id]">
+            <mat-icon>open_in_new</mat-icon>
+            <span>View public page</span>
+          </a>
+        }
         <button
           mat-menu-item
           type="button"
@@ -309,6 +319,10 @@ export type BinderPaneAction =
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+    .bp__ends {
+      color: var(--color-text-muted);
+      font-size: var(--font-size-tag);
     }
     .bp__core {
       align-self: flex-start;
@@ -489,8 +503,14 @@ export class BinderPaneComponent {
 
   protected rowLabel(binder: BinderResponse): string {
     const who = binder.visibility === 'PRIVATE' ? 'private' : 'public';
+    const ends = this.ends(binder);
     const core = binder.sellsAsCore ? ', deck core' : '';
-    return `${binder.name}, ${who}${core}, ${binder.itemCount} ${binder.itemCount === 1 ? 'card' : 'cards'}`;
+    return `${binder.name}, ${who}${ends ? ` (${ends})` : ''}${core}, ${binder.itemCount} ${binder.itemCount === 1 ? 'card' : 'cards'}`;
+  }
+
+  /** "ends tomorrow" for a running temporary publication (U9). */
+  protected ends(binder: BinderResponse): string | null {
+    return binderEnds(binder);
   }
 
   /** A binder takes the dragged cards when all of them are of its game. */

@@ -162,6 +162,24 @@
   font-weight: var(--font-weight-semibold);
 }
 
+.card__public {
+  align-self: flex-start;
+  color: var(--app-primary-text);
+  font-size: var(--font-size-meta);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+}
+
+.card__public:hover {
+  text-decoration: underline;
+}
+
+.card__public:focus-visible {
+  border-radius: 4px;
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
 .card__core mat-icon {
   width: 13px;
   height: 13px;

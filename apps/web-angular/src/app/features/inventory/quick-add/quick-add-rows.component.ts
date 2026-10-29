@@ -1,3 +1,4 @@
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -34,6 +35,7 @@ import {
   SegmentedComponent,
 } from '../../../shared/ui/segmented/segmented.component';
 import { binderGame } from '../data/binder-games';
+import { printingVariant, suggestionVariant } from '../data/printing-variant';
 import {
   CardVisibility,
   QUANTITY_MAX,
@@ -74,6 +76,18 @@ export function printingForCode(
   );
 }
 
+/**
+ * Whether the printing picked still names what the field says (F5): the field holds its code (a
+ * code typed or a printing picked from the list). An empty or retyped field picks nothing.
+ */
+export function chosenMatchesText(chosen: CardSuggestion | null, text: string): boolean {
+  const typed = text.trim().toUpperCase();
+  if (!chosen || !typed) {
+    return false;
+  }
+  return [chosen.printingCode, chosen.name].some((value) => (value ?? '').toUpperCase() === typed);
+}
+
 /** The 429's words (spec 9.10): the limit, the usage and the reset, the same for everyone. */
 export function quickAddLimitMessage(error: ApiError, now = Date.now()): string {
   const info = limitReachedInfo(error);
@@ -89,6 +103,9 @@ export function quickAddLimitMessage(error: ApiError, now = Date.now()): string 
   }
   return `${what}: limit reached.${usage}${reset} Every collector has the same limits.`;
 }
+
+/** A suggestion of the list; a printing of a card says what tells it from its twins (U2). */
+export type QuickSuggestion = CardSuggestion & { variant?: string | null };
 
 interface Committed {
   item: InventoryItemResponse;
@@ -130,6 +147,7 @@ const VISIBILITIES: readonly SegmentOption<CardVisibility>[] = [
 export class QuickAddRowsComponent {
   private readonly catalog = inject(CatalogService);
   private readonly store = inject(InventoryStore);
+  private readonly announcer = inject(LiveAnnouncer);
 
   readonly games = input<readonly GameResponse[]>([]);
   /** The binder chosen in the pane (new cards of its game go in it). */
@@ -139,11 +157,11 @@ export class QuickAddRowsComponent {
   private readonly codeField = viewChild<ElementRef<HTMLInputElement>>('codeInput');
   protected readonly game = signal('yugioh');
   protected readonly text = signal('');
-  protected readonly suggestions = signal<CardSuggestion[]>([]);
+  protected readonly suggestions = signal<QuickSuggestion[]>([]);
   protected readonly searching = signal(false);
   protected readonly active = signal(0);
   protected readonly listOpen = signal(false);
-  protected readonly chosen = signal<CardSuggestion | null>(null);
+  protected readonly chosen = signal<QuickSuggestion | null>(null);
   protected readonly quantity = signal('1');
   protected readonly priceMode = signal<PriceMode>(lastPriceMode());
   protected readonly price = signal('');
@@ -160,11 +178,21 @@ export class QuickAddRowsComponent {
   protected readonly gameOptions = computed(() =>
     this.games().filter((game) => game.hasCards !== false && game.slug),
   );
-  protected readonly list = computed(() => {
+  protected readonly list = computed<QuickSuggestion[]>(() => {
     const items = this.suggestions();
     const printings = items.filter((item) => item.kind === 'PRINTING');
-    return printings.length ? printings : items;
+    // Printings of one code say what tells them apart (U2: 1st Edition, Unlimited, the finish).
+    return printings.length
+      ? printings.map((item) => ({
+          ...item,
+          variant: item.variant ?? suggestionVariant(item, printings),
+        }))
+      : items;
   });
+  /** The list shows cards (a name), not yet their printings. */
+  protected readonly listOfCards = computed(() =>
+    this.list().every((item) => item.kind !== 'PRINTING'),
+  );
   protected readonly gameBinders = computed(() =>
     (this.store.binders() ?? []).filter((binder) => {
       const game = binderGame(binder);
@@ -205,7 +233,8 @@ export class QuickAddRowsComponent {
       )
       .subscribe((result) => {
         this.searching.set(false);
-        if (!result) {
+        // An answer for a text the field no longer holds (a row added meanwhile, F5) is dropped.
+        if (!result || result.q !== this.text().trim()) {
           return;
         }
         if (result.items === null) {
@@ -215,9 +244,13 @@ export class QuickAddRowsComponent {
         this.suggestions.set(result.items);
         this.active.set(0);
         const exact = looksLikeCode(result.q) ? printingForCode(result.items, result.q) : null;
+        const cards = result.items.filter((item) => item.kind !== 'PRINTING');
         if (exact) {
-          this.chosen.set(exact);
+          this.chosen.set(this.list().find((s) => s.printingId === exact.printingId) ?? exact);
           this.listOpen.set(false);
+        } else if (cards.length === 1 && cards.length === result.items.length) {
+          // One card by that name: its printings at once (spec 9.10, board W14).
+          void this.pick(cards[0]);
         } else {
           this.listOpen.set(result.items.length > 0);
         }
@@ -231,6 +264,13 @@ export class QuickAddRowsComponent {
       }
       this.focusCode();
     });
+  }
+
+  protected printingsLabel(count: number | null | undefined): string {
+    if (!count) {
+      return 'Pick it to see its printings';
+    }
+    return `${count} ${count === 1 ? 'printing' : 'printings'}: pick one`;
   }
 
   protected image(suggestion: CardSuggestion | null): string | null {
@@ -296,7 +336,7 @@ export class QuickAddRowsComponent {
     }
   }
 
-  protected async pick(suggestion: CardSuggestion | undefined): Promise<void> {
+  protected async pick(suggestion: QuickSuggestion | undefined): Promise<void> {
     if (!suggestion) {
       return;
     }
@@ -313,8 +353,7 @@ export class QuickAddRowsComponent {
       .subscribe({
         next: (card) => {
           this.searching.set(false);
-          this.suggestions.set(
-            (card.printings ?? []).map((printing) => ({
+          const printings = (card.printings ?? []).map((printing) => ({
               kind: 'PRINTING',
               id: card.id,
               printingId: printing.id,
@@ -324,10 +363,16 @@ export class QuickAddRowsComponent {
               setName: printing.setName ?? null,
               rarity: printing.rarity ?? null,
               imageUrl: printing.images?.[0]?.url ?? card.primaryImageUrl,
-            })) as CardSuggestion[],
-          );
+              variant: printingVariant(printing, card.printings ?? []),
+            })) as QuickSuggestion[];
+          if (printings.length === 1) {
+            // A card with one printing: it is the one on the card.
+            void this.pick(printings[0]);
+            return;
+          }
+          this.suggestions.set(printings);
           this.active.set(0);
-          this.listOpen.set(true);
+          this.listOpen.set(printings.length > 0);
         },
         error: () => {
           this.searching.set(false);
@@ -370,7 +415,8 @@ export class QuickAddRowsComponent {
       return;
     }
     const text = this.text().trim();
-    let chosen = this.chosen();
+    // The printing counts only while the field still names it (F5: an empty field adds nothing).
+    let chosen = chosenMatchesText(this.chosen(), text) ? this.chosen() : null;
     if (!chosen && looksLikeCode(text)) {
       chosen = await this.resolveCode(text);
       if (!chosen) {
@@ -417,12 +463,16 @@ export class QuickAddRowsComponent {
         { item, until: Date.now() + UNDO_WINDOW_MS, undone: false },
         ...rows,
       ]);
-      // Copies reset; the price mode, who can see it and the binder stay.
+      // Copies reset; the price mode, who can see it and the binder stay. The suggestion still
+      // pending for the old text is cancelled (F5).
       this.text.set('');
+      this.typed.next('');
       this.chosen.set(null);
       this.suggestions.set([]);
+      this.listOpen.set(false);
       this.quantity.set('1');
       this.price.set('');
+      this.announcer.announce(`Added ${item.card.name}`, 'polite');
       this.focusCode();
     } catch (error) {
       const apiError = error as ApiError;

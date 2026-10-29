@@ -611,6 +611,18 @@ export class InventoryTableComponent {
     }
   }
 
+  /** Focus `id`'s row, else the active row, else the first (after a dock action, from the page). */
+  focusActive(id: string | null = null): void {
+    const ids = this.rows().map((row) => row.item.id);
+    const active = this.activeId();
+    this.focusRow(
+      (id && ids.includes(id) ? id : null) ??
+        (active && ids.includes(active) ? active : null) ??
+        ids[0] ??
+        null,
+    );
+  }
+
   /** Focus a row (after an edit, from the page). */
   focusRow(id: string | null): void {
     if (!id) {

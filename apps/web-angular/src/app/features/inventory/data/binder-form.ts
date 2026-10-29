@@ -1,6 +1,7 @@
 import type { BinderResponse, CreateBinderRequest, UpdateBinderRequest } from '@orenji/api-client';
 import { binderGame } from './binder-games';
 import { temporaryPublicationEnded } from './card-form';
+import { endsLabel } from '../../../shared/inventory/inventory-labels';
 import { ASKING_PRICE_MAX } from './item-price';
 
 /**
@@ -203,5 +204,20 @@ export function binderLine(binder: BinderResponse, now = Date.now()): string {
   const count = binder.sellsAsCore ? (binder.photos?.length ?? 0) : binder.itemCount;
   const unit = binder.sellsAsCore ? 'photo' : 'card';
   const who = binderVisibilityChoice(binder, now) === 'PUBLIC' ? 'Public' : 'Private';
-  return `${count} ${count === 1 ? unit : `${unit}s`} · ${who}`;
+  const ends = binderEnds(binder, now);
+  return `${count} ${count === 1 ? unit : `${unit}s`} · ${who}${ends ? ` · ${ends}` : ''}`;
+}
+
+/**
+ * When a binder's temporary publication (made on the old web) ends, "ends tomorrow", while it
+ * runs; null otherwise (U9: the collector knows the binder will turn private).
+ */
+export function binderEnds(
+  binder: Pick<BinderResponse, 'visibility' | 'publicUntil'>,
+  now = Date.now(),
+): string | null {
+  if (binder.visibility !== 'TEMPORARILY_PUBLIC' || temporaryPublicationEnded(binder, now)) {
+    return null;
+  }
+  return endsLabel(binder.publicUntil, now);
 }

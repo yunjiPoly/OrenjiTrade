@@ -205,6 +205,10 @@ mark {
   color: var(--app-primary-text);
 }
 
+.opt__variant {
+  font-size: var(--font-size-meta);
+}
+
 .opt__meta {
   display: flex;
   flex-wrap: wrap;
@@ -341,6 +345,7 @@ mark {
 }
 
 .chosen__name {
+  margin: 0;
   font-family: var(--font-display);
   font-size: var(--font-size-section);
   font-weight: var(--font-weight-semibold);

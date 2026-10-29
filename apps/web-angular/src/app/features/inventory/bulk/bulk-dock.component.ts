@@ -25,15 +25,15 @@ import { BulkAction } from '../data/bulk-actions';
   selector: 'app-bulk-dock',
   imports: [MatIconModule, MatMenuModule, MatTooltipModule, GameMonogramComponent],
   template: `
-    <div class="dock" role="toolbar" aria-label="Selected cards" [class.dock--compact]="compact()">
-      <span class="dock__count" aria-live="polite" data-testid="bulk-count"
+    <div class="dock" role="group" aria-label="Selected cards" [class.dock--compact]="compact()">
+      <span class="dock__count" tabindex="-1" aria-live="polite" data-testid="bulk-count"
         >{{ count() }} selected</span
       >
       <span class="dock__sep" aria-hidden="true"></span>
       <button
         type="button"
         class="dock__btn"
-        [disabled]="busy()"
+        [attr.aria-disabled]="busy() || null"
         [matTooltip]="iconsOnly() ? 'Make public' : ''"
         [attr.aria-label]="iconsOnly() ? 'Make public' : null"
         (click)="emit({ kind: 'visibility', visibility: 'PUBLIC' })"
@@ -47,7 +47,7 @@ import { BulkAction } from '../data/bulk-actions';
       <button
         type="button"
         class="dock__btn"
-        [disabled]="busy()"
+        [attr.aria-disabled]="busy() || null"
         [matTooltip]="iconsOnly() ? 'Make private' : ''"
         [attr.aria-label]="iconsOnly() ? 'Make private' : null"
         (click)="emit({ kind: 'visibility', visibility: 'PRIVATE' })"
@@ -61,7 +61,7 @@ import { BulkAction } from '../data/bulk-actions';
       <button
         type="button"
         class="dock__btn"
-        [disabled]="busy()"
+        [attr.aria-disabled]="busy() || null"
         [matTooltip]="iconsOnly() ? 'Move to binder' : ''"
         [attr.aria-label]="iconsOnly() ? 'Move to binder' : null"
         [matMenuTriggerFor]="moveMenu"
@@ -77,7 +77,7 @@ import { BulkAction } from '../data/bulk-actions';
       <button
         type="button"
         class="dock__btn"
-        [disabled]="busy()"
+        [attr.aria-disabled]="busy() || null"
         [matTooltip]="compact() ? 'Still have them' : ''"
         [attr.aria-label]="compact() ? 'Still have them' : null"
         (click)="emit({ kind: 'confirm' })"
@@ -91,7 +91,7 @@ import { BulkAction } from '../data/bulk-actions';
       <button
         type="button"
         class="dock__btn dock__btn--danger"
-        [disabled]="busy()"
+        [attr.aria-disabled]="busy() || null"
         [matTooltip]="compact() ? 'Delete' : ''"
         [attr.aria-label]="compact() ? 'Delete' : null"
         (click)="emit({ kind: 'delete' })"
@@ -138,7 +138,7 @@ import { BulkAction } from '../data/bulk-actions';
       >
         <mat-icon>inbox</mat-icon><span>Unfiled</span>
       </button>
-      <button mat-menu-item type="button" (click)="newBinder.emit()">
+      <button mat-menu-item type="button" (click)="onNewBinder()">
         <mat-icon>add</mat-icon><span>New binder…</span>
       </button>
     </mat-menu>
@@ -189,12 +189,17 @@ import { BulkAction } from '../data/bulk-actions';
       white-space: nowrap;
       cursor: pointer;
     }
-    .dock__btn:hover:not(:disabled) {
+    .dock__btn:hover:not([aria-disabled='true']) {
       background: var(--color-surface-variant);
     }
-    .dock__btn:disabled {
+    .dock__btn[aria-disabled='true'] {
       opacity: 0.5;
       cursor: default;
+    }
+    .dock__count:focus-visible {
+      border-radius: 6px;
+      outline: var(--focus-width) solid var(--color-focus-ring);
+      outline-offset: 2px;
     }
     .dock__btn:focus-visible {
       outline: var(--focus-width) solid var(--color-focus-ring);
@@ -255,7 +260,19 @@ export class BulkDockComponent {
     });
   }
 
+  /**
+   * While an action runs the buttons stay focusable (`aria-disabled`, A1 and F7: a disabled button
+   * would drop the focus to the page) and ignore clicks.
+   */
   protected emit(action: BulkAction): void {
-    this.action.emit(action);
+    if (!this.busy()) {
+      this.action.emit(action);
+    }
+  }
+
+  protected onNewBinder(): void {
+    if (!this.busy()) {
+      this.newBinder.emit();
+    }
   }
 }

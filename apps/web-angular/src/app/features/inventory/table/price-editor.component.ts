@@ -17,6 +17,7 @@ import {
 } from '../../../shared/ui/segmented/segmented.component';
 import {
   PRICE_COPY,
+  PriceFieldValue,
   PriceMode,
   checkPrice,
   priceInputOf,
@@ -79,7 +80,7 @@ const MODES: readonly SegmentOption<PriceMode>[] = [
       </div>
       <p class="pe__hint" [id]="'pe-hint-' + item().id" [class.pe__hint--error]="!!error()">
         @if (error(); as message) {
-          {{ message }}
+          <span role="alert">{{ message }}</span>
         } @else {
           @if (was(); as text) {
             {{ wasLabel(text) }} ·
@@ -237,11 +238,23 @@ export class PriceEditorComponent implements AfterViewInit {
     }
     rememberPriceMode(this.mode());
     const text = check.kind === 'ok' ? check.text : null;
-    const before = start.was ?? null;
-    if (text === null && start.mode === null && before === null) {
+    if (text === savedPriceText(start)) {
+      // The price as saved, read back ("12.5 $" reads as $12.50): no change (F6), as Edit card.
       this.dismiss.emit();
       return;
     }
     this.save.emit(text);
   }
+}
+
+/** The text the saved price reads back as in its mode; a "Was" text as it is; null for none. */
+export function savedPriceText(start: PriceFieldValue): string | null {
+  if (start.was !== null) {
+    return start.was;
+  }
+  if (start.mode === null) {
+    return null;
+  }
+  const check = checkPrice(start.mode, start.number);
+  return check.kind === 'ok' ? check.text : null;
 }
