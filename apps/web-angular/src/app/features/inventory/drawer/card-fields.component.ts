@@ -103,7 +103,9 @@ const VISIBILITIES: readonly SegmentOption<CardVisibility>[] = [
               [value]="v.price"
               (input)="onPrice($event)"
             />
-            <span class="cf__unit" aria-hidden="true">{{ v.priceMode === 'pct' ? '% TCG' : '$' }}</span>
+            <span class="cf__unit" aria-hidden="true">{{
+              v.priceMode === 'pct' ? '% TCG' : '$'
+            }}</span>
           </span>
         </div>
         <p class="cf__hint" [id]="id('price-hint')" [class.cf__hint--error]="!!errors().price">
@@ -151,7 +153,9 @@ const VISIBILITIES: readonly SegmentOption<CardVisibility>[] = [
           @for (binder of gameBinders(); track binder.id) {
             <mat-option [value]="binder.id">
               {{ binder.name }}
-              <span class="cf__opt-note">{{ binder.visibility === 'PRIVATE' ? 'Private' : 'Public' }}</span>
+              <span class="cf__opt-note">{{
+                binder.visibility === 'PRIVATE' ? 'Private' : 'Public'
+              }}</span>
             </mat-option>
           }
         </mat-select>

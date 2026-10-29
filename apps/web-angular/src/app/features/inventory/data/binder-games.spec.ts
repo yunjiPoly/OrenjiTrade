@@ -12,7 +12,7 @@ describe('binders by game (stage G, spec 9.2)', () => {
   const yugioh = binder('y1', { game: 'yugioh' });
   const pokemon = binder('p1', { game: 'pokemon', games: ['pokemon'] });
 
-  it('groups in the phone\'s order, binders keeping theirs', () => {
+  it("groups in the phone's order, binders keeping theirs", () => {
     const groups = groupBindersByGame([pokemon, yugioh, binder('y2', { game: 'yugioh' })]);
     expect(groups.map((group) => group.game)).toEqual(['yugioh', 'pokemon']);
     expect(groups[0].binders.map((b) => b.id)).toEqual(['y1', 'y2']);
@@ -22,7 +22,9 @@ describe('binders by game (stage G, spec 9.2)', () => {
     const card = item('a');
     expect(binderTakes(yugioh, card)).toBe(true);
     expect(binderTakes(pokemon, card)).toBe(false);
-    expect(binderTakesAll(yugioh, [card, item('b', { card: { id: 'x', name: 'X', game: 'pokemon' } })])).toBe(false);
+    expect(
+      binderTakesAll(yugioh, [card, item('b', { card: { id: 'x', name: 'X', game: 'pokemon' } })]),
+    ).toBe(false);
     expect(onlyGameLabel('pokemon')).toBe('Only Pokémon cards can go in');
   });
 

@@ -65,10 +65,15 @@ const MODES: readonly SegmentOption<PriceMode>[] = [
           (input)="onInput(field.value)"
           (keydown.enter)="onEnter($event)"
         />
-        <button type="button" class="pe__btn pe__btn--ok" aria-label="Save the price" (click)="submit()">
+        <button
+          type="button"
+          class="pe__btn pe__btn--ok"
+          aria-label="Save the price"
+          (click)="submit()"
+        >
           <mat-icon aria-hidden="true">check</mat-icon>
         </button>
-        <button type="button" class="pe__btn" aria-label="Cancel" (click)="cancel.emit()">
+        <button type="button" class="pe__btn" aria-label="Cancel" (click)="dismiss.emit()">
           <mat-icon aria-hidden="true">close</mat-icon>
         </button>
       </div>
@@ -162,7 +167,7 @@ const MODES: readonly SegmentOption<PriceMode>[] = [
 export class PriceEditorComponent implements AfterViewInit {
   readonly item = input.required<InventoryItemResponse>();
   readonly save = output<string | null>();
-  readonly cancel = output<void>();
+  readonly dismiss = output<void>();
 
   protected readonly modes = MODES;
   private readonly field = viewChild.required<ElementRef<HTMLInputElement>>('field');
@@ -214,14 +219,14 @@ export class PriceEditorComponent implements AfterViewInit {
 
   protected onEscape(event: Event): void {
     event.stopPropagation();
-    this.cancel.emit();
+    this.dismiss.emit();
   }
 
   protected submit(): void {
     const start = this.start();
     if (this.was() !== null && !this.number().trim()) {
       // Nothing typed over an old text: it stays as it is.
-      this.cancel.emit();
+      this.dismiss.emit();
       return;
     }
     const check = checkPrice(this.mode(), this.number());
@@ -234,7 +239,7 @@ export class PriceEditorComponent implements AfterViewInit {
     const text = check.kind === 'ok' ? check.text : null;
     const before = start.was ?? null;
     if (text === null && start.mode === null && before === null) {
-      this.cancel.emit();
+      this.dismiss.emit();
       return;
     }
     this.save.emit(text);

@@ -175,7 +175,9 @@ export function importRefusal(error: ApiError, source: ImportSourceChoice): Impo
       };
     case 'MISSING_COLUMNS': {
       const missing = Array.isArray(problem['missingColumns'])
-        ? (problem['missingColumns'] as unknown[]).filter((name): name is string => typeof name === 'string')
+        ? (problem['missingColumns'] as unknown[]).filter(
+            (name): name is string => typeof name === 'string',
+          )
         : [];
       const columns = missing.length ? missing.map((name) => `“${name}”`).join(', ') : null;
       return {
@@ -189,7 +191,10 @@ export function importRefusal(error: ApiError, source: ImportSourceChoice): Impo
         message: 'A quoted value of this CSV is never closed. Export the file again and retry.',
       };
     case 'EMPTY_FILE':
-      return { title: 'This file is empty', message: `Choose ${IMPORT_SOURCES[source].noun} that lists cards.` };
+      return {
+        title: 'This file is empty',
+        message: `Choose ${IMPORT_SOURCES[source].noun} that lists cards.`,
+      };
     case 'NO_CARDS':
       return {
         title: 'No card in this file',
@@ -223,19 +228,27 @@ export function fileLine(row: Pick<InventoryImportRow, 'source' | 'position'>): 
   const source = row.source;
   const parts = [
     source.passcode ?? null,
-    source.set && source.number ? `${source.set} ${source.number}` : (source.set ?? source.number ?? null),
+    source.set && source.number
+      ? `${source.set} ${source.number}`
+      : (source.set ?? source.number ?? null),
   ].filter(Boolean);
   return parts.join(' · ') || `row ${row.position + 1}`;
 }
 
 /** The row's name: the catalog card's, else the file's, else its passcode. */
 export function rowName(row: Pick<InventoryImportRow, 'card' | 'source'>): string {
-  return row.card?.name ?? row.source.name ?? (row.source.passcode ? `Card id ${row.source.passcode}` : 'Unknown card');
+  return (
+    row.card?.name ??
+    row.source.name ??
+    (row.source.passcode ? `Card id ${row.source.passcode}` : 'Unknown card')
+  );
 }
 
 export type RowState = 'ready' | 'choose' | 'unmatched' | 'out';
 
-export function rowState(row: Pick<InventoryImportRow, 'status' | 'included' | 'inScope'>): RowState {
+export function rowState(
+  row: Pick<InventoryImportRow, 'status' | 'included' | 'inScope'>,
+): RowState {
   if (row.status === 'UNMATCHED') {
     return 'unmatched';
   }

@@ -79,10 +79,10 @@ test.describe('acceptance: wishlist', () => {
     // --- B publishes the binder holding the card ------------------------------------------------
     const pageB = await actors.open(b);
     await pageB.goto(`/inventory?binder=${binder.id}`);
-    await pageB.getByRole('button', { name: `Publish ${binder.name}` }).click();
-    await pageB.getByRole('menuitem', { name: 'Public until disabled' }).click();
+    // Web WB: the binder strip's [Private | Public].
+    await pageB.getByTestId('binder-strip').getByRole('radio', { name: 'Public' }).click();
     await expect(
-      pageB.getByText(`“${binder.name}” is public until you make it private.`),
+      pageB.getByTestId('toast').filter({ hasText: `${binder.name} is public` }),
     ).toBeVisible();
     api.trackPublished(b, binder.id);
 

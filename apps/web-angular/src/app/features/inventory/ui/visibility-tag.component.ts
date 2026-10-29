@@ -10,7 +10,8 @@ import { VisibilityTagKind } from '../data/visibility-status';
 @Component({
   selector: 'app-visibility-tag',
   imports: [MatIconModule],
-  template: `<mat-icon aria-hidden="true">{{ icon() }}</mat-icon><span>{{ label() }}</span>`,
+  template: `<mat-icon aria-hidden="true">{{ icon() }}</mat-icon
+    ><span>{{ label() }}</span>`,
   host: {
     class: 'vtag',
     '[class.vtag--public]': "kind() === 'public'",

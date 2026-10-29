@@ -367,7 +367,9 @@ export class InventoryToolbarComponent {
         ? 'Highest price first. Switch to lowest first'
         : 'Lowest price first. Switch to highest first';
     }
-    return dir === 'desc' ? 'Newest first. Switch to oldest first' : 'Oldest first. Switch to newest first';
+    return dir === 'desc'
+      ? 'Newest first. Switch to oldest first'
+      : 'Oldest first. Switch to newest first';
   });
 
   constructor() {

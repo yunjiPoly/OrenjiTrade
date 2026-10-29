@@ -66,7 +66,8 @@ export function parseInventoryParams(raw: RawInventoryParams): InventoryParams {
   const freshness = (raw.freshness ?? '').trim().toUpperCase();
   const visibility = (raw.visibility ?? '').trim().toUpperCase();
   // Old links: `sort=updated` (now Recently added) and `sort=price-asc`.
-  const rawSort = raw.sort === 'price-asc' ? 'price' : raw.sort === 'updated' ? 'created' : raw.sort;
+  const rawSort =
+    raw.sort === 'price-asc' ? 'price' : raw.sort === 'updated' ? 'created' : raw.sort;
   const sort = INVENTORY_SORTS.find((option) => option.value === rawSort)?.value ?? 'created';
   const dir: SortDirection =
     raw.dir === 'asc' || raw.dir === 'desc'

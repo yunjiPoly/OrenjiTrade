@@ -250,7 +250,10 @@ export class EditBinderDrawerComponent {
     try {
       const gameId = this.games.game(this.form().game)?.id ?? null;
       if (binderFormChanged(this.form(), binder)) {
-        const saved = await this.store.updateBinder(binder.id, toBinderPatch(this.form(), binder, Date.now(), gameId));
+        const saved = await this.store.updateBinder(
+          binder.id,
+          toBinderPatch(this.form(), binder, Date.now(), gameId),
+        );
         this.form.set(binderFormOf(saved));
       }
       await this.saveKeyCards(binder);
@@ -364,7 +367,9 @@ export class EditBinderDrawerComponent {
   }
 
   private async saveKeyCards(binder: BinderResponse): Promise<void> {
-    const added = this.keyCards().filter((card) => card.pending === 'add').map((card) => card.item.id);
+    const added = this.keyCards()
+      .filter((card) => card.pending === 'add')
+      .map((card) => card.item.id);
     const removed = this.keyCards()
       .filter((card) => card.pending === 'remove')
       .map((card) => card.item.id);

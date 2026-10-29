@@ -302,7 +302,10 @@
     padding: 1px 6px;
     border-radius: 5px;
     background: color-mix(in srgb, var(--color-accent) 14%, var(--color-surface));
-    color: light-dark(color-mix(in srgb, var(--color-accent) 85%, var(--color-ink)), var(--color-accent));
+    color: light-dark(
+      color-mix(in srgb, var(--color-accent) 85%, var(--color-ink)),
+      var(--color-accent)
+    );
     font-size: var(--font-size-tag);
     font-weight: var(--font-weight-semibold);
   }

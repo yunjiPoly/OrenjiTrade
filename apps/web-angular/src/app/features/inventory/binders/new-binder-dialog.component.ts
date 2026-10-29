@@ -116,7 +116,9 @@ const VISIBILITIES: readonly SegmentOption<BinderVisibilityChoice>[] = [
               <app-game-monogram [game]="tile.slug" size="24" />
               <span class="tile__name">{{ tile.label }}</span>
               @if (!tile.open) {
-                <span class="tile__soon" [id]="'nb-soon-' + tile.slug">{{ copy.gameComingSoon }}</span>
+                <span class="tile__soon" [id]="'nb-soon-' + tile.slug">{{
+                  copy.gameComingSoon
+                }}</span>
               }
             </button>
           }
@@ -184,7 +186,8 @@ const VISIBILITIES: readonly SegmentOption<BinderVisibilityChoice>[] = [
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class NewBinderDialogComponent {
-  private readonly ref = inject<MatDialogRef<NewBinderDialogComponent, NewBinderResult>>(MatDialogRef);
+  private readonly ref =
+    inject<MatDialogRef<NewBinderDialogComponent, NewBinderResult>>(MatDialogRef);
   private readonly data = inject<NewBinderData>(MAT_DIALOG_DATA, { optional: true }) ?? {};
   private readonly store = inject(InventoryStore);
   private readonly games = inject(GamesStore);
@@ -253,7 +256,12 @@ export class NewBinderDialogComponent {
   }
 
   protected onTileKey(event: KeyboardEvent): void {
-    const step = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 0;
+    const step =
+      event.key === 'ArrowRight' || event.key === 'ArrowDown'
+        ? 1
+        : event.key === 'ArrowLeft' || event.key === 'ArrowUp'
+          ? -1
+          : 0;
     if (!step) {
       return;
     }
@@ -264,7 +272,9 @@ export class NewBinderDialogComponent {
     if (next) {
       this.change({ game: next.slug });
       setTimeout(() =>
-        document.querySelector<HTMLElement>(`[data-testid="new-binder-game-${next.slug}"]`)?.focus(),
+        document
+          .querySelector<HTMLElement>(`[data-testid="new-binder-game-${next.slug}"]`)
+          ?.focus(),
       );
     }
   }
@@ -284,9 +294,8 @@ export class NewBinderDialogComponent {
     this.saving.set(true);
     this.error.set(null);
     try {
-      const binder = await this.store.createBinder(toCreateBinderBody(this.form(), gameId), {
-        explainLimit: true,
-      });
+      // A reached limit also opens the app's limit dialog (the same for every limit).
+      const binder = await this.store.createBinder(toCreateBinderBody(this.form(), gameId));
       let moved = 0;
       const ids = this.sameGame().map((item) => item.id);
       if (ids.length) {
@@ -302,7 +311,7 @@ export class NewBinderDialogComponent {
       const apiError = error as ApiError;
       if (isLimitReached(apiError)) {
         const info = limitReachedInfo(apiError);
-        this.error.set(BINDER_COPY.limit(info.limit ?? (this.store.binders()?.length ?? 0)));
+        this.error.set(BINDER_COPY.limit(info.limit ?? this.store.binders()?.length ?? 0));
       } else {
         this.error.set(
           binderGameError(apiError, gameInfo(this.form().game).label) ??

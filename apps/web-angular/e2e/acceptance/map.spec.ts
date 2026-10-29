@@ -53,10 +53,10 @@ test.describe('acceptance: map', () => {
     await expect(page.getByText('All changes saved')).toBeVisible();
     await expect(page.getByText(/Collectors see you in/)).toContainText(place.label);
     await page.goto(`/inventory?binder=${binder.id}`);
-    await page.getByRole('button', { name: `Publish ${binder.name}` }).click();
-    await page.getByRole('menuitem', { name: 'Public until disabled' }).click();
+    // Web WB: the binder strip's [Private | Public].
+    await page.getByTestId('binder-strip').getByRole('radio', { name: 'Public' }).click();
     await expect(
-      page.getByText(`“${binder.name}” is public until you make it private.`),
+      page.getByTestId('toast').filter({ hasText: `${binder.name} is public` }),
     ).toBeVisible();
     api.trackPublished(a, binder.id);
 

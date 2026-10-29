@@ -27,7 +27,10 @@ import { printingImageUrl } from '../../shared/inventory/inventory-labels';
 import { EmptyStateComponent } from '../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../shared/ui/error-state/error-state.component';
 import { SkeletonComponent } from '../../shared/ui/skeleton/skeleton.component';
-import { UnderlineTab, UnderlineTabsComponent } from '../../shared/ui/underline-tabs/underline-tabs.component';
+import {
+  UnderlineTab,
+  UnderlineTabsComponent,
+} from '../../shared/ui/underline-tabs/underline-tabs.component';
 import { BinderActionsService } from './binders/binder-actions.service';
 import { BindersTabComponent } from './binders/binders-tab.component';
 import { EditBinderDrawerComponent } from './binders/edit-binder-drawer.component';
@@ -54,12 +57,21 @@ import { AddCardsDrawerComponent, AddManyChoice } from './drawer/add-cards-drawe
 import { EditCardDrawerComponent } from './drawer/edit-card-drawer.component';
 import { InventoryGridComponent } from './grid/inventory-grid.component';
 import { ImportHandoff, sourceOfFile } from './import/import-handoff.service';
-import { InventoryRow, QuantityChange, RowAction, SelectionChange, shortAge } from './items/inventory-row';
+import {
+  InventoryRow,
+  QuantityChange,
+  RowAction,
+  SelectionChange,
+  shortAge,
+} from './items/inventory-row';
 import { ListingsPausedBannerComponent } from './listing-status/listings-paused-banner.component';
 import { BinderPaneAction, BinderPaneComponent, CardDrag } from './pane/binder-pane.component';
 import { QuickAddRowsComponent } from './quick-add/quick-add-rows.component';
 import { InventoryTableComponent, RowDrag } from './table/inventory-table.component';
-import { InventoryParamChange, InventoryToolbarComponent } from './toolbar/inventory-toolbar.component';
+import {
+  InventoryParamChange,
+  InventoryToolbarComponent,
+} from './toolbar/inventory-toolbar.component';
 import { SegmentedComponent } from '../../shared/ui/segmented/segmented.component';
 
 type Drawer =
@@ -201,7 +213,9 @@ export class InventoryPageComponent {
   });
   protected readonly editingBinder = computed(() => {
     const drawer = this.drawer();
-    return drawer?.kind === 'binder' ? (this.store.bindersById().get(drawer.binderId) ?? null) : null;
+    return drawer?.kind === 'binder'
+      ? (this.store.bindersById().get(drawer.binderId) ?? null)
+      : null;
   });
   /** A binder id in the URL that is not (or no longer) one of the collector's binders. */
   protected readonly unknownBinder = computed(() => {
@@ -551,7 +565,9 @@ export class InventoryPageComponent {
         this.openEdit(action.item);
         return;
       case 'move':
-        void this.actions.inline('binder', () => this.store.setBinder(action.item, action.binderId));
+        void this.actions.inline('binder', () =>
+          this.store.setBinder(action.item, action.binderId),
+        );
         return;
       case 'visibility':
         void this.actions.inline('visibility', () =>
@@ -712,7 +728,10 @@ export class InventoryPageComponent {
   }
 
   protected onFileLeave(event: DragEvent): void {
-    if (!event.relatedTarget || !(event.currentTarget as HTMLElement).contains(event.relatedTarget as Node)) {
+    if (
+      !event.relatedTarget ||
+      !(event.currentTarget as HTMLElement).contains(event.relatedTarget as Node)
+    ) {
       this.fileOver.set(false);
     }
   }
@@ -740,7 +759,10 @@ export class InventoryPageComponent {
   private onDocumentKey(event: KeyboardEvent): void {
     const mod = event.ctrlKey || event.metaKey;
     if (mod && !event.shiftKey && !event.altKey && event.key.toLowerCase() === 'z') {
-      if (isEditableTarget(event.target) || this.document.querySelector('.cdk-overlay-container [role="dialog"]')) {
+      if (
+        isEditableTarget(event.target) ||
+        this.document.querySelector('.cdk-overlay-container [role="dialog"]')
+      ) {
         return;
       }
       if (this.actions.hasUndo()) {

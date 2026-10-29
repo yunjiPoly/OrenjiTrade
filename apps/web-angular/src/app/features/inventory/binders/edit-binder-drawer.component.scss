@@ -23,7 +23,10 @@
   padding: 2px 8px;
   border-radius: 6px;
   background: color-mix(in srgb, var(--color-warning) 16%, var(--color-surface));
-  color: light-dark(color-mix(in srgb, var(--color-warning) 60%, var(--color-ink)), var(--color-warning));
+  color: light-dark(
+    color-mix(in srgb, var(--color-warning) 60%, var(--color-ink)),
+    var(--color-warning)
+  );
   font-size: var(--font-size-tag);
   font-weight: var(--font-weight-semibold);
 }
@@ -243,7 +246,10 @@
   padding: 10px 12px;
   border-radius: 10px;
   background: color-mix(in srgb, var(--color-warning) 16%, var(--color-surface));
-  color: light-dark(color-mix(in srgb, var(--color-warning) 60%, var(--color-ink)), var(--color-warning));
+  color: light-dark(
+    color-mix(in srgb, var(--color-warning) 60%, var(--color-ink)),
+    var(--color-warning)
+  );
   font-size: var(--font-size-meta);
   font-weight: var(--font-weight-semibold);
 }

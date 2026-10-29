@@ -72,7 +72,9 @@ export interface PhotoSlot {
         <li class="ps__slot">
           @if (slot === 0) {
             <label class="ps__add" [class.ps__add--busy]="busy()">
-              <mat-icon aria-hidden="true">{{ busy() ? 'hourglass_top' : 'add_photo_alternate' }}</mat-icon>
+              <mat-icon aria-hidden="true">{{
+                busy() ? 'hourglass_top' : 'add_photo_alternate'
+              }}</mat-icon>
               <span>{{ busy() ? 'Uploading…' : 'Add photo' }}</span>
               <input
                 class="visually-hidden"

@@ -133,7 +133,12 @@ export type BinderPaneAction =
               [cdkDropListDisabled]="!!drag() || group.binders.length < 2"
               (cdkDropListDropped)="onReorder(group, $event)"
             >
-              @for (binder of group.binders; track binder.id; let first = $first; let last = $last) {
+              @for (
+                binder of group.binders;
+                track binder.id;
+                let first = $first;
+                let last = $last
+              ) {
                 <li class="bp__item" cdkDrag [cdkDragData]="binder">
                   <div class="bp__placeholder" *cdkDragPlaceholder></div>
                   <a

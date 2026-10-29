@@ -157,7 +157,10 @@
 }
 
 .banner > mat-icon {
-  color: light-dark(color-mix(in srgb, var(--color-warning) 60%, var(--color-ink)), var(--color-warning));
+  color: light-dark(
+    color-mix(in srgb, var(--color-warning) 60%, var(--color-ink)),
+    var(--color-warning)
+  );
 }
 
 .banner__text {
@@ -169,10 +172,14 @@
 .banner__pill {
   min-height: 32px;
   padding: 0 14px;
-  border: 1px solid light-dark(color-mix(in srgb, var(--color-warning) 60%, var(--color-ink)), var(--color-warning));
+  border: 1px solid
+    light-dark(color-mix(in srgb, var(--color-warning) 60%, var(--color-ink)), var(--color-warning));
   border-radius: 999px;
   background: transparent;
-  color: light-dark(color-mix(in srgb, var(--color-warning) 60%, var(--color-ink)), var(--color-warning));
+  color: light-dark(
+    color-mix(in srgb, var(--color-warning) 60%, var(--color-ink)),
+    var(--color-warning)
+  );
   font: inherit;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);

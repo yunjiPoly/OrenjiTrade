@@ -4,7 +4,8 @@
     <span class="qa__titles">
       <h2 id="qa-title" class="qa__title">Quick add rows</h2>
       <span class="qa__keys">
-        <kbd>Tab</kbd> moves to the next field · <kbd>Enter</kbd> adds the row · <kbd>Esc</kbd> leaves
+        <kbd>Tab</kbd> moves to the next field · <kbd>Enter</kbd> adds the row ·
+        <kbd>Esc</kbd> leaves
       </span>
     </span>
     <button type="button" class="qa__menu" [matMenuTriggerFor]="gameMenu" aria-haspopup="menu">
@@ -21,7 +22,12 @@
         </button>
       }
     </mat-menu>
-    <button type="button" class="qa__close" aria-label="Leave quick add rows" (click)="closed.emit()">
+    <button
+      type="button"
+      class="qa__close"
+      aria-label="Leave quick add rows"
+      (click)="closed.emit()"
+    >
       <mat-icon aria-hidden="true">close</mat-icon>
     </button>
   </header>
@@ -31,7 +37,13 @@
     ><span>Who can see it</span><span>Binder</span><span></span>
   </div>
 
-  <div class="qa__entry" role="group" aria-label="New row" (keydown)="onRowKey($event)" data-testid="quick-entry">
+  <div
+    class="qa__entry"
+    role="group"
+    aria-label="New row"
+    (keydown)="onRowKey($event)"
+    data-testid="quick-entry"
+  >
     <span class="qa__code">
       <mat-icon aria-hidden="true">search</mat-icon>
       <input
@@ -53,7 +65,12 @@
         data-testid="quick-code"
       />
     </span>
-    <span class="qa__chip" [class.qa__chip--set]="!!chosen()" aria-live="polite" data-testid="quick-printing">
+    <span
+      class="qa__chip"
+      [class.qa__chip--set]="!!chosen()"
+      aria-live="polite"
+      data-testid="quick-printing"
+    >
       @if (chosen(); as c) {
         <span class="mono">{{ c.printingCode }}</span>
         <span class="qa__chip-sub">{{ c.rarity }}</span>
@@ -64,22 +81,53 @@
       }
     </span>
     <span class="qa__qty" role="group" aria-label="Copies">
-      <button type="button" aria-label="One less" (click)="step(-1)"><mat-icon aria-hidden="true">remove</mat-icon></button>
-      <input inputmode="numeric" aria-label="Copies" [value]="quantity()" (input)="onQuantity($event)" />
-      <button type="button" aria-label="One more" (click)="step(1)"><mat-icon aria-hidden="true">add</mat-icon></button>
+      <button type="button" aria-label="One less" (click)="step(-1)">
+        <mat-icon aria-hidden="true">remove</mat-icon>
+      </button>
+      <input
+        inputmode="numeric"
+        aria-label="Copies"
+        [value]="quantity()"
+        (input)="onQuantity($event)"
+      />
+      <button type="button" aria-label="One more" (click)="step(1)">
+        <mat-icon aria-hidden="true">add</mat-icon>
+      </button>
     </span>
     <span class="qa__price">
-      <app-segmented label="Price in" size="sm" [options]="priceModes" [value]="priceMode()" (valueChange)="switchMode($event)" />
+      <app-segmented
+        label="Price in"
+        size="sm"
+        [options]="priceModes"
+        [value]="priceMode()"
+        (valueChange)="switchMode($event)"
+      />
       <input
         inputmode="decimal"
-        [attr.aria-label]="priceMode() === 'pct' ? 'Asking price in percent of the TCGplayer price' : 'Asking price in dollars'"
+        [attr.aria-label]="
+          priceMode() === 'pct'
+            ? 'Asking price in percent of the TCGplayer price'
+            : 'Asking price in dollars'
+        "
         [placeholder]="priceMode() === 'pct' ? '85' : '12.50'"
         [value]="price()"
         (input)="onPrice($event)"
       />
     </span>
-    <app-segmented label="Who can see it" size="sm" [options]="visibilities" [value]="visibility()" (valueChange)="visibility.set($event)" />
-    <button type="button" class="qa__menu qa__binder" [matMenuTriggerFor]="binderMenu" aria-haspopup="menu" [attr.aria-label]="'Binder: ' + binderName()">
+    <app-segmented
+      label="Who can see it"
+      size="sm"
+      [options]="visibilities"
+      [value]="visibility()"
+      (valueChange)="visibility.set($event)"
+    />
+    <button
+      type="button"
+      class="qa__menu qa__binder"
+      [matMenuTriggerFor]="binderMenu"
+      aria-haspopup="menu"
+      [attr.aria-label]="'Binder: ' + binderName()"
+    >
       <span class="qa__binder-name">{{ binderName() }}</span>
       <mat-icon aria-hidden="true">expand_more</mat-icon>
     </button>
@@ -89,7 +137,14 @@
         <button mat-menu-item type="button" (click)="binder.set(b.id)">{{ b.name }}</button>
       }
     </mat-menu>
-    <button type="button" class="qa__add" [disabled]="saving()" (click)="commit()" aria-label="Add the row" data-testid="quick-add">
+    <button
+      type="button"
+      class="qa__add"
+      [disabled]="saving()"
+      (click)="commit()"
+      aria-label="Add the row"
+      data-testid="quick-add"
+    >
       <mat-icon aria-hidden="true">keyboard_return</mat-icon>
     </button>
 
@@ -104,15 +159,24 @@
               [id]="'qa-opt-' + i"
               [class.qa__opt--on]="active() === i"
               [attr.aria-selected]="active() === i"
+              tabindex="-1"
               (mousedown)="$event.preventDefault()"
               (click)="pick(s)"
+              (keydown.enter)="pick(s)"
             >
-              <app-card-image class="qa__opt-art" size="fill" [src]="image(s)" [game]="s.game" alt="" />
+              <app-card-image
+                class="qa__opt-art"
+                size="fill"
+                [src]="image(s)"
+                [game]="s.game"
+                alt=""
+              />
               <span class="qa__opt-text">
                 <span class="qa__opt-name">{{ s.name }}</span>
                 <span class="qa__opt-meta">
                   @if (s.kind === 'PRINTING') {
-                    <span class="mono">{{ s.printingCode }}</span> · {{ s.setName }} · {{ s.rarity }}
+                    <span class="mono">{{ s.printingCode }}</span> · {{ s.setName }} ·
+                    {{ s.rarity }}
                   } @else {
                     {{ s.printingCount ?? '' }} printings: pick one
                   }
@@ -121,7 +185,9 @@
             </li>
           }
         </ul>
-        <p class="qa__pop-keys"><kbd>↑</kbd> <kbd>↓</kbd> to move · <kbd>Enter</kbd> to pick · <kbd>Esc</kbd> to close</p>
+        <p class="qa__pop-keys">
+          <kbd>↑</kbd> <kbd>↓</kbd> to move · <kbd>Enter</kbd> to pick · <kbd>Esc</kbd> to close
+        </p>
       </div>
     }
   </div>
@@ -131,16 +197,31 @@
     <ul class="qa__done" aria-label="Added in this session">
       @for (row of committed(); track row.item.id) {
         <li class="qa__row" [class.qa__row--undone]="row.undone">
-          <app-card-image class="qa__opt-art" size="fill" [src]="row.item.printing.images?.[0]?.url" [game]="row.item.card.game" alt="" />
+          <app-card-image
+            class="qa__opt-art"
+            size="fill"
+            [src]="row.item.printing.images?.[0]?.url"
+            [game]="row.item.card.game"
+            alt=""
+          />
           <span class="qa__row-name">{{ row.item.card.name }}</span>
           <span class="mono qa__row-code">{{ code(row.item) }}</span>
           <span class="qa__row-meta">×{{ row.item.quantity }}</span>
           <span class="qa__row-meta">{{ row.item.askingPriceText ?? 'No price' }}</span>
-          <span class="qa__row-meta">{{ row.item.visibility === 'PRIVATE' ? 'Private' : 'Public' }}</span>
+          <span class="qa__row-meta">{{
+            row.item.visibility === 'PRIVATE' ? 'Private' : 'Public'
+          }}</span>
           @if (row.undone) {
             <span class="qa__row-meta">Undone</span>
           } @else if (canUndo(row)) {
-            <button type="button" class="qa__undo" (click)="undo(row)" [attr.aria-label]="'Undo adding ' + row.item.card.name">Undo</button>
+            <button
+              type="button"
+              class="qa__undo"
+              (click)="undo(row)"
+              [attr.aria-label]="'Undo adding ' + row.item.card.name"
+            >
+              Undo
+            </button>
           }
         </li>
       }

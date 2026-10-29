@@ -29,7 +29,12 @@ describe('inventory params (web redesign spec 9.3, 4.11)', () => {
 
   it('reads the tab, a binder, unfiled, the card in the drawer and the view', () => {
     const id = '11111111-2222-4333-8444-555555555555';
-    const params = parseInventoryParams({ tab: 'binders', binder: id.toUpperCase(), item: id, view: 'grid' });
+    const params = parseInventoryParams({
+      tab: 'binders',
+      binder: id.toUpperCase(),
+      item: id,
+      view: 'grid',
+    });
     expect(params.tab).toBe('binders');
     expect(params.binder).toBe(id);
     expect(params.item).toBe(id);
@@ -38,7 +43,14 @@ describe('inventory params (web redesign spec 9.3, 4.11)', () => {
   });
 
   it('drops junk and keeps old links working (sort=updated, price-asc, TEMPORARILY_PUBLIC)', () => {
-    const junk = parseInventoryParams({ binder: 'x', game: 'NOT A SLUG!', item: '1', sort: 'random', dir: 'up', tab: 'x' });
+    const junk = parseInventoryParams({
+      binder: 'x',
+      game: 'NOT A SLUG!',
+      item: '1',
+      sort: 'random',
+      dir: 'up',
+      tab: 'x',
+    });
     expect(junk.binder).toBeNull();
     expect(junk.game).toBeNull();
     expect(junk.item).toBeNull();
@@ -74,7 +86,9 @@ describe('inventory params (web redesign spec 9.3, 4.11)', () => {
       }),
     );
     expect(request.visibility).toBeUndefined();
-    expect(toListRequest(parseInventoryParams({ visibility: 'PRIVATE' })).visibility).toBe('PRIVATE');
+    expect(toListRequest(parseInventoryParams({ visibility: 'PRIVATE' })).visibility).toBe(
+      'PRIVATE',
+    );
     expect(toListRequest(parseInventoryParams({ binder: UNFILED })).unfiled).toBe(true);
   });
 
@@ -87,9 +101,21 @@ describe('inventory params (web redesign spec 9.3, 4.11)', () => {
 
   it('shows "Clear filters" for a search, a game, a visibility, a freshness or another sort', () => {
     const base = parseInventoryParams({});
-    for (const change of [{ q: 'x' }, { game: 'yugioh' }, { visibility: 'PRIVATE' as const }, { sort: 'name' as const, dir: 'asc' as const }]) {
+    for (const change of [
+      { q: 'x' },
+      { game: 'yugioh' },
+      { visibility: 'PRIVATE' as const },
+      { sort: 'name' as const, dir: 'asc' as const },
+    ]) {
       expect(hasActiveFilters({ ...base, ...change }), JSON.stringify(change)).toBe(true);
     }
-    expect(Object.keys(CLEARED_FILTERS)).toEqual(['q', 'game', 'visibility', 'freshness', 'sort', 'dir']);
+    expect(Object.keys(CLEARED_FILTERS)).toEqual([
+      'q',
+      'game',
+      'visibility',
+      'freshness',
+      'sort',
+      'dir',
+    ]);
   });
 });

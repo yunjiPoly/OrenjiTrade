@@ -15,8 +15,20 @@ const CARD = {
   name: 'Ash Blossom & Joyous Spring',
   game: 'yugioh',
   printings: [
-    { id: 'p1', printingCode: 'MACR-EN036', setName: 'Maximum Crisis', rarity: 'Secret Rare', setReleaseDate: '2017-05-04' },
-    { id: 'p2', printingCode: 'LAVD-EN008', setName: 'Legendary Arc-V Decks', rarity: 'Ultra Rare', setReleaseDate: '2016-09-01' },
+    {
+      id: 'p1',
+      printingCode: 'MACR-EN036',
+      setName: 'Maximum Crisis',
+      rarity: 'Secret Rare',
+      setReleaseDate: '2017-05-04',
+    },
+    {
+      id: 'p2',
+      printingCode: 'LAVD-EN008',
+      setName: 'Legendary Arc-V Decks',
+      rarity: 'Ultra Rare',
+      setReleaseDate: '2016-09-01',
+    },
   ],
 };
 
@@ -28,7 +40,9 @@ describe('AddCardsDrawerComponent (spec 9.9)', () => {
 
   beforeEach(async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    createItem = vi.fn(() => Promise.resolve(item('new', { card: { id: 'c1', name: CARD.name, game: 'yugioh' } })));
+    createItem = vi.fn(() =>
+      Promise.resolve(item('new', { card: { id: 'c1', name: CARD.name, game: 'yugioh' } })),
+    );
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
@@ -39,7 +53,14 @@ describe('AddCardsDrawerComponent (spec 9.9)', () => {
             suggestCards: vi.fn(() =>
               of([
                 { kind: 'CARD', id: 'c1', name: CARD.name, game: 'yugioh', printingCount: 2 },
-                { kind: 'PRINTING', id: 'c1', printingId: 'p1', printingCode: 'MACR-EN036', setName: 'Maximum Crisis', rarity: 'Secret Rare' },
+                {
+                  kind: 'PRINTING',
+                  id: 'c1',
+                  printingId: 'p1',
+                  printingCode: 'MACR-EN036',
+                  setName: 'Maximum Crisis',
+                  rarity: 'Secret Rare',
+                },
               ]),
             ),
             getCard: vi.fn(() => of(CARD)),
@@ -107,7 +128,13 @@ describe('AddCardsDrawerComponent (spec 9.9)', () => {
     await fixture.whenStable();
     await vi.advanceTimersByTimeAsync(10);
     expect(createItem).toHaveBeenCalledWith(
-      expect.objectContaining({ printingId: 'p1', quantity: 1, visibility: 'PRIVATE', binderId: 'y', conditionStated: false }),
+      expect.objectContaining({
+        printingId: 'p1',
+        quantity: 1,
+        visibility: 'PRIVATE',
+        binderId: 'y',
+        conditionStated: false,
+      }),
     );
     expect(element.querySelector('[data-testid="add-search"]')).toBeTruthy();
     expect(element.querySelector('[data-testid="add-done"]')).toBeTruthy();

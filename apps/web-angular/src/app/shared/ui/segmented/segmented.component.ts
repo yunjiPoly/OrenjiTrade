@@ -146,6 +146,10 @@ export class SegmentedComponent<T extends string = string> {
   }
 
   protected onKey(event: KeyboardEvent, index: number): void {
+    if (event.altKey || event.ctrlKey || event.metaKey) {
+      // Alt+↑ / Alt+↓ belong to the drawer (Previous, Next).
+      return;
+    }
     const step =
       event.key === 'ArrowRight' || event.key === 'ArrowDown'
         ? 1

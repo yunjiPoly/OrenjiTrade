@@ -48,7 +48,10 @@ export class BinderActionsService {
     if (result) {
       this.toasts.show({
         title: `${result.binder.name} created`,
-        sub: result.moved > 0 ? `${result.moved} ${result.moved === 1 ? 'card' : 'cards'} moved in.` : null,
+        sub:
+          result.moved > 0
+            ? `${result.moved} ${result.moved === 1 ? 'card' : 'cards'} moved in.`
+            : null,
       });
     }
     return result;

@@ -32,11 +32,21 @@ describe('InventoryTableComponent (spec 9.4)', () => {
 
   beforeEach(async () => {
     TestBed.configureTestingModule({
-      providers: [provideRouter([]), { provide: AppConfigService, useValue: { apiBaseUrl: () => 'http://api' } }],
+      providers: [
+        provideRouter([]),
+        { provide: AppConfigService, useValue: { apiBaseUrl: () => 'http://api' } },
+      ],
     });
     fixture = TestBed.createComponent(InventoryTableComponent);
-    fixture.componentRef.setInput('rows', [row('a', { tag: { kind: 'public', label: 'Public', note: '', icon: 'public' } }), row('b'), row('c', { price: null })]);
-    fixture.componentRef.setInput('binders', [binder('y1', { name: 'Trades' }), binder('p1', { name: 'Pokédex', game: 'pokemon' })]);
+    fixture.componentRef.setInput('rows', [
+      row('a', { tag: { kind: 'public', label: 'Public', note: '', icon: 'public' } }),
+      row('b'),
+      row('c', { price: null }),
+    ]);
+    fixture.componentRef.setInput('binders', [
+      binder('y1', { name: 'Trades' }),
+      binder('p1', { name: 'Pokédex', game: 'pokemon' }),
+    ]);
     selections = [];
     actions = [];
     opened = [];
@@ -45,7 +55,9 @@ describe('InventoryTableComponent (spec 9.4)', () => {
     fixture.componentInstance.selectedChange.subscribe((change) => selections.push(change));
     fixture.componentInstance.action.subscribe((action) => actions.push(action));
     fixture.componentInstance.open.subscribe((it) => opened.push(it.id));
-    fixture.componentInstance.priceChange.subscribe((change) => prices.push({ id: change.item.id, text: change.text }));
+    fixture.componentInstance.priceChange.subscribe((change) =>
+      prices.push({ id: change.item.id, text: change.text }),
+    );
     fixture.componentInstance.toggleAll.subscribe(() => all++);
     await fixture.whenStable();
     element = fixture.nativeElement as HTMLElement;
@@ -107,7 +119,10 @@ describe('InventoryTableComponent (spec 9.4)', () => {
   it('toggles Private and Public from the tag', () => {
     rowEl('a').querySelector<HTMLButtonElement>('.cellbtn--tag')!.click();
     rowEl('b').querySelector<HTMLButtonElement>('.cellbtn--tag')!.click();
-    expect(actions.map((a) => a.kind === 'visibility' && a.visibility)).toEqual(['PUBLIC', 'PUBLIC']);
+    expect(actions.map((a) => a.kind === 'visibility' && a.visibility)).toEqual([
+      'PUBLIC',
+      'PUBLIC',
+    ]);
   });
 
   it('edits the price inline: Enter saves the one text, Esc cancels', async () => {
@@ -142,7 +157,9 @@ describe('InventoryTableComponent (spec 9.4)', () => {
   });
 
   it('offers same-game binders and Unfiled for a card', () => {
-    const options = (fixture.componentInstance as unknown as { binderOptions: (it: unknown) => { name: string }[] }).binderOptions(item('a'));
+    const options = (
+      fixture.componentInstance as unknown as { binderOptions: (it: unknown) => { name: string }[] }
+    ).binderOptions(item('a'));
     expect(options.map((option) => option.name)).toEqual(['Trades', 'Unfiled']);
   });
 });

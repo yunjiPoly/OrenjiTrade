@@ -12,8 +12,8 @@ import {
   validateCardForm,
 } from './card-form';
 
-describe('the card form (decision 8: the phone\'s card model)', () => {
-  it('adds a card the phone\'s way: private, trade or sale, no stated condition', () => {
+describe("the card form (decision 8: the phone's card model)", () => {
+  it("adds a card the phone's way: private, trade or sale, no stated condition", () => {
     const value = { ...newCardForm('b1', 'pct'), quantity: '2', price: '85', publicNote: ' NM ' };
     expect(toCreateBody(value, 'p1')).toEqual({
       printingId: 'p1',
@@ -33,7 +33,11 @@ describe('the card form (decision 8: the phone\'s card model)', () => {
     const form = cardFormOf(card);
     expect(toPatch(form, card)).toBeNull();
     expect(toPatch({ ...form, quantity: '3' }, card)).toEqual({ quantity: 3, confirm: true });
-    expect(toPatch({ ...form, binderId: 'b2' }, card)).toEqual({ binderId: 'b2', visibility: 'PRIVATE', confirm: true });
+    expect(toPatch({ ...form, binderId: 'b2' }, card)).toEqual({
+      binderId: 'b2',
+      visibility: 'PRIVATE',
+      confirm: true,
+    });
     expect(toPatch({ ...form, price: '' }, card)).toEqual({ askingPriceText: null, confirm: true });
   });
 
@@ -48,13 +52,22 @@ describe('the card form (decision 8: the phone\'s card model)', () => {
   });
 
   it('validates the price and the note', () => {
-    expect(validateCardForm({ ...newCardForm(), price: '0' }).price).toBe('Enter more than $0, or leave it empty.');
-    expect(validateCardForm({ ...newCardForm(), publicNote: 'x'.repeat(501) }).publicNote).toBe('At most 500 characters.');
+    expect(validateCardForm({ ...newCardForm(), price: '0' }).price).toBe(
+      'Enter more than $0, or leave it empty.',
+    );
+    expect(validateCardForm({ ...newCardForm(), publicNote: 'x'.repeat(501) }).publicNote).toBe(
+      'At most 500 characters.',
+    );
     expect(validateCardForm(newCardForm())).toEqual({});
   });
 
-  it('shows an old web card\'s condition, language and edition read-only, never for a phone card', () => {
-    const old = item('a', { condition: 'NEAR_MINT', conditionStated: true, language: 'en', edition: 'FIRST_EDITION' });
+  it("shows an old web card's condition, language and edition read-only, never for a phone card", () => {
+    const old = item('a', {
+      condition: 'NEAR_MINT',
+      conditionStated: true,
+      language: 'en',
+      edition: 'FIRST_EDITION',
+    });
     expect(legacyDetails(old)).toBe('Near Mint · English · 1st Edition');
     expect(legacyDetails(item('b'))).toBeNull();
     expect(noteWithLegacy('', 'Near Mint · English')).toBe('Near Mint · English');
@@ -64,7 +77,17 @@ describe('the card form (decision 8: the phone\'s card model)', () => {
 
   it('reads a running temporary publication as Public and an ended one as Private', () => {
     const future = new Date(Date.now() + 3_600_000).toISOString();
-    expect(cardFormOf(item('a', { visibility: 'TEMPORARILY_PUBLIC' as never, publicUntil: future })).visibility).toBe('PUBLIC');
-    expect(cardFormOf(item('a', { visibility: 'TEMPORARILY_PUBLIC' as never, publicUntil: '2020-01-01T00:00:00Z' })).visibility).toBe('PRIVATE');
+    expect(
+      cardFormOf(item('a', { visibility: 'TEMPORARILY_PUBLIC' as never, publicUntil: future }))
+        .visibility,
+    ).toBe('PUBLIC');
+    expect(
+      cardFormOf(
+        item('a', {
+          visibility: 'TEMPORARILY_PUBLIC' as never,
+          publicUntil: '2020-01-01T00:00:00Z',
+        }),
+      ).visibility,
+    ).toBe('PRIVATE');
   });
 });

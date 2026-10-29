@@ -49,22 +49,34 @@ describe('Inventory and Import contrast (web WB)', () => {
       expect(contrast(publicText, publicBg), `${name} Public / Ready`).toBeGreaterThanOrEqual(4.5);
       const pendingBg = mix(c.warning, c.surface, light ? 0.22 : 0.14);
       const pendingText = light ? mix(c.warning, c.ink, 0.6) : c.warning;
-      expect(contrast(pendingText, pendingBg), `${name} Public · not visible / Which copy?`).toBeGreaterThanOrEqual(4.5);
-      expect(contrast(c.textMuted, c.surfaceVariant), `${name} Private`).toBeGreaterThanOrEqual(4.5);
+      expect(
+        contrast(pendingText, pendingBg),
+        `${name} Public · not visible / Which copy?`,
+      ).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(c.textMuted, c.surfaceVariant), `${name} Private`).toBeGreaterThanOrEqual(
+        4.5,
+      );
     }
   });
 
-  it('writes the availability chips\' labels in the theme\'s ink on a faint tint of their colour', () => {
+  it("writes the availability chips' labels in the theme's ink on a faint tint of their colour", () => {
     for (const [name, c] of THEMES) {
       for (const [key, colour] of Object.entries(c.availability)) {
         if (!colour.startsWith('#') || key === 'notAvailable') {
           continue;
         }
-        expect(contrast(c.ink, mix(colour, c.surface, 0.14)), `${name} ${key}`).toBeGreaterThanOrEqual(4.5);
+        expect(
+          contrast(c.ink, mix(colour, c.surface, 0.14)),
+          `${name} ${key}`,
+        ).toBeGreaterThanOrEqual(4.5);
       }
       // Trade or sale: a gradient of the two tints, the label passes on both ends.
-      expect(contrast(c.ink, mix(c.availability.trade, c.surface, 0.14))).toBeGreaterThanOrEqual(4.5);
-      expect(contrast(c.ink, mix(c.availability.sale, c.surface, 0.14))).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(c.ink, mix(c.availability.trade, c.surface, 0.14))).toBeGreaterThanOrEqual(
+        4.5,
+      );
+      expect(contrast(c.ink, mix(c.availability.sale, c.surface, 0.14))).toBeGreaterThanOrEqual(
+        4.5,
+      );
       expect(contrast(c.textMuted, c.surface), `${name} not available`).toBeGreaterThanOrEqual(4.5);
     }
     // What failed before WB: white on the light sale orange and on the dark trade teal.
@@ -72,21 +84,26 @@ describe('Inventory and Import contrast (web WB)', () => {
     expect(contrast('#FFFFFF', darkColors.availability.trade)).toBeLessThan(2);
   });
 
-  it('writes the binder pane\'s counts and labels in textSecondary, AA on every row', () => {
+  it("writes the binder pane's counts and labels in textSecondary, AA on every row", () => {
     for (const [name, c] of THEMES) {
       for (const [where, bg] of [
         ['background', c.background],
         ['surfaceVariant (the chosen row)', c.surfaceVariant],
         ['surface', c.surface],
       ] as const) {
-        expect(contrast(c.textSecondary, bg), `${name} count on ${where}`).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(c.textSecondary, bg), `${name} count on ${where}`).toBeGreaterThanOrEqual(
+          4.5,
+        );
       }
     }
   });
 
   it('writes the deck core tag and the banners at AA', () => {
     for (const [name, c] of THEMES) {
-      expect(contrast(c.deckCore.tagText, c.deckCore.tagBackground), `${name} deck core tag`).toBeGreaterThanOrEqual(4.5);
+      expect(
+        contrast(c.deckCore.tagText, c.deckCore.tagBackground),
+        `${name} deck core tag`,
+      ).toBeGreaterThanOrEqual(4.5);
       const banner = mix(c.warning, c.surface, 0.08);
       expect(contrast(c.ink, banner), `${name} banner text`).toBeGreaterThanOrEqual(4.5);
       const pill = name === 'light' ? mix(c.warning, c.ink, 0.6) : c.warning;
@@ -98,7 +115,10 @@ describe('Inventory and Import contrast (web WB)', () => {
   it('fills the chosen segment with ink and writes it in the canvas colour', () => {
     for (const [name, c] of THEMES) {
       expect(contrast(c.background, c.ink), `${name} chosen segment`).toBeGreaterThanOrEqual(4.5);
-      expect(contrast(c.textSecondary, c.surfaceVariant), `${name} other segments`).toBeGreaterThanOrEqual(4.5);
+      expect(
+        contrast(c.textSecondary, c.surfaceVariant),
+        `${name} other segments`,
+      ).toBeGreaterThanOrEqual(4.5);
     }
   });
 });

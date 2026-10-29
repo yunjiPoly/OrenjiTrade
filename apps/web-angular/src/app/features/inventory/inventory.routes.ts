@@ -8,8 +8,7 @@ export const INVENTORY_ROUTES: Routes = [
   {
     path: '',
     pathMatch: 'full',
-    loadComponent: () =>
-      import('./inventory-page.component').then((m) => m.InventoryPageComponent),
+    loadComponent: () => import('./inventory-page.component').then((m) => m.InventoryPageComponent),
   },
   {
     path: 'import',

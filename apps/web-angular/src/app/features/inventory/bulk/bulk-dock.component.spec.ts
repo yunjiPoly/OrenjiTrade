@@ -12,7 +12,10 @@ describe('BulkDockComponent (spec 9.6)', () => {
     fixture = TestBed.createComponent(BulkDockComponent);
     fixture.componentRef.setInput('count', 6);
     fixture.componentRef.setInput('selected', [item('a')]);
-    fixture.componentRef.setInput('binders', [binder('y', { name: 'Trades' }), binder('p', { name: 'Pokédex', game: 'pokemon' })]);
+    fixture.componentRef.setInput('binders', [
+      binder('y', { name: 'Trades' }),
+      binder('p', { name: 'Pokédex', game: 'pokemon' }),
+    ]);
     emitted = [];
     fixture.componentInstance.action.subscribe((action) => emitted.push(action));
     await fixture.whenStable();
@@ -20,12 +23,21 @@ describe('BulkDockComponent (spec 9.6)', () => {
   });
 
   function button(text: string): HTMLButtonElement {
-    return [...element.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.trim().startsWith(text))!;
+    return [...element.querySelectorAll<HTMLButtonElement>('button')].find((b) =>
+      b.textContent?.trim().startsWith(text),
+    )!;
   }
 
   it('reads "6 selected" and offers the existing bulk actions, no Set price', () => {
     expect(element.textContent).toContain('6 selected');
-    for (const label of ['Make public', 'Make private', 'Move to binder', 'Still have them', 'Delete', 'Clear']) {
+    for (const label of [
+      'Make public',
+      'Make private',
+      'Move to binder',
+      'Still have them',
+      'Delete',
+      'Clear',
+    ]) {
       expect(button(label), label).toBeTruthy();
     }
     expect(element.textContent).not.toContain('Set price');

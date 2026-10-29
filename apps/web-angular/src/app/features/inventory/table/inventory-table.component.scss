@@ -111,17 +111,13 @@
   top: 50%;
   left: 52px;
   z-index: 12;
-  display: none;
+  display: block;
   width: 160px;
   transform: translateY(-50%);
   pointer-events: none;
   --card-image-width: 160px;
   --card-image-radius: 8px;
   --card-image-shadow: 0 18px 40px -12px rgb(0 0 0 / 0.7);
-}
-
-.c-art:hover .art__preview {
-  display: block;
 }
 
 .c-card {
@@ -469,11 +465,11 @@
 
 @media (prefers-reduced-motion: reduce) {
   .tbl__row--current {
-  background: var(--color-surface-variant);
-  box-shadow: inset 3px 0 0 var(--app-primary-text);
-}
+    background: var(--color-surface-variant);
+    box-shadow: inset 3px 0 0 var(--app-primary-text);
+  }
 
-.tbl__row--new {
+  .tbl__row--new {
     transition: none;
   }
 }

@@ -162,16 +162,30 @@ export class ImportPageComponent {
       return [{ key: 'all' as const, title: null, rows, include: true, copies: 0 }];
     }
     const sections = preview.sections;
-    const of = (key: Section) =>
-      rows.filter((row) => {
-        const deck = row.deck;
-        return key === 'main' ? (deck?.main ?? 0) > 0 : key === 'extra' ? (deck?.extra ?? 0) > 0 : (deck?.side ?? 0) > 0;
-      });
+    // A row lists under the first section that holds its copies (main, extra, then side).
+    const sectionOf = (row: InventoryImportRow): Section =>
+      (row.deck?.main ?? 0) > 0 ? 'main' : (row.deck?.extra ?? 0) > 0 ? 'extra' : 'side';
+    const of = (key: Section) => rows.filter((row) => sectionOf(row) === key);
     return (
       [
-        { key: 'main' as const, title: 'Main deck', include: sections?.includeMain ?? true, copies: sections?.mainCopies ?? 0 },
-        { key: 'extra' as const, title: 'Extra deck', include: sections?.includeExtra ?? true, copies: sections?.extraCopies ?? 0 },
-        { key: 'side' as const, title: 'Side deck', include: sections?.includeSide ?? true, copies: sections?.sideCopies ?? 0 },
+        {
+          key: 'main' as const,
+          title: 'Main deck',
+          include: sections?.includeMain ?? true,
+          copies: sections?.mainCopies ?? 0,
+        },
+        {
+          key: 'extra' as const,
+          title: 'Extra deck',
+          include: sections?.includeExtra ?? true,
+          copies: sections?.extraCopies ?? 0,
+        },
+        {
+          key: 'side' as const,
+          title: 'Side deck',
+          include: sections?.includeSide ?? true,
+          copies: sections?.sideCopies ?? 0,
+        },
       ] as const
     )
       .map((group) => ({ ...group, rows: of(group.key) }))
@@ -207,7 +221,9 @@ export class ImportPageComponent {
     this.limitsError.set(false);
     try {
       this.limits.set(
-        await this.call(this.api.getInventoryImportLimits('body', false, { context: silentErrors() })),
+        await this.call(
+          this.api.getInventoryImportLimits('body', false, { context: silentErrors() }),
+        ),
       );
     } catch {
       this.limitsError.set(true);
@@ -255,7 +271,10 @@ export class ImportPageComponent {
   protected async uploadPasted(): Promise<void> {
     const text = this.pasted();
     if (!text.trim()) {
-      this.problem.set({ title: 'Nothing to check yet', message: 'Paste the text of the file first.' });
+      this.problem.set({
+        title: 'Nothing to check yet',
+        message: 'Paste the text of the file first.',
+      });
       return;
     }
     const name = `pasted${IMPORT_SOURCES[this.choice()].extension}`;
@@ -276,7 +295,11 @@ export class ImportPageComponent {
     try {
       const preview = await this.call(
         this.api.createInventoryImport(
-          { source, file, game: source === 'COLLECTR_CSV' && this.csvGame() ? this.csvGame() : undefined },
+          {
+            source,
+            file,
+            game: source === 'COLLECTR_CSV' && this.csvGame() ? this.csvGame() : undefined,
+          },
           'body',
           false,
           { context: silentErrors().set(SKIP_LIMIT_DIALOG, true) },
@@ -292,9 +315,15 @@ export class ImportPageComponent {
   /** An open preview of this collector (kept 60 minutes) opens again; a cut commit finishes. */
   private async resume(): Promise<void> {
     try {
-      const imports = await this.call(this.api.listInventoryImports('body', false, { context: silentErrors() }));
-      const open = imports.find((candidate) => candidate.status === 'COMMITTING')
-        ?? imports.find((candidate) => candidate.status === 'PENDING' && Date.parse(candidate.expiresAt) > Date.now());
+      const imports = await this.call(
+        this.api.listInventoryImports('body', false, { context: silentErrors() }),
+      );
+      const open =
+        imports.find((candidate) => candidate.status === 'COMMITTING') ??
+        imports.find(
+          (candidate) =>
+            candidate.status === 'PENDING' && Date.parse(candidate.expiresAt) > Date.now(),
+        );
       if (open) {
         this.choice.set(open.source === 'COLLECTR_CSV' ? 'COLLECTR_CSV' : 'YDK');
         this.showPreview(open);
@@ -336,7 +365,12 @@ export class ImportPageComponent {
         this.api.listInventoryImportRows(
           {
             id: preview.id,
-            status: filter === 'choose' ? 'CHOOSE_PRINTING' : filter === 'unmatched' ? 'UNMATCHED' : undefined,
+            status:
+              filter === 'choose'
+                ? 'CHOOSE_PRINTING'
+                : filter === 'unmatched'
+                  ? 'UNMATCHED'
+                  : undefined,
             page,
             size: ROWS_PAGE,
           },
@@ -398,8 +432,12 @@ export class ImportPageComponent {
   protected rowPrintings(row: InventoryImportRow): PrintingSummary[] {
     const all = row.card ? (this.printings()[row.card.id] ?? []) : [];
     const suggested = new Set(row.suggestedPrintingIds);
-    const narrowed = suggested.size ? all.filter((printing) => suggested.has(printing.id ?? '')) : all;
-    return [...narrowed].sort((a, b) => (b.setReleaseDate ?? '').localeCompare(a.setReleaseDate ?? ''));
+    const narrowed = suggested.size
+      ? all.filter((printing) => suggested.has(printing.id ?? ''))
+      : all;
+    return [...narrowed].sort((a, b) =>
+      (b.setReleaseDate ?? '').localeCompare(a.setReleaseDate ?? ''),
+    );
   }
 
   protected newest(row: InventoryImportRow): string | null {
@@ -413,7 +451,9 @@ export class ImportPageComponent {
       return;
     }
     try {
-      const card = await this.call(this.catalog.getCard({ id: cardId }, 'body', false, { context: silentErrors() }));
+      const card = await this.call(
+        this.catalog.getCard({ id: cardId }, 'body', false, { context: silentErrors() }),
+      );
       this.printings.update((map) => ({ ...map, [cardId]: card.printings ?? [] }));
     } catch {
       this.printings.update((map) => ({ ...map, [cardId]: [] }));
@@ -439,14 +479,23 @@ export class ImportPageComponent {
       return;
     }
     const body =
-      key === 'main' ? { includeMain: include } : key === 'extra' ? { includeExtra: include } : { includeSide: include };
+      key === 'main'
+        ? { includeMain: include }
+        : key === 'extra'
+          ? { includeExtra: include }
+          : { includeSide: include };
     this.working.set(true);
     try {
       this.preview.set(
         await this.call(
-          this.api.updateInventoryImport({ id: preview.id, updateInventoryImportRequest: body }, 'body', false, {
-            context: silentErrors(),
-          }),
+          this.api.updateInventoryImport(
+            { id: preview.id, updateInventoryImportRequest: body },
+            'body',
+            false,
+            {
+              context: silentErrors(),
+            },
+          ),
         ),
       );
       await this.loadRows(true);
@@ -525,7 +574,11 @@ export class ImportPageComponent {
     const preview = this.preview();
     if (preview) {
       try {
-        await this.call(this.api.deleteInventoryImport({ id: preview.id }, 'body', false, { context: silentErrors() }));
+        await this.call(
+          this.api.deleteInventoryImport({ id: preview.id }, 'body', false, {
+            context: silentErrors(),
+          }),
+        );
       } catch {
         // An expired or purged preview is gone anyway.
       }
@@ -546,12 +599,16 @@ export class ImportPageComponent {
 
   /** "Go to my inventory": sorted by Recently added (the new cards first). */
   protected goToInventory(): void {
-    void this.router.navigate(['/inventory'], { queryParams: { sort: null, dir: null, tab: null } });
+    void this.router.navigate(['/inventory'], {
+      queryParams: { sort: null, dir: null, tab: null },
+    });
   }
 
   protected fileMeta(): string {
     const size = this.fileSize();
-    return [this.info[this.choice()].label, size !== null ? formatBytes(size) : null].filter(Boolean).join(' · ');
+    return [this.info[this.choice()].label, size !== null ? formatBytes(size) : null]
+      .filter(Boolean)
+      .join(' · ');
   }
 
   protected isBusy(row: InventoryImportRow): boolean {
@@ -577,7 +634,9 @@ export class ImportPageComponent {
         ),
       );
       this.preview.set(change.preview);
-      this.rows.update((rows) => rows.map((candidate) => (candidate.id === row.id ? change.row : candidate)));
+      this.rows.update((rows) =>
+        rows.map((candidate) => (candidate.id === row.id ? change.row : candidate)),
+      );
     } catch (error) {
       this.fail(error);
     } finally {
@@ -590,9 +649,14 @@ export class ImportPageComponent {
   private async loadUnmatched(id: string): Promise<void> {
     try {
       const result = await this.call(
-        this.api.listInventoryImportRows({ id, status: 'UNMATCHED', size: ROWS_PAGE }, 'body', false, {
-          context: silentErrors(),
-        }),
+        this.api.listInventoryImportRows(
+          { id, status: 'UNMATCHED', size: ROWS_PAGE },
+          'body',
+          false,
+          {
+            context: silentErrors(),
+          },
+        ),
       );
       this.unmatchedDone.set(result.items ?? []);
     } catch {

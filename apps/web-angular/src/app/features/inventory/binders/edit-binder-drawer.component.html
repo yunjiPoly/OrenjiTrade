@@ -10,7 +10,9 @@
     <div class="hd__bar">
       <h2 id="edit-binder-title" class="hd__title">Edit binder</h2>
       @if (dirty()) {
-        <span class="hd__dirty"><span class="hd__dot" aria-hidden="true"></span>Unsaved changes</span>
+        <span class="hd__dirty"
+          ><span class="hd__dot" aria-hidden="true"></span>Unsaved changes</span
+        >
       }
       <span class="hd__spacer"></span>
       <button matIconButton type="button" aria-label="Close" (click)="requestClose()">
@@ -82,7 +84,12 @@
     <p class="hint">{{ visibilityHint() }}</p>
   </div>
 
-  <section id="eb-core" class="core" [class.core--on]="f.sellsAsCore" aria-labelledby="eb-core-title">
+  <section
+    id="eb-core"
+    class="core"
+    [class.core--on]="f.sellsAsCore"
+    aria-labelledby="eb-core-title"
+  >
     <div class="core__head">
       <span class="core__icon" aria-hidden="true"><mat-icon>layers</mat-icon></span>
       <span class="core__titles">
@@ -119,7 +126,9 @@
             (input)="change({ price: text($event) })"
             data-testid="binder-price"
           />
-          <span class="hint" [class.error]="!!errors().price">{{ errors().price ?? copy.priceHint }}</span>
+          <span class="hint" [class.error]="!!errors().price">{{
+            errors().price ?? copy.priceHint
+          }}</span>
         </label>
         <label class="field">
           <span class="label label--row"
@@ -138,21 +147,31 @@
           }
         </label>
         @if (f.visibility === 'PRIVATE') {
-          <p class="amber" role="note"><mat-icon aria-hidden="true">warning</mat-icon> {{ copy.privateCoreHint }}</p>
+          <p class="amber" role="note">
+            <mat-icon aria-hidden="true">warning</mat-icon> {{ copy.privateCoreHint }}
+          </p>
         }
         <div class="field">
           <span class="label">{{ copy.keyCards }} <span class="muted">· optional</span></span>
           <ul class="chips" aria-label="Key cards">
             @for (card of keyCards(); track card.item.id) {
-              <li class="chip" [class.chip--add]="card.pending === 'add'" [class.chip--out]="card.pending === 'remove'">
+              <li
+                class="chip"
+                [class.chip--add]="card.pending === 'add'"
+                [class.chip--out]="card.pending === 'remove'"
+              >
                 {{ card.item.card.name }} ×{{ card.item.quantity }}
                 <button
                   type="button"
                   class="chip__x"
-                  [attr.aria-label]="(card.pending === 'remove' ? 'Keep ' : 'Remove ') + card.item.card.name"
+                  [attr.aria-label]="
+                    (card.pending === 'remove' ? 'Keep ' : 'Remove ') + card.item.card.name
+                  "
                   (click)="toggleKeyCard(card)"
                 >
-                  <mat-icon aria-hidden="true">{{ card.pending === 'remove' ? 'undo' : 'close' }}</mat-icon>
+                  <mat-icon aria-hidden="true">{{
+                    card.pending === 'remove' ? 'undo' : 'close'
+                  }}</mat-icon>
                 </button>
               </li>
             }
@@ -180,7 +199,9 @@
               </ul>
             }
           </span>
-          <p class="hint">{{ copy.keyCardsHint }} Cards in another binder move here when you save.</p>
+          <p class="hint">
+            {{ copy.keyCardsHint }} Cards in another binder move here when you save.
+          </p>
         </div>
       </div>
     }
@@ -191,7 +212,9 @@
   }
 
   <ng-container drawerFoot>
-    <button type="button" class="delete" (click)="remove()" [disabled]="saving()">Delete binder</button>
+    <button type="button" class="delete" (click)="remove()" [disabled]="saving()">
+      Delete binder
+    </button>
     <span class="hd__spacer"></span>
     <kbd aria-hidden="true">Ctrl+Enter</kbd>
     <button

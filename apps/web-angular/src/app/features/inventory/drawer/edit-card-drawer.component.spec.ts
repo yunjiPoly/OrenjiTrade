@@ -39,7 +39,10 @@ describe('EditCardDrawerComponent (spec 9.8)', () => {
             deleteImage: vi.fn(),
           },
         },
-        { provide: InventoryActions, useValue: { deleteOne: vi.fn(() => Promise.resolve(true)), confirmOne: vi.fn() } },
+        {
+          provide: InventoryActions,
+          useValue: { deleteOne: vi.fn(() => Promise.resolve(true)), confirmOne: vi.fn() },
+        },
         { provide: MatDialog, useValue: { open: () => ({ afterClosed: () => of(confirmed) }) } },
         { provide: RegionContext, useValue: { home: signal('americas-north') } },
         { provide: RegionsStore, useValue: { regionName: () => 'Americas (North)' } },
@@ -94,7 +97,15 @@ describe('EditCardDrawerComponent (spec 9.8)', () => {
   it('stays on the card when the save fails', async () => {
     await create(item('a', { quantity: 2 }));
     updateItem.mockImplementation(() =>
-      Promise.reject(new ApiError({ errorCode: 'INTERNAL', message: 'Down', requestId: null, status: 500, fieldErrors: {} })),
+      Promise.reject(
+        new ApiError({
+          errorCode: 'INTERNAL',
+          message: 'Down',
+          requestId: null,
+          status: 500,
+          fieldErrors: {},
+        }),
+      ),
     );
     more().click();
     await fixture.whenStable();
@@ -117,11 +128,24 @@ describe('EditCardDrawerComponent (spec 9.8)', () => {
   });
 
   it('shows an old web card\'s details read-only with "Add to public note"', async () => {
-    await create(item('a', { condition: 'NEAR_MINT', conditionStated: true, language: 'en', edition: 'FIRST_EDITION' }));
-    expect(element.textContent).toContain('From the old web form: Near Mint · English · 1st Edition');
-    [...element.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.includes('Add to public note'))!.click();
+    await create(
+      item('a', {
+        condition: 'NEAR_MINT',
+        conditionStated: true,
+        language: 'en',
+        edition: 'FIRST_EDITION',
+      }),
+    );
+    expect(element.textContent).toContain(
+      'From the old web form: Near Mint · English · 1st Edition',
+    );
+    [...element.querySelectorAll<HTMLButtonElement>('button')]
+      .find((b) => b.textContent?.includes('Add to public note'))!
+      .click();
     await fixture.whenStable();
-    expect(element.querySelector<HTMLTextAreaElement>('textarea')!.value).toContain('Near Mint · English · 1st Edition');
+    expect(element.querySelector<HTMLTextAreaElement>('textarea')!.value).toContain(
+      'Near Mint · English · 1st Edition',
+    );
     expect(save().disabled).toBe(false);
   });
 
@@ -129,10 +153,16 @@ describe('EditCardDrawerComponent (spec 9.8)', () => {
     await create(item('a', { quantity: 2 }));
     more().click();
     await fixture.whenStable();
-    element.querySelector('app-drawer-frame')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true }));
+    element
+      .querySelector('app-drawer-frame')!
+      .dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true }));
     await fixture.whenStable();
     expect(updateItem).toHaveBeenCalledTimes(1);
-    element.querySelector('app-drawer-frame')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', altKey: true, bubbles: true }));
+    element
+      .querySelector('app-drawer-frame')!
+      .dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'ArrowDown', altKey: true, bubbles: true }),
+      );
     await fixture.whenStable();
     expect(moves).toEqual([1]);
   });

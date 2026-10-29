@@ -16,37 +16,55 @@ describe('bulk actions (web redesign spec 9.6)', () => {
       visibility: 'PUBLIC',
     });
     expect(
-      toBulkRequest({ kind: 'visibility', visibility: 'TEMPORARILY_PUBLIC', duration: '1h' }, ['a'], NOW)
-        .publicUntil,
+      toBulkRequest(
+        { kind: 'visibility', visibility: 'TEMPORARILY_PUBLIC', duration: '1h' },
+        ['a'],
+        NOW,
+      ).publicUntil,
     ).toBe('2026-09-29T13:00:00.000Z');
     expect(toBulkRequest({ kind: 'move', binderId: null, binderName: null }, ['a', 'b'])).toEqual({
       itemIds: ['a', 'b'],
       action: 'MOVE_TO_BINDER',
     });
-    expect(toBulkRequest({ kind: 'move', binderId: 'b1', binderName: 'Trades' }, ['a']).binderId).toBe('b1');
+    expect(
+      toBulkRequest({ kind: 'move', binderId: 'b1', binderName: 'Trades' }, ['a']).binderId,
+    ).toBe('b1');
     expect(toBulkRequest({ kind: 'confirm' }, ['a']).action).toBe('CONFIRM');
     expect(toBulkRequest({ kind: 'delete' }, ['a']).action).toBe('DELETE');
   });
 
   it('names what changed: "Made 6 public", "Moved 4 to Trades", "6 cards deleted"', () => {
     const none: BulkInventoryResponse = { updated: 6, skipped: [] };
-    expect(bulkOutcome({ kind: 'visibility', visibility: 'PUBLIC' }, none).title).toBe('Made 6 public');
-    expect(bulkOutcome({ kind: 'visibility', visibility: 'PRIVATE' }, none).title).toBe('Made 6 private');
-    expect(bulkOutcome({ kind: 'move', binderId: 'b', binderName: 'Trades' }, { updated: 4, skipped: [] }).title).toBe(
-      'Moved 4 to Trades',
+    expect(bulkOutcome({ kind: 'visibility', visibility: 'PUBLIC' }, none).title).toBe(
+      'Made 6 public',
     );
-    expect(bulkOutcome({ kind: 'move', binderId: null, binderName: null }, { updated: 1, skipped: [] }).title).toBe(
-      'Moved 1 to Unfiled',
+    expect(bulkOutcome({ kind: 'visibility', visibility: 'PRIVATE' }, none).title).toBe(
+      'Made 6 private',
     );
+    expect(
+      bulkOutcome(
+        { kind: 'move', binderId: 'b', binderName: 'Trades' },
+        { updated: 4, skipped: [] },
+      ).title,
+    ).toBe('Moved 4 to Trades');
+    expect(
+      bulkOutcome({ kind: 'move', binderId: null, binderName: null }, { updated: 1, skipped: [] })
+        .title,
+    ).toBe('Moved 1 to Unfiled');
     expect(bulkOutcome({ kind: 'delete' }, none).title).toBe('6 cards deleted');
     expect(bulkOutcome({ kind: 'confirm' }, { updated: 1, skipped: [] }).title).toBe(
       '1 card confirmed as still available',
     );
-    expect(bulkOutcome({ kind: 'confirm' }, { updated: 0, skipped: [] }).title).toBe('Nothing changed');
+    expect(bulkOutcome({ kind: 'confirm' }, { updated: 0, skipped: [] }).title).toBe(
+      'Nothing changed',
+    );
   });
 
   it('says why: cards of another game, already like that, gone', () => {
-    const pokemon = [item('p1', { card: { id: 'c', name: 'Iono', game: 'pokemon' } }), item('p2', { card: { id: 'd', name: 'Gardevoir', game: 'pokemon' } })];
+    const pokemon = [
+      item('p1', { card: { id: 'c', name: 'Iono', game: 'pokemon' } }),
+      item('p2', { card: { id: 'd', name: 'Gardevoir', game: 'pokemon' } }),
+    ];
     const outcome = bulkOutcome(
       { kind: 'move', binderId: 'b', binderName: 'Trades', binderGame: 'yugioh' },
       {

@@ -26,15 +26,33 @@ import { BulkAction } from '../data/bulk-actions';
   imports: [MatIconModule, MatMenuModule, MatTooltipModule, GameMonogramComponent],
   template: `
     <div class="dock" role="toolbar" aria-label="Selected cards" [class.dock--compact]="compact()">
-      <span class="dock__count" aria-live="polite" data-testid="bulk-count">{{ count() }} selected</span>
+      <span class="dock__count" aria-live="polite" data-testid="bulk-count"
+        >{{ count() }} selected</span
+      >
       <span class="dock__sep" aria-hidden="true"></span>
-      <button type="button" class="dock__btn" [disabled]="busy()" (click)="emit({ kind: 'visibility', visibility: 'PUBLIC' })">
+      <button
+        type="button"
+        class="dock__btn"
+        [disabled]="busy()"
+        (click)="emit({ kind: 'visibility', visibility: 'PUBLIC' })"
+      >
         Make public
       </button>
-      <button type="button" class="dock__btn" [disabled]="busy()" (click)="emit({ kind: 'visibility', visibility: 'PRIVATE' })">
+      <button
+        type="button"
+        class="dock__btn"
+        [disabled]="busy()"
+        (click)="emit({ kind: 'visibility', visibility: 'PRIVATE' })"
+      >
         Make private
       </button>
-      <button type="button" class="dock__btn" [disabled]="busy()" [matMenuTriggerFor]="moveMenu" data-testid="bulk-move">
+      <button
+        type="button"
+        class="dock__btn"
+        [disabled]="busy()"
+        [matMenuTriggerFor]="moveMenu"
+        data-testid="bulk-move"
+      >
         Move to binder
         <mat-icon aria-hidden="true">expand_more</mat-icon>
       </button>
@@ -80,12 +98,7 @@ import { BulkAction } from '../data/bulk-actions';
           {{ group.info.label }}
         </div>
         @for (binder of group.binders; track binder.id) {
-          <button
-            mat-menu-item
-            type="button"
-            [disabled]="!takes(binder)"
-            (click)="move(binder)"
-          >
+          <button mat-menu-item type="button" [disabled]="!takes(binder)" (click)="move(binder)">
             <span class="menu-binder">
               <span>{{ binder.name }}</span>
               @if (!takes(binder)) {
@@ -95,7 +108,11 @@ import { BulkAction } from '../data/bulk-actions';
           </button>
         }
       }
-      <button mat-menu-item type="button" (click)="emit({ kind: 'move', binderId: null, binderName: null })">
+      <button
+        mat-menu-item
+        type="button"
+        (click)="emit({ kind: 'move', binderId: null, binderName: null })"
+      >
         <mat-icon>inbox</mat-icon><span>Unfiled</span>
       </button>
       <button mat-menu-item type="button" (click)="newBinder.emit()">

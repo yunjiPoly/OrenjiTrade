@@ -1,4 +1,10 @@
-import { ChangeDetectionStrategy, Component, computed, input, numberAttribute } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  input,
+  numberAttribute,
+} from '@angular/core';
 import { gameInfo } from '../../domain/games';
 
 /**
@@ -12,7 +18,8 @@ import { gameInfo } from '../../domain/games';
   host: {
     class: 'mono-tile',
     '[style.--mono-size.px]': 'size()',
-    '[style.--mono-bg]': "'var(--game-tile-' + info().tileKey + '-background, var(--color-surface-variant))'",
+    '[style.--mono-bg]':
+      "'var(--game-tile-' + info().tileKey + '-background, var(--color-surface-variant))'",
     '[style.--mono-fg]': "'var(--game-tile-' + info().tileKey + '-foreground, var(--color-ink))'",
     '[attr.aria-hidden]': 'label() ? null : "true"',
     '[attr.role]': 'label() ? "img" : null',

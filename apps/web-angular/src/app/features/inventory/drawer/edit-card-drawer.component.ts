@@ -115,12 +115,20 @@ import { DrawerFrameComponent } from './drawer-frame.component';
         </div>
         <p class="hd__pos">
           {{ position() }}
-          <span class="hd__keys" aria-hidden="true"><kbd>Alt+↑</kbd> <kbd>Alt+↓</kbd> save, then move</span>
+          <span class="hd__keys" aria-hidden="true"
+            ><kbd>Alt+↑</kbd> <kbd>Alt+↓</kbd> save, then move</span
+          >
         </p>
       </div>
 
       <div class="card">
-        <app-card-image class="card__art" size="fill" [src]="image()" [game]="it.card.game" alt="" />
+        <app-card-image
+          class="card__art"
+          size="fill"
+          [src]="image()"
+          [game]="it.card.game"
+          alt=""
+        />
         <div class="card__text">
           <p class="card__game">
             <app-game-monogram [game]="it.card.game" size="16" />
@@ -245,7 +253,9 @@ export class EditCardDrawerComponent {
   protected readonly dirty = computed(() => toPatch(this.form(), this.item()) !== null);
   protected readonly image = computed(() => printingImageUrl(this.item().printing));
   protected readonly code = computed(() => printingCode(this.item().printing));
-  protected readonly gameLabel = computed(() => gameInfo(this.item().card.game).label.toUpperCase());
+  protected readonly gameLabel = computed(() =>
+    gameInfo(this.item().card.game).label.toUpperCase(),
+  );
   protected readonly tcgplayer = computed(() =>
     tcgplayerSearchUrl(this.item().card.game, this.item().card.name),
   );
@@ -312,9 +322,11 @@ export class EditCardDrawerComponent {
       const saved = await this.store.updateItem(this.item().id, patch);
       this.form.set(cardFormOf(saved, Date.now(), lastPriceMode()));
       const ref = this.toasts.show({ title: 'Saved', sub: saved.card.name, action: 'View' });
-      ref.onAction().subscribe(() =>
-        document.querySelector<HTMLElement>(`[data-item-id="${saved.id}"]`)?.focus(),
-      );
+      ref
+        .onAction()
+        .subscribe(() =>
+          document.querySelector<HTMLElement>(`[data-item-id="${saved.id}"]`)?.focus(),
+        );
       return true;
     } catch (error) {
       const apiError = error as ApiError;

@@ -15,15 +15,24 @@
       </span>
     </div>
     <ol class="steps" aria-label="Steps">
-      <li [class.steps--on]="step() === 'search'" [attr.aria-current]="step() === 'search' ? 'step' : null">
+      <li
+        [class.steps--on]="step() === 'search'"
+        [attr.aria-current]="step() === 'search' ? 'step' : null"
+      >
         <span class="steps__n">1</span> Card
       </li>
       <li class="steps__line" aria-hidden="true"></li>
-      <li [class.steps--on]="step() === 'printing'" [attr.aria-current]="step() === 'printing' ? 'step' : null">
+      <li
+        [class.steps--on]="step() === 'printing'"
+        [attr.aria-current]="step() === 'printing' ? 'step' : null"
+      >
         <span class="steps__n">2</span> Printing
       </li>
       <li class="steps__line" aria-hidden="true"></li>
-      <li [class.steps--on]="step() === 'details'" [attr.aria-current]="step() === 'details' ? 'step' : null">
+      <li
+        [class.steps--on]="step() === 'details'"
+        [attr.aria-current]="step() === 'details' ? 'step' : null"
+      >
         <span class="steps__n">3</span> Details
       </li>
     </ol>
@@ -76,17 +85,29 @@
               [id]="optionId(i)"
               [class.opt--active]="active() === i"
               [attr.aria-selected]="active() === i"
+              tabindex="-1"
               (mousedown)="$event.preventDefault()"
               (click)="pick(suggestion)"
+              (keydown.enter)="pick(suggestion)"
             >
-              <app-card-image class="opt__art" size="fill" [src]="suggestion.imageUrl" [game]="suggestion.game" alt="" />
+              <app-card-image
+                class="opt__art"
+                size="fill"
+                [src]="suggestion.imageUrl"
+                [game]="suggestion.game"
+                alt=""
+              />
               <span class="opt__text">
-                <span class="opt__name">{{ p.before }}<mark>{{ p.match }}</mark>{{ p.after }}</span>
+                <span class="opt__name"
+                  >{{ p.before }}<mark>{{ p.match }}</mark
+                  >{{ p.after }}</span
+                >
                 <span class="opt__meta">
                   <app-game-monogram [game]="suggestion.game ?? ''" size="16" />
                   {{ gameLabel(suggestion.game) }}
                   @if (suggestion.printingCount) {
-                    · {{ suggestion.printingCount }} {{ suggestion.printingCount === 1 ? 'printing' : 'printings' }}
+                    · {{ suggestion.printingCount }}
+                    {{ suggestion.printingCount === 1 ? 'printing' : 'printings' }}
                   }
                   @if (ownedCards().has(suggestion.id ?? '')) {
                     <span class="opt__own">In your inventory</span>
@@ -106,8 +127,10 @@
               [id]="optionId(cards().length + i)"
               [class.opt--active]="active() === cards().length + i"
               [attr.aria-selected]="active() === cards().length + i"
+              tabindex="-1"
               (mousedown)="$event.preventDefault()"
               (click)="pick(suggestion)"
+              (keydown.enter)="pick(suggestion)"
             >
               <span class="opt__text">
                 <span class="mono opt__code">{{ suggestion.printingCode }}</span>
@@ -127,11 +150,13 @@
         </p>
       } @else if (status() === 'empty') {
         <p class="tip" role="status">
-          No card matches “{{ query().trim() }}”. Try fewer letters, or the code printed on the card,
-          like LAVD-EN008.
+          No card matches “{{ query().trim() }}”. Try fewer letters, or the code printed on the
+          card, like LAVD-EN008.
         </p>
       } @else if (status() === 'error') {
-        <p class="tip tip--error" role="alert">Cards could not load. Check your connection and type again.</p>
+        <p class="tip tip--error" role="alert">
+          Cards could not load. Check your connection and type again.
+        </p>
       }
 
       @if (!query().trim()) {
@@ -175,7 +200,8 @@
         </button>
         <p class="pick-title">{{ c.name }}</p>
         <p class="hint">
-          {{ cardPrintings().length }} {{ cardPrintings().length === 1 ? 'printing' : 'printings' }}. Pick the one on your card.
+          {{ cardPrintings().length }}
+          {{ cardPrintings().length === 1 ? 'printing' : 'printings' }}. Pick the one on your card.
         </p>
         <label class="search__field search__field--sm">
           <mat-icon aria-hidden="true">filter_list</mat-icon>
@@ -189,9 +215,23 @@
         </label>
         @if (rarities().length > 1) {
           <div class="chips" role="group" aria-label="Rarity">
-            <button type="button" class="chip" [attr.aria-pressed]="rarity() === ''" (click)="rarity.set('')">All</button>
+            <button
+              type="button"
+              class="chip"
+              [attr.aria-pressed]="rarity() === ''"
+              (click)="rarity.set('')"
+            >
+              All
+            </button>
             @for (r of rarities(); track r) {
-              <button type="button" class="chip" [attr.aria-pressed]="rarity() === r" (click)="rarity.set(r)">{{ r }}</button>
+              <button
+                type="button"
+                class="chip"
+                [attr.aria-pressed]="rarity() === r"
+                (click)="rarity.set(r)"
+              >
+                {{ r }}
+              </button>
             }
           </div>
         }
@@ -199,10 +239,21 @@
           @for (p of shownPrintings(); track p.id) {
             <li>
               <button type="button" class="prow" (click)="choosePrinting(p)">
-                <app-card-image class="opt__art" size="fill" [src]="image(p)" [game]="c.game" alt="" />
+                <app-card-image
+                  class="opt__art"
+                  size="fill"
+                  [src]="image(p)"
+                  [game]="c.game"
+                  alt=""
+                />
                 <span class="opt__text">
                   <span class="mono opt__code">{{ code(p) }}</span>
-                  <span class="opt__meta">{{ p.setName }}@if (year(p); as y) { · {{ y }}}</span>
+                  <span class="opt__meta"
+                    >{{ p.setName }}
+                    @if (year(p); as y) {
+                      · {{ y }}
+                    }
+                  </span>
                 </span>
                 @if (p.rarity) {
                   <span class="opt__rarity">{{ p.rarity }}</span>
@@ -214,7 +265,9 @@
           }
         </ul>
       } @else {
-        <div class="state" aria-busy="true"><span class="visually-hidden">Loading the card</span></div>
+        <div class="state" aria-busy="true">
+          <span class="visually-hidden">Loading the card</span>
+        </div>
       }
     }
 
@@ -226,10 +279,18 @@
             {{ cardPrintings().length > 1 ? 'Back to the printings' : 'Back to the search' }}
           </button>
           <div class="chosen">
-            <app-card-image class="chosen__art" size="fill" [src]="image(p)" [game]="c.game" alt="" />
+            <app-card-image
+              class="chosen__art"
+              size="fill"
+              [src]="image(p)"
+              [game]="c.game"
+              alt=""
+            />
             <span class="opt__text">
               <span class="chosen__name">{{ c.name }}</span>
-              <span class="opt__meta"><span class="mono">{{ code(p) }}</span> · {{ p.setName }}</span>
+              <span class="opt__meta"
+                ><span class="mono">{{ code(p) }}</span> · {{ p.setName }}</span
+              >
               @if (p.rarity) {
                 <span class="opt__meta">{{ p.rarity }}</span>
               }
@@ -245,7 +306,11 @@
             (valueChange)="change($event)"
           />
           <label class="keep">
-            <input type="checkbox" [checked]="keep()" (change)="keep.set($any($event.target).checked)" />
+            <input
+              type="checkbox"
+              [checked]="keep()"
+              (change)="keep.set($any($event.target).checked)"
+            />
             Keep these for the next card
             <span class="keep__hint">(binder, who can see it, price mode)</span>
           </label>
@@ -262,7 +327,9 @@
           >
             {{ saving() ? 'Adding…' : 'Add to inventory' }}
           </button>
-          <p class="hint hint--center">Change any of this later by clicking the card in Inventory.</p>
+          <p class="hint hint--center">
+            Change any of this later by clicking the card in Inventory.
+          </p>
         }
       }
     }
@@ -274,7 +341,9 @@
       New cards start private. You choose what to publish.
     </p>
     @if (added() > 0) {
-      <button matButton="outlined" type="button" (click)="closed.emit()" data-testid="add-done">Done</button>
+      <button matButton="outlined" type="button" (click)="closed.emit()" data-testid="add-done">
+        Done
+      </button>
     }
   </ng-container>
 </app-drawer-frame>

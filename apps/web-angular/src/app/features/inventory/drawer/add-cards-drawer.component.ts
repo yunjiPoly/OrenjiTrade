@@ -15,12 +15,7 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import {
-  CardDetail,
-  CardSuggestion,
-  CatalogService,
-  PrintingSummary,
-} from '@orenji/api-client';
+import { CardDetail, CardSuggestion, CatalogService, PrintingSummary } from '@orenji/api-client';
 import {
   EMPTY,
   Subject,
@@ -150,7 +145,11 @@ export class AddCardsDrawerComponent {
   );
   protected readonly cardPrintings = computed(() => this.card()?.printings ?? []);
   protected readonly rarities = computed(() => [
-    ...new Set(this.cardPrintings().map((p) => p.rarity).filter((r): r is string => !!r)),
+    ...new Set(
+      this.cardPrintings()
+        .map((p) => p.rarity)
+        .filter((r): r is string => !!r),
+    ),
   ]);
   protected readonly shownPrintings = computed(() => {
     const text = this.filter().trim().toLowerCase();

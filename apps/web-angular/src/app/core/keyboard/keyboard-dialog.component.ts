@@ -72,7 +72,10 @@ export function keyGroups(mod: string): KeyGroup[] {
         { parts: [K('j'), K('k')], action: 'Move down and up the cards', single: true },
         { parts: [K('Space'), W('or'), K('x')], action: 'Select the card you are on' },
         { parts: [K(mod), K('A')], action: 'Select the loaded cards (the table focused)' },
-        { parts: [K('Alt'), K('↑'), K('↓')], action: 'In Edit card: save, then the previous or next card' },
+        {
+          parts: [K('Alt'), K('↑'), K('↓')],
+          action: 'In Edit card: save, then the previous or next card',
+        },
         { parts: [K(mod), K('Enter')], action: 'Save the drawer' },
         {
           parts: [K(mod), K('Z')],

@@ -49,7 +49,10 @@ export function selectRange(
 }
 
 /** Ctrl/Cmd+A: every loaded card; again when all are selected: none. */
-export function selectAllLoaded(selection: ReadonlySet<string>, order: readonly string[]): Set<string> {
+export function selectAllLoaded(
+  selection: ReadonlySet<string>,
+  order: readonly string[],
+): Set<string> {
   const all = order.length > 0 && order.every((id) => selection.has(id));
   return all ? new Set() : new Set(order);
 }
@@ -65,7 +68,11 @@ export function pruneSelection(
 }
 
 /** The id of the row the arrow keys or `j`/`k` move to from `current`. */
-export function stepRow(order: readonly string[], current: string | null, step: 1 | -1): string | null {
+export function stepRow(
+  order: readonly string[],
+  current: string | null,
+  step: 1 | -1,
+): string | null {
   if (order.length === 0) {
     return null;
   }

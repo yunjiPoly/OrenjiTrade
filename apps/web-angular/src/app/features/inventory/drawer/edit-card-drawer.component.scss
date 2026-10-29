@@ -139,7 +139,10 @@ kbd {
 }
 
 .fresh mat-icon {
-  color: light-dark(color-mix(in srgb, var(--color-warning) 60%, var(--color-ink)), var(--color-warning));
+  color: light-dark(
+    color-mix(in srgb, var(--color-warning) 60%, var(--color-ink)),
+    var(--color-warning)
+  );
 }
 
 .legacy {

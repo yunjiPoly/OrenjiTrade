@@ -1,8 +1,4 @@
-import type {
-  BinderResponse,
-  CreateBinderRequest,
-  UpdateBinderRequest,
-} from '@orenji/api-client';
+import type { BinderResponse, CreateBinderRequest, UpdateBinderRequest } from '@orenji/api-client';
 import { binderGame } from './binder-games';
 import { temporaryPublicationEnded } from './card-form';
 import { ASKING_PRICE_MAX } from './item-price';
@@ -204,9 +200,7 @@ export function deckCoreTag(price: string | null | undefined): string {
 
 /** "9 cards · Public" or "2 photos · Public" (a deck core). */
 export function binderLine(binder: BinderResponse, now = Date.now()): string {
-  const count = binder.sellsAsCore
-    ? (binder.photos?.length ?? 0)
-    : binder.itemCount;
+  const count = binder.sellsAsCore ? (binder.photos?.length ?? 0) : binder.itemCount;
   const unit = binder.sellsAsCore ? 'photo' : 'card';
   const who = binderVisibilityChoice(binder, now) === 'PUBLIC' ? 'Public' : 'Private';
   return `${count} ${count === 1 ? unit : `${unit}s`} · ${who}`;

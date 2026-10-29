@@ -373,16 +373,23 @@
 }
 
 .amber mat-icon {
-  color: light-dark(color-mix(in srgb, var(--color-warning) 60%, var(--color-ink)), var(--color-warning));
+  color: light-dark(
+    color-mix(in srgb, var(--color-warning) 60%, var(--color-ink)),
+    var(--color-warning)
+  );
 }
 
 .amber__btn {
   min-height: 32px;
   padding: 0 14px;
-  border: 1px solid light-dark(color-mix(in srgb, var(--color-warning) 60%, var(--color-ink)), var(--color-warning));
+  border: 1px solid
+    light-dark(color-mix(in srgb, var(--color-warning) 60%, var(--color-ink)), var(--color-warning));
   border-radius: 999px;
   background: transparent;
-  color: light-dark(color-mix(in srgb, var(--color-warning) 60%, var(--color-ink)), var(--color-warning));
+  color: light-dark(
+    color-mix(in srgb, var(--color-warning) 60%, var(--color-ink)),
+    var(--color-warning)
+  );
   font: inherit;
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
@@ -501,8 +508,14 @@
 }
 
 .print--choose {
-  border-color: light-dark(color-mix(in srgb, var(--color-warning) 60%, var(--color-ink)), var(--color-warning));
-  color: light-dark(color-mix(in srgb, var(--color-warning) 60%, var(--color-ink)), var(--color-warning));
+  border-color: light-dark(
+    color-mix(in srgb, var(--color-warning) 60%, var(--color-ink)),
+    var(--color-warning)
+  );
+  color: light-dark(
+    color-mix(in srgb, var(--color-warning) 60%, var(--color-ink)),
+    var(--color-warning)
+  );
   font-weight: var(--font-weight-semibold);
 }
 
@@ -577,7 +590,10 @@
     color-mix(in srgb, var(--color-accent) 10%, var(--color-surface)),
     color-mix(in srgb, var(--color-accent) 14%, var(--color-surface))
   );
-  color: light-dark(color-mix(in srgb, var(--color-accent) 85%, var(--color-ink)), var(--color-accent));
+  color: light-dark(
+    color-mix(in srgb, var(--color-accent) 85%, var(--color-ink)),
+    var(--color-accent)
+  );
 }
 
 .status--choose {
@@ -585,7 +601,10 @@
     color-mix(in srgb, var(--color-warning) 22%, var(--color-surface)),
     color-mix(in srgb, var(--color-warning) 14%, var(--color-surface))
   );
-  color: light-dark(color-mix(in srgb, var(--color-warning) 60%, var(--color-ink)), var(--color-warning));
+  color: light-dark(
+    color-mix(in srgb, var(--color-warning) 60%, var(--color-ink)),
+    var(--color-warning)
+  );
 }
 
 .status--unmatched,
@@ -633,7 +652,10 @@
 }
 
 .foot__hint {
-  color: light-dark(color-mix(in srgb, var(--color-warning) 60%, var(--color-ink)), var(--color-warning));
+  color: light-dark(
+    color-mix(in srgb, var(--color-warning) 60%, var(--color-ink)),
+    var(--color-warning)
+  );
   font-size: var(--font-size-meta);
 }
 

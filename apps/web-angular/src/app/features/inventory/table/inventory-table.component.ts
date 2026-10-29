@@ -5,7 +5,6 @@ import {
   CdkDragMove,
   CdkDragPlaceholder,
   CdkDragPreview,
-  CdkDragStart,
   CdkDropList,
 } from '@angular/cdk/drag-drop';
 import {
@@ -76,7 +75,6 @@ export interface RowDrag {
       aria-label="Your cards"
       [attr.aria-rowcount]="rowCount()"
       [attr.aria-multiselectable]="true"
-      (keydown)="onKey($event)"
     >
       <div role="rowgroup" class="tbl__head">
         <div role="row" class="tbl__row tbl__row--head" aria-rowindex="1">
@@ -90,7 +88,9 @@ export interface RowDrag {
               (change)="toggleAll.emit()"
             />
           </div>
-          <div role="columnheader" class="c c-art"><span class="visually-hidden">Picture</span></div>
+          <div role="columnheader" class="c c-art">
+            <span class="visually-hidden">Picture</span>
+          </div>
           <div role="columnheader" class="c c-card">Card</div>
           <div role="columnheader" class="c c-binder">Binder</div>
           <div role="columnheader" class="c c-vis">Who can see it</div>
@@ -125,10 +125,11 @@ export interface RowDrag {
             [tabindex]="isActive(it.id, i) ? 0 : -1"
             cdkDrag
             [cdkDragData]="it"
-            (cdkDragStarted)="onDragStart(it, $event)"
+            (cdkDragStarted)="onDragStart(it)"
             (cdkDragMoved)="onDragMove(it, $event)"
             (cdkDragEnded)="onDragEnd(it, $event)"
             (focusin)="activeId.set(it.id)"
+            (keydown)="onKey($event)"
             (click)="onRowClick($event, it)"
           >
             <div class="tbl__placeholder" *cdkDragPlaceholder></div>
@@ -156,11 +157,21 @@ export interface RowDrag {
               cdkDragHandle
               [cdkDragHandleDisabled]="!draggable()"
               [title]="draggable() ? 'Drag to a binder' : ''"
+              (mouseenter)="preview.set(it.id)"
+              (mouseleave)="preview.set(null)"
             >
-              <app-card-image class="art" size="fill" [src]="image(it)" [game]="it.card.game" alt="" />
-              <span class="art__preview" aria-hidden="true">
-                <app-card-image size="fill" [src]="image(it)" [game]="it.card.game" />
-              </span>
+              <app-card-image
+                class="art"
+                size="fill"
+                [src]="image(it)"
+                [game]="it.card.game"
+                alt=""
+              />
+              @if (preview() === it.id && !dragging()) {
+                <span class="art__preview" aria-hidden="true">
+                  <app-card-image size="fill" eager [src]="image(it)" [game]="it.card.game" />
+                </span>
+              }
             </div>
             <div role="gridcell" class="c c-card">
               <span class="name">{{ it.card.name }}</span>
@@ -203,12 +214,19 @@ export interface RowDrag {
                 [tabindex]="controlTab(it.id, i)"
                 [title]="row.tag.note"
                 [attr.aria-label]="
-                  'Who can see it: ' + row.tag.label + '. Make it ' + (isPrivate(it) ? 'public' : 'private')
+                  'Who can see it: ' +
+                  row.tag.label +
+                  '. Make it ' +
+                  (isPrivate(it) ? 'public' : 'private')
                 "
                 [disabled]="row.busy"
                 (click)="toggleVisibility($event, it)"
               >
-                <app-visibility-tag [kind]="row.tag.kind" [label]="row.tag.label" [icon]="row.tag.icon" />
+                <app-visibility-tag
+                  [kind]="row.tag.kind"
+                  [label]="row.tag.label"
+                  [icon]="row.tag.icon"
+                />
               </button>
             </div>
             <div role="gridcell" class="c c-copies">
@@ -251,18 +269,29 @@ export interface RowDrag {
                 <app-price-editor
                   [item]="it"
                   (save)="savePrice(it, $event)"
-                  (cancel)="closePrice(it)"
+                  (dismiss)="closePrice(it)"
                 />
               }
             </div>
             <div role="gridcell" class="c c-upd">
               @if (row.dot) {
-                <span class="dot" [class.dot--stale]="row.dot === 'stale'" aria-hidden="true"></span>
+                <span
+                  class="dot"
+                  [class.dot--stale]="row.dot === 'stale'"
+                  aria-hidden="true"
+                ></span>
               }
               <span aria-hidden="true">{{ row.age }}</span>
-              <span class="visually-hidden">Updated {{ spoken(row.age) }}{{
-                row.dot === 'stale' ? ', needs a confirmation' : row.dot === 'aging' ? ', getting old' : ''
-              }}</span>
+              <span class="visually-hidden"
+                >Updated {{ spoken(row.age)
+                }}{{
+                  row.dot === 'stale'
+                    ? ', needs a confirmation'
+                    : row.dot === 'aging'
+                      ? ', getting old'
+                      : ''
+                }}</span
+              >
               @if (row.saved) {
                 <mat-icon class="saved" aria-hidden="true">check_circle</mat-icon>
               }
@@ -309,13 +338,24 @@ export interface RowDrag {
         <button mat-menu-item type="button" (click)="action.emit({ kind: 'edit', item })">
           <mat-icon>edit</mat-icon><span>Edit</span>
         </button>
-        <button mat-menu-item type="button" [matMenuTriggerFor]="binderMenu" [matMenuTriggerData]="{ item }">
+        <button
+          mat-menu-item
+          type="button"
+          [matMenuTriggerFor]="binderMenu"
+          [matMenuTriggerData]="{ item }"
+        >
           <mat-icon>drive_file_move</mat-icon><span>Move to binder</span>
         </button>
         <button
           mat-menu-item
           type="button"
-          (click)="action.emit({ kind: 'visibility', item, visibility: isPrivate(item) ? 'PUBLIC' : 'PRIVATE' })"
+          (click)="
+            action.emit({
+              kind: 'visibility',
+              item,
+              visibility: isPrivate(item) ? 'PUBLIC' : 'PRIVATE',
+            })
+          "
         >
           <mat-icon>{{ isPrivate(item) ? 'public' : 'lock' }}</mat-icon>
           <span>{{ isPrivate(item) ? 'Make public' : 'Make private' }}</span>
@@ -326,7 +366,12 @@ export interface RowDrag {
         <a mat-menu-item [href]="tcgplayer(item)" target="_blank" rel="noopener noreferrer">
           <mat-icon>open_in_new</mat-icon><span>Check TCGplayer price ↗</span>
         </a>
-        <button mat-menu-item type="button" class="danger" (click)="action.emit({ kind: 'delete', item })">
+        <button
+          mat-menu-item
+          type="button"
+          class="danger"
+          (click)="action.emit({ kind: 'delete', item })"
+        >
           <mat-icon>delete</mat-icon><span>Delete</span>
         </button>
       </ng-template>
@@ -367,6 +412,9 @@ export class InventoryTableComponent {
   protected readonly maxQuantity = QUANTITY_MAX;
   protected readonly activeId = signal<string | null>(null);
   protected readonly editingPrice = signal<string | null>(null);
+  /** The row whose art shows the 160 px preview (rendered on hover only). */
+  protected readonly preview = signal<string | null>(null);
+  protected readonly dragging = signal(false);
   protected readonly rowCount = computed(() => (this.totalRows() ?? this.rows().length) + 1);
   protected readonly ghostArts = computed(() => this.dragArts().slice(0, 3));
   protected readonly ghostLabel = computed(() => {
@@ -475,7 +523,8 @@ export class InventoryTableComponent {
     this.focusPrice(item.id);
   }
 
-  protected onDragStart(item: InventoryItemResponse, _event: CdkDragStart): void {
+  protected onDragStart(item: InventoryItemResponse): void {
+    this.dragging.set(true);
     this.dragStarted.emit(item);
   }
 
@@ -484,6 +533,7 @@ export class InventoryTableComponent {
   }
 
   protected onDragEnd(item: InventoryItemResponse, event: CdkDragEnd): void {
+    this.dragging.set(false);
     this.dragEnded.emit({ item, pointer: event.dropPoint });
     event.source.reset();
   }
@@ -492,8 +542,7 @@ export class InventoryTableComponent {
   protected onKey(event: KeyboardEvent): void {
     const target = event.target as HTMLElement;
     const onRow = target.getAttribute('role') === 'row';
-    const inField =
-      target instanceof HTMLInputElement && target.type !== 'checkbox' ? true : false;
+    const inField = target instanceof HTMLInputElement && target.type !== 'checkbox' ? true : false;
     if (inField || this.editingPrice()) {
       return;
     }
@@ -587,4 +636,3 @@ export class InventoryTableComponent {
     return this.rows().find((row) => row.item.id === id);
   }
 }
-

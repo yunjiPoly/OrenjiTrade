@@ -56,10 +56,10 @@ test.describe('usage limits', () => {
     await expect(page.getByText('Sponsored', { exact: true })).toHaveCount(0);
 
     // The sixth binder is refused: the dialog explains it, with no plan and no link.
-    await binders.getByRole('button', { name: 'New binder' }).click();
+    await binders.getByTestId('pane-new').click();
     const form = page.getByRole('dialog', { name: 'New binder' });
-    await form.getByLabel('Binder name').fill('Binder number six');
-    await form.getByRole('button', { name: 'Create binder' }).click();
+    await form.getByTestId('new-binder-name').fill('Binder number six');
+    await form.getByTestId('new-binder-create').click();
     const limit = page.getByRole('alertdialog', { name: 'You reached a limit' });
     await expect(limit).toBeVisible();
     await expect(limit.getByTestId('limit-summary')).toContainText('Binders');
@@ -74,9 +74,9 @@ test.describe('usage limits', () => {
     await expect(limit).not.toContainText(/premium|plan/i);
     await limit.getByRole('button', { name: 'OK' }).click();
     await expect(limit).toHaveCount(0);
-    // The form stays open with the reason; the collector closes it.
-    await expect(form.getByRole('alert')).toHaveText(
-      'You reached the number of binders you can have.',
+    // The form stays open with the reason (web WB, spec 9.12); the collector closes it.
+    await expect(form.getByTestId('new-binder-error')).toHaveText(
+      'You have 5 binders, the most each collector can have. Every collector has the same limits.',
     );
     await form.getByRole('button', { name: 'Cancel' }).click();
     await expect(form).toBeHidden();

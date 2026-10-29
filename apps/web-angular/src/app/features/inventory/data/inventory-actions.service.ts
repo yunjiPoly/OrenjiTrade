@@ -113,7 +113,11 @@ export class InventoryActions {
         await this.explainHidden(outcome.title, ids);
         return true;
       }
-      this.toasts.show({ title: outcome.title, sub: outcome.sub, tone: response.updated ? 'success' : 'info' });
+      this.toasts.show({
+        title: outcome.title,
+        sub: outcome.sub,
+        tone: response.updated ? 'success' : 'info',
+      });
       return true;
     } catch (error) {
       this.fail(error);
@@ -137,7 +141,12 @@ export class InventoryActions {
       if (isLimitReached(apiError)) {
         return false;
       }
-      const label = { price: 'the price', copies: 'the copies', visibility: 'who can see it', binder: 'the binder' }[what];
+      const label = {
+        price: 'the price',
+        copies: 'the copies',
+        visibility: 'who can see it',
+        binder: 'the binder',
+      }[what];
       const game = binderGameError(apiError, null);
       const ref = this.toasts.show({
         title: `Couldn't save ${label}.`,
@@ -240,7 +249,10 @@ export class InventoryActions {
       const { restored, failed } = await this.store.restoreItems(ids);
       if (failed > 0 && restored === 0) {
         this.toasts.show({
-          title: ids.length === 1 ? 'This card can no longer be restored.' : 'These cards can no longer be restored.',
+          title:
+            ids.length === 1
+              ? 'This card can no longer be restored.'
+              : 'These cards can no longer be restored.',
           tone: 'error',
         });
         return;
@@ -274,4 +286,3 @@ export class InventoryActions {
     ).then((result) => !!result);
   }
 }
-

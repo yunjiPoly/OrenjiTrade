@@ -50,7 +50,6 @@ import { RowDrag } from '../table/inventory-table.component';
       cdkDropList
       cdkDropListSortingDisabled
       [cdkDropListDisabled]="!draggable()"
-      (keydown)="onKey($event)"
     >
       @for (row of rows(); track row.item.id; let i = $index) {
         @let it = row.item;
@@ -70,6 +69,7 @@ import { RowDrag } from '../table/inventory-table.component';
           (cdkDragMoved)="onMove(it, $event)"
           (cdkDragEnded)="onEnd(it, $event)"
           (focus)="activeId.set(it.id)"
+          (keydown)="onKey($event)"
           (click)="onClick($event, it, row)"
         >
           <div class="tile__ph" *cdkDragPlaceholder></div>
@@ -79,11 +79,17 @@ import { RowDrag } from '../table/inventory-table.component';
                 <app-card-image size="fill" [src]="art" />
               }
             </span>
-            <span class="drag-ghost__label">{{ dragCount() }} {{ dragCount() === 1 ? 'card' : 'cards' }}</span>
+            <span class="drag-ghost__label"
+              >{{ dragCount() }} {{ dragCount() === 1 ? 'card' : 'cards' }}</span
+            >
           </div>
           <span class="tile__art">
             <app-card-image size="fill" [src]="image(it)" [game]="it.card.game" alt="" />
-            <span class="tile__badge" [class.tile__badge--pending]="row.tag.kind === 'pending'" aria-hidden="true">
+            <span
+              class="tile__badge"
+              [class.tile__badge--pending]="row.tag.kind === 'pending'"
+              aria-hidden="true"
+            >
               <mat-icon>{{ row.tag.icon }}</mat-icon>
             </span>
             <span class="tile__check" [class.tile__check--on]="row.selected" aria-hidden="true">
@@ -93,7 +99,9 @@ import { RowDrag } from '../table/inventory-table.component';
           <span class="tile__name">{{ it.card.name }}</span>
           <span class="tile__code mono">{{ code(it) }}</span>
           <span class="tile__foot">
-            <span class="tile__price" [class.tile__price--none]="!row.price">{{ row.price ?? 'No price' }}</span>
+            <span class="tile__price" [class.tile__price--none]="!row.price">{{
+              row.price ?? 'No price'
+            }}</span>
             <span class="tile__qty">×{{ it.quantity }}</span>
           </span>
         </li>
@@ -349,7 +357,11 @@ export class InventoryGridComponent {
         event.preventDefault();
         const row = this.rows()[at];
         if (row) {
-          this.selectedChange.emit({ id: row.item.id, selected: !row.selected, range: event.shiftKey });
+          this.selectedChange.emit({
+            id: row.item.id,
+            selected: !row.selected,
+            range: event.shiftKey,
+          });
         }
         return;
       }

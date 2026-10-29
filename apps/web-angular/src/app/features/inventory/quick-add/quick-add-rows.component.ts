@@ -78,10 +78,7 @@ export function printingForCode(
 export function quickAddLimitMessage(error: ApiError, now = Date.now()): string {
   const info = limitReachedInfo(error);
   const what = info.limitKey ? limitLabel(info.limitKey) : 'A usage limit';
-  const usage =
-    info.limit !== null
-      ? ` You used ${info.used ?? info.limit} of ${info.limit}.`
-      : '';
+  const usage = info.limit !== null ? ` You used ${info.used ?? info.limit} of ${info.limit}.` : '';
   let reset = '';
   if (info.resetsAt) {
     const minutes = Math.max(1, Math.ceil((Date.parse(info.resetsAt) - now) / 60_000));
@@ -119,7 +116,13 @@ const VISIBILITIES: readonly SegmentOption<CardVisibility>[] = [
  */
 @Component({
   selector: 'app-quick-add-rows',
-  imports: [MatIconModule, MatMenuModule, CardImageComponent, GameMonogramComponent, SegmentedComponent],
+  imports: [
+    MatIconModule,
+    MatMenuModule,
+    CardImageComponent,
+    GameMonogramComponent,
+    SegmentedComponent,
+  ],
   templateUrl: './quick-add-rows.component.html',
   styleUrl: './quick-add-rows.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -305,30 +308,32 @@ export class QuickAddRowsComponent {
     }
     // A card: its printings take the list's place.
     this.searching.set(true);
-    this.catalog.getCard({ id: suggestion.id! }, 'body', false, { context: silentErrors() }).subscribe({
-      next: (card) => {
-        this.searching.set(false);
-        this.suggestions.set(
-          (card.printings ?? []).map((printing) => ({
-            kind: 'PRINTING',
-            id: card.id,
-            printingId: printing.id,
-            name: card.name,
-            game: card.game,
-            printingCode: printing.printingCode ?? undefined,
-            setName: printing.setName ?? null,
-            rarity: printing.rarity ?? null,
-            imageUrl: printing.images?.[0]?.url ?? card.primaryImageUrl,
-          })) as CardSuggestion[],
-        );
-        this.active.set(0);
-        this.listOpen.set(true);
-      },
-      error: () => {
-        this.searching.set(false);
-        this.error.set('This card could not load. Try again.');
-      },
-    });
+    this.catalog
+      .getCard({ id: suggestion.id! }, 'body', false, { context: silentErrors() })
+      .subscribe({
+        next: (card) => {
+          this.searching.set(false);
+          this.suggestions.set(
+            (card.printings ?? []).map((printing) => ({
+              kind: 'PRINTING',
+              id: card.id,
+              printingId: printing.id,
+              name: card.name,
+              game: card.game,
+              printingCode: printing.printingCode ?? undefined,
+              setName: printing.setName ?? null,
+              rarity: printing.rarity ?? null,
+              imageUrl: printing.images?.[0]?.url ?? card.primaryImageUrl,
+            })) as CardSuggestion[],
+          );
+          this.active.set(0);
+          this.listOpen.set(true);
+        },
+        error: () => {
+          this.searching.set(false);
+          this.error.set('This card could not load. Try again.');
+        },
+      });
   }
 
   protected onQuantity(event: Event): void {
@@ -340,7 +345,10 @@ export class QuickAddRowsComponent {
 
   protected step(direction: 1 | -1): void {
     const current = parseQuantity(this.quantity());
-    const next = Math.min(QUANTITY_MAX, Math.max(1, (Number.isNaN(current) ? 1 : current) + direction));
+    const next = Math.min(
+      QUANTITY_MAX,
+      Math.max(1, (Number.isNaN(current) ? 1 : current) + direction),
+    );
     this.quantity.set(String(next));
   }
 

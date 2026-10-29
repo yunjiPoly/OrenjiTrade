@@ -327,6 +327,10 @@ export function e2eApiEnv(base, { apiPort, webPort, workDir }) {
     // Mock catalog only: no card image downloads, no card provider call (ADR 0015, ADR 0021).
     CARD_IMAGE_ON_DEMAND_ENABLED: 'false',
     ...NO_CARD_PROVIDERS,
+    // Web stage WB imports a deck file (.ydk) end to end: its passcodes are the three fictional
+    // ones of ImportFixtureSeedContributor (910000001 to 910000003), as in the phone's isolated
+    // database. The contributor refuses to run while the real provider is enabled.
+    SEED_IMPORT_FIXTURES: 'true',
     CORS_ALLOWED_ORIGINS: `http://localhost:${webPort}`,
     FIREBASE_PROJECT_ID: 'orenjitrade-local',
     FIREBASE_AUTH_EMULATOR_HOST: valueOf(base, 'FIREBASE_AUTH_EMULATOR_HOST') ?? 'localhost:9099',

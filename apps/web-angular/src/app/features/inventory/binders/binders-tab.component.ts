@@ -57,14 +57,22 @@ import { BinderCoverComponent } from '../ui/binder-cover.component';
         title="No binders yet"
         description="Binders group your cards. Sell a whole deck as a deck core: photos, a price and a note are enough."
       >
-        <button actions matButton="filled" type="button" (click)="newBinder.emit()">New binder</button>
+        <button actions matButton="filled" type="button" (click)="newBinder.emit()">
+          New binder
+        </button>
       </app-empty-state>
     } @else {
       <div class="head">
         <p class="sum" data-testid="binders-summary">
-          <strong>{{ summary().binders }}</strong>{{ summary().rest }}
+          <strong>{{ summary().binders }}</strong
+          >{{ summary().rest }}
         </p>
-        <button matButton="outlined" type="button" (click)="newBinder.emit()" data-testid="binders-new">
+        <button
+          matButton="outlined"
+          type="button"
+          (click)="newBinder.emit()"
+          data-testid="binders-new"
+        >
           <mat-icon aria-hidden="true">add</mat-icon>
           New binder
         </button>
@@ -95,14 +103,26 @@ import { BinderCoverComponent } from '../ui/binder-cover.component';
               >
                 <div class="card__ph" *cdkDragPlaceholder></div>
                 @if (editingId() === binder.id) {
-                  <span class="card__editing"><mat-icon aria-hidden="true">edit</mat-icon> Editing</span>
+                  <span class="card__editing"
+                    ><mat-icon aria-hidden="true">edit</mat-icon> Editing</span
+                  >
                 }
-                <button type="button" class="card__open" (click)="open.emit(binder)" [attr.aria-label]="openLabel(binder)">
+                <button
+                  type="button"
+                  class="card__open"
+                  (click)="open.emit(binder)"
+                  [attr.aria-label]="openLabel(binder)"
+                >
                   <app-binder-cover variant="card" [binder]="binder" />
                 </button>
                 <div class="card__body">
                   <div class="card__title">
-                    <button type="button" class="card__name" (click)="open.emit(binder)" tabindex="-1">
+                    <button
+                      type="button"
+                      class="card__name"
+                      (click)="open.emit(binder)"
+                      tabindex="-1"
+                    >
                       {{ binder.name }}
                     </button>
                     <button
@@ -117,18 +137,28 @@ import { BinderCoverComponent } from '../ui/binder-cover.component';
                     </button>
                   </div>
                   <p class="card__line">
-                    <mat-icon aria-hidden="true">{{ binder.visibility === 'PRIVATE' ? 'lock' : 'public' }}</mat-icon>
+                    <mat-icon aria-hidden="true">{{
+                      binder.visibility === 'PRIVATE' ? 'lock' : 'public'
+                    }}</mat-icon>
                     {{ line(binder) }}
                   </p>
                   @if (binder.sellsAsCore) {
-                    <span class="card__core"><mat-icon aria-hidden="true">layers</mat-icon>{{ core(binder) }}</span>
+                    <span class="card__core"
+                      ><mat-icon aria-hidden="true">layers</mat-icon>{{ core(binder) }}</span
+                    >
                   }
                 </div>
                 @if (needsConfirm(binder)) {
                   <div class="card__fresh">
-                    <span class="card__dot" [class.card__dot--stale]="binder.freshness.state !== 'AGING'" aria-hidden="true"></span>
+                    <span
+                      class="card__dot"
+                      [class.card__dot--stale]="binder.freshness.state !== 'AGING'"
+                      aria-hidden="true"
+                    ></span>
                     <span class="card__fresh-text">{{ binder.freshness.label }}</span>
-                    <button type="button" class="card__still" (click)="confirm.emit(binder)">Still have them</button>
+                    <button type="button" class="card__still" (click)="confirm.emit(binder)">
+                      Still have them
+                    </button>
                   </div>
                 }
               </li>
@@ -138,7 +168,9 @@ import { BinderCoverComponent } from '../ui/binder-cover.component';
       }
       <aside class="tip" aria-label="Tip">
         <mat-icon aria-hidden="true">layers</mat-icon>
-        <p><strong>{{ copy.tipTitle }}</strong> {{ copy.tipBody }}</p>
+        <p>
+          <strong>{{ copy.tipTitle }}</strong> {{ copy.tipBody }}
+        </p>
       </aside>
     }
 
@@ -151,13 +183,28 @@ import { BinderCoverComponent } from '../ui/binder-cover.component';
           <mat-icon>{{ binder.visibility === 'PRIVATE' ? 'public' : 'lock' }}</mat-icon>
           <span>{{ binder.visibility === 'PRIVATE' ? 'Make public' : 'Make private' }}</span>
         </button>
-        <button mat-menu-item type="button" [disabled]="first" (click)="act.emit({ kind: 'move', binder, offset: -1 })">
+        <button
+          mat-menu-item
+          type="button"
+          [disabled]="first"
+          (click)="act.emit({ kind: 'move', binder, offset: -1 })"
+        >
           <mat-icon>arrow_upward</mat-icon><span>Move up</span>
         </button>
-        <button mat-menu-item type="button" [disabled]="last" (click)="act.emit({ kind: 'move', binder, offset: 1 })">
+        <button
+          mat-menu-item
+          type="button"
+          [disabled]="last"
+          (click)="act.emit({ kind: 'move', binder, offset: 1 })"
+        >
           <mat-icon>arrow_downward</mat-icon><span>Move down</span>
         </button>
-        <button mat-menu-item type="button" class="danger" (click)="act.emit({ kind: 'delete', binder })">
+        <button
+          mat-menu-item
+          type="button"
+          class="danger"
+          (click)="act.emit({ kind: 'delete', binder })"
+        >
           <mat-icon>delete</mat-icon><span>Delete binder</span>
         </button>
       </ng-template>

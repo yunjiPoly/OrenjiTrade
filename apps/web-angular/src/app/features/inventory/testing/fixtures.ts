@@ -1,10 +1,19 @@
 import type { BinderResponse, InventoryItemResponse } from '@orenji/api-client';
 
 /** A fictional card of the collector's inventory (unit tests only). */
-export function item(id: string, overrides: Partial<InventoryItemResponse> = {}): InventoryItemResponse {
+export function item(
+  id: string,
+  overrides: Partial<InventoryItemResponse> = {},
+): InventoryItemResponse {
   return {
     id,
-    printing: { id: `p-${id}`, printingCode: `AZR-EN00${id.length}`, setName: 'Azure Dawn', rarity: 'Ultra Rare', images: [] },
+    printing: {
+      id: `p-${id}`,
+      printingCode: `AZR-EN00${id.length}`,
+      setName: 'Azure Dawn',
+      rarity: 'Ultra Rare',
+      images: [],
+    },
     card: { id: `c-${id}`, name: `Card ${id}`, game: 'yugioh' },
     quantity: 1,
     condition: '',

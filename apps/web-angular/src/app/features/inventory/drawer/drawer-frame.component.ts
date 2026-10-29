@@ -1,11 +1,5 @@
 import { CdkTrapFocus } from '@angular/cdk/a11y';
-import {
-  ChangeDetectionStrategy,
-  Component,
-  booleanAttribute,
-  input,
-  output,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, booleanAttribute, input, output } from '@angular/core';
 
 /**
  * A 440 drawer of Inventory (spec 4.8): beside the list from the top bar down; it pushes the list

@@ -6,7 +6,9 @@
       title="Sign in to build your inventory"
       description="Record the cards you own, group them into binders and publish the ones you trade. Everything starts private."
     >
-      <a actions matButton="filled" routerLink="/auth/sign-in" [queryParams]="{ returnUrl }">Sign in</a>
+      <a actions matButton="filled" routerLink="/auth/sign-in" [queryParams]="{ returnUrl }"
+        >Sign in</a
+      >
       <a actions matButton="outlined" routerLink="/auth/sign-up" [queryParams]="{ returnUrl }"
         >Create account</a
       >
@@ -74,7 +76,12 @@
               </button>
             </span>
             <mat-menu #addMenu="matMenu" xPosition="before">
-              <button mat-menu-item type="button" (click)="onAddMany('quick')" [disabled]="layout.narrow()">
+              <button
+                mat-menu-item
+                type="button"
+                (click)="onAddMany('quick')"
+                [disabled]="layout.narrow()"
+              >
                 <mat-icon>playlist_add</mat-icon>
                 <span>Quick add rows · Shift+N</span>
               </button>
@@ -110,7 +117,10 @@
             <span class="strip__name">{{ binder.name }}</span>
             @if (binder.sellsAsCore) {
               <span class="strip__core">{{ coreTag(binder.askingPriceText) }}</span>
-              <span class="strip__muted">{{ binder.photos?.length ?? 0 }} {{ (binder.photos?.length ?? 0) === 1 ? 'photo' : 'photos' }}</span>
+              <span class="strip__muted"
+                >{{ binder.photos?.length ?? 0 }}
+                {{ (binder.photos?.length ?? 0) === 1 ? 'photo' : 'photos' }}</span
+              >
             }
             <span class="strip__spacer"></span>
             <app-segmented
@@ -131,7 +141,8 @@
         }
         @if (summaryLine(); as line) {
           <p class="inv__summary" data-testid="inventory-summary">
-            <strong>{{ line.cards }}</strong>{{ line.rest }}
+            <strong>{{ line.cards }}</strong
+            >{{ line.rest }}
           </p>
         }
 
@@ -145,7 +156,12 @@
                 {{ hiddenCount() }} already left search until you confirm them.
               }
             </p>
-            <button type="button" class="banner__pill" [disabled]="confirming()" (click)="stillHaveThem()">
+            <button
+              type="button"
+              class="banner__pill"
+              [disabled]="confirming()"
+              (click)="stillHaveThem()"
+            >
               {{ confirming() ? 'Confirming…' : 'Still have them' }}
             </button>
             <button type="button" class="banner__link" (click)="showStale()">Show them</button>
@@ -155,8 +171,9 @@
           <div class="banner" role="status" data-testid="visibility-banner">
             <mat-icon aria-hidden="true">visibility_off</mat-icon>
             <p class="banner__text">
-              {{ notVisible() }} public {{ notVisible() === 1 ? "card isn't" : "cards aren't" }} visible
-              yet. Put them in a public binder or choose your province.
+              {{ notVisible() }} public
+              {{ notVisible() === 1 ? "card isn't" : "cards aren't" }} visible yet. Put them in a
+              public binder or choose your province.
             </p>
             <button type="button" class="banner__link" (click)="showNotVisible()">Show them</button>
           </div>
@@ -191,7 +208,12 @@
             title="This binder does not exist"
             description="It may have been deleted. Your cards are still in your inventory."
           >
-            <a actions matButton="filled" routerLink="." [queryParams]="{ binder: null }" queryParamsHandling="merge"
+            <a
+              actions
+              matButton="filled"
+              routerLink="."
+              [queryParams]="{ binder: null }"
+              queryParamsHandling="merge"
               >Show all cards</a
             >
           </app-empty-state>
@@ -229,14 +251,26 @@
                 <mat-icon aria-hidden="true">add</mat-icon>
                 Add cards
               </button>
-              <a actions matButton="outlined" routerLink="/inventory/import" [queryParams]="{ source: 'ydk' }">Import a deck</a>
-              <a actions matButton="outlined" routerLink="/inventory/import" [queryParams]="{ source: 'csv' }"
+              <a
+                actions
+                matButton="outlined"
+                routerLink="/inventory/import"
+                [queryParams]="{ source: 'ydk' }"
+                >Import a deck</a
+              >
+              <a
+                actions
+                matButton="outlined"
+                routerLink="/inventory/import"
+                [queryParams]="{ source: 'csv' }"
                 >Import from Collectr</a
               >
             </app-empty-state>
           } @else if (listFiltered() && !p.binder) {
             <app-empty-state icon="filter_alt_off" title="No cards match these filters.">
-              <button actions matButton="outlined" type="button" (click)="clearFilters()">Clear filters</button>
+              <button actions matButton="outlined" type="button" (click)="clearFilters()">
+                Clear filters
+              </button>
             </app-empty-state>
           } @else if (p.binder === unfiled) {
             <app-empty-state
@@ -299,15 +333,25 @@
             />
           }
           @if (store.selectedCount() > 0 && store.allSelected()) {
-            <p class="inv__note" role="status">All {{ store.items().length }} loaded cards are selected.</p>
+            <p class="inv__note" role="status">
+              All {{ store.items().length }} loaded cards are selected.
+            </p>
           }
           @if (store.hasMore()) {
             <div class="more">
               @if (store.moreError(); as error) {
                 <span class="more__error" role="alert">More cards could not load.</span>
               }
-              <button matButton="outlined" type="button" [disabled]="store.loadingMore()" (click)="store.loadMore()" data-testid="load-more">
-                {{ store.loadingMore() ? 'Loading…' : store.moreError() ? 'Try again' : 'Load more' }}
+              <button
+                matButton="outlined"
+                type="button"
+                [disabled]="store.loadingMore()"
+                (click)="store.loadMore()"
+                data-testid="load-more"
+              >
+                {{
+                  store.loadingMore() ? 'Loading…' : store.moreError() ? 'Try again' : 'Load more'
+                }}
               </button>
               <span class="more__count">{{ store.items().length }} of {{ store.total() }}</span>
             </div>
@@ -333,7 +377,17 @@
 
     @if (drawerOpen()) {
       @if (drawerModal()) {
-        <div class="inv__scrim" aria-hidden="true" (click)="editDrawer() ? editDrawer()!.requestClose() : binderDrawer() ? binderDrawer()!.requestClose() : closeDrawer()"></div>
+        <div
+          class="inv__scrim"
+          aria-hidden="true"
+          (click)="
+            editDrawer()
+              ? editDrawer()!.requestClose()
+              : binderDrawer()
+                ? binderDrawer()!.requestClose()
+                : closeDrawer()
+          "
+        ></div>
       }
       <div class="inv__drawer">
         @if (editItem(); as item) {
@@ -369,7 +423,9 @@
             />
           }
         } @else {
-          <div class="inv__drawer-loading" aria-busy="true"><span class="visually-hidden">Loading the card</span></div>
+          <div class="inv__drawer-loading" aria-busy="true">
+            <span class="visually-hidden">Loading the card</span>
+          </div>
         }
       </div>
     }

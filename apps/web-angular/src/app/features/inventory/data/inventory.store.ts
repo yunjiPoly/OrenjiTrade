@@ -682,11 +682,7 @@ export class InventoryStore {
     this.busyItemsState.set(next);
   }
 
-  private flash(
-    state: WritableSignal<ReadonlySet<string>>,
-    id: string,
-    ms: number,
-  ): void {
+  private flash(state: WritableSignal<ReadonlySet<string>>, id: string, ms: number): void {
     state.set(new Set([...state(), id]));
     const timer = setTimeout(() => {
       this.timers.delete(timer);
