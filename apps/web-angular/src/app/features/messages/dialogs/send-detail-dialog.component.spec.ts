@@ -68,7 +68,9 @@ describe('SendDetailDialogComponent (web WC, spec 10.3, decision 9)', () => {
 
   it('never tells the seller that the buyer ships their own card (WC review F3)', async () => {
     await open('address', null, 'selling');
-    expect(element.textContent).toContain('Share your address in this chat if theo.duels needs it.');
+    expect(element.textContent).toContain(
+      'Share your address in this chat if theo.duels needs it.',
+    );
     expect(element.textContent).not.toContain('ships');
   });
 

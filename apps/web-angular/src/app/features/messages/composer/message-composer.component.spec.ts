@@ -186,7 +186,11 @@ describe('MessageComposerComponent', () => {
   });
 
   it('holds a card or binder chosen in the picker as an attachment, sent with the text (WC review U6)', async () => {
-    fixture.componentInstance.attach({ kind: 'item', itemId: 'item-9', name: 'Lantern Fox Spirit' });
+    fixture.componentInstance.attach({
+      kind: 'item',
+      itemId: 'item-9',
+      name: 'Lantern Fox Spirit',
+    });
     await fixture.whenStable();
     expect(element.querySelector('[data-testid=composer-attachment]')?.textContent).toContain(
       'Lantern Fox Spirit',

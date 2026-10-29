@@ -192,9 +192,9 @@ describe('ThreadStore', () => {
 
   it('keeps a failed quick reply for "Try again", which sends that reply (WC review F6, U10)', async () => {
     api['sendMessage'].mockReturnValueOnce(throwError(() => apiError('SERVICE_UNAVAILABLE', 503)));
-    expect(await store.sendDirect({ text: 'Got your e-Transfer', attachment: null }, true)).not.toBe(
-      null,
-    );
+    expect(
+      await store.sendDirect({ text: 'Got your e-Transfer', attachment: null }, true),
+    ).not.toBe(null);
     expect(store.sendError()).not.toBeNull();
     expect(store.retryDraft()).toEqual({ text: 'Got your e-Transfer', attachment: null });
 

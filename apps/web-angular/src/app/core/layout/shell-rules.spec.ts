@@ -58,8 +58,7 @@ describe('the shell rules (web redesign WA)', () => {
   });
 
   it('gives every Messages route the workspace layout (no footer, spec 4.10) and /admin its rail item', () => {
-    const shellOf = (path: string) =>
-      routeOf(path)?.data?.['shell'] as ShellRouteData | undefined;
+    const shellOf = (path: string) => routeOf(path)?.data?.['shell'] as ShellRouteData | undefined;
     for (const path of ['messages', 'messages/community/:room', 'messages/:id']) {
       expect(shellOf(path), path).toMatchObject({ area: 'messages', layout: 'workspace' });
     }
@@ -67,8 +66,7 @@ describe('the shell rules (web redesign WA)', () => {
   });
 
   it('marks the five tabs’ own pages, and only them, for the phone’s per-tab bar below 960 (spec 16)', () => {
-    const shellOf = (path: string) =>
-      routeOf(path)?.data?.['shell'] as ShellRouteData | undefined;
+    const shellOf = (path: string) => routeOf(path)?.data?.['shell'] as ShellRouteData | undefined;
     for (const path of [
       '',
       'search',
