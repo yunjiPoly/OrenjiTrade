@@ -220,7 +220,8 @@ steps it executed before (platform-specific steps sit in `when: platform:` block
   (a database of their own such as `orenjitrade_s6_check`, Redis db 5) and 8490/4490 (Redis db 6),
   each dropped or flushed at the end. Every isolated API gets its own card-image cache and media
   directories (start-up reconciliation deletes files its own database does not reference;
-  `scripts/lib/web-e2e-guard.mjs` shows the environment).
+  `scripts/lib/web-e2e-guard.mjs` shows the environment; the web E2E job of CI must give its API
+  the same, `scripts/lib/web-e2e-ci-parity.test.mjs` fails otherwise).
 - **Gradle daemons are shared by every worktree.** Never run `./gradlew --stop`: it stops every
   daemon of that Gradle version, the one behind the owner's `npm run dev` API and other worktrees'
   running builds included. Stop only a daemon you started, by its PID (`pgrep -f GradleDaemon`

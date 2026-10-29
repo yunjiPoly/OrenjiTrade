@@ -183,7 +183,7 @@ in Secret Manager and Cloud Run configuration, never in Git.
 | `npm run test:mobile:e2e` | Playwright against the Expo web build on its own isolated stack (API :8090, web :19006) |
 | `npm run test:mobile:maestro` | Maestro flows in Expo Go on an Android emulator or the iOS simulator (`-- --platform android\|ios`), same isolated stack |
 | `npm run test:e2e` | whole Playwright suite on its own isolated stack next to `npm run dev`: recreates the database `orenjitrade_e2e`, builds and starts the API jar (:8180, Redis db 2, files under `.local-dev/e2e/`) and `ng serve --configuration e2e` (:4300), runs every spec (one retry; flaky specs are listed), deletes the run's emulator accounts, stops what it started (`-- --keep-running`, `-- --reuse-running` for a kept E2E stack only, `-- --stop`) |
-| `npm run test:scripts` | unit tests of the E2E isolation guards and the purge rules (`node --test`) |
+| `npm run test:scripts` | unit tests of the E2E isolation guards and the purge rules, and the check that the web E2E job of CI starts its API with the environment the local harness gives it (`node --test`) |
 | `npm run e2e:purge` | removes every `@example.test` test account from the developer database and the Auth emulator through the account-deletion path (local only, asks first, no running API needed) |
 | `npm run test:all` | scripts + api + web + mobile + e2e with a timing summary |
 | `npm run test:ml` | optional ML skeleton tests (on hold) |

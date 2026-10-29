@@ -778,8 +778,8 @@ jar on **:8090** (profile `local`, Redis database 1 (flushed with the database) 
 `e2e-mobile:rt:user:*`, media, card-image cache and provider snapshots under
 `.local-dev/mobile-e2e/`, mock catalog only: YGOPRODeck, Scryfall and TCGdex disabled and pointed at a closed local port,
 no image downloads; plus, since stage S5, the three fictional deck passcodes of
-`SEED_IMPORT_FIXTURES` (910000001 to 910000003, `ImportFixtureSeedContributor`), which only this
-isolated database gets: a deck file is matched through the provider `ygoprodeck`, and a
+`SEED_IMPORT_FIXTURES` (910000001 to 910000003, `ImportFixtureSeedContributor`), which only the
+end-to-end databases get (this one, and since web stage WB the web's E2E database, locally and in CI): a deck file is matched through the provider `ygoprodeck`, and a
 developer's database, which can import the real catalog, never receives an invented passcode),
 the shared Auth emulator, and the web build on **:19006** (Playwright) or
 Metro on **:8082** (Maestro). `scripts/lib/mobile-e2e-guard.mjs` (built on the web E2E harness's

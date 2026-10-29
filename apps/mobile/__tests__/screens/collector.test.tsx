@@ -386,12 +386,14 @@ describe('At the largest text size (the walk of stage R6)', () => {
       expect(StyleSheet.flatten(screen.getByTestId('collector-header').props.style)).toMatchObject({
         flexDirection: 'column',
       });
-      // "Looking for" broke as "Looki / ng for" beside "See all".
+      // "Looking for" broke as "Looki / ng for" beside "See all". Each section loads on its own
+      // after the header: its "See all" and its rail are waited for, never read on the header's
+      // frame (on a loaded CI runner they were not there yet).
       expect(screen.getByText('Looking for')).toHaveProp(
         'maxFontSizeMultiplier',
         TITLE_MAX_FONT_SCALE
       );
-      expect(screen.getAllByText('See all')[0]).toHaveProp(
+      expect((await screen.findAllByText('See all'))[0]).toHaveProp(
         'maxFontSizeMultiplier',
         TITLE_MAX_FONT_SCALE
       );
@@ -399,11 +401,11 @@ describe('At the largest text size (the walk of stage R6)', () => {
       expect(await screen.findByTestId(`profile-have-${CARD_ID}`)).toBeOnTheScreen();
       // The cards and binders are rows, the whole name beside the picture (in a tile the name
       // broke in the middle of a word).
-      expect(screen.getByTestId('profile-cards-rail').type).not.toBe('RCTScrollView');
-      expect(screen.getByTestId(`profile-card-${CARD.id}`)).toHaveTextContent(
+      expect(await screen.findByTestId(`profile-card-${CARD.id}`)).toHaveTextContent(
         'Azure-Eyes Sky Dragon85% TCG'
       );
-      expect(screen.getByTestId('profile-binders-rail').type).not.toBe('RCTScrollView');
+      expect(screen.getByTestId('profile-cards-rail').type).not.toBe('RCTScrollView');
+      expect((await screen.findByTestId('profile-binders-rail')).type).not.toBe('RCTScrollView');
     } finally {
       act(() => {
         Dimensions.set({ window, screen: window });

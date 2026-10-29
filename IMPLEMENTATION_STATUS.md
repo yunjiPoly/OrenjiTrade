@@ -11752,6 +11752,43 @@ On the Mac mini (Apple M6, macOS 27, JDK 21), 2026-10-29:
 - **Screen readers**: the held state was read from `aria-disabled`, not heard with VoiceOver or
   NVDA.
 
+### CI fix: the web E2E job's API (2026-10-29)
+
+PR #95's job "Playwright against the local stack" (run 40873331480) failed
+`inventory-import.spec.ts:60` three times ("Which copy? 0 / Not recognised 4": the fictional
+passcodes were not in the catalog) because its step "Start the API" lacked
+`SEED_IMPORT_FIXTURES=true`, which `e2eApiEnv` (`scripts/lib/web-e2e-guard.mjs`) gives the local
+harness's API; it also lacked `STORAGE_PUBLIC_BASE_URL=""` and
+`RATE_LIMIT_GUEST_DISCOVERY_PER_10S=1000`. All three are in `.github/workflows/e2e.yml` now. The
+same run's flaky `shell.spec.ts:180` (top bar search) was the per-user limit, not the guest one:
+its collector, made once per worker, had served three five-area walks and the popovers in the
+same minute, and `GET /cards/suggest` got 429 (`X-RateLimit-Limit: 120`); reproduced locally with
+one worker (six 429s in the search test, eleven in the old links test). Both the harness and CI
+now give the E2E API `RATE_LIMIT_DEFAULT_PER_MINUTE=1200` (the limits are proven by the API's own
+tests). New guard: `scripts/lib/web-e2e-ci-parity.test.mjs` (with a small workflow reader,
+`scripts/lib/ci-workflow.mjs`, no YAML dependency) fails when a harness variable is missing from
+the CI step or differs, when CI sets one alone, or when the CI env breaks the isolation rules;
+the allow-list (the three paths under the work directory) is strict. It failed on the old
+workflow, on a copy without `SEED_IMPORT_FIXTURES`, with a changed constant, a moved path and a
+CI-only key. Checks: `npm run test:scripts` 163 of 163; `e2e.yml` parsed by `yaml` and
+`js-yaml` (already in `node_modules`); under the web E2E lock, `npm run test:e2e --
+e2e/inventory-import.spec.ts e2e/shell.spec.ts --retries=0` 14 of 14 with one worker (no 429 in
+the traces) and 14 of 14 with two. The full suite was not run locally for this fix: CI runs it on
+the next push (no spec counts on a per-user 429: none asserts `RATE_LIMITED`).
+
+The phone's unit job flaked on #93 and #94 the same morning, in tests that read a section of a
+screen on the frame of the element found before it. `wishlist.test.tsx` "removes a wish from its
+edit screen" found the header of a loading stand-in that the next state unmounted (fixed by
+waiting for the loaded editor, f2037aa2; the 20 s wait of b521a4a6 is gone); the profile's
+large-text test in `collector.test.tsx` read "See all" and the rails before their sections had
+loaded (#94, run 40886309376), and `profile.test.tsx` "leads See all to your Inventory…" pressed
+links and rows of sections still loading (found under load by the verifier): both now await each
+element (same assertions; 30 of 30 runs and the full suite green under load). The parity guard
+also refuses anything in the CI step's script beyond its exports, one `nohup java -jar` with
+exactly the identity block and the PID line (a `NAME=value` before the command, a `-D` option, a
+`--property=` override after the jar, `set -a` or `unset` would have given the API what the
+harness does not): 166 of 166 in `npm run test:scripts`.
+
 ## Owner decisions of 2026-10-28: suspended collectors, large text, quick replies after a sale, blocks
 
 The owner's answers of 2026-10-28 to the open follow-ups of the phone redesign (R8 follow-ups 1, 2
@@ -12711,7 +12748,8 @@ after Remove (checked through the DOM, the unit tests and the E2E).
 > fix 2 and a targeted review fix 3 (R2-1: an import row toggled while the check works holds, and
 > its box always shows what the row holds) are done** (see "Review fix 1", "Review fix 2" and
 > "Review fix 3 (targeted, R2-1)" in the WB section: no API, token, phone or migration change).
-> Next for WB: its pull request once WA's (#93) is merged.
+> WB's pull request is #95 (against `main` since WA, #93, merged on 2026-10-29); it merges after
+> the owner decisions' #94, with a merge commit once CI is green.
 >
 > **Stage WC (Messages: the deal beside the chat) is built** on `feature/wc-messages-deal`, stacked
 > on WB with the owner decisions of 2026-10-28 (#94) merged in (section "Web redesign WC: Messages:

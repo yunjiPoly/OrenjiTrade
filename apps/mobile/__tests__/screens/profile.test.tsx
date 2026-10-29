@@ -110,28 +110,30 @@ describe('Your Profile tab (mockup screen 21)', () => {
   it('leads "See all" to your Inventory, Inventory › Binders and Search › Wishlist', async () => {
     mockApi(routes());
     render();
+    // Each section loads on its own: every link and row is waited for, never read on the frame
+    // of the one found before it (on a loaded runner the next section was not there yet).
     fireEvent.press(await screen.findByTestId('profile-cards-see-all'));
     expect(mockRouter.navigate).toHaveBeenLastCalledWith({
       pathname: '/inventory',
       params: { view: 'cards' },
     });
-    fireEvent.press(screen.getByTestId('profile-binders-see-all'));
+    fireEvent.press(await screen.findByTestId('profile-binders-see-all'));
     expect(mockRouter.navigate).toHaveBeenLastCalledWith({
       pathname: '/inventory',
       params: { view: 'binders' },
     });
-    fireEvent.press(screen.getByTestId('profile-wishes-see-all'));
+    fireEvent.press(await screen.findByTestId('profile-wishes-see-all'));
     expect(mockRouter.navigate).toHaveBeenLastCalledWith({
       pathname: '/search',
       params: { segment: 'wishlist' },
     });
     // Your card opens Edit card, your binder Edit binder.
-    fireEvent.press(screen.getByTestId(`profile-card-${CARD.id}`));
+    fireEvent.press(await screen.findByTestId(`profile-card-${CARD.id}`));
     expect(mockRouter.push).toHaveBeenLastCalledWith({
       pathname: '/items/[id]',
       params: { id: CARD.id },
     });
-    fireEvent.press(screen.getByTestId('profile-binder-core-1'));
+    fireEvent.press(await screen.findByTestId('profile-binder-core-1'));
     expect(mockRouter.push).toHaveBeenLastCalledWith({
       pathname: '/binders/edit',
       params: { id: 'core-1' },

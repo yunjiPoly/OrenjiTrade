@@ -60,12 +60,14 @@ Playwright suite uses `@example.test` addresses; the mobile suites (`npm run tes
 accounts of their run at the end; they only sign in to seed accounts, never modify them in the
 emulator.
 
-**Deck cards for the inventory import (stage S5, 2026-10-13), in the mobile test database only:**
-a Yu-Gi-Oh! deck file (.ydk) names cards by passcode, matched through the provider `ygoprodeck`,
-which the sample catalog of the seed does not have. The isolated API of the mobile suites
-therefore starts with `SEED_IMPORT_FIXTURES=true` (`scripts/lib/mobile-e2e-guard.mjs`,
-`ImportFixtureSeedContributor`), which adds three fictional things to `orenjitrade_mobile_e2e`:
-the card `910000001` "Fixture Lantern Wisp" (one printing, `YDKF-EN001`), the card `910000002`
+**Deck cards for the inventory import (stage S5, 2026-10-13), in the end-to-end test databases
+only:** a Yu-Gi-Oh! deck file (.ydk) names cards by passcode, matched through the provider
+`ygoprodeck`, which the sample catalog of the seed does not have. The isolated API of the mobile
+suites therefore starts with `SEED_IMPORT_FIXTURES=true` (`scripts/lib/mobile-e2e-guard.mjs`,
+`ImportFixtureSeedContributor`), and since web stage WB so do the web suite's
+(`scripts/lib/web-e2e-guard.mjs`, database `orenjitrade_e2e`) and the web E2E job of CI
+(`.github/workflows/e2e.yml`). It adds three fictional things to `orenjitrade_mobile_e2e` and
+`orenjitrade_e2e`: the card `910000001` "Fixture Lantern Wisp" (one printing, `YDKF-EN001`), the card `910000002`
 "Fixture Clockwork Heron" (two printings, `YDKF-EN002` and the more recent `YDKR-EN002`) and
 `910000003`, an alternate artwork of the Heron; any other passcode is unknown. The switch is off
 everywhere else and refuses to run while `YGOPRODECK_ENABLED` is true: a developer database, which
