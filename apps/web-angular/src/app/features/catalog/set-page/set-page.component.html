@@ -28,7 +28,6 @@
             type="button"
             class="sp__toggle"
             data-testid="add-from-set"
-            [attr.aria-pressed]="adding()"
             (click)="toggleAdding()"
           >
             <app-shell-icon [name]="adding() ? 'close' : 'plus'" [size]="18" />

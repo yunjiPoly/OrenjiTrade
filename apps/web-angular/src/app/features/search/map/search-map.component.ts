@@ -278,9 +278,27 @@ export function searchMapLabel(game: string, region: string): string {
         top: 12px;
         right: 12px;
       }
+      /* One compact line at the bottom (board W29), off most of the map. */
       .sm__legend {
-        bottom: 36px;
-        left: 12px;
+        right: 8px;
+        bottom: 26px;
+        left: 8px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 10px;
+        padding: 6px 10px;
+      }
+      .sm__legend-title,
+      .sm__legend-home {
+        margin: 0 !important;
+      }
+      .sm__legend-scale {
+        gap: 8px;
+      }
+      .sm__credit {
+        right: 10px;
+        bottom: 6px;
       }
     }
   `,

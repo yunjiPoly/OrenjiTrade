@@ -421,7 +421,14 @@ test.describe('wishlist and notifications', () => {
         .getByRole('option', { name: new RegExp(`^${SINGLE_CODE_CARD} .*${SINGLE_CODE}`) })
         .click();
       await expect(dialog.getByTestId('wish-card')).toContainText(SINGLE_CODE_CARD);
-      await expect(dialog.getByRole('combobox', { name: 'Which copy' })).toContainText(SINGLE_CODE);
+      const singleCopy = dialog.getByRole('combobox', { name: 'Which copy' });
+      await expect(singleCopy).toContainText(SINGLE_CODE);
+      await singleCopy.click();
+      await expect(page.getByTestId(`printing-option-${singlePrintingId}`)).toHaveAttribute(
+        'aria-selected',
+        'true',
+      );
+      await page.keyboard.press('Escape');
       // A click outside the dialog does not discard a typed note; Cancel still closes.
       await dialog.getByRole('textbox', { name: 'Public note (optional)' }).fill('Typed, unsaved.');
       await page.mouse.click(8, 8);

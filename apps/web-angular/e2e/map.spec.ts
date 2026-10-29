@@ -19,6 +19,7 @@ import {
   signInThroughUi,
   stubCardImages,
 } from './support/stack';
+import { clickState } from './support/map';
 
 /**
  * The region map and region-scoped search (ADR 0017) against the real local stack: a collector
@@ -169,8 +170,8 @@ test.describe('region map and search', () => {
     await panel.getByRole('button', { name: 'Back to the list' }).click();
     await expect(page).toHaveURL(/:\d+\/\?region=americas-north$/);
 
-    // A click on the state on the map opens it too.
-    await shape.dispatchEvent('click');
+    // A real mouse click on the state on the map opens it too (never a synthetic event).
+    await clickState(page, 'CA-YT');
     await expect(page).toHaveURL(/state=CA-YT/);
     await expect(panel.getByRole('heading', { name: 'Yukon, Canada' })).toBeVisible();
     await expectNoGeography(page, watcher, providers);

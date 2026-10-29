@@ -18,6 +18,7 @@ import {
   signInThroughUi,
   stubCardImages,
 } from './support/stack';
+import { clickState, statePoint } from './support/map';
 
 /**
  * Web stage WD (spec 6 to 8, boards W4 to W9) against the real local stack: Search › Binders with
@@ -151,16 +152,34 @@ test.describe('web stage WD: Search, Who has this card, sets, binders and deck c
     await page.keyboard.press('ArrowDown');
     await expect(whole).not.toBeFocused();
 
-    // A click on South Dakota on the map lands in its binders (decision 15), the map stays.
-    const shape = page.locator('.leaflet-overlay-pane path[data-code="US-SD"]');
-    await expect(shape).toBeAttached();
-    await shape.dispatchEvent('click');
-    await expect(page).toHaveURL(/state=US-SD/);
-    await expect(page.getByTestId('state-chip')).toHaveAttribute(
-      'aria-label',
-      'Showing South Dakota. Show the whole region',
-    );
+    // The map's shapes are no Tab stops: one Tab from the map reaches "Show my province" (A2).
+    await page.locator('.leaflet-container').focus();
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: 'Show my province' })).toBeFocused();
+
+    // A real mouse click on Ontario, coming from the viewer's own (outlined) Quebec, lands in its
+    // binders (decision 15) and the map stays (WD review U1, A1: a synthetic click hid that).
+    await expect(page.locator('.leaflet-overlay-pane path[data-code="CA-ON"]')).toBeAttached();
+    await clickState(page, 'CA-ON', 'CA-QC');
+    await expect(page).toHaveURL(/state=CA-ON/);
+    const chip = page.getByTestId('state-chip');
+    await expect(chip).toHaveAttribute('aria-label', 'Showing Ontario. Show the whole region');
     await expect(page.getByTestId('boundary-map')).toBeVisible();
+    // Moving across states leaves at most one tooltip.
+    await page.mouse.move(5, 5);
+    await expect(page.locator('.leaflet-tooltip')).toHaveCount(0);
+
+    // The keyboard twin (spec 6.4): the chip's × goes back to the list, on Ontario's row; a state
+    // picked in the list moves the focus to its chip.
+    await chip.focus();
+    await page.keyboard.press('Enter');
+    await expect(page).not.toHaveURL(/state=/);
+    await expect(page.locator('.sl__row[data-code="CA-ON"]')).toBeFocused();
+    await page.locator('.sl__row[data-code="US-SD"]').focus();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(/state=US-SD/);
+    await expect(chip).toBeFocused();
+    await expect(chip).toHaveAttribute('aria-label', 'Showing South Dakota. Show the whole region');
     const row = page.getByTestId('binder-row').filter({ hasText: seller.binder.name });
     await expect(row).toContainText(`${seller.collector.handle} · South Dakota · 2 cards`);
     // No counts in the results (owner 2026-10-14).
@@ -211,6 +230,29 @@ test.describe('web stage WD: Search, Who has this card, sets, binders and deck c
     await expect(page.getByRole('region', { name: 'Opened binder' })).toBeVisible();
     await expect(coreRow).toBeVisible();
     await page.setViewportSize({ width: 1280, height: 720 });
+    // At lg the head (H1, tabs) stays above the open binder (board W5).
+    await expect(page.getByRole('heading', { level: 1, name: 'Search' })).toBeVisible();
+
+    // The region pill drops the old region's state and open binder (no endless 404, F1).
+    await page.goto(`/search?tab=binders&state=US-SD&open=${seller.binder.id}`);
+    await expect(page).toHaveURL(/open=/);
+    await page.getByTestId('region-pill').click();
+    await page.getByRole('radio', { name: /^Europe/ }).click();
+    await expect(page).toHaveURL(/region=europe/);
+    await expect(page).not.toHaveURL(/state=US-SD|open=/);
+    await expect(page.getByText('Binders could not load.')).toHaveCount(0);
+    await page.getByTestId('search-away').getByRole('button').click();
+    await expect(page).toHaveURL(/region=americas-north/);
+
+    // md (960 to 1279): a row opens the binder's full page (spec 6.5); Back focuses the row.
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.goto('/search?tab=binders&state=US-SD');
+    const mdRow = page.getByTestId('binder-row').filter({ hasText: seller.binder.name });
+    await mdRow.click();
+    await expect(page).toHaveURL(new RegExp(`/binders/${seller.binder.id}$`));
+    await page.goBack();
+    await expect(mdRow).toBeFocused();
+    await page.setViewportSize({ width: 1280, height: 720 });
 
     await watcher.settle();
     expect(watcher.samples, 'lat/lng in a JSON answer').toEqual([]);
@@ -246,8 +288,9 @@ test.describe('web stage WD: Search, Who has this card, sets, binders and deck c
     await page.getByTestId('binder-row').filter({ hasText: seller.binder.name }).click();
     const limit = page.getByTestId('binder-drill-in').getByTestId('binder-limit');
     await expect(limit).toContainText(
-      "You've opened 30 public binders today. Every collector has the same limits. More tomorrow at",
+      /You've opened 30 public binders today\. Every collector has the same limits\. More (today|tomorrow|on .+?) at /,
     );
+    await expect(limit).not.toContainText('..');
     await expect(page.getByRole('main')).not.toContainText(/premium|upgrade|plan/i);
     await page.goto(`/binders/${seller.binder.id}`);
     await expect(page.getByTestId('binder-limit')).toContainText(
@@ -355,6 +398,17 @@ test.describe('web stage WD: Search, Who has this card, sets, binders and deck c
     await footer.getByTestId('set-add-submit').click();
     await expect(page.getByTestId('toast').filter({ hasText: '3 cards added' })).toBeVisible();
     await expect(footer).toHaveCount(0);
+    // The footer is gone: the focus is back on "Add from this set" (A15).
+    await expect(page.getByTestId('add-from-set')).toBeFocused();
+    // "Who has cards of this set" lists that set's cards on Search › Cards (spec 7.5, U4).
+    await page.getByRole('link', { name: 'Who has cards of this set' }).click();
+    await expect(page).toHaveURL(new RegExp(`/search\\?.*set=${setId}`));
+    await expect(page.getByTestId('set-chip')).toContainText('Azure Dawn · AZR');
+    await expect(
+      page.getByTestId('set-card-row').filter({ hasText: 'Azure-Eyes Sky Dragon' }),
+    ).toBeVisible();
+    await page.getByTestId('set-chip').click();
+    await expect(page).not.toHaveURL(/set=/);
     const items = await request.get(`${API_URL}/api/v1/inventory/items`, {
       headers: authHeader(viewer.idToken),
     });
@@ -371,7 +425,7 @@ test.describe('web stage WD: Search, Who has this card, sets, binders and deck c
     const tiles = page.getByTestId('binder-card');
     await expect(tiles).toHaveCount(2);
     await page.getByRole('button', { name: 'Sort: Recently added' }).click();
-    await page.getByRole('menuitem', { name: 'Price' }).click();
+    await page.getByRole('menuitemradio', { name: 'Price' }).click();
     await expect(page).toHaveURL(/sort=price/);
     await expect(tiles.first()).toContainText('$5.00');
     await expect(page.getByTestId('binder-message')).toHaveText(
@@ -383,5 +437,39 @@ test.describe('web stage WD: Search, Who has this card, sets, binders and deck c
     await expect(page.getByText('$95').first()).toBeVisible();
     await expect(page.getByTestId('binder-message')).toBeVisible();
     await expect(page.getByRole('main')).not.toContainText(/checkout|buyer protection|escrow/i);
+  });
+
+  test('below 960 Search opens on the map card; a tap on a state shows its card, then its binders', async ({
+    browser,
+    request,
+  }) => {
+    test.setTimeout(120_000);
+    const viewer = await createViewer(request);
+    const context = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+      hasTouch: true,
+    });
+    const phone = await context.newPage();
+    try {
+      await stubCardImages(phone);
+      await forbidMapProviders(phone);
+      await signInThroughUi(phone, viewer.email, viewer.password);
+      await phone.goto('/search');
+      // Search's first view (board W29): the Cards field, then the map card (spec 16).
+      await expect(
+        phone.getByRole('combobox', { name: /Search .* cards by name or code/ }),
+      ).toBeVisible();
+      await expect(phone.getByTestId('boundary-map')).toBeVisible();
+      await expect(phone.getByText('Pick a state on the map to see its binders.')).toBeVisible();
+      await expect(phone.locator('.leaflet-overlay-pane path[data-code="CA-QC"]')).toBeAttached();
+      const point = await statePoint(phone, 'CA-QC');
+      await phone.touchscreen.tap(point.x, point.y);
+      const card = phone.getByRole('region', { name: 'Chosen state or province' });
+      await expect(card).toContainText('Quebec');
+      await card.getByRole('button', { name: 'See binders' }).click();
+      await expect(phone).toHaveURL(/tab=binders.*state=CA-QC|state=CA-QC.*tab=binders/);
+    } finally {
+      await context.close();
+    }
   });
 });

@@ -211,7 +211,8 @@
                 <button
                   mat-menu-item
                   type="button"
-                  [attr.aria-current]="entry.value === currentSort() ? 'true' : null"
+                  role="menuitemradio"
+                  [attr.aria-checked]="entry.value === currentSort()"
                   (click)="setSort(entry.value)"
                 >
                   {{ entry.label }}

@@ -54,6 +54,12 @@ export const XL_QUERY = '(min-width: 1920px)';
 type NarrowView = 'map' | 'list';
 
 /**
+ * Back from a binder's full page (md and below): the Map | List choice and the row to focus
+ * again, kept for this tab while Search is left (WD review A16). In memory only.
+ */
+const kept: { narrowView: NarrowView; binder: string | null } = { narrowView: 'map', binder: null };
+
+/**
  * Search (`/search`, spec 6, boards W4, W5 and W6; web stage WD): the list pane beside the map,
  * one region and one game at a time (`?region=&game=`, every call sends them; decision 7).
  *
@@ -162,7 +168,7 @@ export class SearchPageComponent {
   });
   protected readonly highlight = signal<string | null>(null);
   protected readonly xl = signal(false);
-  protected readonly narrowView = signal<NarrowView>('map');
+  protected readonly narrowView = signal<NarrowView>(kept.narrowView);
   protected readonly narrowViews: readonly SegmentOption<NarrowView>[] = [
     { value: 'map', label: 'Map' },
     { value: 'list', label: 'List' },
@@ -188,7 +194,7 @@ export class SearchPageComponent {
         id: 'cards',
         label: 'Cards',
         commands: ['/search'],
-        queryParams: { tab: 'cards', q, open: null, wish: null },
+        queryParams: { tab: 'cards', q, open: null, wish: null, set: u.set },
         active: view === 'cards',
       },
       {
@@ -221,8 +227,21 @@ export class SearchPageComponent {
     const place = url.state && url.state !== WHOLE_REGION ? this.stateName() : this.regionName();
     return url.q ? `${kind} · “${url.q}”` : `${kind} · ${place}`;
   });
-  /** Where the map's pane shows the holder pane instead (Wishlist). */
-  protected readonly holderPane = computed(() => this.url().tab === 'wishlist');
+  /**
+   * Below 960, Search's first view (the Cards tab with an empty field) shows the map card with
+   * its state card under the field (board W29, spec 16); typing replaces it with the results.
+   */
+  protected readonly narrowCardsMap = computed(() => {
+    const url = this.url();
+    return this.layout.narrow() && url.tab === 'cards' && !url.q && !url.set;
+  });
+  /**
+   * Where the map's pane shows the holder pane instead (Wishlist, signed in). A guest's Wishlist
+   * tab is the guest page: the map stays beside it (WD review U14).
+   */
+  protected readonly holderPane = computed(
+    () => this.url().tab === 'wishlist' && this.auth.isAuthenticated(),
+  );
 
   private appliedRegion: string | null = null;
   private appliedGame: string | null = null;
@@ -309,6 +328,25 @@ export class SearchPageComponent {
         untracked(() => this.wishlist.init());
       }
     });
+    effect(() => {
+      kept.narrowView = this.narrowView();
+    });
+    // Back from a binder's full page (md and below): its row takes the focus again once listed.
+    if (kept.binder) {
+      const id = kept.binder;
+      kept.binder = null;
+      let tries = 0;
+      const retry = () => {
+        const row = this.document.querySelector<HTMLElement>(`[data-binder="${id}"]`);
+        if (row) {
+          row.focus();
+        } else if (++tries < 30) {
+          timer = setTimeout(retry, 100);
+        }
+      };
+      let timer = setTimeout(retry, 100);
+      destroyRef.onDestroy(() => clearTimeout(timer));
+    }
     // Back from a binder: the list keeps its scroll, and the row its focus (spec 6.5).
     effect(() => {
       const open = this.openId();
@@ -375,6 +413,14 @@ export class SearchPageComponent {
     this.mergeUrl({ kind: kind === 'deckcores' ? 'deckcores' : null, open: null }, true);
   }
 
+  /** Map | List below 960: on the Cards tab, List opens Search › Binders' list of states. */
+  protected chooseNarrowView(view: NarrowView): void {
+    this.narrowView.set(view);
+    if (this.url().tab !== 'binders' && view === 'list') {
+      this.mergeUrl({ tab: 'binders', q: null, open: null, wish: null, set: null });
+    }
+  }
+
   /** A state clicked on the map: its binders, the map stays (decision 15). */
   protected onMapPick(code: string): void {
     this.setState(code);
@@ -390,6 +436,7 @@ export class SearchPageComponent {
   /** An explicit open of a row: beside the list at lg and xl, the full page at md and below. */
   protected openBinder(event: { binder: PublicBinderSummary; opener: EventTarget | null }): void {
     if (this.layout.narrow() || this.layout.medium()) {
+      kept.binder = event.binder.id;
       void this.router.navigate(['/binders', event.binder.id]);
       return;
     }

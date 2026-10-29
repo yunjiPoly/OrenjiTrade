@@ -40,6 +40,7 @@ import {
 import { DeckCoreGalleryComponent } from '../../shared/discovery/binder-view/deck-core-gallery.component';
 import { ShipNotesComponent } from '../../shared/discovery/binder-view/ship-notes.component';
 import { gameInfo } from '../../shared/domain/games';
+import { endsLabel } from '../../shared/inventory/inventory-labels';
 import { ChatDrawer } from '../../shared/messaging/chat-drawer.service';
 import { ReportActionsService } from '../../shared/reports/report-actions.service';
 import { GameMonogramComponent } from '../../shared/ui/game-monogram/game-monogram.component';
@@ -128,7 +129,11 @@ export class PublicBinderPageComponent {
       return '';
     }
     const cards = `${binder.itemCount} ${binder.itemCount === 1 ? 'card' : 'cards'}`;
-    return [cards, updatedLabel(binder.freshness?.updatedAt)].filter(Boolean).join(' · ');
+    // A binder public for a while says when that ends ("Public, ends in 2 days"; WD review U16).
+    const ends = endsLabel(binder.publicUntil);
+    return [cards, updatedLabel(binder.freshness?.updatedAt), ends ? `Public, ${ends}` : null]
+      .filter(Boolean)
+      .join(' · ');
   });
   protected readonly currentSort = computed<BinderSort>(() => {
     const sort = this.sort();

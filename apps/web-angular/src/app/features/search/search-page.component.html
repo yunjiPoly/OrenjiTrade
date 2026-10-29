@@ -5,6 +5,7 @@
   [class.sx--three]="!!openId() && xl()"
   [class.sx--narrow]="layout.narrow()"
   [class.sx--narrow-map]="layout.narrow() && u.tab === 'binders' && narrowView() === 'map'"
+  [class.sx--narrow-cards]="narrowCardsMap()"
 >
   <section class="sx__list" aria-labelledby="search-title">
     <!-- The head stays above an open binder (board W5): a tab is one click away. -->
@@ -19,14 +20,14 @@
           </button>
         </p>
       }
-      @if (layout.narrow() && u.tab === 'binders') {
+      @if (layout.narrow() && (u.tab === 'binders' || narrowCardsMap())) {
         <app-segmented
           class="sx__narrow-toggle"
           label="Show"
           size="sm"
           [options]="narrowViews"
-          [value]="narrowView()"
-          (valueChange)="narrowView.set($event)"
+          [value]="u.tab === 'binders' ? narrowView() : 'map'"
+          (valueChange)="chooseNarrowView($event)"
         />
       }
     </header>
@@ -112,7 +113,9 @@
         />
       </section>
     }
-  } @else if (!layout.narrow() || (u.tab === 'binders' && narrowView() === 'map')) {
+  } @else if (
+    !layout.narrow() || (u.tab === 'binders' && narrowView() === 'map') || narrowCardsMap()
+  ) {
     <section class="sx__map" aria-label="Map">
       @if (mapStore.countsError()) {
         <div class="sx__map-error" role="alert">
