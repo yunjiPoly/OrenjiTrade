@@ -1,284 +1,415 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { Router, RouterLink } from '@angular/router';
-import type { SearchSuggestion } from '@orenji/api-client';
-import { holdersParams, suggestionPage } from '../../shared/search/suggestions';
-import { UnifiedSearchBoxComponent } from '../../shared/search/unified-search-box/unified-search-box.component';
-import { EmptyStateComponent } from '../../shared/ui/empty-state/empty-state.component';
-import { CardHoldersComponent } from './card-holders/card-holders.component';
+import { DOCUMENT } from '@angular/common';
 import {
-  HolderFilters,
-  SearchTab,
-  holderFiltersToQuery,
-  parseSearchParams,
-} from './data/search-params';
-import { UnifiedResultsComponent } from './results/unified-results.component';
-import { MapPageComponent } from '../map/map-page.component';
-import { WishlistPageComponent } from '../wishlist/wishlist-page.component';
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  effect,
+  inject,
+  input,
+  signal,
+  untracked,
+  viewChild,
+} from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { CatalogService } from '@orenji/api-client';
+import type { PublicBinderSummary, WishlistItemResponse } from '@orenji/api-client';
+import { firstValueFrom } from 'rxjs';
+import { AuthService } from '../../core/auth/auth.service';
+import { GameContext } from '../../core/game/game-context.service';
+import { silentErrors } from '../../core/http/http-context';
+import { ShellLayout } from '../../core/layout/shell-layout.service';
 import { ShellTabTitleDirective } from '../../core/layout/shell-tab-title.directive';
+import { RegionContext } from '../../core/region/region-context.service';
+import { ViewerPlaceService } from '../../shared/discovery/viewer-place.service';
+import { REGION_CODE, RegionsStore, subdivisionLabel } from '../../shared/regions/regions.store';
+import { SegmentOption, SegmentedComponent } from '../../shared/ui/segmented/segmented.component';
 import {
   UnderlineTab,
   UnderlineTabsComponent,
 } from '../../shared/ui/underline-tabs/underline-tabs.component';
+import { WishlistActions } from '../../shared/wishlist/wishlist-actions.service';
+import { RegionMapStore } from '../map/data/region-map.store';
+import { WishlistStore } from '../wishlist/data/wishlist.store';
+import { BinderListStore } from './data/binder-list.store';
+import { BinderKind, SearchTab, WHOLE_REGION, parseSearchUrl } from './data/search-url';
+import { BinderDrillInComponent } from './drill-in/binder-drill-in.component';
+import { SearchMapComponent } from './map/search-map.component';
+import { BindersPaneComponent } from './panes/binders-pane.component';
+import { CardsPaneComponent } from './panes/cards-pane.component';
+import { WishHoldersComponent } from './panes/wish-holders.component';
+import { WishlistPaneComponent } from './panes/wishlist-pane.component';
 
-/** The view of Search (web WA): the card search, the binders' map, or the wishlist. */
-export type SearchView = 'cards' | 'binders' | 'wishlist';
+/** The list pane's id: "Skip the map" jumps there (spec 4.1 and 6.4). */
+export const SEARCH_LIST_ID = 'search-list';
+/** xl, where a binder opens in a middle pane (spec 3 and 6.5). */
+export const XL_QUERY = '(min-width: 1920px)';
+
+type NarrowView = 'map' | 'list';
 
 /**
- * Which top tab a URL shows (spec 4.11, web WA): `tab=wishlist` the wishlist; `tab=binders` the
- * binders, as a map of the region's states without a text and as binder results with `q`;
- * anything else the cards (and the collectors of today's results).
- */
-export function searchViewOf(tab: string | undefined): SearchView {
-  const value = (tab ?? '').trim().toLowerCase();
-  return value === 'wishlist' ? 'wishlist' : value === 'binders' ? 'binders' : 'cards';
-}
-
-/**
- * `/search` (the phone's Search tab), with the tabs Cards | Binders | Wishlist of the web redesign
- * (spec 6; stage WD rebuilds the views beside the map). All driven by the URL:
- * - `?q=` unified results in tabs (cards, collectors, public binders; a resolved card shows its
- *   holders in the browsed region);
- * - `?card=` / `?printing=` "who in my region has this card" with every filter and sort;
- * - `?tab=binders` without a text: the binders of the region on its map (`&state=` a state's);
- * - `?tab=wishlist`: the wishlist;
- * - no query: an invitation to search.
+ * Search (`/search`, spec 6, boards W4, W5 and W6; web stage WD): the list pane beside the map,
+ * one region and one game at a time (`?region=&game=`, every call sends them; decision 7).
+ *
+ * - Cards: the card search (the top bar hides its own field here).
+ * - Binders: the state list or the rows of a state (`?state=`), of the whole region
+ *   (`state=all`) or of a text (`?q=`), binders or deck cores (`?kind=`). Clicking a state on the
+ *   map lands in its binders (decision 15). Opening a row (`?open=`) shows the binder or deck core
+ *   beside the list at lg (the list pane widens to 520), in a middle pane at xl, and its full page
+ *   at md and below; that open is the only thing that spends a binder view (decision 14).
+ * - Wishlist (`?wish=`): the wishes, and who has the chosen one in the map's pane.
+ *
+ * Below 960 the phone's Search: a full-width map with the state card ("See binders") and the
+ * list one tap away. Old `?card=` / `?printing=` links open the card page.
  */
 @Component({
   selector: 'app-search-page',
   imports: [
-    RouterLink,
-    MatButtonModule,
-    MatIconModule,
-    CardHoldersComponent,
-    EmptyStateComponent,
-    UnifiedResultsComponent,
-    UnifiedSearchBoxComponent,
-    UnderlineTabsComponent,
-    MapPageComponent,
-    WishlistPageComponent,
+    BinderDrillInComponent,
+    BindersPaneComponent,
+    CardsPaneComponent,
+    SearchMapComponent,
+    SegmentedComponent,
     ShellTabTitleDirective,
+    UnderlineTabsComponent,
+    WishHoldersComponent,
+    WishlistPaneComponent,
   ],
-  template: `
-    <div class="page search-page">
-      <header class="search-page__head">
-        @if (target()) {
-          <!-- The card holders view has its own h1 ("Who has …"): one h1 per page. -->
-          <p class="search-page__title" appShellTabTitle>Search</p>
-        } @else {
-          <h1 class="search-page__title" appShellTabTitle>Search</h1>
-        }
-        <app-underline-tabs label="Search" [tabs]="tabs()" />
-      </header>
-      @if (view() === 'wishlist') {
-        <app-wishlist-page embedded />
-      } @else if (view() === 'binders' && !params().q) {
-        <app-map-page embedded [region]="region()" [state]="state()" />
-      } @else if (target(); as target) {
-        <nav class="crumbs" aria-label="Breadcrumb">
-          <a routerLink="/search">Search</a>
-          <mat-icon aria-hidden="true">chevron_right</mat-icon>
-          <span aria-current="page">Card holders</span>
-        </nav>
-        <app-card-holders
-          [target]="target"
-          [filters]="params().filters"
-          [returnUrl]="router.url"
-          (filtersChange)="onHolderFilters($event)"
-        />
-      } @else {
-        <p class="search-page__lead">
-          Cards, collectors and public binders of your region, and tags.
-        </p>
-        <app-unified-search-box
-          class="search__field"
-          data-page-search
-          label="Search cards, collectors and binders"
-          [value]="params().q"
-          [keepSelection]="true"
-          (picked)="onPicked($event)"
-          (submitted)="onSubmitted($event)"
-        />
-
-        @if (params().q) {
-          <app-unified-results [q]="params().q" [tab]="params().tab" (tabChange)="onTab($event)" />
-        } @else {
-          <app-empty-state
-            icon="travel_explore"
-            title="Who in your region has that card?"
-            description="Search a card name or a printing code like AZR-EN001 to see collectors of your region who own, trade or sell it. You can also look for a collector, a binder or a tag."
-          >
-            <a actions matButton="filled" routerLink="/search" [queryParams]="{ tab: 'binders' }">
-              <mat-icon aria-hidden="true">map</mat-icon>
-              Explore the map
-            </a>
-            <a actions matButton="outlined" routerLink="/cards">
-              <mat-icon aria-hidden="true">playing_cards</mat-icon>
-              Browse the catalog
-            </a>
-          </app-empty-state>
-        }
-      }
-    </div>
-  `,
-  styles: `
-    .search-page__head {
-      display: flex;
-      flex-direction: column;
-      gap: var(--spacing-3);
-      margin-bottom: var(--spacing-5);
-    }
-    .search-page__title {
-      margin: 0;
-      font-family: var(--font-display);
-      font-size: var(--font-size-title);
-      font-weight: var(--font-weight-bold);
-      letter-spacing: -0.4px;
-      line-height: 36px;
-    }
-    .search-page__lead {
-      margin: 0 0 var(--spacing-3);
-      color: var(--color-text-muted);
-    }
-    .search__field {
-      display: block;
-      max-width: 640px;
-      margin-bottom: var(--spacing-6);
-    }
-    .crumbs {
-      display: flex;
-      align-items: center;
-      gap: var(--spacing-1);
-      margin-bottom: var(--spacing-4);
-      color: var(--color-text-muted);
-      font-size: var(--font-size-sm);
-    }
-    .crumbs mat-icon {
-      width: 18px;
-      height: 18px;
-      font-size: 18px;
-    }
-  `,
+  providers: [RegionMapStore, BinderListStore, WishlistStore],
+  templateUrl: './search-page.component.html',
+  styleUrl: './search-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SearchPageComponent {
-  protected readonly router = inject(Router);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly catalog = inject(CatalogService);
+  private readonly document = inject(DOCUMENT);
+  protected readonly auth = inject(AuthService);
+  protected readonly layout = inject(ShellLayout);
+  protected readonly regionContext = inject(RegionContext);
+  protected readonly gameContext = inject(GameContext);
+  protected readonly regions = inject(RegionsStore);
+  protected readonly mapStore = inject(RegionMapStore);
+  protected readonly wishlist = inject(WishlistStore);
+  private readonly wishActions = inject(WishlistActions);
+  protected readonly viewer = inject(ViewerPlaceService);
 
   // Query parameters (withComponentInputBinding).
-  readonly q = input<string | undefined>();
   readonly tab = input<string | undefined>();
-  readonly region = input<string | undefined>();
+  readonly q = input<string | undefined>();
   readonly state = input<string | undefined>();
+  readonly kind = input<string | undefined>();
+  readonly open = input<string | undefined>();
+  readonly wish = input<string | undefined>();
+  readonly region = input<string | undefined>();
+  readonly game = input<string | undefined>();
+  /** Old links (before WD): the card page now. */
   readonly card = input<string | undefined>();
   readonly printing = input<string | undefined>();
-  readonly availability = input<string | undefined>();
-  readonly condition = input<string | undefined>();
-  readonly minPrice = input<string | undefined>();
-  readonly maxPrice = input<string | undefined>();
-  readonly freshness = input<string | undefined>();
-  readonly edition = input<string | undefined>();
-  readonly language = input<string | undefined>();
-  readonly offers = input<string | undefined>();
-  readonly sort = input<string | undefined>();
-  readonly page = input<string | undefined>();
 
-  protected readonly params = computed(() =>
-    parseSearchParams({
-      q: this.q(),
+  private readonly bindersPane = viewChild(BindersPaneComponent);
+  private readonly cardsPane = viewChild(CardsPaneComponent);
+  private readonly searchMap = viewChild(SearchMapComponent);
+
+  protected readonly listId = SEARCH_LIST_ID;
+  protected readonly url = computed(() =>
+    parseSearchUrl({
       tab: this.tab(),
-      card: this.card(),
-      printing: this.printing(),
-      availability: this.availability(),
-      condition: this.condition(),
-      minPrice: this.minPrice(),
-      maxPrice: this.maxPrice(),
-      freshness: this.freshness(),
-      edition: this.edition(),
-      language: this.language(),
-      offers: this.offers(),
-      sort: this.sort(),
-      page: this.page(),
+      q: this.q(),
+      state: this.state(),
+      kind: this.kind(),
+      open: this.open(),
+      wish: this.wish(),
     }),
   );
-  protected readonly view = computed(() => searchViewOf(this.tab()));
+  protected readonly regionCode = this.regionContext.current;
+  protected readonly gameCode = this.gameContext.current;
+  protected readonly gameName = computed(() => this.gameContext.info().shortLabel);
+  protected readonly regionName = computed(() => this.regions.regionName(this.regionCode()));
+  protected readonly platformRegion = computed(() => this.regions.region(this.regionCode()));
+  protected readonly homeRegionName = computed(() =>
+    this.regions.regionName(this.regionContext.home()),
+  );
+  /** "Quebec, Canada" per subdivision code (map tooltips, the state chip). */
+  protected readonly names = computed(() => {
+    const names = new Map<string, string>();
+    for (const entry of this.regions.subdivisionsOf(this.regionCode())) {
+      names.set(entry.subdivision.code, subdivisionLabel(entry));
+    }
+    return names;
+  });
+  protected readonly stateName = computed(() => {
+    const state = this.url().state;
+    if (!state || state === WHOLE_REGION) {
+      return state === WHOLE_REGION ? 'Whole region' : '';
+    }
+    const entry = this.regions.subdivision(state);
+    return entry ? entry.subdivision.name : state;
+  });
+  /** The viewer's province, when it is in the browsed region. */
+  protected readonly home = computed(() => {
+    const code = this.viewer.place().subdivisionCode;
+    return code && this.names().has(code) ? code : null;
+  });
+  protected readonly highlight = signal<string | null>(null);
+  protected readonly xl = signal(false);
+  protected readonly narrowView = signal<NarrowView>('map');
+  protected readonly narrowViews: readonly SegmentOption<NarrowView>[] = [
+    { value: 'map', label: 'Map' },
+    { value: 'list', label: 'List' },
+  ];
+
+  /** The wishes of the browsed game ("Wishlist 6": your own count is allowed, spec 6.1). */
+  protected readonly wishCount = computed(() =>
+    this.auth.isAuthenticated() && this.wishlist.status() === 'ready'
+      ? this.wishlist.items().filter((item) => item.game === this.gameCode()).length
+      : null,
+  );
+  protected readonly chosenWish = computed<WishlistItemResponse | null>(() => {
+    const id = this.url().wish;
+    const wish = id ? this.wishlist.find(id) : null;
+    return wish && wish.game === this.gameCode() ? wish : null;
+  });
   protected readonly tabs = computed<UnderlineTab[]>(() => {
-    const q = this.params().q || null;
-    const view = this.view();
+    const u = this.url();
+    const view = u.tab;
+    const q = u.q || null;
     return [
       {
         id: 'cards',
         label: 'Cards',
         commands: ['/search'],
-        queryParams: { tab: 'cards', q },
+        queryParams: { tab: 'cards', q, open: null, wish: null },
         active: view === 'cards',
       },
       {
         id: 'binders',
         label: 'Binders',
         commands: ['/search'],
-        queryParams: { tab: 'binders', q },
+        queryParams: { tab: 'binders', q, open: null, wish: null },
         active: view === 'binders',
       },
       {
         id: 'wishlist',
         label: 'Wishlist',
         commands: ['/search'],
-        queryParams: { tab: 'wishlist', q: null },
+        queryParams: { tab: 'wishlist', q: null, open: null, wish: u.wish },
         active: view === 'wishlist',
+        count: this.wishCount(),
       },
     ];
   });
+  /** A binder open beside the list (lg) or in the middle pane (xl). */
+  protected readonly openId = computed(() => {
+    const url = this.url();
+    return url.tab === 'binders' && !this.layout.narrow() && !this.layout.medium() ? url.open : null;
+  });
+  protected readonly openWhere = computed(() => {
+    const url = this.url();
+    const kind = url.kind === 'deckcores' ? 'Deck cores' : 'Binders';
+    const place = url.state && url.state !== WHOLE_REGION ? this.stateName() : this.regionName();
+    return url.q ? `${kind} · “${url.q}”` : `${kind} · ${place}`;
+  });
+  /** Where the map's pane shows the holder pane instead (Wishlist). */
+  protected readonly holderPane = computed(() => this.url().tab === 'wishlist');
 
-  /** Stable object per card/printing so the holders view does not reload for filter changes. */
-  protected readonly target = computed(
-    () => {
-      const params = this.params();
-      if (params.printing) {
-        return { kind: 'printing' as const, id: params.printing };
+  private appliedRegion: string | null = null;
+  private appliedGame: string | null = null;
+  private returnFocus: { id: string; scroll: number } | null = null;
+
+  constructor() {
+    void this.regions.load();
+    const destroyRef = inject(DestroyRef);
+    this.layout.setSkipMapTarget(SEARCH_LIST_ID);
+    destroyRef.onDestroy(() => this.layout.setSkipMapTarget(null));
+    const view = this.document.defaultView;
+    if (view && typeof view.matchMedia === 'function') {
+      const list = view.matchMedia(XL_QUERY);
+      this.xl.set(list.matches);
+      const listener = (event: MediaQueryListEvent) => this.xl.set(event.matches);
+      list.addEventListener('change', listener);
+      destroyRef.onDestroy(() => list.removeEventListener('change', listener));
+    }
+
+    // Old `?card=` / `?printing=` links (before WD) open the card page.
+    effect(() => {
+      const card = this.card();
+      const printing = this.printing();
+      untracked(() => void this.redirectOldCardLink(card, printing));
+    });
+    // A link's region and game select them once; the pills' choices are mirrored into the URL.
+    effect(() => {
+      const requested = this.region();
+      const current = this.regionContext.current();
+      untracked(() => {
+        if (requested && requested !== this.appliedRegion && REGION_CODE.test(requested)) {
+          this.appliedRegion = requested;
+          if (requested !== current) {
+            this.regionContext.select(requested);
+            return;
+          }
+        }
+        if (requested !== current) {
+          this.appliedRegion = current;
+          this.mergeUrl({ region: current }, true);
+        }
+      });
+    });
+    effect(() => {
+      const requested = this.game();
+      const current = this.gameContext.current();
+      const browsable = this.gameContext.browsable();
+      untracked(() => {
+        if (requested && requested !== this.appliedGame && browsable !== null) {
+          this.appliedGame = requested;
+          if (requested !== current && this.gameContext.select(requested)) {
+            return;
+          }
+        }
+        if (requested !== current) {
+          this.appliedGame = current;
+          this.mergeUrl({ game: current }, true);
+        }
+      });
+    });
+    // The map's counts: the browsed region and game.
+    effect(() => {
+      const region = this.regionCode();
+      const game = this.gameCode();
+      untracked(() => this.mapStore.setRegion(region, game));
+    });
+    // The wishes (the tab's count and the Wishlist tab).
+    effect(() => {
+      if (this.auth.isAuthenticated()) {
+        untracked(() => this.wishlist.init());
       }
-      return params.card ? { kind: 'card' as const, id: params.card } : null;
-    },
-    { equal: (a, b) => a?.kind === b?.kind && a?.id === b?.id },
-  );
-
-  protected onSubmitted(text: string): void {
-    void this.router.navigate(['/search'], { queryParams: { q: text } });
+    });
+    // Back from a binder: the list keeps its scroll, and the row its focus (spec 6.5).
+    effect(() => {
+      const open = this.openId();
+      untracked(() => {
+        if (!open && this.returnFocus) {
+          const target = this.returnFocus;
+          this.returnFocus = null;
+          setTimeout(() => {
+            const pane = this.document.getElementById(SEARCH_LIST_ID)?.closest('.sx__list');
+            if (pane) {
+              pane.scrollTop = target.scroll;
+            }
+            this.document
+              .querySelector<HTMLElement>(`[data-binder="${target.id}"]`)
+              ?.focus({ preventScroll: true });
+          });
+        }
+      });
+    });
   }
 
-  protected onPicked(suggestion: SearchSuggestion): void {
-    const holders = holdersParams(suggestion);
-    if (holders) {
-      void this.router.navigate(['/search'], { queryParams: holders });
+  private async redirectOldCardLink(card: string | undefined, printing: string | undefined) {
+    if (!card && !printing) {
       return;
     }
-    if (suggestion.type === 'TAG') {
-      void this.router.navigate(['/search'], {
-        queryParams: { tab: 'binders', tags: suggestion.slug ?? suggestion.id, view: 'list' },
+    let cardId = card ?? null;
+    if (!cardId && printing) {
+      try {
+        const detail = await firstValueFrom(
+          this.catalog.getPrinting({ id: printing }, 'body', false, { context: silentErrors() }),
+        );
+        cardId = detail.card?.id ?? detail.printing?.cardId ?? null;
+      } catch {
+        cardId = null;
+      }
+    }
+    if (cardId) {
+      void this.router.navigate(['/cards', cardId], {
+        queryParams: printing ? { printing } : {},
+        replaceUrl: true,
+      });
+    } else {
+      this.mergeUrl({ card: null, printing: null }, true);
+    }
+  }
+
+  protected setQ(q: string): void {
+    this.mergeUrl({ q: q || null, open: null }, true);
+  }
+
+  protected setState(code: string | null): void {
+    this.mergeUrl({ tab: 'binders', state: code, open: null });
+    if (this.layout.narrow()) {
+      this.narrowView.set('list');
+    }
+  }
+
+  protected setKind(kind: BinderKind): void {
+    this.mergeUrl({ kind: kind === 'deckcores' ? 'deckcores' : null, open: null }, true);
+  }
+
+  /** A state clicked on the map: its binders, the map stays (decision 15). */
+  protected onMapPick(code: string): void {
+    this.setState(code);
+  }
+
+  protected pickOnMap(): void {
+    if (this.layout.narrow()) {
+      this.narrowView.set('map');
+    }
+    setTimeout(() => this.searchMap()?.focus());
+  }
+
+  /** An explicit open of a row: beside the list at lg and xl, the full page at md and below. */
+  protected openBinder(event: { binder: PublicBinderSummary; opener: EventTarget | null }): void {
+    if (this.layout.narrow() || this.layout.medium()) {
+      void this.router.navigate(['/binders', event.binder.id]);
+      return;
+    }
+    const pane = this.document.getElementById(SEARCH_LIST_ID)?.closest('.sx__list');
+    this.returnFocus = { id: event.binder.id, scroll: pane?.scrollTop ?? 0 };
+    this.mergeUrl({ open: event.binder.id });
+  }
+
+  protected closeBinder(): void {
+    this.mergeUrl({ open: null });
+  }
+
+  protected chooseWish(wish: WishlistItemResponse): void {
+    if (this.layout.narrow()) {
+      void this.router.navigate(['/cards', wish.card?.id], {
+        queryParams: wish.printing?.id ? { printing: wish.printing.id } : wish.rarity ? { rarity: wish.rarity } : { printing: 'any' },
       });
       return;
     }
-    const page = suggestionPage(suggestion);
-    if (page) {
-      void this.router.navigate(page);
+    this.mergeUrl({ wish: wish.id }, true);
+  }
+
+  protected async editWish(wish: WishlistItemResponse): Promise<void> {
+    const updated = await this.wishActions.edit(wish);
+    if (updated) {
+      this.wishlist.upsert(updated);
+    } else {
+      await this.wishlist.refresh();
+      if (!this.wishlist.find(wish.id)) {
+        this.mergeUrl({ wish: null }, true);
+      }
     }
   }
 
-  protected onTab(tab: SearchTab): void {
-    void this.router.navigate(['/search'], {
-      queryParams: { q: this.params().q, tab },
-      replaceUrl: true,
+  protected backHome(): void {
+    const home = this.regionContext.home();
+    if (home) {
+      this.regionContext.select(home);
+    }
+  }
+
+  private mergeUrl(queryParams: Record<string, string | null>, replaceUrl = false): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams,
+      queryParamsHandling: 'merge',
+      replaceUrl,
     });
   }
 
-  protected onHolderFilters(filters: HolderFilters): void {
-    const target = this.target();
-    if (!target) {
-      return;
-    }
-    void this.router.navigate(['/search'], {
-      queryParams: { [target.kind]: target.id, ...holderFiltersToQuery(filters) },
-      replaceUrl: true,
-    });
-  }
+  protected readonly searchTab = (tab: SearchTab) => tab;
 }

@@ -135,3 +135,11 @@ function dedupeCards(cards: readonly CardSuggestion[]): CardSuggestion[] {
     return true;
   });
 }
+
+/** What one query found: the cards (and whether their call failed) and the collectors. */
+export interface SearchResults {
+  query: string;
+  cards: CardSuggestion[];
+  collectors: CollectorByName[];
+  failed: boolean;
+}

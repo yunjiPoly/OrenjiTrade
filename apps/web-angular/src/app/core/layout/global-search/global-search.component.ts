@@ -14,37 +14,28 @@ import {
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { CatalogService, SearchService } from '@orenji/api-client';
-import type { CardSuggestion, CollectorByName } from '@orenji/api-client';
-import { Subject, catchError, debounceTime, forkJoin, map, of, switchMap } from 'rxjs';
+import { Subject, debounceTime, switchMap } from 'rxjs';
 import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
 import { SessionService } from '../../auth/session.service';
 import { GameContext } from '../../game/game-context.service';
-import { silentErrors } from '../../http/http-context';
 import { GLOBAL_SEARCH_ID } from '../../keyboard/keyboard-shortcuts.service';
 import { RegionContext } from '../../region/region-context.service';
 import { RecentSearches } from '../../search/recent-searches.service';
 import { ShellIconComponent } from '../shell-icon/shell-icon.component';
 import { ShellLayout } from '../shell-layout.service';
 import {
-  SEARCH_CARD_ROWS,
-  SEARCH_COLLECTOR_ROWS,
   SEARCH_DEBOUNCE_MS,
   SEARCH_MIN_CHARS,
   SearchOption,
+  SearchResults,
   exactCodeIndex,
   searchOptions,
   splitMatch,
 } from './global-search.model';
+import { fetchSuggestions } from './search-fetch';
 
 type Status = 'idle' | 'loading' | 'ready' | 'error';
-
-interface Results {
-  query: string;
-  cards: CardSuggestion[];
-  collectors: CollectorByName[];
-  failed: boolean;
-}
 
 /**
  * The top bar's search (spec 4.3 and 4.4, board W3): a 400 field (320 at md) with "/" and
@@ -82,7 +73,7 @@ export class GlobalSearchComponent {
   protected readonly open = signal(false);
   protected readonly active = signal(-1);
   protected readonly status = signal<Status>('idle');
-  private readonly results = signal<Results | null>(null);
+  private readonly results = signal<SearchResults | null>(null);
   private readonly typed$ = new Subject<string>();
 
   protected readonly signedIn = computed(() => this.session.status() === 'ready');
@@ -379,33 +370,11 @@ export class GlobalSearchComponent {
   }
 
   private fetch(query: string) {
-    const game = this.game.current();
-    const cards$ = this.catalog
-      .suggestCards({ q: query, game, limit: SEARCH_CARD_ROWS + 4 }, 'body', false, {
-        context: silentErrors(),
-      })
-      .pipe(map((cards) => ({ cards, failed: false })));
-    // Collectors only for a signed-in collector: a guest never sees who (stage R15).
-    const collectors$ = this.signedIn()
-      ? this.search
-          .searchCollectorsByName(
-            { q: query, region: this.region.current(), limit: SEARCH_COLLECTOR_ROWS, game },
-            'body',
-            false,
-            { context: silentErrors() },
-          )
-          .pipe(catchError(() => of([] as CollectorByName[])))
-      : of([] as CollectorByName[]);
-    return forkJoin([
-      cards$.pipe(catchError(() => of({ cards: [] as CardSuggestion[], failed: true }))),
-      collectors$,
-    ]).pipe(
-      map(([cards, collectors]) => ({
-        query,
-        cards: cards.cards,
-        collectors,
-        failed: cards.failed,
-      })),
-    );
+    return fetchSuggestions(this.catalog, this.search, {
+      query,
+      game: this.game.current(),
+      region: this.region.current(),
+      signedIn: this.signedIn(),
+    });
   }
 }

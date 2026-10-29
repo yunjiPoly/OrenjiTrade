@@ -1,0 +1,176 @@
+// Search (spec 6.1, boards W4 to W6): the full height under the bar; the list pane 400 (520 with a
+// binder open at lg; 360 at md) beside the map; at xl a middle pane of 520 for an open binder.
+:host {
+  display: block;
+}
+
+.sx {
+  display: grid;
+  grid-template-columns: 400px minmax(0, 1fr);
+  height: calc(100dvh - 64px);
+  min-height: 480px;
+  overflow: hidden;
+}
+
+.sx--drill {
+  grid-template-columns: 520px minmax(0, 1fr);
+}
+
+.sx--three {
+  grid-template-columns: 400px 520px minmax(0, 1fr);
+}
+
+.sx__list,
+.sx__middle {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--color-border);
+  background: var(--color-background);
+  overflow-y: auto;
+}
+
+.sx__middle {
+  overflow: hidden;
+}
+
+.sx__drill {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.sx__head {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 24px 24px 0;
+}
+
+.sx__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--font-size-title);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.4px;
+  line-height: 36px;
+}
+
+.sx__away {
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-input);
+  background: var(--color-primary-tint-subtle);
+  font-size: var(--font-size-sm);
+}
+
+.sx__away-back {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-accent);
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.sx__pane {
+  flex: 1 1 auto;
+  padding: 20px 24px 24px;
+  outline: none;
+}
+
+.sx__map {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+.sx__map--holders {
+  overflow: hidden;
+  background: var(--color-background);
+}
+
+.sx__map-canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.sx__map-error {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-input);
+  background: var(--color-surface-elevated);
+  font-size: var(--font-size-sm);
+}
+
+.sx__map-error button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-accent);
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+// md, 960 to 1279: list 360 and the map; a binder opens on its full page (spec 3).
+@media (max-width: 1279.98px) {
+  .sx {
+    grid-template-columns: 360px minmax(0, 1fr);
+  }
+
+  .sx__head {
+    padding: 20px 16px 0;
+  }
+
+  .sx__pane {
+    padding: 16px;
+  }
+}
+
+// Below 960: the phone's Search (spec 16): one column, the map full width with the state card,
+// the list one tap away.
+@media (max-width: 959.98px) {
+  .sx {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .sx__list {
+    border-right: 0;
+    overflow: visible;
+  }
+
+  .sx__head {
+    padding: 8px 16px 0;
+  }
+
+  .sx--narrow-map {
+    height: calc(100dvh - 64px - 64px - env(safe-area-inset-bottom));
+  }
+
+  .sx--narrow-map .sx__list {
+    flex: none;
+  }
+
+  .sx--narrow-map .sx__pane {
+    display: none;
+  }
+
+  .sx--narrow-map .sx__map {
+    flex: 1 1 auto;
+    min-height: 320px;
+    margin-top: 12px;
+  }
+}

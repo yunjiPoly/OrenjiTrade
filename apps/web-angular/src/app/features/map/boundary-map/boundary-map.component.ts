@@ -23,8 +23,7 @@ import {
   BoundaryCollection,
   BoundaryFeature,
   REGION_VIEW,
-  SHADE_OPACITY,
-  binderCountLabel,
+  mapCountLine,
   shadeLevel,
 } from '../data/boundaries';
 
@@ -61,18 +60,23 @@ function ensureLeafletCss(doc: Document): Promise<void> {
 }
 
 interface Palette {
-  fill: string;
-  empty: string;
+  steps: [string, string, string, string, string];
   line: string;
   outline: string;
+  hover: string;
   selected: string;
+  home: string;
 }
 
 /**
  * The region map (ADR 0017): Leaflet (lazy chunk) drawing the region's bundled boundary file with
- * no tile layer, states and provinces shaded by their number of public binders. Clicking one emits
- * its code; the page's accessible list offers the same choice by keyboard. No coordinates are
- * read from or sent to anyone: the shapes are static assets.
+ * no tile layer, states and provinces shaded by their number of public binders (`map.step0–4`,
+ * spec 6.4; never by a card's holders). Hover: a 1.5 ink stroke and the tooltip "Ontario, Canada"
+ * / "4 binders · 1 deck core"; the selected state a 2 px orange outline; the viewer's own province
+ * always a 1.5 teal dashed outline; a state highlighted from the list an ink outline. Clicking one
+ * emits its code; the page's accessible list offers the same choice by keyboard (the map itself
+ * is focusable: arrows pan, + and − zoom). No coordinates are read from or sent to anyone: the
+ * shapes are static assets.
  */
 @Component({
   selector: 'app-boundary-map',
@@ -142,8 +146,16 @@ export class BoundaryMapComponent {
   readonly counts = input<ReadonlyMap<string, number>>(new Map());
   /** Display label per subdivision code ("Quebec, Canada"). */
   readonly names = input<ReadonlyMap<string, string>>(new Map());
+  /** Public deck cores per subdivision code (among `counts`; the tooltip names them apart). */
+  readonly deckCores = input<ReadonlyMap<string, number>>(new Map());
   readonly selected = input<string | null>(null);
+  /** The viewer's declared province: a teal dashed outline, and the first view fits it. */
+  readonly home = input<string | null>(null);
+  /** A state hovered or focused in the list: an ink outline (nothing is fetched). */
+  readonly highlight = input<string | null>(null);
   readonly label = input('Map of states and provinces');
+  /** Leaflet's own zoom buttons and credit (Home); Search draws its own overlays instead. */
+  readonly controls = input(true);
   readonly subdivisionSelected = output<string>();
 
   protected readonly status = signal<'loading' | 'ready' | 'error'>('loading');
@@ -152,6 +164,10 @@ export class BoundaryMapComponent {
   private map: Leaflet.Map | null = null;
   private outlines: Leaflet.GeoJSON | null = null;
   private shapes: Leaflet.GeoJSON | null = null;
+  private homeLayer: Leaflet.GeoJSON | null = null;
+  private subdivisionFeatures: BoundaryFeature[] = [];
+  private hovered: string | null = null;
+  private fittedHome = false;
   private readonly layers = new Map<string, Leaflet.Path[]>();
   private drawnRegion: string | null = null;
   private drawRequest = 0;
@@ -172,8 +188,19 @@ export class BoundaryMapComponent {
       this.counts();
       this.names();
       this.selected();
+      this.highlight();
       this.theme.resolved();
       untracked(() => this.restyle());
+    });
+    effect(() => {
+      const home = this.home();
+      untracked(() => {
+        this.drawHome(home);
+        if (home && this.map && !this.fittedHome && this.layers.has(home)) {
+          this.fittedHome = true;
+          this.fitHome(home);
+        }
+      });
     });
     inject(DestroyRef).onDestroy(() => {
       this.destroyed = true;
@@ -200,8 +227,8 @@ export class BoundaryMapComponent {
       }
       this.L = L;
       const map = L.map(this.canvas().nativeElement, {
-        zoomControl: true,
-        attributionControl: true,
+        zoomControl: this.controls(),
+        attributionControl: this.controls(),
         minZoom: 1,
         maxZoom: 9,
         zoomSnap: 0.25,
@@ -209,8 +236,10 @@ export class BoundaryMapComponent {
         worldCopyJump: false,
         keyboard: true,
       });
-      map.attributionControl.setPrefix(false);
-      map.attributionControl.addAttribution(NATURAL_EARTH_CREDIT);
+      if (this.controls()) {
+        map.attributionControl.setPrefix(false);
+        map.attributionControl.addAttribution(NATURAL_EARTH_CREDIT);
+      }
       this.map = map;
       this.fitRegion(this.region());
       if (typeof ResizeObserver !== 'undefined') {
@@ -260,9 +289,17 @@ export class BoundaryMapComponent {
     this.outlines = L.geoJSON(countries as unknown as GeoJsonInput, {
       interactive: false,
     }).addTo(map);
+    this.subdivisionFeatures = subdivisions;
     this.drawnRegion = region;
-    this.fitRegion(region);
+    const home = this.home();
+    if (home && this.layers.has(home)) {
+      this.fittedHome = true;
+      this.fitHome(home);
+    } else {
+      this.fitRegion(region);
+    }
     this.restyle();
+    this.drawHome(home);
     this.status.set('ready');
   }
 
@@ -281,8 +318,14 @@ export class BoundaryMapComponent {
       className: 'orenji-boundary-tooltip',
     });
     path.on('click', () => this.subdivisionSelected.emit(code));
-    path.on('mouseover', () => path.setStyle({ weight: 2 }));
-    path.on('mouseout', () => this.restyleCode(code));
+    path.on('mouseover', () => {
+      this.hovered = code;
+      this.restyleCode(code);
+    });
+    path.on('mouseout', () => {
+      this.hovered = null;
+      this.restyleCode(code);
+    });
     // The subdivision code (never a coordinate) identifies the shape for styles and tests.
     path.on('add', () => {
       const element = path.getElement();
@@ -294,7 +337,73 @@ export class BoundaryMapComponent {
   private tooltip(code: string): string {
     const name = this.names().get(code) ?? code;
     const escaped = name.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-    return `<strong>${escaped}</strong><br>${binderCountLabel(this.counts().get(code))}`;
+    const line = mapCountLine(this.counts().get(code), this.deckCores().get(code));
+    const level = shadeLevel(this.counts().get(code));
+    return `<strong>${escaped}</strong><br><span class="orenji-boundary-tooltip__swatch" data-level="${level}"></span>${line}`;
+  }
+
+  /** Zoom one step in or out (Search's own + and − buttons). */
+  zoomIn(): void {
+    this.map?.zoomIn();
+  }
+
+  zoomOut(): void {
+    this.map?.zoomOut();
+  }
+
+  /** "Show my province": centres a declared province (never a device position) and its neighbours. */
+  showCode(code: string | null): void {
+    if (code && this.layers.has(code)) {
+      this.fitHome(code);
+    } else {
+      this.fitRegion(this.region());
+    }
+  }
+
+  private fitHome(code: string): void {
+    const L = this.L;
+    const map = this.map;
+    const paths = this.layers.get(code);
+    if (!L || !map || !paths?.length) {
+      return;
+    }
+    let bounds: Leaflet.LatLngBounds | null = null;
+    for (const path of paths) {
+      const own = (path as unknown as Leaflet.Polygon).getBounds?.();
+      if (own) {
+        bounds = bounds ? bounds.extend(own) : L.latLngBounds(own.getSouthWest(), own.getNorthEast());
+      }
+    }
+    if (bounds) {
+      // The province and its neighbours (spec 6.4).
+      map.fitBounds(bounds.pad(0.9), { animate: false });
+    }
+  }
+
+  /** The teal dashed outline of the viewer's province, above every shape and not clickable. */
+  private drawHome(code: string | null): void {
+    this.homeLayer?.remove();
+    this.homeLayer = null;
+    const L = this.L;
+    const map = this.map;
+    if (!L || !map || !code) {
+      return;
+    }
+    const features = this.subdivisionFeatures.filter((feature) => feature.properties.code === code);
+    if (features.length === 0) {
+      return;
+    }
+    const palette = this.palette();
+    this.homeLayer = L.geoJSON(features as unknown as GeoJsonInput, {
+      interactive: false,
+      style: () => ({
+        color: palette.home,
+        weight: 1.5,
+        dashArray: '4 3',
+        fill: false,
+        opacity: 1,
+      }),
+    }).addTo(map);
   }
 
   private fitRegion(region: string): void {
@@ -309,11 +418,18 @@ export class BoundaryMapComponent {
     const token = (name: string, fallback: string) =>
       styles.getPropertyValue(name).trim() || fallback;
     return {
-      fill: token('--color-primary', '#e8590c'),
-      empty: token('--color-surface', '#ffffff'),
-      line: token('--color-border', '#d0d0d0'),
+      steps: [
+        token('--color-map-step0', '#2c2724'),
+        token('--color-map-step1', '#5c3418'),
+        token('--color-map-step2', '#8f4a1b'),
+        token('--color-map-step3', '#c9661f'),
+        token('--color-map-step4', '#ff8f3d'),
+      ],
+      line: token('--color-background', '#141210'),
       outline: token('--color-border-strong', '#808080'),
-      selected: token('--color-ink', '#111111'),
+      hover: token('--color-ink', '#111111'),
+      selected: token('--color-primary', '#f4761a'),
+      home: token('--color-accent', '#2dd4bf'),
     };
   }
 
@@ -325,23 +441,26 @@ export class BoundaryMapComponent {
     for (const code of this.layers.keys()) {
       this.restyleCode(code, palette);
     }
-    this.outlines?.setStyle({ color: palette.outline, weight: 1.2, fill: false, opacity: 0.9 });
+    this.outlines?.setStyle({ color: palette.outline, weight: 1, fill: false, opacity: 0.6 });
+    this.drawHome(this.home());
   }
 
   private restyleCode(code: string, palette = this.palette()): void {
     const level = shadeLevel(this.counts().get(code));
     const selected = this.selected() === code;
+    const traced = this.hovered === code || this.highlight() === code;
     for (const path of this.layers.get(code) ?? []) {
       path.setStyle({
-        color: selected ? palette.selected : palette.line,
-        weight: selected ? 2.5 : 0.6,
+        color: selected ? palette.selected : traced ? palette.hover : palette.line,
+        weight: selected ? 2 : traced ? 1.5 : 0.8,
         opacity: 1,
-        fillColor: level === 0 ? palette.empty : palette.fill,
-        fillOpacity: level === 0 ? 1 : SHADE_OPACITY[level],
+        fillColor: palette.steps[level],
+        fillOpacity: 1,
       });
-      if (selected) {
+      if (selected || traced) {
         path.bringToFront();
       }
     }
+    this.homeLayer?.bringToFront();
   }
 }
