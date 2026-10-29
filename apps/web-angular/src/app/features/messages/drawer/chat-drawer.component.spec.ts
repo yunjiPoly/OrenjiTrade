@@ -123,6 +123,42 @@ describe('ChatDrawerComponent (web WC, spec 10.6)', () => {
     expect(close).toHaveBeenCalledWith(false);
   });
 
+  it('at md leaves Esc to a search field the browser clears, and closes once it is empty (R2-1)', async () => {
+    const search = document.createElement('input');
+    search.type = 'search';
+    search.setAttribute('aria-label', 'Search cards');
+    page.append(search);
+    const afterTasks = () => new Promise((resolve) => setTimeout(resolve));
+    /** Esc as the browser presses it on a search field: every handler, then its own clear. */
+    const escapeAndClear = () => {
+      const event = escape(search);
+      if (!event.defaultPrevented) {
+        search.value = '';
+      }
+      return event;
+    };
+
+    search.value = 'Lantern';
+    const first = escapeAndClear();
+    await afterTasks();
+    expect(first.defaultPrevented).toBe(false);
+    expect(search.value).toBe('');
+    expect(close).not.toHaveBeenCalled();
+
+    // An engine that leaves the text as it is: the field left that Esc unused.
+    search.value = 'Lantern';
+    escape(search);
+    expect(close).not.toHaveBeenCalled();
+    await afterTasks();
+    expect(close).toHaveBeenCalledWith(false);
+
+    // An empty search field leaves Esc unused: the drawer closes at once.
+    close.mockClear();
+    search.value = '';
+    escapeAndClear();
+    expect(close).toHaveBeenCalledWith(false);
+  });
+
   it('at md leaves Esc to a menu or a dialog on top, but not to a menu that is closing', () => {
     const container = page.querySelector('.cdk-overlay-container')!;
     container.innerHTML =

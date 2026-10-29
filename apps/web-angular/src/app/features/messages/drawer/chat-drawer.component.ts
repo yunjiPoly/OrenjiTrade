@@ -269,7 +269,8 @@ export class ChatDrawerComponent {
    * top overlay, so it closes before the page's own Esc (the selection is cleared by the next one,
    * spec 4.9); a dialog, a menu, an open list or a popover closes first, and a text field keeps its
    * own Esc (it clears, closes its suggestions or cancels an edit): the drawer closes after it
-   * only when the field left that Esc unused. At lg and xl the drawer pushes the page instead, so
+   * only when the field left that Esc unused, and a search field with text keeps it for the
+   * browser's own clear (WC review R2-1). At lg and xl the drawer pushes the page instead, so
    * nothing lies under it and Esc on the page leaves it open.
    */
   private onPageEscape(event: KeyboardEvent, beforePage: boolean): void {
@@ -292,6 +293,18 @@ export class ChatDrawerComponent {
       event.preventDefault();
       event.stopPropagation();
     } else if (!field || event.defaultPrevented) {
+      return;
+    } else if (target instanceof HTMLInputElement && target.type === 'search' && target.value) {
+      // The browser clears a search field on Esc after every handler, without flagging the event
+      // (WC review R2-1): that Esc is the field's, and the drawer closes only when it left the
+      // text as it was (an engine without that clear).
+      const value = target.value;
+      const state = this.drawer.state();
+      setTimeout(() => {
+        if (target.value === value && this.drawer.state() === state) {
+          this.drawer.close(false);
+        }
+      });
       return;
     }
     this.drawer.close(false);
