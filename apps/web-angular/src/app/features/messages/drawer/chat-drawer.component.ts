@@ -1,3 +1,4 @@
+import { hasModifierKey } from '@angular/cdk/keycodes';
 import { DOCUMENT } from '@angular/common';
 import {
   ChangeDetectionStrategy,
@@ -14,11 +15,27 @@ import {
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import type { ConversationSummary } from '@orenji/api-client';
+import { isEditableTarget } from '../../../core/keyboard/keyboard-shortcuts.service';
+import { ShellLayout } from '../../../core/layout/shell-layout.service';
 import { ChatDrawer } from '../../../shared/messaging/chat-drawer.service';
 import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
 import { CHAT_COPY } from '../data/chat-copy';
 import { chatStatusLine } from '../data/deal-rules';
 import { ThreadViewComponent } from '../thread/thread-view.component';
+
+/**
+ * What closes before the drawer on an Esc pressed on the page: a modal dialog (the Inventory
+ * drawer at md is one), a menu that is not closing, an open list (a select's or a field's
+ * suggestions) or a popover.
+ */
+const ON_TOP = [
+  '[role="dialog"][aria-modal="true"]',
+  '[role="alertdialog"]',
+  '.cdk-overlay-container [role="dialog"]',
+  '.mat-mdc-menu-panel:not(.mat-menu-panel-exit-animation)',
+  '.cdk-overlay-pane [role="listbox"]',
+  '.cdk-overlay-pane.app-popover',
+].join(', ');
 
 /**
  * The chat drawer (spec 10.6, board W21): 440 wide on the right under the top bar, non-modal
@@ -27,7 +44,8 @@ import { ThreadViewComponent } from '../thread/thread-view.component';
  * ({@link ThreadViewComponent} in its drawer mode: the pinned card, the tip, the thread, the quick
  * replies and the composer), sharing Messages' code and its one realtime connection. Esc closes it
  * while the focus is inside (the focus goes back to the opener); F6 moves the focus between the
- * page and the drawer. A lazy chunk, loaded when the first chat opens.
+ * page and the drawer. At md, where it overlays the page, Esc on the page closes it too, leaving
+ * the focus on the page (WC review R1-1). A lazy chunk, loaded when the first chat opens.
  */
 @Component({
   selector: 'app-chat-drawer',
@@ -199,6 +217,7 @@ import { ThreadViewComponent } from '../thread/thread-view.component';
 })
 export class ChatDrawerComponent {
   protected readonly drawer = inject(ChatDrawer);
+  private readonly layout = inject(ShellLayout);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly document = inject(DOCUMENT);
 
@@ -220,8 +239,18 @@ export class ChatDrawerComponent {
     });
     afterNextRender(() => this.focusComposer());
     const onKey = (event: KeyboardEvent) => this.onDocumentKey(event);
+    // Esc on the page: before the page's own handlers (capture), and after a text field's.
+    const beforePage = (event: KeyboardEvent) => this.onPageEscape(event, true);
+    const afterPage = (event: KeyboardEvent) => this.onPageEscape(event, false);
+    const view = this.document.defaultView;
     this.document.addEventListener('keydown', onKey);
-    inject(DestroyRef).onDestroy(() => this.document.removeEventListener('keydown', onKey));
+    this.document.addEventListener('keydown', beforePage, true);
+    view?.addEventListener('keydown', afterPage);
+    inject(DestroyRef).onDestroy(() => {
+      this.document.removeEventListener('keydown', onKey);
+      this.document.removeEventListener('keydown', beforePage, true);
+      view?.removeEventListener('keydown', afterPage);
+    });
   }
 
   protected onEscape(event: Event): void {
@@ -231,6 +260,41 @@ export class ChatDrawerComponent {
     }
     event.preventDefault();
     this.drawer.close();
+  }
+
+  /**
+   * Esc on the page at md, where the drawer overlays it (spec 4.8), closes the drawer and leaves
+   * the focus where it is: a page control under the drawer (the opener after F6, or one Tab
+   * reached) shows again without the focus moving (WCAG 2.4.11; WC review R1-1). The drawer is the
+   * top overlay, so it closes before the page's own Esc (the selection is cleared by the next one,
+   * spec 4.9); a dialog, a menu, an open list or a popover closes first, and a text field keeps its
+   * own Esc (it clears, closes its suggestions or cancels an edit): the drawer closes after it
+   * only when the field left that Esc unused. At lg and xl the drawer pushes the page instead, so
+   * nothing lies under it and Esc on the page leaves it open.
+   */
+  private onPageEscape(event: KeyboardEvent, beforePage: boolean): void {
+    if (event.key !== 'Escape' || hasModifierKey(event) || !this.layout.medium()) {
+      return;
+    }
+    const target = event.target instanceof Element ? event.target : null;
+    if (
+      this.host.nativeElement.contains(target) ||
+      !!target?.closest('.cdk-overlay-pane, [role="dialog"], [role="alertdialog"]') ||
+      !!this.document.querySelector(ON_TOP)
+    ) {
+      return;
+    }
+    const field = isEditableTarget(event.target);
+    if (beforePage) {
+      if (field) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+    } else if (!field || event.defaultPrevented) {
+      return;
+    }
+    this.drawer.close(false);
   }
 
   /** F6: from the page into the drawer, and back to the page (spec 10.6). */
