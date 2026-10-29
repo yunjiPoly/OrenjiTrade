@@ -1,6 +1,6 @@
 /**
  * Search's URL (spec 4.11, web stage WD):
- * `/search?region&game&tab=cards|binders|wishlist&q&state=CA-QC&kind=binders|deckcores&open=<binderId>&wish=<id>`.
+ * `/search?region&game&tab=cards|binders|wishlist&q&state=CA-QC&kind=binders|deckcores&open=<binderId>&wish=<id>&set=<setId>`.
  * `state=all` lists every binder of the region ("Whole region"); without a state and a text the
  * Binders tab shows "Browse by state or province".
  */
@@ -25,6 +25,8 @@ export interface SearchUrl {
   open: string | null;
   /** The wish whose holders show in the holder pane. */
   wish: string | null;
+  /** Cards: only the cards of this set (a set page's "Who has cards of this set"). */
+  set: string | null;
 }
 
 export interface SearchUrlInput {
@@ -34,6 +36,7 @@ export interface SearchUrlInput {
   kind?: string | null;
   open?: string | null;
   wish?: string | null;
+  set?: string | null;
 }
 
 export function searchTabOf(tab: string | null | undefined): SearchTab {
@@ -46,6 +49,7 @@ export function parseSearchUrl(input: SearchUrlInput): SearchUrl {
   const upper = state.toUpperCase();
   const open = (input.open ?? '').trim();
   const wish = (input.wish ?? '').trim();
+  const set = (input.set ?? '').trim();
   return {
     tab: searchTabOf(input.tab),
     q: (input.q ?? '').trim().slice(0, SEARCH_TEXT_MAX),
@@ -58,6 +62,7 @@ export function parseSearchUrl(input: SearchUrlInput): SearchUrl {
     kind: (input.kind ?? '').trim().toLowerCase() === 'deckcores' ? 'deckcores' : 'binders',
     open: UUID.test(open) ? open.toLowerCase() : null,
     wish: UUID.test(wish) ? wish.toLowerCase() : null,
+    set: UUID.test(set) ? set.toLowerCase() : null,
   };
 }
 

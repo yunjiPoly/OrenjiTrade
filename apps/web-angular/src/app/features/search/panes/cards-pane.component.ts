@@ -33,6 +33,7 @@ import { RecentSearches } from '../../../core/search/recent-searches.service';
 import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
 import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import { SEARCH_TEXT_MAX } from '../data/search-url';
+import { SetCardsComponent } from './set-cards.component';
 
 type Status = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -46,7 +47,7 @@ type Status = 'idle' | 'loading' | 'ready' | 'error';
  */
 @Component({
   selector: 'app-cards-pane',
-  imports: [RouterLink, AvatarComponent, CardImageComponent, ShellIconComponent],
+  imports: [RouterLink, AvatarComponent, CardImageComponent, SetCardsComponent, ShellIconComponent],
   template: `
     <div class="cp">
       <div class="cp__field">
@@ -61,9 +62,13 @@ type Status = 'idle' | 'loading' | 'ready' | 'error';
           data-page-search
           aria-autocomplete="list"
           aria-controls="cards-pane-list"
-          placeholder="Card name or code, like LOB-EN001"
-          [attr.aria-label]="'Search ' + gameName() + ' cards by name or code'"
-          [attr.aria-expanded]="typing()"
+          [placeholder]="set() ? 'Card name in this set' : 'Card name or code, like LOB-EN001'"
+          [attr.aria-label]="
+            set()
+              ? 'Search the cards of this set'
+              : 'Search ' + gameName() + ' cards by name or code'
+          "
+          [attr.aria-expanded]="typing() && !set()"
           [attr.aria-activedescendant]="activeId()"
           [attr.maxlength]="maxLength"
           [value]="q()"
@@ -77,7 +82,9 @@ type Status = 'idle' | 'loading' | 'ready' | 'error';
         }
       </div>
 
-      @if (!typing()) {
+      @if (set(); as setId) {
+        <app-set-cards [setId]="setId" [q]="q()" (cleared)="setCleared.emit()" />
+      } @else if (!typing()) {
         @if (recent.remembering() && recent.list().length > 0) {
           <section class="cp__section" aria-labelledby="cards-pane-recent">
             <div class="cp__head">
@@ -106,6 +113,13 @@ type Status = 'idle' | 'loading' | 'ready' | 'error';
           </section>
         }
         <p class="cp__quiet">Pick a state on the map to see its binders.</p>
+        <p class="cp__quiet">
+          Or
+          <a class="cp__link" routerLink="/cards" data-testid="browse-catalog"
+            >browse the catalog</a
+          >
+          by set and rarity.
+        </p>
       } @else {
         <p class="cp__label cp__label--group" aria-hidden="true">{{ gameName() }} cards</p>
         @if (status() === 'loading' && cardOptions().length === 0) {
@@ -121,7 +135,8 @@ type Status = 'idle' | 'loading' | 'ready' | 'error';
           <div class="cp__nomatch">
             <p class="cp__nomatch-title">No {{ gameName() }} card matches ‘{{ trimmed() }}’</p>
             <p class="cp__nomatch-text">
-              Try fewer letters, or the code printed on the card, like LAVD-EN008.
+              Try fewer letters, or the code printed on the card, like LAVD-EN008. Or
+              <a class="cp__link" routerLink="/cards">browse the catalog</a>.
             </p>
           </div>
         }
@@ -234,8 +249,12 @@ export class CardsPaneComponent {
   readonly game = input.required<string>();
   readonly gameName = input('');
   readonly region = input.required<string>();
+  /** The cards of one set (`?set=`, a set page's "Who has cards of this set"). */
+  readonly set = input<string | null>(null);
   /** The text goes to the URL (`?q=`), so Back and a reload keep it. */
   readonly qChange = output<string>();
+  /** The set chip's ×: every card again. */
+  readonly setCleared = output<void>();
 
   protected readonly maxLength = SEARCH_TEXT_MAX;
   protected readonly splitMatch = splitMatch;
@@ -343,7 +362,8 @@ export class CardsPaneComponent {
   private start(value: string): void {
     this.active.set(-1);
     const query = value.trim();
-    if (query.length >= SEARCH_MIN_CHARS) {
+    // On one set's cards the field filters that list (no dropdown of suggestions).
+    if (query.length >= SEARCH_MIN_CHARS && !this.set()) {
       this.status.set('loading');
       this.typed$.next(query);
     } else {

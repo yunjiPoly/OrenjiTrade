@@ -24,7 +24,12 @@ describe('Search URL (spec 4.11, web stage WD)', () => {
       kind: 'deckcores',
       open: '00000000-0000-4000-8b00-000000000101',
       wish: null,
+      set: null,
     });
+    expect(parseSearchUrl({ set: '00000000-0000-4000-8B00-0000000000AA' }).set).toBe(
+      '00000000-0000-4000-8b00-0000000000aa',
+    );
+    expect(parseSearchUrl({ set: 'AZR' }).set).toBeNull();
     expect(parseSearchUrl({ state: 'ALL' }).state).toBe('all');
     expect(parseSearchUrl({ state: 'Quebec' }).state).toBeNull();
     expect(parseSearchUrl({ kind: 'x' }).kind).toBe('binders');

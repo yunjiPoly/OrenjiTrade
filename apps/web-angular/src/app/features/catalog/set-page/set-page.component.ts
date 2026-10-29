@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
   computed,
   effect,
   inject,
@@ -33,6 +34,7 @@ import { APP_NAME } from '../../../core/routing/orenji-title.strategy';
 import { CardDataAttributionComponent } from '../../../shared/catalog/card-data-attribution/card-data-attribution.component';
 import { gameInfo } from '../../../shared/domain/games';
 import { printingCode, printingImageUrl } from '../../../shared/inventory/inventory-labels';
+import { specialEdition, specialFinish } from '../../../shared/wishlist/wishlist-labels';
 import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import {
   SegmentOption,
@@ -42,6 +44,10 @@ import { binderGame } from '../../inventory/data/binder-games';
 
 /** Printings per page of a set (the API's maximum). */
 export const SET_PAGE_SIZE = 200;
+/** Card names per page (`GET /cards?set=`, the API's maximum); every page is read. */
+export const SET_NAMES_PAGE_SIZE = 100;
+/** A ceiling on the name pages of one set (10,000 cards), against a server that never ends. */
+const SET_NAMES_MAX_PAGES = 100;
 /** "I have" at most this many copies of one printing in one go (the phone's stepper). */
 export const SET_STEPPER_MAX = 99;
 
@@ -50,6 +56,28 @@ type Visibility = 'PRIVATE' | 'PUBLIC';
 /** "7 cards", "1 card". */
 export function cardsLabel(count: number): string {
   return `${count} ${count === 1 ? 'card' : 'cards'}`;
+}
+
+/**
+ * What tells a printing apart from another of the same code on one set (a 1st Edition and an
+ * Unlimited `AZR-EN011`): its edition (Unlimited named too, then) and a finish other than Normal.
+ * Empty when its code is its own.
+ */
+export function printingDistinction(
+  printing: PrintingSummary,
+  printings: readonly PrintingSummary[],
+): string {
+  const code = printingCode(printing);
+  const shared = !!code && printings.filter((other) => printingCode(other) === code).length > 1;
+  if (!shared) {
+    return '';
+  }
+  return [
+    specialEdition(printing.edition) ?? (printing.edition ? 'Unlimited' : null),
+    specialFinish(printing.finish),
+  ]
+    .filter(Boolean)
+    .join(' · ');
 }
 
 /** The binders "Add from this set" can file into: the collector's binders of the set's game. */
@@ -112,6 +140,7 @@ export class SetPageComponent {
   private readonly toasts = inject(ToastService);
   private readonly gameContext = inject(GameContext);
   protected readonly auth = inject(AuthService);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   readonly id = input.required<string>();
 
@@ -202,17 +231,38 @@ export class SetPageComponent {
     this.loading.set(true);
     this.error.set(null);
     this.counts.set(new Map());
+    this.names.set(new Map());
     this.fetch(id, 0);
-    // The card names (the tiles' accessible names): the cards of the set, by card id.
+    this.loadNames(id, 0);
+  }
+
+  /**
+   * The card names (the tiles' accessible names and the stepper labels): every page of the set's
+   * cards, by card id (a set can hold more than one page of 100 cards, WD review F6).
+   */
+  private loadNames(id: string, page: number): void {
     this.subscriptions.push(
       this.catalog
-        .searchCards({ set: id, size: 100 }, 'body', false, { context: silentErrors() })
+        .searchCards({ set: id, page, size: SET_NAMES_PAGE_SIZE }, 'body', false, {
+          context: silentErrors(),
+        })
         .subscribe({
-          next: (page) =>
-            this.names.set(
-              new Map((page.items ?? []).map((card) => [card.id ?? '', card.name ?? ''])),
-            ),
-          error: () => this.names.set(new Map()),
+          next: (result) => {
+            if (id !== this.id()) {
+              return;
+            }
+            const names = new Map(this.names());
+            for (const card of result.items ?? []) {
+              names.set(card.id ?? '', card.name ?? '');
+            }
+            this.names.set(names);
+            const next = (result.page ?? page) + 1;
+            if (next < (result.totalPages ?? 0) && next < SET_NAMES_MAX_PAGES) {
+              this.loadNames(id, next);
+            }
+          },
+          // The tiles keep their code and rarity; the names that came stay.
+          error: () => undefined,
         }),
     );
   }
@@ -258,15 +308,50 @@ export class SetPageComponent {
     return this.names().get(printing.cardId ?? '') ?? '';
   }
 
+  /** "1st Edition" on a tile whose code another printing of the set shares. */
+  protected distinction(printing: PrintingSummary): string {
+    return printingDistinction(printing, this.printings());
+  }
+
   protected tileLabel(printing: PrintingSummary): string {
-    return [this.cardName(printing), printingCode(printing), printing.rarity]
+    return [
+      this.cardName(printing),
+      printingCode(printing),
+      printing.rarity,
+      this.distinction(printing),
+    ]
       .filter(Boolean)
       .join(', ');
   }
 
-  /** "Who has cards of this set": Search › Cards with the set code (spec 7.5). */
+  /** "One more AZR-EN011, 1st Edition": two steppers of one code are told apart. */
+  protected stepLabel(prefix: string, printing: PrintingSummary): string {
+    const distinction = this.distinction(printing);
+    return `${prefix} ${printingCode(printing)}${distinction ? `, ${distinction}` : ''}`;
+  }
+
+  /**
+   * "Who has cards of this set": Search › Cards on the cards of this set, every page of them,
+   * with or without a text (spec 7.5; the phone's set chip, stage R14).
+   */
   protected whoHasQuery(): Record<string, string> {
-    return { tab: 'cards', q: this.set()?.code ?? this.set()?.name ?? '' };
+    return { tab: 'cards', set: this.id(), q: '' };
+  }
+
+  /** A focused stepper or tile under the sticky footer is scrolled above it (SC 2.4.11). */
+  protected onGridFocus(event: FocusEvent): void {
+    if (!this.adding()) {
+      return;
+    }
+    const target = event.target as HTMLElement | null;
+    const foot = this.host.nativeElement.querySelector<HTMLElement>('.sp__foot');
+    if (!target || !foot) {
+      return;
+    }
+    const limit = foot.getBoundingClientRect().top - 12;
+    if (target.getBoundingClientRect().bottom > limit) {
+      target.scrollIntoView({ block: 'center' });
+    }
   }
 
   protected async toggleAdding(): Promise<void> {
@@ -360,6 +445,10 @@ export class SetPageComponent {
     }
     if (this.counts().size === 0) {
       this.adding.set(false);
+      // The footer and its button are gone: the focus returns to "Add from this set" (SC 2.4.3).
+      setTimeout(() =>
+        this.host.nativeElement.querySelector<HTMLElement>('[data-testid="add-from-set"]')?.focus(),
+      );
     }
   }
 

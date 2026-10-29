@@ -1,5 +1,5 @@
-import type { BinderResponse } from '@orenji/api-client';
-import { addBodies, cardsLabel, sameGameBinders } from './set-page.component';
+import type { BinderResponse, PrintingSummary } from '@orenji/api-client';
+import { addBodies, cardsLabel, printingDistinction, sameGameBinders } from './set-page.component';
 
 describe('"Add from this set" (spec 7.5, owner check)', () => {
   it('makes one create per tile with copies, Private by default, in the chosen binder', () => {
@@ -43,5 +43,16 @@ describe('"Add from this set" (spec 7.5, owner check)', () => {
   it('counts the cards chosen', () => {
     expect(cardsLabel(1)).toBe('1 card');
     expect(cardsLabel(7)).toBe('7 cards');
+  });
+
+  it('tells two printings of one code apart by edition (and finish), never a lone one', () => {
+    const printings = [
+      { id: 'a', printingCode: 'AZR-EN011', edition: 'FIRST_EDITION', finish: 'NORMAL' },
+      { id: 'b', printingCode: 'AZR-EN011', edition: 'UNLIMITED', finish: 'NORMAL' },
+      { id: 'c', printingCode: 'AZR-EN012', edition: 'FIRST_EDITION', finish: 'NORMAL' },
+    ] as PrintingSummary[];
+    expect(printingDistinction(printings[0], printings)).toBe('1st Edition');
+    expect(printingDistinction(printings[1], printings)).toBe('Unlimited');
+    expect(printingDistinction(printings[2], printings)).toBe('');
   });
 });

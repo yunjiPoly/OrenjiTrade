@@ -58,7 +58,7 @@
     } @else if (printings().length === 0) {
       <p class="sp__empty">This set has no printings in the catalogue yet.</p>
     } @else {
-      <ul class="sp__grid" aria-label="Printings of this set">
+      <ul class="sp__grid" aria-label="Printings of this set" (focusin)="onGridFocus($event)">
         @for (printing of printings(); track printing.id) {
           @let copies = count(printing);
           <li class="sp__tile" [class.sp__tile--chosen]="copies > 0">
@@ -68,15 +68,16 @@
               [queryParams]="{ printing: printing.id }"
               [attr.aria-label]="tileLabel(printing)"
             >
-              <app-card-image
-                class="sp__art"
-                [src]="image(printing)"
-                [alt]="cardName(printing)"
-                [game]="set()?.game"
-              />
+              <!-- The link names the card, its code, rarity and edition: the art adds nothing. -->
+              <app-card-image class="sp__art" [src]="image(printing)" alt="" [game]="set()?.game" />
               <span class="sp__tile-code">{{ code(printing) }}</span>
               @if (printing.rarity) {
                 <span class="sp__tile-rarity">{{ printing.rarity }}</span>
+              }
+              @if (distinction(printing); as distinction) {
+                <span class="sp__tile-rarity" data-testid="set-tile-edition">{{
+                  distinction
+                }}</span>
               }
             </a>
             @if (adding()) {
@@ -88,7 +89,7 @@
                 <button
                   type="button"
                   class="sp__step"
-                  [attr.aria-label]="'One fewer ' + code(printing)"
+                  [attr.aria-label]="stepLabel('One fewer', printing)"
                   [disabled]="copies === 0 || saving()"
                   (click)="step(printing, -1)"
                 >
@@ -100,7 +101,7 @@
                 <button
                   type="button"
                   class="sp__step"
-                  [attr.aria-label]="'One more ' + code(printing)"
+                  [attr.aria-label]="stepLabel('One more', printing)"
                   [disabled]="saving()"
                   (click)="step(printing, 1)"
                 >

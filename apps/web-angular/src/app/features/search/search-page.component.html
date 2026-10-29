@@ -49,7 +49,9 @@
               [game]="gameCode()"
               [gameName]="gameName()"
               [region]="regionCode()"
+              [set]="u.set"
               (qChange)="setQ($event)"
+              (setCleared)="clearSet()"
             />
           }
           @case ('binders') {

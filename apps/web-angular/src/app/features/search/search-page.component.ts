@@ -108,6 +108,7 @@ export class SearchPageComponent {
   readonly kind = input<string | undefined>();
   readonly open = input<string | undefined>();
   readonly wish = input<string | undefined>();
+  readonly set = input<string | undefined>();
   readonly region = input<string | undefined>();
   readonly game = input<string | undefined>();
   /** Old links (before WD): the card page now. */
@@ -127,6 +128,7 @@ export class SearchPageComponent {
       kind: this.kind(),
       open: this.open(),
       wish: this.wish(),
+      set: this.set(),
     }),
   );
   protected readonly regionCode = this.regionContext.current;
@@ -193,14 +195,14 @@ export class SearchPageComponent {
         id: 'binders',
         label: 'Binders',
         commands: ['/search'],
-        queryParams: { tab: 'binders', q, open: null, wish: null },
+        queryParams: { tab: 'binders', q, open: null, wish: null, set: null },
         active: view === 'binders',
       },
       {
         id: 'wishlist',
         label: 'Wishlist',
         commands: ['/search'],
-        queryParams: { tab: 'wishlist', q: null, open: null, wish: u.wish },
+        queryParams: { tab: 'wishlist', q: null, open: null, wish: u.wish, set: null },
         active: view === 'wishlist',
         count: this.wishCount(),
       },
@@ -355,6 +357,11 @@ export class SearchPageComponent {
 
   protected setQ(q: string): void {
     this.mergeUrl({ q: q || null, open: null }, true);
+  }
+
+  /** The set chip's ×: every card of the browsed game again. */
+  protected clearSet(): void {
+    this.mergeUrl({ set: null }, true);
   }
 
   protected setState(code: string | null): void {

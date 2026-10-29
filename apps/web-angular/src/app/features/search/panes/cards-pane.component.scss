@@ -24,6 +24,7 @@
 
 .cp__field:focus-within {
   border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-focus-ring);
 }
 
 .cp__input {
@@ -354,4 +355,9 @@
 
 .cp__nomatch-text {
   color: var(--color-text-muted);
+}
+
+.cp__link {
+  color: var(--color-accent);
+  font-weight: var(--font-weight-semibold);
 }
