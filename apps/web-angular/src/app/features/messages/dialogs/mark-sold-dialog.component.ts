@@ -80,6 +80,7 @@ export type MarkSoldResult = { sale: SaleResponse } | { changed: true; message: 
           <input
             class="mono"
             type="text"
+            cdkFocusInitial
             autocomplete="off"
             spellcheck="false"
             data-testid="tracking-input"

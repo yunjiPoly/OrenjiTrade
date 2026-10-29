@@ -44,6 +44,7 @@ export interface SendDetailData {
           <span class="sd__label">{{ copy.addressLabel }}</span>
           <textarea
             rows="4"
+            cdkFocusInitial
             autocomplete="off"
             data-testid="send-detail-input"
             [attr.maxlength]="addressMax"
@@ -59,6 +60,7 @@ export interface SendDetailData {
           <input
             type="email"
             inputmode="email"
+            cdkFocusInitial
             autocomplete="off"
             data-testid="send-detail-input"
             [attr.maxlength]="emailMax"
