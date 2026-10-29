@@ -11377,7 +11377,9 @@ On the Mac mini (Apple M6, macOS 27, JDK 21), 2026-10-29:
   logged "The served web export names http://localhost:8090 and never the developer API."; the
   entry script names `localhost:8090` twice and `localhost:8080` never), then
   `--reuse-running --retries=0`: **66 passed** in 1 min 5 s; then `--stop`.
-- {{MAESTRO}}
+- `npm run test:mobile:maestro -- --platform ios` on the owner's iPhone 18 Pro (under the lock;
+  run because `packages/design-tokens` changed): **43 / 43 flows passed** in 67 min 58 s. The
+  simulator stayed booted in the owner's state (appearance light, text size large).
 - The walk (Playwright, Chromium, the walk stack API 8580 + web 4400, database
   `orenjitrade_wb_check`, Redis db 6, all removed afterwards): every screen of the stage at 1440,
   1024 and 390 in dark and light (78 screenshots in
