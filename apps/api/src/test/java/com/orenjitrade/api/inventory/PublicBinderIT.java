@@ -266,6 +266,82 @@ class PublicBinderIT extends AbstractIntegrationTest {
         assertThat(counts).containsExactly(1);
     }
 
+    /**
+     * Web stage WD (spec 8.2): a public binder's items by name (the default), the newest first or
+     * the lowest price first, with a price that is no plain amount after the amounts and the cards
+     * without a price last; an unknown order is a 400. Reading the items never spends a binder view
+     * (decision 14: only the binder's own read does).
+     */
+    @Test
+    void publicBinderItemsSortByNameNewestOrPrice() {
+        String owner = uniqueUid("pub-sort");
+        provisionCompliant(owner);
+        setLocation(owner, "CA", "CA-MB", null);
+        callJson(
+                HttpMethod.PUT,
+                "/api/v1/me/settings/privacy",
+                owner,
+                privacy(true, "MEMBERS"),
+                200);
+        String binderId =
+                callJson(
+                                HttpMethod.POST,
+                                "/api/v1/binders",
+                                owner,
+                                binder("Sorted", "PUBLIC", gameId(testUsers, "pokemon")),
+                                201)
+                        .path("id")
+                        .asString();
+        List<String> created = new ArrayList<>();
+        Object[][] prices = {
+            {"pkm-p001a", 20.0, null},
+            {"pkm-p002a", null, "85% TCG"},
+            {"pkm-p013a", 5.0, null},
+            {"pkm-p019a", null, null}
+        };
+        for (Object[] row : prices) {
+            Map<String, Object> body = item(printing(testUsers, (String) row[0]));
+            body.put("binderId", binderId);
+            body.put("availability", "SALE");
+            if (row[1] != null) {
+                body.put("askingPrice", row[1]);
+            }
+            if (row[2] != null) {
+                body.put("askingPriceText", row[2]);
+            }
+            created.add(
+                    callJson(HttpMethod.POST, "/api/v1/inventory/items", owner, body, 201)
+                            .path("id")
+                            .asString());
+        }
+        String viewer = uniqueUid("pub-sort-viewer");
+        provisionCompliant(viewer);
+        String items = "/api/v1/public/binders/" + binderId + "/items";
+
+        JsonNode byName = callJson(HttpMethod.GET, items, viewer, null, 200);
+        List<String> names = new ArrayList<>();
+        byName.path("items").forEach(node -> names.add(node.path("card").path("name").asString()));
+        assertThat(names).hasSize(4).isSortedAccordingTo(String.CASE_INSENSITIVE_ORDER);
+        assertThat(ids(callJson(HttpMethod.GET, items + "?sort=name", viewer, null, 200)))
+                .containsExactlyElementsOf(ids(byName));
+        assertThat(ids(callJson(HttpMethod.GET, items + "?sort=recent", viewer, null, 200)))
+                .containsExactly(created.get(3), created.get(2), created.get(1), created.get(0));
+        assertThat(ids(callJson(HttpMethod.GET, items + "?sort=PRICE", null, null, 200)))
+                .containsExactly(created.get(2), created.get(0), created.get(1), created.get(3));
+        JsonNode problem = callJson(HttpMethod.GET, items + "?sort=cheapest", viewer, null, 400);
+        assertThat(problem.path("errorCode").asString()).isEqualTo("VALIDATION_FAILED");
+        assertThat(problem.toString()).contains("must be name, recent or price");
+
+        assertThat(
+                        testUsers.query(
+                                "SELECT count FROM usage_counter c JOIN user_account u ON u.id ="
+                                        + " c.user_id WHERE u.provider_uid = ? AND c.limit_key ="
+                                        + " 'binder.views.per_day'",
+                                viewer))
+                .as("the items never spend a binder view")
+                .isEmpty();
+    }
+
     /** No private notes, no private items, no coordinate anywhere in a public document. */
     private static void assertNoPrivateData(JsonNode document) {
         String text = document.toString();

@@ -367,6 +367,8 @@ public final class InventoryChanges {
      * @param size page size
      * @param excludeDeckCoreItems leave out the cards filed in a deck core (they sell only with it,
      *     owner spec 2026-10-14, section 7: the profile's Cards of stage R6)
+     * @param sort the order of the page (web stage WD: a public binder's sort pill); by card name
+     *     unless asked
      */
     public record PublicQuery(
             @Nullable String query,
@@ -374,9 +376,10 @@ public final class InventoryChanges {
             @Nullable Availability availability,
             int page,
             int size,
-            boolean excludeDeckCoreItems) {
+            boolean excludeDeckCoreItems,
+            PublicSort sort) {
 
-        /** Every public card, a deck core's included. */
+        /** Every public card, a deck core's included, by card name. */
         public PublicQuery(
                 @Nullable String query,
                 @Nullable String game,
@@ -385,5 +388,28 @@ public final class InventoryChanges {
                 int size) {
             this(query, game, availability, page, size, false);
         }
+
+        /** By card name. */
+        public PublicQuery(
+                @Nullable String query,
+                @Nullable String game,
+                @Nullable Availability availability,
+                int page,
+                int size,
+                boolean excludeDeckCoreItems) {
+            this(query, game, availability, page, size, excludeDeckCoreItems, PublicSort.NAME);
+        }
+    }
+
+    /**
+     * Orders of a public item list (web stage WD, spec 8.2: "Recently added, Name, Price"): {@code
+     * NAME} by card name (the default, as before), {@code RECENT} the newest first, {@code PRICE}
+     * the lowest plain amount first, then prices that are no plain amount ("85% TCG"), then the
+     * cards without a price.
+     */
+    public enum PublicSort {
+        NAME,
+        RECENT,
+        PRICE
     }
 }

@@ -8,6 +8,7 @@ import com.orenjitrade.api.delisting.domain.FreshnessState;
 import com.orenjitrade.api.inventory.domain.Availability;
 import com.orenjitrade.api.inventory.domain.InventoryChanges.OwnerQuery;
 import com.orenjitrade.api.inventory.domain.InventoryChanges.PublicQuery;
+import com.orenjitrade.api.inventory.domain.InventoryChanges.PublicSort;
 import com.orenjitrade.api.inventory.domain.ItemRow;
 import java.math.BigDecimal;
 import java.sql.Array;
@@ -324,11 +325,20 @@ public class InventoryItemRepository {
             where.append(" AND (i.binder_id IS NULL OR NOT b.sells_as_core)");
         }
         return page(
-                where.toString(),
-                " ORDER BY c.normalized_name, s.code, p.collector_number, i.id",
-                params,
-                query.page(),
-                query.size());
+                where.toString(), publicOrder(query.sort()), params, query.page(), query.size());
+    }
+
+    /** The ORDER BY of a public page; every order ends on the item id, so pages never overlap. */
+    static String publicOrder(PublicSort sort) {
+        return switch (sort) {
+            case NAME -> " ORDER BY c.normalized_name, s.code, p.collector_number, i.id";
+            case RECENT -> " ORDER BY i.created_at DESC, i.id";
+            // A price that is no plain amount ("85% TCG") has no asking_price: after the amounts,
+            // before the cards without any price.
+            case PRICE ->
+                    " ORDER BY i.asking_price ASC NULLS LAST, (i.asking_price_text IS NULL),"
+                            + " c.normalized_name, i.id";
+        };
     }
 
     /**
