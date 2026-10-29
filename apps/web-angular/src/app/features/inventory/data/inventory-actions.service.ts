@@ -18,12 +18,15 @@ export const UNDO_WINDOW_MS = 10 * 60 * 1000;
 
 /** Words of a binder's game errors (stage G 409s, spec 9.12). */
 export function binderGameError(error: ApiError, gameLabel: string | null): string | null {
-  const game = gameLabel ?? 'this game';
   if (error.errorCode === 'BINDER_GAME_MISMATCH') {
-    return `Only ${game} cards can go in this binder.`;
+    return gameLabel
+      ? `Only ${gameLabel} cards can go in this binder.`
+      : "Only cards of this binder's game can go in it.";
   }
   if (error.errorCode === 'BINDER_GAME_LOCKED') {
-    return `This binder already has ${game} cards, so its game can't change.`;
+    return gameLabel
+      ? `This binder already has ${gameLabel} cards, so its game can't change.`
+      : "This binder already has cards, so its game can't change.";
   }
   return null;
 }
