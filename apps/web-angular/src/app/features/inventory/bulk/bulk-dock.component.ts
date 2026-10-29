@@ -34,26 +34,44 @@ import { BulkAction } from '../data/bulk-actions';
         type="button"
         class="dock__btn"
         [disabled]="busy()"
+        [matTooltip]="iconsOnly() ? 'Make public' : ''"
+        [attr.aria-label]="iconsOnly() ? 'Make public' : null"
         (click)="emit({ kind: 'visibility', visibility: 'PUBLIC' })"
       >
-        Make public
+        @if (iconsOnly()) {
+          <mat-icon aria-hidden="true">public</mat-icon>
+        } @else {
+          Make public
+        }
       </button>
       <button
         type="button"
         class="dock__btn"
         [disabled]="busy()"
+        [matTooltip]="iconsOnly() ? 'Make private' : ''"
+        [attr.aria-label]="iconsOnly() ? 'Make private' : null"
         (click)="emit({ kind: 'visibility', visibility: 'PRIVATE' })"
       >
-        Make private
+        @if (iconsOnly()) {
+          <mat-icon aria-hidden="true">lock</mat-icon>
+        } @else {
+          Make private
+        }
       </button>
       <button
         type="button"
         class="dock__btn"
         [disabled]="busy()"
+        [matTooltip]="iconsOnly() ? 'Move to binder' : ''"
+        [attr.aria-label]="iconsOnly() ? 'Move to binder' : null"
         [matMenuTriggerFor]="moveMenu"
         data-testid="bulk-move"
       >
-        Move to binder
+        @if (iconsOnly()) {
+          <mat-icon aria-hidden="true">drive_file_move</mat-icon>
+        } @else {
+          Move to binder
+        }
         <mat-icon aria-hidden="true">expand_more</mat-icon>
       </button>
       <button
@@ -87,7 +105,12 @@ import { BulkAction } from '../data/bulk-actions';
       </button>
       <span class="dock__sep" aria-hidden="true"></span>
       <button type="button" class="dock__btn dock__btn--clear" (click)="clear.emit()">
-        Clear <kbd>Esc</kbd>
+        @if (narrow()) {
+          <mat-icon aria-hidden="true">close</mat-icon>
+          <span class="visually-hidden">Clear</span>
+        } @else {
+          Clear <kbd>Esc</kbd>
+        }
       </button>
     </div>
 
@@ -204,6 +227,9 @@ export class BulkDockComponent {
   readonly binders = input<readonly BinderResponse[]>([]);
   readonly busy = input(false, { transform: booleanAttribute });
   readonly compact = input(false, { transform: booleanAttribute });
+  /** A phone-sized window: every action is an icon with its name (spec 16). */
+  readonly narrow = input(false, { transform: booleanAttribute });
+  protected readonly iconsOnly = computed(() => this.narrow());
   readonly action = output<BulkAction>();
   readonly clear = output<void>();
   readonly newBinder = output<void>();

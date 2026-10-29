@@ -84,115 +84,117 @@ const VIEW_OPTIONS: readonly SegmentOption<InventoryView>[] = [
         />
       </label>
 
-      @if (showBinderMenu()) {
-        <button type="button" class="tb__menu" [matMenuTriggerFor]="binderMenu">
-          <span class="tb__muted">Binder:</span> {{ binderLabel() }}
-          <mat-icon aria-hidden="true">expand_more</mat-icon>
-        </button>
-        <mat-menu #binderMenu="matMenu">
-          <button mat-menu-item type="button" (click)="emit({ binder: null })">All cards</button>
-          <button mat-menu-item type="button" (click)="emit({ binder: unfiled })">Unfiled</button>
-          @for (group of binderGroups(); track group.game) {
-            @for (binder of group.binders; track binder.id) {
-              <button mat-menu-item type="button" (click)="emit({ binder: binder.id })">
-                <app-game-monogram [game]="group.game" size="16" />
-                <span>{{ binder.name }}</span>
-              </button>
-            }
-          }
-        </mat-menu>
-      }
-
-      <button
-        type="button"
-        class="tb__menu"
-        [matMenuTriggerFor]="gameMenu"
-        data-testid="inventory-game"
-      >
-        <span class="tb__muted">Game:</span> {{ gameLabel() }}
-        <mat-icon aria-hidden="true">expand_more</mat-icon>
-      </button>
-      <mat-menu #gameMenu="matMenu">
-        <button mat-menu-item type="button" (click)="emit({ game: null })">All games</button>
-        @for (game of games(); track game.slug) {
-          <button mat-menu-item type="button" (click)="emit({ game: game.slug ?? null })">
-            <app-game-monogram [game]="game.slug ?? ''" size="16" />
-            <span>{{ nameOf(game) }}</span>
+      <div class="tb__rest">
+        @if (showBinderMenu()) {
+          <button type="button" class="tb__menu" [matMenuTriggerFor]="binderMenu">
+            <span class="tb__muted">Binder:</span> {{ binderLabel() }}
+            <mat-icon aria-hidden="true">expand_more</mat-icon>
           </button>
+          <mat-menu #binderMenu="matMenu">
+            <button mat-menu-item type="button" (click)="emit({ binder: null })">All cards</button>
+            <button mat-menu-item type="button" (click)="emit({ binder: unfiled })">Unfiled</button>
+            @for (group of binderGroups(); track group.game) {
+              @for (binder of group.binders; track binder.id) {
+                <button mat-menu-item type="button" (click)="emit({ binder: binder.id })">
+                  <app-game-monogram [game]="group.game" size="16" />
+                  <span>{{ binder.name }}</span>
+                </button>
+              }
+            }
+          </mat-menu>
         }
-      </mat-menu>
 
-      <app-segmented
-        label="Who can see it"
-        size="sm"
-        [options]="visibilityOptions"
-        [value]="params().visibility ?? 'ALL'"
-        (valueChange)="emit({ visibility: $event === 'ALL' ? null : $event })"
-      />
-
-      <div class="tb__sort">
         <button
           type="button"
           class="tb__menu"
-          [matMenuTriggerFor]="sortMenu"
-          data-testid="inventory-sort"
+          [matMenuTriggerFor]="gameMenu"
+          data-testid="inventory-game"
         >
-          <span class="tb__muted">Sort:</span> {{ sortLabel() }}
+          <span class="tb__muted">Game:</span> {{ gameLabel() }}
           <mat-icon aria-hidden="true">expand_more</mat-icon>
         </button>
-        <button
-          type="button"
-          class="tb__dir"
-          [attr.aria-label]="directionLabel()"
-          [title]="directionLabel()"
-          (click)="flipDirection()"
-          data-testid="inventory-direction"
-        >
-          <mat-icon aria-hidden="true">{{
-            params().dir === 'asc' ? 'arrow_upward' : 'arrow_downward'
-          }}</mat-icon>
-        </button>
-      </div>
-      <mat-menu #sortMenu="matMenu">
-        @for (sort of sorts; track sort.value) {
+        <mat-menu #gameMenu="matMenu">
+          <button mat-menu-item type="button" (click)="emit({ game: null })">All games</button>
+          @for (game of games(); track game.slug) {
+            <button mat-menu-item type="button" (click)="emit({ game: game.slug ?? null })">
+              <app-game-monogram [game]="game.slug ?? ''" size="16" />
+              <span>{{ nameOf(game) }}</span>
+            </button>
+          }
+        </mat-menu>
+
+        <app-segmented
+          label="Who can see it"
+          size="sm"
+          [options]="visibilityOptions"
+          [value]="params().visibility ?? 'ALL'"
+          (valueChange)="emit({ visibility: $event === 'ALL' ? null : $event })"
+        />
+
+        <div class="tb__sort">
           <button
-            mat-menu-item
             type="button"
-            role="menuitemradio"
-            [attr.aria-checked]="params().sort === sort.value"
-            (click)="chooseSort(sort.value)"
+            class="tb__menu"
+            [matMenuTriggerFor]="sortMenu"
+            data-testid="inventory-sort"
           >
-            <mat-icon>{{ params().sort === sort.value ? 'check' : '' }}</mat-icon>
-            <span>{{ sort.label }}</span>
+            <span class="tb__muted">Sort:</span> {{ sortLabel() }}
+            <mat-icon aria-hidden="true">expand_more</mat-icon>
+          </button>
+          <button
+            type="button"
+            class="tb__dir"
+            [attr.aria-label]="directionLabel()"
+            [title]="directionLabel()"
+            (click)="flipDirection()"
+            data-testid="inventory-direction"
+          >
+            <mat-icon aria-hidden="true">{{
+              params().dir === 'asc' ? 'arrow_upward' : 'arrow_downward'
+            }}</mat-icon>
+          </button>
+        </div>
+        <mat-menu #sortMenu="matMenu">
+          @for (sort of sorts; track sort.value) {
+            <button
+              mat-menu-item
+              type="button"
+              role="menuitemradio"
+              [attr.aria-checked]="params().sort === sort.value"
+              (click)="chooseSort(sort.value)"
+            >
+              <mat-icon>{{ params().sort === sort.value ? 'check' : '' }}</mat-icon>
+              <span>{{ sort.label }}</span>
+            </button>
+          }
+        </mat-menu>
+
+        @if (filtersOn()) {
+          <button type="button" class="tb__link" (click)="clear()" data-testid="clear-filters">
+            Clear filters
           </button>
         }
-      </mat-menu>
 
-      @if (filtersOn()) {
-        <button type="button" class="tb__link" (click)="clear()" data-testid="clear-filters">
-          Clear filters
-        </button>
-      }
+        <span class="tb__spacer"></span>
 
-      <span class="tb__spacer"></span>
-
-      @if (params().view === 'grid' || selectMode()) {
-        <button
-          type="button"
-          class="tb__link"
-          [attr.aria-pressed]="selectMode()"
-          (click)="toggleSelect.emit()"
-        >
-          {{ selectMode() ? 'Done' : 'Select' }}
-        </button>
-      }
-      <app-segmented
-        label="View"
-        size="sm"
-        [options]="viewOptions"
-        [value]="view()"
-        (valueChange)="viewChange.emit($event)"
-      />
+        @if (params().view === 'grid' || selectMode()) {
+          <button
+            type="button"
+            class="tb__link"
+            [attr.aria-pressed]="selectMode()"
+            (click)="toggleSelect.emit()"
+          >
+            {{ selectMode() ? 'Done' : 'Select' }}
+          </button>
+        }
+        <app-segmented
+          label="View"
+          size="sm"
+          [options]="viewOptions"
+          [value]="view()"
+          (valueChange)="viewChange.emit($event)"
+        />
+      </div>
     </div>
   `,
   styles: `
@@ -306,9 +308,33 @@ const VIEW_OPTIONS: readonly SegmentOption<InventoryView>[] = [
     .tb__spacer {
       flex: 1 1 auto;
     }
+    .tb__rest {
+      display: contents;
+    }
     @container (max-width: 940px) {
       .tb {
         flex-wrap: wrap;
+      }
+    }
+    /* A phone-sized window (spec 16): the search, then one row of filters that scrolls. */
+    @container (max-width: 600px) {
+      .tb__search {
+        flex: 1 1 100%;
+      }
+      .tb__rest {
+        display: flex;
+        flex: 1 1 100%;
+        align-items: center;
+        gap: 8px;
+        overflow-x: auto;
+        padding-bottom: 4px;
+      }
+      .tb__rest > * {
+        flex: none;
+      }
+      .tb__muted,
+      .tb__spacer {
+        display: none;
       }
     }
     .tb button:focus-visible,

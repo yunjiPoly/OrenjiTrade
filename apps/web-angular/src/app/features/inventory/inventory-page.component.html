@@ -366,6 +366,7 @@
               [binders]="store.binders() ?? []"
               [busy]="bulkBusy()"
               [compact]="!wide() || drawerOpen()"
+              [narrow]="layout.narrow()"
               (action)="onBulk($event)"
               (clear)="store.clearSelection()"
               (newBinder)="newBinderFromSelection()"

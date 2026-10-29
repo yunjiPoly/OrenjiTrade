@@ -112,7 +112,7 @@ export interface PhotoSlot {
     }
     .ps {
       display: grid;
-      grid-template-columns: repeat(4, 88px);
+      grid-template-columns: repeat(4, minmax(0, 88px));
       gap: 8px;
       margin: 0;
       padding: 0;
@@ -125,8 +125,7 @@ export interface PhotoSlot {
     }
     .ps__slot {
       position: relative;
-      width: 88px;
-      height: 88px;
+      aspect-ratio: 1;
       overflow: hidden;
       border-radius: 10px;
       background: var(--color-photo-backdrop);

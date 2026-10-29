@@ -342,11 +342,11 @@
     margin-left: auto;
   }
 
+  // A full-height sheet between the per-tab bar and the tab bar (both above Inventory's layer).
   .inv--drawer:not(.inv--push) .inv__drawer {
-    top: 0;
+    top: 64px;
     width: 100vw;
-    height: 100dvh;
-    z-index: 40;
+    height: calc(100dvh - 128px - env(safe-area-inset-bottom));
   }
 
   .inv__scrim {
