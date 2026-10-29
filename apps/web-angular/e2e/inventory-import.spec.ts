@@ -157,14 +157,18 @@ test.describe('inventory import (web WB)', () => {
       await expect(page.getByTestId('import-choose-bar')).toHaveCount(0, { timeout: 30_000 });
     }
     // A line the collector leaves out stays out (WB review F9): the row is patched
-    // { included: false } and the card is not added.
+    // { included: false } and the card is not added. While "Use the newest" reloads the rows
+    // every row control holds (aria-disabled, R2-1): the box is unchecked once the reload ends.
+    const knight = page.getByRole('checkbox', { name: 'Include Mirrorblade Knight' });
+    await expect(knight).toBeEnabled({ timeout: 30_000 });
+    await expect(knight).toBeChecked();
     const leftOut = page.waitForRequest(
       (request) =>
         request.method() === 'PATCH' &&
         /\/inventory\/imports\/[^/]+\/rows\/[^/]+$/.test(request.url()) &&
         request.postDataJSON()?.included === false,
     );
-    await page.getByRole('checkbox', { name: 'Include Mirrorblade Knight' }).uncheck();
+    await knight.uncheck();
     expect((await leftOut).postDataJSON()).toEqual({ included: false });
     await expect(page.getByTestId('import-row-1')).toContainText('Left out', { timeout: 30_000 });
     await expect(page.getByTestId('import-commit')).toHaveText(/Add 1 card\s*$/);
