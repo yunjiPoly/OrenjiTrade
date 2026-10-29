@@ -141,6 +141,27 @@ tags:
       ID: 'report-reason-HARASSMENT'
 - tapOn:
     id: 'report-reason-HARASSMENT'
+# At this size a reason's row is about a third of the screen tall: after the scroll its centre can
+# sit under the top bar, where the tap lands on the bar instead (owner decisions of 2026-10-28,
+# review fix 1, F4). Until the reason is chosen ("Choose a reason first." leaves the bottom bar),
+# the page moves down a little and the row is tapped again.
+- repeat:
+    while:
+      visible:
+        id: 'report-choose-first'
+    times: 3
+    commands:
+      - swipe:
+          start: 50%, 45%
+          end: 50%, 62%
+          duration: 600
+      - tapOn:
+          id: 'report-reason-HARASSMENT'
+- assertNotVisible:
+    id: 'report-choose-first'
+- assertVisible:
+    id: 'report-confirm'
+    enabled: true
 - tapOn:
     id: 'report-confirm'
 - extendedWaitUntil:

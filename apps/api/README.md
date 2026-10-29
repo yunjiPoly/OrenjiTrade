@@ -84,10 +84,15 @@ the health probes and the OpenAPI endpoints (ADR 0008). Inside the security filt
    users module (`AccountResolver`: role `USER`, status `ACTIVE`, handle derived from the email local
    part, numeric suffix on collision) and sets an `AuthenticatedUser` principal with `ROLE_<role>`
    authorities. A present-but-invalid token is a `401 UNAUTHENTICATED` problem straight away.
-   `last_active_at` is refreshed at most every 5 minutes (Redis `SET NX`).
+   `last_active_at` is refreshed at most every 5 minutes (Redis `SET NX`), never while a suspension
+   is in force; the identity provider's e-mail is synced on each request, except during a
+   suspension (it waits for the end; owner decisions of 2026-10-28, review fix 1).
 2. `AccountAccessFilter`: `SUSPENDED` → `403 ACCOUNT_SUSPENDED` (with `suspendedUntil` when temporary;
    expired suspensions are lifted automatically); `DELETION_REQUESTED` → only `GET /me` and
    `/me/deletion-requests` work, everything else is `403 ACCOUNT_SUSPENDED` "deletion pending".
+   On a public route the token of a refused account (a suspension in force, a deletion pending, a
+   deleted account) is dropped: the request reads what a signed-out visitor reads (places, never
+   who; review fix 1 of 2026-10-28).
 3. `RateLimitFilter` (see below).
 4. Authorization: `/api/v1/admin/**` needs `ADMIN` or `SUPER_ADMIN` **and**, when
    `orenji.security.admin.require-mfa=true` (default; `false` in `local`/`test`), an ID token whose
@@ -256,7 +261,8 @@ Contracts: `docs/api/contracts/phase2-catalog.md` (catalog) and
 stage F1 only the usage limits remain, the same for everyone, ADR 0019). Catalog reads are public
 GET routes (`SecurityConfig.PUBLIC_GET_PATTERNS`): no token needed, and a
 token of an account with pending consents or a suspension does not block them (same treatment as
-`/api/v1/public/**`). Other methods on those paths stay protected.
+`/api/v1/public/**`; a suspended, deletion-pending or deleted account reads them as a guest). Other
+methods on those paths stay protected.
 
 | Route | Module | Notes |
 | --- | --- | --- |
@@ -610,7 +616,7 @@ flags). Migrations V040–V042. Every route needs a signed-in, compliant account
 | Route | Notes |
 | --- | --- |
 | `GET /api/v1/conversations?cursor=&limit=20&archived=false` | `CursorPage<ConversationSummary>`, newest activity first; conversations hidden by a block (either direction) and empty conversations started by the other participant are omitted; `other.onlineStatus` is HIDDEN unless the participant shows it |
-| `POST /api/v1/conversations {recipientId}` | idempotent per pair (`conversation_pair`): 201 new, 200 existing, never 409; 400 oneself, 404 unknown/suspended/deleted recipient, 403 `MESSAGING_BLOCKED` for a block or (new conversations only) the recipient's `messagingPermission` (`PrivacyPolicyService.canMessage`); a caller the recipient blocked reads "This collector cannot receive messages right now", the blocker "You cannot message this collector" (owner decision of 2026-10-28) |
+| `POST /api/v1/conversations {recipientId}` | idempotent per pair (`conversation_pair`): 201 new, 200 existing, never 409; 400 oneself, 404 unknown/suspended/deleted recipient, 403 `MESSAGING_BLOCKED` for a block or (new conversations only) the recipient's `messagingPermission` (`PrivacyPolicyService.canMessage`); a caller the recipient blocked reads the NOBODY recipient's "This collector does not accept new conversations", the blocker "You cannot message this collector" (owner decision of 2026-10-28, review fix 1) |
 | `PATCH /api/v1/conversations/{id} {muted?, archived?}` | per participant; a new message un-archives for both |
 | `GET /api/v1/conversations/{id}/messages?cursor=&limit=50` | newest first; `readByOther` = the participant who did not send the message has read it; REMOVED messages keep their place with empty body and payload |
 | `POST /api/v1/conversations/{id}/messages {kind, body, cardPrintingId?, binderId?, offerId?, imageUploadId?}` | TEXT, CARD_LINK, BINDER_LINK (public binders only), IMAGE, OFFER_LINK (an offer between the two participants, Phase 8); SYSTEM is 400; moderation (422 `MESSAGE_BLOCKED`, FLAG rules store the message `FLAGGED`), rate rule 30/min (429 `RATE_LIMITED` + `retryAfterSeconds`); publishes `MessageSent`; pushed to both participants on `/user/queue/messages` after commit |
@@ -717,8 +723,10 @@ blocks removed in both directions, posts and replies deleted and erased.
   seeded Montréal per-game channels count).
 - Realtime pushes are made from the request thread after commit (so URLs are absolute like in the
   REST response) rather than from an event listener; `MessageSent` / `MessageRead` stay in the event
-  registry for Phases 6 and 7. Open sessions of an account suspended later are not closed (it can no
-  longer send through REST).
+  registry for Phases 6 and 7. Open sessions of an account suspended (or banned) later, or whose
+  deletion is requested or done, are closed (`RealtimeSessions`, owner decisions of 2026-10-28,
+  review fix 1); an instance that missed the event refuses such a session at its next presence
+  check (20 s).
 
 ## Wishlist, wishlist alerts, notifications (Phase 6, stage S2)
 
