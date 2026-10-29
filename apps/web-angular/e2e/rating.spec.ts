@@ -118,11 +118,9 @@ test.describe('ratings and references', () => {
     const page = await openSignedIn(browser, rater);
     const watcher = watchCoordinates(page);
     await page.goto(`/messages/${conversationId}`);
-    const thread = page.getByRole('region', { name: `Conversation with ${ratee.displayName}` });
-    await thread
-      .getByRole('button', { name: `Conversation options for ${ratee.displayName}` })
-      .click();
-    await expect(page.getByRole('menuitem', { name: `Rate ${ratee.displayName}` })).toBeVisible();
+    const thread = page.getByRole('region', { name: `Chat with ${ratee.handle}` });
+    await thread.getByRole('button', { name: `More for ${ratee.handle}` }).click();
+    await expect(page.getByRole('menuitem', { name: `Rate ${ratee.handle}` })).toBeVisible();
     await page.keyboard.press('Escape');
 
     // --- Rate from the profile -------------------------------------------------------------
@@ -134,7 +132,7 @@ test.describe('ratings and references', () => {
 
     const dialog = page.getByRole('dialog', { name: `Rate ${ratee.displayName}` });
     await expect(dialog).toContainText('Conversation');
-    await dialog.getByRole('button', { name: 'Submit rating' }).click();
+    await dialog.getByRole('button', { name: 'Publish rating' }).click();
     await expect(dialog.getByText('Choose an overall score from 1 to 5 stars.')).toBeVisible();
     const overall = dialog.getByRole('radiogroup', { name: 'Overall' });
     await overall.getByRole('radio', { name: '5 stars, Excellent' }).click();
@@ -143,16 +141,16 @@ test.describe('ratings and references', () => {
       'true',
     );
     const communication = dialog.getByRole('radiogroup', { name: 'Communication' });
-    await communication.getByRole('radio', { name: '3 stars, Good' }).click();
+    await communication.getByRole('radio', { name: '3 stars, Okay' }).click();
     // Keyboard: the right arrow raises the score to 4.
     await page.keyboard.press('ArrowRight');
-    await expect(communication.getByRole('radio', { name: '4 stars, Great' })).toHaveAttribute(
+    await expect(communication.getByRole('radio', { name: '4 stars, Good' })).toHaveAttribute(
       'aria-checked',
       'true',
     );
     const comment = `Friendly, on time and the card was exactly as described (${suffix()}).`;
     await dialog.getByRole('textbox', { name: 'Comment (optional)' }).fill(comment);
-    await dialog.getByRole('button', { name: 'Submit rating' }).click();
+    await dialog.getByRole('button', { name: 'Publish rating' }).click();
     await expect(
       page.getByText(`Thanks! Your rating of ${ratee.displayName} is published.`),
     ).toBeVisible();
@@ -178,7 +176,7 @@ test.describe('ratings and references', () => {
     ).toHaveAttribute('aria-checked', 'true');
     await edit
       .getByRole('radiogroup', { name: 'Overall' })
-      .getByRole('radio', { name: '4 stars, Great' })
+      .getByRole('radio', { name: '4 stars, Good' })
       .click();
     await edit.getByRole('button', { name: 'Save changes' }).click();
     await expect(page.getByText('Your rating is updated.')).toBeVisible();

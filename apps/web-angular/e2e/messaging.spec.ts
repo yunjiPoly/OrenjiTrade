@@ -109,7 +109,7 @@ test.describe('private messaging', () => {
     const watchB = watchCoordinates(pageB);
     await pageB.goto('/messages');
     await expect(pageB.getByRole('heading', { level: 1, name: 'Messages' })).toBeVisible();
-    await expect(pageB.getByRole('heading', { name: 'No conversations yet' })).toBeVisible();
+    await expect(pageB.getByRole('heading', { name: 'No chats yet' })).toBeVisible();
     await expectLive(pageB);
     // Marker to prove B's page is never reloaded.
     await pageB.evaluate(
@@ -128,45 +128,36 @@ test.describe('private messaging', () => {
     await expect(pageA).toHaveURL(new RegExp(`/collectors/${b.handle}$`));
     await pageA.getByRole('button', { name: `Message ${b.displayName}` }).click();
 
-    // The conversation opens full page.
+    // The chat drawer opens beside the profile (web WC, spec 10.6); "Open in Messages" goes full page.
+    const drawerA = pageA.getByTestId('chat-drawer');
+    await expect(drawerA).toBeVisible();
+    await expect(drawerA).toHaveAttribute('aria-modal', 'false');
+    await drawerA.getByTestId('open-in-messages').click();
     await expect(pageA).toHaveURL(/\/messages\/[0-9a-f-]{36}$/);
-    const threadA = pageA.getByRole('region', { name: `Conversation with ${b.displayName}` });
+    await expect(drawerA).toHaveCount(0);
+    const threadA = pageA.getByRole('region', { name: `Chat with ${b.handle}` });
     await expect(threadA).toBeVisible();
-    await expect(
-      threadA.getByRole('heading', { name: `Say hello to ${b.displayName}` }),
-    ).toBeVisible();
+    await expect(threadA.getByRole('heading', { name: `Say hello to ${b.handle}` })).toBeVisible();
     await expectLive(pageA);
 
     const hello = `Hi! Is your binder still up to date? ${suffix()}`;
     const composerA = threadA.getByRole('textbox', { name: 'Message' });
     await composerA.fill(hello);
     await composerA.press('Enter');
-    const logA = threadA.getByRole('log', { name: `Messages with ${b.displayName}` });
+    const logA = threadA.getByRole('log', { name: `Messages with ${b.handle}` });
     await expect(logA).toContainText(hello);
     await expect(composerA).toHaveValue('');
 
-    // Share a card through the autocomplete, with a caption.
-    await threadA.getByRole('button', { name: 'Attach a card, binder or photo' }).click();
-    await pageA.getByRole('menuitem', { name: 'Share a card' }).click();
-    const cardField = threadA.getByRole('combobox', { name: 'Card to share' });
-    await expect(cardField).toBeFocused();
-    await cardField.fill('AZR-EN001');
-    await pageA
-      .getByRole('option', { name: /Azure-Eyes Sky Dragon/ })
-      .first()
-      .click();
-    await expect(threadA.getByTestId('composer-attachment')).toContainText('Azure-Eyes Sky Dragon');
-    await composerA.fill('This one for trade?');
+    await composerA.fill('Is it for trade?');
     await threadA.getByRole('button', { name: 'Send message' }).click();
-    await expect(logA.getByRole('link', { name: /^Card: Azure-Eyes Sky Dragon/ })).toBeVisible();
-    await expect(logA).toContainText('This one for trade?');
+    await expect(logA).toContainText('Is it for trade?');
     await expect(logA.getByTestId('receipt-sent')).toBeVisible();
 
     // B: the conversation arrives without a reload, with two unread messages.
     const rowB = pageB.locator(`[data-conversation="${a.handle}"]`);
     await expect(rowB).toBeVisible({ timeout: 20_000 });
     await expect(rowB.getByTestId('unread-badge')).toHaveText('2');
-    await expect(rowB).toContainText('Card: Azure-Eyes Sky Dragon');
+    await expect(rowB).toContainText('Is it for trade?');
     expect(
       await pageB.evaluate(() => (window as unknown as { e2eNoReload?: boolean }).e2eNoReload),
     ).toBe(true);
@@ -174,13 +165,30 @@ test.describe('private messaging', () => {
     // B opens it: both messages, the shared card links to the catalog; A sees "Seen".
     await rowB.click();
     await expect(pageB).toHaveURL(/\/messages\/[0-9a-f-]{36}$/);
-    const threadB = pageB.getByRole('region', { name: `Conversation with ${a.displayName}` });
-    const logB = threadB.getByRole('log', { name: `Messages with ${a.displayName}` });
+    const threadB = pageB.getByRole('region', { name: `Chat with ${a.handle}` });
+    const logB = threadB.getByRole('log', { name: `Messages with ${a.handle}` });
     await expect(logB).toContainText(hello);
+    await expect(rowB.getByTestId('unread-badge')).toHaveCount(0);
+
+    // B shares one of their own cards from the "+" menu (a 520 picker): it pins the chat.
+    await threadB.getByRole('button', { name: 'Share in this chat' }).click();
+    await pageB.getByRole('menuitem', { name: 'Share a card from your inventory' }).click();
+    const picker = pageB.getByRole('dialog', { name: 'Share a card from your inventory' });
+    await expect(picker).toBeVisible();
+    await picker.getByRole('searchbox').fill('Azure');
+    await picker.getByRole('button', { name: /^Share Azure-Eyes Sky Dragon/ }).click();
+    await expect(picker).toBeHidden();
     await expect(
       logB.getByRole('link', { name: /^Card: Azure-Eyes Sky Dragon, AZR-EN001/ }),
     ).toHaveAttribute('href', /\/cards\/[0-9a-f-]{36}\?printing=[0-9a-f-]{36}$/);
-    await expect(rowB.getByTestId('unread-badge')).toHaveCount(0);
+    await expect(logA.getByRole('link', { name: /^Card: Azure-Eyes Sky Dragon/ })).toBeVisible({
+      timeout: 15_000,
+    });
+    // The pinned bar follows the pin on both sides (stage R4's /user/queue/conversations).
+    await expect(threadB.getByTestId('pinned-bar')).toContainText('Azure-Eyes Sky Dragon');
+    await expect(threadA.getByTestId('pinned-bar')).toContainText('Azure-Eyes Sky Dragon', {
+      timeout: 15_000,
+    });
     await expect(logA.getByTestId('receipt-seen')).toBeVisible({ timeout: 20_000 });
 
     // B types: A sees the typing indicator, then B's answer live.
@@ -207,25 +215,27 @@ test.describe('private messaging', () => {
       .toBeGreaterThan(0);
 
     // A blocks B from the conversation menu (which also offers "Report collector" since Phase 7).
-    await threadA
-      .getByRole('button', { name: `Conversation options for ${b.displayName}` })
-      .click();
-    await expect(pageA.getByRole('menuitem', { name: 'Report collector' })).toBeEnabled();
-    await pageA.getByRole('menuitem', { name: `Block ${b.displayName}` }).click();
-    const confirm = pageA.getByRole('dialog', { name: `Block ${b.displayName}?` });
+    await threadA.getByRole('button', { name: `More for ${b.handle}` }).click();
+    await expect(pageA.getByRole('menuitem', { name: `Report ${b.handle}` })).toBeEnabled();
+    await pageA.getByRole('menuitem', { name: `Block ${b.handle}` }).click();
+    const confirm = pageA.getByRole('dialog', { name: `Block ${b.handle}?` });
     await expect(confirm).toBeVisible();
     await confirm.getByRole('button', { name: 'Block' }).click();
-    await expect(pageA.getByText(`${b.displayName} is blocked.`)).toBeVisible();
+    await expect(pageA.getByText(`${b.handle} is blocked.`)).toBeVisible();
     await expect(threadA.getByRole('status').filter({ hasText: 'You blocked' })).toBeVisible();
     await expect(threadA.getByRole('button', { name: 'Send message' })).toBeDisabled();
 
     // B can no longer send anything, nor start a new conversation.
     await composerB.fill('Hello?');
     await composerB.press('Enter');
+    // The blocked side reads an inactive collector's words: the block is never told apart.
     await expect(threadB.getByTestId('send-error')).toContainText(
-      'You cannot message this collector',
+      'This collector cannot receive messages right now.',
     );
-    await expect(threadB.getByText(`You can no longer message ${a.displayName}`)).toBeVisible();
+    await expect(threadB.getByTestId('cannot-receive')).toContainText(
+      'This collector cannot receive messages right now.',
+    );
+    await expect(threadB).not.toContainText(/blocked/i);
     await expect(logA).not.toContainText('Hello?');
     const refused = await request.post(`${API_URL}/api/v1/conversations`, {
       headers: authHeader(b.idToken),
@@ -263,8 +273,9 @@ test.describe('private messaging', () => {
     await page.goto(`/collectors/${b.handle}`);
     await expect(page.getByRole('heading', { level: 1, name: b.displayName })).toBeVisible();
     await page.getByRole('button', { name: `Message ${b.displayName}` }).click();
+    await page.getByTestId('chat-drawer').getByTestId('open-in-messages').click();
     await expect(page).toHaveURL(/\/messages\/[0-9a-f-]{36}$/);
-    const thread = page.getByRole('region', { name: `Conversation with ${b.displayName}` });
+    const thread = page.getByRole('region', { name: `Chat with ${b.handle}` });
     await expect(thread).toBeVisible();
     await expect(
       page
@@ -291,7 +302,7 @@ test.describe('private messaging', () => {
     await thread.getByRole('textbox', { name: 'Message' }).fill('The page I mentioned');
     await thread.getByRole('button', { name: 'Send message' }).click();
 
-    const log = thread.getByRole('log', { name: `Messages with ${b.displayName}` });
+    const log = thread.getByRole('log', { name: `Messages with ${b.handle}` });
     const photo = log.getByRole('img', { name: 'Photo sent in the conversation' });
     await expect(photo).toBeVisible({ timeout: 20_000 });
     await expect

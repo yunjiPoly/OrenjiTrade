@@ -467,10 +467,14 @@ export class ThreadViewComponent {
         }
         break;
       case 'report':
-        await this.reports.report(collector, {
-          source: 'CONVERSATION',
-          conversationId: conversation.id,
-        });
+        // The dialog is titled with the handle and shows the name beside it (spec 10.5).
+        await this.reports.report(
+          { ...collector, displayName: conversation.other.displayName },
+          {
+            source: 'CONVERSATION',
+            conversationId: conversation.id,
+          },
+        );
         break;
       case 'rate':
         await this.rate();
