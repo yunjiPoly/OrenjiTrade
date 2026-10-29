@@ -124,7 +124,9 @@ caller who blocked the owner (also when both blocked each other).
   inactive participants, the messaging permission); its `title` "Messaging blocked" is the code's
   and the same for all of them. The phone and the paused web word a refusal by its `errorCode`
   ("You cannot message this collector. They may have blocked messages or you blocked them."), so
-  neither changed.
+  neither changed. Since web stage WC (2026-10-29) the web words that refusal "This collector cannot
+  receive messages right now." in the chat, its composer and a profile's Message, never naming a
+  block; the blocker alone reads "You blocked {handle}…" in the chat.
 - Accepted limits, recorded as owner follow-ups (`IMPLEMENTATION_STATUS.md`), each outside the
   profile's own reads or inherent to a block:
   - the conversation of a blocked pair leaves both inboxes at the block and its reads answer the
