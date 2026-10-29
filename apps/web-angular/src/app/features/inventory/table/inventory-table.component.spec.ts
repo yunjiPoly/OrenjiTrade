@@ -162,4 +162,24 @@ describe('InventoryTableComponent (spec 9.4)', () => {
     ).binderOptions(item('a'));
     expect(options.map((option) => option.name)).toEqual(['Trades', 'Unfiled']);
   });
+
+  it('says the copies of a row, and a busy row keeps its controls focusable (A3, A1)', async () => {
+    const first = element.querySelector('[data-item-id="a"]')!;
+    expect(first.querySelector('.c-copies')!.textContent).toContain('1 copy');
+    expect(first.querySelector('.stepper__n')!.getAttribute('aria-live')).toBeNull();
+    fixture.componentRef.setInput('rows', [row('a', { busy: true })]);
+    await fixture.whenStable();
+    const tag = element.querySelector<HTMLButtonElement>('[data-item-id="a"] .cellbtn--tag')!;
+    const more = element.querySelector<HTMLButtonElement>('[aria-label="One more Card a"]')!;
+    expect(tag.disabled).toBe(false);
+    expect(tag.getAttribute('aria-disabled')).toBe('true');
+    expect(more.disabled).toBe(false);
+    expect(more.getAttribute('aria-disabled')).toBe('true');
+    const steps: number[] = [];
+    fixture.componentInstance.quantityChange.subscribe((change) => steps.push(change.quantity));
+    tag.click();
+    more.click();
+    expect(actions).toEqual([]);
+    expect(steps).toEqual([]);
+  });
 });

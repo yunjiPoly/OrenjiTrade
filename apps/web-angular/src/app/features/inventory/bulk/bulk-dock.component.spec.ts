@@ -56,6 +56,23 @@ describe('BulkDockComponent (spec 9.6)', () => {
     ]);
   });
 
+  it('keeps its buttons focusable while an action runs, and ignores them (F7, A1)', async () => {
+    fixture.componentRef.setInput('busy', true);
+    await fixture.whenStable();
+    const makePublic = button('Make public');
+    makePublic.focus();
+    expect(document.activeElement).toBe(makePublic);
+    expect(makePublic.disabled).toBe(false);
+    expect(makePublic.getAttribute('aria-disabled')).toBe('true');
+    makePublic.click();
+    button('Delete').click();
+    expect(emitted).toEqual([]);
+    fixture.componentRef.setInput('busy', false);
+    await fixture.whenStable();
+    expect(makePublic.getAttribute('aria-disabled')).toBeNull();
+    expect(document.activeElement).toBe(makePublic);
+  });
+
   it('dims a binder of another game than every selected card', () => {
     const dock = fixture.componentInstance as unknown as { takes: (b: unknown) => boolean };
     expect(dock.takes(binder('y'))).toBe(true);

@@ -2,6 +2,7 @@ import { binder } from '../testing/fixtures';
 import {
   BINDER_COPY,
   binderFormChanged,
+  binderEnds,
   binderFormOf,
   binderLine,
   deckCoreTag,
@@ -75,6 +76,17 @@ describe('Edit binder and New binder (spec 9.12)', () => {
         }),
       ),
     ).toBe('2 photos · Private');
+    // A temporary publication of the old web says when it ends while it runs (U9).
+    const now = Date.parse('2026-10-28T12:00:00Z');
+    const temporary = binder('t', {
+      itemCount: 3,
+      visibility: 'TEMPORARILY_PUBLIC' as never,
+      publicUntil: '2026-10-29T12:00:00Z',
+    });
+    expect(binderEnds(temporary, now)).toMatch(/^ends /);
+    expect(binderLine(temporary, now)).toMatch(/^3 cards · Public · ends /);
+    expect(binderEnds({ ...temporary, publicUntil: '2026-10-27T12:00:00Z' }, now)).toBeNull();
+    expect(binderEnds(binder('p', { visibility: 'PUBLIC' as never }), now)).toBeNull();
     expect(deckCoreTag('$180')).toBe('Deck core · $180');
     expect(deckCoreTag(null)).toBe('Deck core');
     expect(BINDER_COPY.limit(5)).toBe(

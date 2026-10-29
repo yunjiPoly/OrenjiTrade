@@ -120,11 +120,12 @@ test.describe('inventory import (web WB)', () => {
     expect(deckCards).toBeGreaterThanOrEqual(2);
     await expect(page.locator('footer').getByText(`${deckCards} cards ·`)).toBeVisible();
 
-    // Done: what was added, and what stayed out.
+    // Done: what was added, and what stayed out. Its heading takes the focus (WB review A2).
     await page.getByTestId('import-commit').click();
     await expect(page.getByTestId('import-done')).toHaveText(`${deckCards} cards added`, {
       timeout: 30_000,
     });
+    await expect(page.getByTestId('import-done')).toBeFocused();
     await expect(
       page.getByText('They start private. Make the ones you trade public from Inventory.'),
     ).toBeVisible();
@@ -152,9 +153,26 @@ test.describe('inventory import (web WB)', () => {
       await page.getByTestId('import-newest').click();
       await expect(page.getByTestId('import-choose-bar')).toHaveCount(0, { timeout: 30_000 });
     }
+    // A line the collector leaves out stays out (WB review F9): the row is patched
+    // { included: false } and the card is not added.
+    const leftOut = page.waitForRequest(
+      (request) =>
+        request.method() === 'PATCH' &&
+        /\/inventory\/imports\/[^/]+\/rows\/[^/]+$/.test(request.url()) &&
+        request.postDataJSON()?.included === false,
+    );
+    await page.getByRole('checkbox', { name: 'Include Mirrorblade Knight' }).uncheck();
+    expect((await leftOut).postDataJSON()).toEqual({ included: false });
+    await expect(page.getByTestId('import-row-1')).toContainText('Left out', { timeout: 30_000 });
+    await expect(page.getByTestId('import-commit')).toHaveText(/Add 1 card$/);
     await page.getByTestId('import-commit').click();
-    await expect(page.getByTestId('import-done')).toHaveText('2 cards added', { timeout: 30_000 });
-    expect(await itemCount(page, collector.idToken)).toBe(deckCards + 2);
+    await expect(page.getByTestId('import-done')).toHaveText('1 card added', { timeout: 30_000 });
+    expect(await itemCount(page, collector.idToken)).toBe(deckCards + 1);
+    const items = await page.request.get(`${API_URL}/api/v1/inventory/items`, {
+      headers: authHeader(collector.idToken),
+      params: { size: 100, query: 'Mirrorblade' },
+    });
+    expect(((await items.json()) as { totalItems: number }).totalItems).toBe(0);
 
     // A file the server refuses says why, in plain words.
     await page.getByRole('button', { name: 'Import another file' }).click();
