@@ -1,0 +1,113 @@
+# Account suspended (mockup v50 screen 44; owner decision of 2026-10-28, R8 follow-up 2 and R12
+# follow-up 3): a suspension leaves the login on. Sam (fresh, fictional) is signed in on the phone
+# when the seed admin suspends him through the API (scripts/suspension.js) until a date: his next
+# request (a page it has not loaded yet) lands on "Your account is suspended" with "The suspension ends on
+# {date}.", the appeal line and Sign out, never on "Your session has ended". He signs out and in
+# again and sees it again. Suspended a second time with no end, he signs in again and sees no
+# date.
+appId: ${APP_ID}
+name: A collector suspended while signed in sees Account suspended, and again after signing in
+tags:
+  - owner-decisions-1028
+  - auth
+---
+- runScript:
+    file: scripts/suspension.js
+    env:
+      ACTION: setup
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.sam.email}
+      PASSWORD: ${output.sam.password}
+- extendedWaitUntil:
+    visible:
+      id: 'tab-messages'
+    timeout: 60000
+
+# Suspended while signed in: the next request shows screen 44 with its end date.
+- runScript:
+    file: scripts/suspension.js
+    env:
+      ACTION: suspend
+      ID: ${output.sam.id}
+      DAYS: '5'
+# The next request the phone makes (here a page it has not loaded yet; a stale list, a write or
+# coming back to the app do the same): data it read in the last minute is shown from its cache.
+- openLink: ${APP_URL}/--/settings/blocked
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'screen-suspended'
+    timeout: 60000
+- assertVisible: 'Your account is suspended'
+- assertVisible:
+    id: 'suspension-until'
+    text: 'The suspension ends on ${output.suspension.untilText}\.'
+- assertVisible: '.*If you think this is a mistake, write to support@orenjitrade\.com.*'
+- assertVisible:
+    id: 'suspended-guidelines'
+- assertNotVisible: 'Your session has ended.*'
+- takeScreenshot: od-suspended-signed-in
+
+# Sign out, then sign in again: screen 44 again, with the same date.
+- tapOn:
+    id: 'suspended-sign-out'
+- extendedWaitUntil:
+    visible:
+      id: 'person-button-home'
+    timeout: 60000
+# Signing in again (a cleared app, as on another phone: Sign in keeps the fields of the session
+# that just ended, which typing would add to).
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.sam.email}
+      PASSWORD: ${output.sam.password}
+- extendedWaitUntil:
+    visible:
+      id: 'screen-suspended'
+    timeout: 60000
+- assertVisible:
+    id: 'suspension-until'
+    text: 'The suspension ends on ${output.suspension.untilText}\.'
+- assertNotVisible: 'This account has been disabled.*'
+- takeScreenshot: od-suspended-signed-in-again
+
+# Suspended again without an end: no date after the next sign-in.
+- runScript:
+    file: scripts/suspension.js
+    env:
+      ACTION: suspend
+      ID: ${output.sam.id}
+      DAYS: none
+- tapOn:
+    id: 'suspended-sign-out'
+- extendedWaitUntil:
+    visible:
+      id: 'person-button-home'
+    timeout: 60000
+# Signing in again (a cleared app, as on another phone: Sign in keeps the fields of the session
+# that just ended, which typing would add to).
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.sam.email}
+      PASSWORD: ${output.sam.password}
+- extendedWaitUntil:
+    visible:
+      id: 'screen-suspended'
+    timeout: 60000
+- assertVisible: 'Your account is suspended'
+- assertNotVisible:
+    id: 'suspension-until'
+- takeScreenshot: od-suspended-open-ended
+- tapOn:
+    id: 'suspended-sign-out'
+- extendedWaitUntil:
+    visible:
+      id: 'person-button-home'
+    timeout: 60000

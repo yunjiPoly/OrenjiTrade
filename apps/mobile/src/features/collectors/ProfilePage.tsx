@@ -127,6 +127,7 @@ export function ProfilePage({
     <View style={styles.message}>
       <Button
         label={PROFILE_COPY.message(profile.handle)}
+        handleInLabel
         icon="message-text-outline"
         loading={startingId === profile.id}
         loadingLabel={PROFILE_COPY.opening}

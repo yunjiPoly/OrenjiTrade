@@ -11,6 +11,7 @@ import { CardImage } from '@/src/components/ui/CardImage';
 import { Text } from '@/src/components/ui/Text';
 import { safeCardImageUrl } from '@/src/lib/cardImages';
 import { fontFamily, fontWeight, radius, spacing, useTheme } from '@/src/theme';
+import { HandleText } from '@/src/components/ui/HandleText';
 
 import { ROOM_COPY } from './communityCopy';
 import { postPlace, postTime } from './communityHelpers';
@@ -229,9 +230,9 @@ function SharedBinder({ binder }: { binder: BinderLink }) {
             {price ? <Text style={[styles.price, { color: palette.ink }]}>{price}</Text> : null}
           </View>
         ) : (
-          <Text numberOfLines={1} style={[styles.small, { color: palette.textMuted }]}>
+          <HandleText style={[styles.small, { color: palette.textMuted }]}>
             {binder.ownerHandle}
-          </Text>
+          </HandleText>
         )}
       </View>
     </Pressable>
@@ -327,10 +328,10 @@ export function RoomPost({ post, own, onMore }: RoomPostProps) {
               pressed && styles.pressed,
             ]}
           >
-            <Text numberOfLines={large ? 3 : 1} style={[styles.handle, { color: palette.ink }]}>
+            <HandleText style={[styles.handle, { color: palette.ink }]}>
               {handle}
               {own ? <Text style={{ color: palette.primary }}> · {ROOM_COPY.you}</Text> : null}
-            </Text>
+            </HandleText>
             {large ? (
               // Under the handle, as many lines as a long province needs: a cap cut the time
               // ("Community of / Madrid · 12:1…", stage R11 review fix 2).

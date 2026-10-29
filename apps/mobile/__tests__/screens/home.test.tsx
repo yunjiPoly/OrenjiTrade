@@ -8,6 +8,7 @@ import { useBrowsingGameStore } from '@/src/features/games/browsingGame';
 import { GET_STARTED_STORAGE_PREFIX } from '@/src/features/home/getStarted';
 import { HomeScreen } from '@/src/features/home/HomeScreen';
 import { peekPendingDraft } from '@/src/features/messages/pendingDraft';
+import { HANDLE_MAX_FONT_SCALE } from '@/src/theme';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
@@ -570,6 +571,10 @@ describe('Home at the largest text size', () => {
       'numberOfLines',
       1
     );
+    // Owner decision of 2026-10-28: the poster's handle on a line of its own, capped.
+    const who = screen.getByTestId(`home-post-${SINGLE.id}-who`);
+    expect(who).toHaveProp('numberOfLines', 1);
+    expect(who).toHaveProp('maxFontSizeMultiplier', HANDLE_MAX_FONT_SCALE);
   });
 });
 

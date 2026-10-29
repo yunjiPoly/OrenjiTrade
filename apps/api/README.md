@@ -84,10 +84,15 @@ the health probes and the OpenAPI endpoints (ADR 0008). Inside the security filt
    users module (`AccountResolver`: role `USER`, status `ACTIVE`, handle derived from the email local
    part, numeric suffix on collision) and sets an `AuthenticatedUser` principal with `ROLE_<role>`
    authorities. A present-but-invalid token is a `401 UNAUTHENTICATED` problem straight away.
-   `last_active_at` is refreshed at most every 5 minutes (Redis `SET NX`).
+   `last_active_at` is refreshed at most every 5 minutes (Redis `SET NX`), never while a suspension
+   is in force; the identity provider's e-mail is synced on each request, except during a
+   suspension (it waits for the end; owner decisions of 2026-10-28, review fix 1).
 2. `AccountAccessFilter`: `SUSPENDED` → `403 ACCOUNT_SUSPENDED` (with `suspendedUntil` when temporary;
    expired suspensions are lifted automatically); `DELETION_REQUESTED` → only `GET /me` and
    `/me/deletion-requests` work, everything else is `403 ACCOUNT_SUSPENDED` "deletion pending".
+   On a public route the token of a refused account (a suspension in force, a deletion pending, a
+   deleted account) is dropped: the request reads what a signed-out visitor reads (places, never
+   who; review fix 1 of 2026-10-28).
 3. `RateLimitFilter` (see below).
 4. Authorization: `/api/v1/admin/**` needs `ADMIN` or `SUPER_ADMIN` **and**, when
    `orenji.security.admin.require-mfa=true` (default; `false` in `local`/`test`), an ID token whose
@@ -102,8 +107,11 @@ the health probes and the OpenAPI endpoints (ADR 0008). Inside the security filt
 Roles live in `user_role` (`USER` always kept). `PUT /api/v1/admin/users/{id}/roles` may grant or
 revoke `ADMIN`/`SUPER_ADMIN` only when the caller is a `SUPER_ADMIN`, and nobody can drop their own
 `SUPER_ADMIN`. Every admin write (`suspend`, `unsuspend`, `roles`) is recorded in `audit_log` with the
-request id and mirrored to the identity provider (`IdentityAdminClient` disables/enables the Firebase
-user). `GET /api/v1/admin/audit-logs` queries the log.
+request id. A suspension leaves the Firebase user enabled with its refresh tokens (owner decision of
+2026-10-28): the collector signs in and sees "Account suspended" with its end date, while
+`AccountAccessFilter` and the realtime handshake refuse the account from its own state; `unsuspend`
+enables the Firebase user (`IdentityAdminClient`), and a ban (a report decision) disables it.
+`GET /api/v1/admin/audit-logs` queries the log.
 
 ### Test tokens (profile `test`)
 
@@ -173,7 +181,7 @@ unless stated.
 | `POST/DELETE /api/v1/me/profile/avatar` | profiles | multipart `file`, JPEG/PNG/WebP ≤ 5 MB (type sniffed from the bytes; 413/415/400), header-checked dimensions (≤ 8192 px, ≤ 40 MP), centre cover-crop to 512×512, re-encoded **JPEG** without any metadata (see "Deviations"), stored through `ObjectStorage` under a random key; the previous object is deleted after commit |
 | `GET /api/v1/tags?query=&category=&limit=` | profiles | active tags, accent/case-insensitive substring, prefix matches first, then by usage |
 | `PUT /api/v1/me/profile/tags` | profiles | `tagIds` + `customLabels` (2-24 chars, banned-term check scope `TAG`), max 12; custom labels reuse the tag with the same slug or create a `CUSTOM` tag; usage counts recomputed |
-| `GET /api/v1/collectors/{handle}` | profiles | public view per `PrivacyPolicyService`; 404 for unknown / suspended / deletion-pending / deleted accounts and for PRIVATE profiles (except the owner); `location` only for discoverable collectors (state or province and country, plus the city while the owner shows it); `onlineStatus` OFFLINE/HIDDEN until presence exists; `publicBinderCount`, `rating`, `isBlocked` come from optional provider beans (`PublicBinderCountProvider`, `RatingSummaryProvider`, `BlockRelationProvider`, `PresenceProvider`) |
+| `GET /api/v1/collectors/{handle}` | profiles | public view per `PrivacyPolicyService`; 404 for unknown / suspended / deletion-pending / deleted accounts, for PRIVATE profiles (except the owner) and for a caller the collector blocked (the unknown handle's answer; owner decision of 2026-10-28); `location` only for discoverable collectors (state or province and country, plus the city while the owner shows it); `onlineStatus` OFFLINE/HIDDEN until presence exists; `publicBinderCount`, `rating`, `isBlocked` come from optional provider beans (`PublicBinderCountProvider`, `RatingSummaryProvider`, `BlockRelationProvider`, `PresenceProvider`) |
 | `GET /api/v1/regions` | location | public: platform regions, countries, subdivisions (ADR 0017) |
 | `GET/PUT/DELETE /api/v1/me/location` | location | the declared country, subdivision, optional city and `showCity`; unknown codes 400; DELETE turns discoverability off |
 | `GET/PUT /api/v1/me/settings/privacy` | profiles | safe defaults (not discoverable, online status hidden, MEMBERS, MEMBERS_WITH_PROFILE, wishlist hidden); becoming `discoverable` needs a location (409 `LOCATION_REQUIRED`) |
@@ -253,7 +261,8 @@ Contracts: `docs/api/contracts/phase2-catalog.md` (catalog) and
 stage F1 only the usage limits remain, the same for everyone, ADR 0019). Catalog reads are public
 GET routes (`SecurityConfig.PUBLIC_GET_PATTERNS`): no token needed, and a
 token of an account with pending consents or a suspension does not block them (same treatment as
-`/api/v1/public/**`). Other methods on those paths stay protected.
+`/api/v1/public/**`; a suspended, deletion-pending or deleted account reads them as a guest). Other
+methods on those paths stay protected.
 
 | Route | Module | Notes |
 | --- | --- | --- |
@@ -433,7 +442,9 @@ Item public ⇔ visibility PUBLIC or TEMPORARILY_PUBLIC not expired ∧ binder p
 freshness ≠ HIDDEN ∧ not deleted ∧ game ACTIVE ∧ owner listed. Binder public ⇔ same visibility and
 expiry rule ∧ binder freshness ≠ HIDDEN ∧ owner listed. Owner listed ⇔ account ACTIVE (or a temporary
 suspension already over) ∧ (discoverable ∨ profile PUBLIC) ∧ profile ≠ PRIVATE. Public collectors are
-404 when suspended, pending deletion, deleted, PRIVATE or blocked (`BlockRelationProvider`, Phase 5).
+404 when suspended, pending deletion, deleted, PRIVATE or blocked (`BlockRelationProvider`, Phase 5;
+the blocked side reads the profile, its ratings and references as an unknown handle, decided before
+any of the collector's data is read: owner decision of 2026-10-28).
 `PublicVisibilityRules` holds the SQL fragments and a pure Java twin (`VisibilityRulesTest`); every
 public read evaluates them live (expiries apply at once).
 
@@ -605,7 +616,7 @@ flags). Migrations V040–V042. Every route needs a signed-in, compliant account
 | Route | Notes |
 | --- | --- |
 | `GET /api/v1/conversations?cursor=&limit=20&archived=false` | `CursorPage<ConversationSummary>`, newest activity first; conversations hidden by a block (either direction) and empty conversations started by the other participant are omitted; `other.onlineStatus` is HIDDEN unless the participant shows it |
-| `POST /api/v1/conversations {recipientId}` | idempotent per pair (`conversation_pair`): 201 new, 200 existing, never 409; 400 oneself, 404 unknown/suspended/deleted recipient, 403 `MESSAGING_BLOCKED` for a block or (new conversations only) the recipient's `messagingPermission` (`PrivacyPolicyService.canMessage`) |
+| `POST /api/v1/conversations {recipientId}` | idempotent per pair (`conversation_pair`): 201 new, 200 existing, never 409; 400 oneself, 404 unknown/suspended/deleted recipient, 403 `MESSAGING_BLOCKED` for a block or (new conversations only) the recipient's `messagingPermission` (`PrivacyPolicyService.canMessage`); a caller the recipient blocked reads the NOBODY recipient's "This collector does not accept new conversations", the blocker "You cannot message this collector" (owner decision of 2026-10-28, review fix 1) |
 | `PATCH /api/v1/conversations/{id} {muted?, archived?}` | per participant; a new message un-archives for both |
 | `GET /api/v1/conversations/{id}/messages?cursor=&limit=50` | newest first; `readByOther` = the participant who did not send the message has read it; REMOVED messages keep their place with empty body and payload |
 | `POST /api/v1/conversations/{id}/messages {kind, body, cardPrintingId?, binderId?, offerId?, imageUploadId?}` | TEXT, CARD_LINK, BINDER_LINK (public binders only), IMAGE, OFFER_LINK (an offer between the two participants, Phase 8); SYSTEM is 400; moderation (422 `MESSAGE_BLOCKED`, FLAG rules store the message `FLAGGED`), rate rule 30/min (429 `RATE_LIMITED` + `retryAfterSeconds`); publishes `MessageSent`; pushed to both participants on `/user/queue/messages` after commit |
@@ -692,7 +703,9 @@ blocks removed in both directions, posts and replies deleted and erased.
 - `POST /conversations` answers 201 for a new conversation and 200 for an existing one.
 - The recipient's messaging permission applies to **new** conversations; existing conversations
   continue unless a block exists. Messages to suspended, deletion-pending or deleted participants are
-  403 `MESSAGING_BLOCKED`; conversations hidden by a block answer 404 to reads and 403 to sends.
+  403 `MESSAGING_BLOCKED`; conversations hidden by a block answer 404 to reads and 403 to sends (the
+  blocked side with the inactive participant's words, "This collector cannot receive messages right
+  now", since the owner decision of 2026-10-28).
 - Additive: `MessageResponse.conversationId`; `CardLink.cardId` (its `id` is the printing id);
   `ConversationSummary.createdAt`; `LastMessage.id`; `GET /conversations?archived=`;
   `ImageUploadResponse.width` / `height` / `expiresAt`; `PostResponse.channelSlug` /
@@ -710,8 +723,10 @@ blocks removed in both directions, posts and replies deleted and erased.
   seeded Montréal per-game channels count).
 - Realtime pushes are made from the request thread after commit (so URLs are absolute like in the
   REST response) rather than from an event listener; `MessageSent` / `MessageRead` stay in the event
-  registry for Phases 6 and 7. Open sessions of an account suspended later are not closed (it can no
-  longer send through REST).
+  registry for Phases 6 and 7. Open sessions of an account suspended (or banned) later, or whose
+  deletion is requested or done, are closed (`RealtimeSessions`, owner decisions of 2026-10-28,
+  review fix 1); an instance that missed the event refuses such a session at its next presence
+  check (20 s).
 
 ## Wishlist, wishlist alerts, notifications (Phase 6, stage S2)
 
@@ -849,7 +864,7 @@ views), `notifications` (statistics, broadcast), `analytics` (local aggregate, s
 | `GET /api/v1/admin/reports/{id}` | MODERATOR+ | `ReportDetail`: reporter, reported collector (status, suspension, ban mark), context, `moderatorNotes`, `history` (recent reports, ratings received, posts/replies removed, suspension and pause audit entries, current listing status, open account flags) and, only when the context names a conversation, that conversation's latest 50 messages (audited `report.conversation.view`) |
 | `POST /api/v1/admin/reports/{id}/assign {assigneeId?}` | MODERATOR+ | to the caller or another active moderator; OPEN → UNDER_REVIEW; 409 when decided; audited `report.assign` |
 | `POST /api/v1/admin/reports/{id}/notes {body}` | MODERATOR+ | 201 note; audited `report.note` (note id only) |
-| `POST /api/v1/admin/reports/{id}/resolve {status, action, note, notifyReporter, suspendUntil?}` | MODERATOR+ (SUSPENDED/BANNED: ADMIN+) | ACTIONED with WARNING (SYSTEM notice `data.kind=MODERATION_WARNING` to the collector), LISTINGS_PAUSED (pause source MODERATION), SUSPENDED (`UserAccountService.suspend` with the note as reason, optional future `suspendUntil`, identity user disabled, audited `user.suspend`) or BANNED (suspension without end + `user_account.banned_at`, audited `user.ban`); DISMISSED with NONE. An administrator's account needs a SUPER_ADMIN; nobody decides a report about themselves. Audited `REPORT_RESOLVED` with the action in the same transaction; `notifyReporter` sends REPORT_DECISION ("reviewed and took action" / "did not find a violation", no specifics). When no report against the collector stays open: their REPORT_THRESHOLD flags are resolved and, for NONE/WARNING, the review pause is lifted |
+| `POST /api/v1/admin/reports/{id}/resolve {status, action, note, notifyReporter, suspendUntil?}` | MODERATOR+ (SUSPENDED/BANNED: ADMIN+) | ACTIONED with WARNING (SYSTEM notice `data.kind=MODERATION_WARNING` to the collector), LISTINGS_PAUSED (pause source MODERATION), SUSPENDED (`UserAccountService.suspend` with the note as reason, optional future `suspendUntil`, the identity user left enabled since the owner decision of 2026-10-28, audited `user.suspend`) or BANNED (suspension without end + `user_account.banned_at`, identity user disabled, audited `user.ban`); DISMISSED with NONE. An administrator's account needs a SUPER_ADMIN; nobody decides a report about themselves. Audited `REPORT_RESOLVED` with the action in the same transaction; `notifyReporter` sends REPORT_DECISION ("reviewed and took action" / "did not find a violation", no specifics). When no report against the collector stays open: their REPORT_THRESHOLD flags are resolved and, for NONE/WARNING, the review pause is lifted |
 | `GET /api/v1/admin/users/{id}/history` | ADMIN+ | the same history as the report detail, never private messages |
 | `GET /api/v1/admin/moderation/rules?scope=&kind=` | MODERATOR+ | every rule (`ModerationRule`) |
 | `POST /api/v1/admin/moderation/rules`, `PUT …/{id}`, `DELETE …/{id}` | ADMIN+ (403 for moderators) | kind/scope combinations checked (BANNED_TERM for MESSAGE/POST/TAG/PROFILE, RATE_LIMIT for MESSAGE/POST/REPORT, THRESHOLD for MESSAGE/POST, REPORT_THRESHOLD for REPORT), regular expressions compiled, rate patterns `<count>/<seconds>`; audited `moderation.rule.create/update/delete`; caches dropped after commit (other instances within 60 s) |

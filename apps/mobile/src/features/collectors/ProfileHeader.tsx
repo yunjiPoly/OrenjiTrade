@@ -12,6 +12,7 @@ import {
   useStackedRows,
   useTheme,
 } from '@/src/theme';
+import { HandleText } from '@/src/components/ui/HandleText';
 
 import { PROFILE_COPY } from './profileCopy';
 import { profileChips, profileLine, ratingText } from './profileRules';
@@ -77,12 +78,12 @@ export function ProfileHeader({ profile, own, onRating, onLocation }: ProfileHea
               {profile.displayName}
             </Text>
             <View style={styles.handleRow}>
-              <Text
+              <HandleText
                 testID={own ? 'profile-handle-label' : 'collector-handle'}
                 style={[styles.handle, { color: palette.textMuted }]}
               >
                 @{profile.handle}
-              </Text>
+              </HandleText>
               {rating ? (
                 <Text
                   accessible={false}

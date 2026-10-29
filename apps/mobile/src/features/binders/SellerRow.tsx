@@ -10,6 +10,7 @@ import { GUEST_COPY } from '@/src/features/guest/guestCopy';
 import { GuestAvatar } from '@/src/features/guest/GuestParts';
 import { GENERIC_PLACE_LABEL } from '@/src/lib/place';
 import { fontWeight, useTheme } from '@/src/theme';
+import { HandleText } from '@/src/components/ui/HandleText';
 
 import { DECK_CORE_COPY } from './binderCopy';
 
@@ -70,9 +71,9 @@ export function SellerRow({
         <GuestAvatar size={40} testID={`${testID}-guest-avatar`} />
       )}
       <View style={styles.text}>
-        <Text numberOfLines={2} style={[styles.handle, { color: palette.ink }]}>
+        <HandleText style={[styles.handle, { color: palette.ink }]}>
           {handle ?? GUEST_COPY.aCollector}
-        </Text>
+        </HandleText>
         <Text testID={`${testID}-line`} style={[styles.line, { color: palette.textMuted }]}>
           {line}
         </Text>

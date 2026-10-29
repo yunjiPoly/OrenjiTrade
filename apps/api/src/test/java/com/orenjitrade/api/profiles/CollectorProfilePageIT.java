@@ -26,9 +26,10 @@ import tools.jackson.databind.JsonNode;
  * 21): the collector profile as the phone reads it, one request per section (the profile, its
  * cards, binders, wishes, ratings and references), and the caller's own copies of one card for "I
  * have it" ({@code GET /inventory/items?cardId=}). Private cards and binders and hidden wishes
- * never reach another collector; a block in either direction leaves the header only (no cards,
- * binders or wishes, no messaging); the city only on its owner's profile while shown; the last
- * activity in buckets, hidden when the collector hides it (ADR 0017).
+ * never reach another collector; a block leaves the blocker the header only (no cards, binders or
+ * wishes, no messaging) and the blocked collector nothing (404, owner decision of 2026-10-28); the
+ * city only on its owner's profile while shown; the last activity in buckets, hidden when the
+ * collector hides it (ADR 0017).
  */
 class CollectorProfilePageIT extends AbstractIntegrationTest {
 
@@ -230,7 +231,7 @@ class CollectorProfilePageIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void aBlockInEitherDirectionLeavesTheHeaderOnly() {
+    void aBlockLeavesTheBlockerTheHeaderOnlyAndTheBlockedNothing() {
         Page page = collectorWithListings("r6-block");
         Collector viewer = collector("r6-block-viewer");
         privacy(viewer, true, true);
@@ -250,11 +251,19 @@ class CollectorProfilePageIT extends AbstractIntegrationTest {
                 Collector reader = pair[0];
                 Collector shown = pair[1];
                 String base = shown == page.owner() ? ownerBase : viewerBase;
-                JsonNode profile = get(base, reader, 200);
-                assertThat(profile.path("isBlocked").asBoolean())
-                        .as("today's rule: the header answers, flagged blocked")
-                        .isTrue();
-                assertThat(profile.path("canMessage").asBoolean()).isFalse();
+                Collector blocker = ownerBlocks ? page.owner() : viewer;
+                if (reader == blocker) {
+                    JsonNode profile = get(base, reader, 200);
+                    assertThat(profile.path("isBlocked").asBoolean())
+                            .as("the blocker reads the header, flagged blocked")
+                            .isTrue();
+                    assertThat(profile.path("canMessage").asBoolean()).isFalse();
+                } else {
+                    // Owner decision of 2026-10-28: the blocker does not exist for the blocked.
+                    get(base, reader, 404);
+                    get(base + "/ratings", reader, 404);
+                    get(base + "/references", reader, 404);
+                }
                 get(base + "/inventory?size=10", reader, 404);
                 get(base + "/binders", reader, 404);
                 get(base + "/wishlist", reader, 404);

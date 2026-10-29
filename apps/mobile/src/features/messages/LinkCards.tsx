@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { BinderLink, CardLink, SharedItem } from '@/src/api/types';
 import { CardImage } from '@/src/components/ui/CardImage';
+import { HandleText } from '@/src/components/ui/HandleText';
 import { Text } from '@/src/components/ui/Text';
 import { fontFamily, fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
@@ -88,9 +89,12 @@ export function SharedLinkCard({
           <Text numberOfLines={2} style={[textStyle('sm'), styles.name, { color: palette.ink }]}>
             {binder.name}
           </Text>
-          <Text style={[textStyle('xs'), { color: palette.textMuted }]}>
+          <HandleText
+            testID="binder-link-owner"
+            style={[textStyle('xs'), { color: palette.textMuted }]}
+          >
             by @{binder.ownerHandle}
-          </Text>
+          </HandleText>
         </View>
         <MaterialCommunityIcons name="chevron-right" size={20} color={palette.textDisabled} />
       </Pressable>

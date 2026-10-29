@@ -150,8 +150,8 @@ export default function ConversationScreen() {
   const canRate = rateableInteractions(eligibility.data).length > 0;
   const all = useMemo(() => threadMessages(messages.data), [messages.data]);
   const replies = useMemo(
-    () => quickReplies(side, all, selfId, other?.id ?? null),
-    [all, other?.id, selfId, side]
+    () => quickReplies(side, all, selfId, other?.id ?? null, subject?.sold === true),
+    [all, other?.id, selfId, side, subject?.sold]
   );
   const unavailable =
     !messages.data && (messages.error?.status === 404 || messages.error?.status === 403);
@@ -546,6 +546,7 @@ export default function ConversationScreen() {
       <ConfirmDialog
         visible={confirmBlock}
         title={CHAT_COPY.blockTitle(handle)}
+        handleInTitle
         message={CHAT_COPY.blockBody}
         confirmLabel={CHAT_COPY.blockConfirm}
         tone="danger"

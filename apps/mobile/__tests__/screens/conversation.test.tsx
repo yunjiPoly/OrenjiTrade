@@ -4,7 +4,7 @@ import { Dimensions, Keyboard, ScrollView, StyleSheet } from 'react-native';
 
 import ConversationScreen from '@/app/messages/[id]';
 import { peekPendingDraft, setPendingDraft } from '@/src/features/messages/pendingDraft';
-import { PINNED_MAX_FONT_SCALE, TITLE_MAX_FONT_SCALE } from '@/src/theme';
+import { HANDLE_MAX_FONT_SCALE, PINNED_MAX_FONT_SCALE, TITLE_MAX_FONT_SCALE } from '@/src/theme';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
@@ -91,6 +91,14 @@ describe('Conversation', () => {
     expect(screen.getByTestId('conversation-loading')).toBeOnTheScreen();
     expect(await screen.findByText('Hi! Still have the Lantern Fox?')).toBeOnTheScreen();
     expect(await screen.findByTestId('conversation-profile')).toHaveTextContent(/collector2/);
+    // The header's handle stays on one line, capped, never shrunk (owner decision of 2026-10-28,
+    // review fix 1, F7; review fix 2, R1-1).
+    const handle = screen.getByTestId('conversation-handle');
+    expect(handle).toHaveTextContent('collector2');
+    expect(handle).toHaveProp('numberOfLines', 1);
+    expect(handle).toHaveProp('ellipsizeMode', 'tail');
+    expect(handle.props.adjustsFontSizeToFit).toBeUndefined();
+    expect(handle).toHaveProp('maxFontSizeMultiplier', HANDLE_MAX_FONT_SCALE);
     // The status line names the province, never a city (ADR 0017).
     expect(screen.getByTestId('conversation-status')).toHaveTextContent(/^Ontario$/);
     expect(screen.getByTestId('conversation-start')).toHaveTextContent(
@@ -1309,6 +1317,9 @@ describe('Deals in the chat (stage R4: the pinned card, tips, quick replies, Mar
       /Tracking.*7023 2109 8876 5432/
     );
     expect(screen.queryByTestId('message-m-sale-undone')).toBeNull();
+    // The buyer the seller never wrote to has the replies after the sale too.
+    expect(screen.getByTestId('quick-reply-e-Transfer sent!')).toBeOnTheScreen();
+    expect(screen.queryByTestId('quick-reply-Is it still available?')).toBeNull();
     fireEvent.press(within(sale).getByTestId('sale-message-rate'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/ratings/rate',
@@ -1331,6 +1342,10 @@ describe('Deals in the chat (stage R4: the pinned card, tips, quick replies, Mar
     // After a sale the bar says "Sold", not "Mark as sold".
     expect(screen.getByTestId('pinned-sold')).toBeOnTheScreen();
     expect(screen.queryByTestId('pinned-mark-sold')).toBeNull();
+    // A seller who never wrote has the replies after the sale (owner decision of 2026-10-28).
+    expect(screen.getByTestId('quick-reply-Shipped!')).toBeOnTheScreen();
+    expect(screen.getByTestId('quick-reply-Got your e-Transfer')).toBeOnTheScreen();
+    expect(screen.queryByTestId('quick-reply-Yes, still available')).toBeNull();
   });
 
   it('"Send my address": asked once, saved on this phone only, then put into the message box', async () => {

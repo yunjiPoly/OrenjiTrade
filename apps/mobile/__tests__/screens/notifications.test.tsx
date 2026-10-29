@@ -4,6 +4,7 @@ import { Dimensions } from 'react-native';
 import NotificationsScreen from '@/app/notifications';
 import { NotificationBell } from '@/src/features/notifications/NotificationBell';
 import { notificationTime } from '@/src/features/notifications/notificationRows';
+import { HANDLE_MAX_FONT_SCALE } from '@/src/theme';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
@@ -504,6 +505,30 @@ describe('At the largest text sizes', () => {
     expect(screen.getByText('maya_k · $14.00').props.numberOfLines).toBeUndefined();
     expect(screen.getByText('Mark all as read').props.maxFontSizeMultiplier).toBe(1.35);
   });
+
+  it.each([1, 3.1])(
+    'draws a sale’s or a rating’s handle capped, on its own line at large sizes (text size %s)',
+    async (fontScale) => {
+      Dimensions.set({ window: { ...WINDOW, fontScale }, screen: { ...WINDOW, fontScale } });
+      mockApi(routes());
+      renderWithProviders(<NotificationsScreen />, { port: port() });
+      const row = await screen.findByTestId(`notification-${sale.id}`);
+      if (fontScale > 2) {
+        // Owner decision of 2026-10-28: the handle alone on its line, one line, capped; the rest
+        // of the sentence under it grows with the text size.
+        const handle = within(row).getByText('duelist.jp');
+        expect(handle).toHaveProp('numberOfLines', 1);
+        expect(handle).toHaveProp('maxFontSizeMultiplier', HANDLE_MAX_FONT_SCALE);
+        expect(
+          within(row).getByText('marked Ash Blossom as sold to you').props.maxFontSizeMultiplier
+        ).toBeUndefined();
+      } else {
+        expect(
+          within(row).getByText(/^duelist\.jp marked Ash Blossom as sold to you$/)
+        ).toBeTruthy();
+      }
+    }
+  );
 });
 
 describe('The bell', () => {
