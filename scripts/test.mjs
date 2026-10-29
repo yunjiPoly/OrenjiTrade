@@ -24,7 +24,7 @@
 //                         e.g. npm run test:e2e -- e2e/map.spec.ts. Harness options: --keep-running,
 //                         --reuse-running (only a stack the harness started), --stack-only, --stop,
 //                         --keep-db
-//   npm run test:scripts  node --test unit tests of scripts/lib (E2E isolation guards, purge rules)
+//   npm run test:scripts  node --test unit tests of scripts/lib (E2E isolation guards, purge rules, CI env parity)
 //   npm run test:all      scripts + api + web + mobile + e2e + mobile:e2e, then a summary with timings
 //   npm run test:ml       optional: apps/ml pytest with apps/ml/.venv when present (Phase 11 is on hold)
 

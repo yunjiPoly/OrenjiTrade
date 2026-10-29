@@ -157,7 +157,8 @@ jobs:
       - name: Build design tokens
         run: npm run build:tokens
 
-      # Isolation guards of the local E2E harness and the purge rules (also run by npm run test:e2e).
+      # Isolation guards of the local E2E harness (npm run test:e2e runs them first too), the purge
+      # rules, and the parity of this job's API environment with the harness's.
       - name: Script guard tests (scripts/lib)
         run: npm run test:scripts
 
