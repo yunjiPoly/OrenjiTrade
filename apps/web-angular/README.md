@@ -308,9 +308,11 @@ Contract: `docs/api/contracts/phase3-inventory.md` (web section). Generated clie
   `GET /inventory/imports/limits`, paste the text), the check (chips All | Which copy? | Not
   recognised, "Use the newest", `ImportRowsComponent` with the deck sections, the printing menu,
   copies and status), the sticky footer ("34 cards · 69 copies will be added", Add, Discard) and
-  `ImportDoneComponent`. An open preview (60 minutes) or a cut commit is picked up again. The commit
-  returns no item ids, so the imported cards do not open already selected (decision 19): Inventory
-  opens sorted by Recently added.
+  `ImportDoneComponent`. Every row control holds (aria-disabled, still focusable) while its row
+  saves, while the check works ("Use the newest", a section) or its lines reload, and a box always
+  ends showing what its row holds (WB review R2-1). An open preview (60 minutes) or a cut commit is
+  picked up again. The commit returns no item ids, so the imported cards do not open already
+  selected (decision 19): Inventory opens sorted by Recently added.
 - **`/binders/:id`** (`features/binders`): public binder (`GET /public/binders/{id}` + items, sent
   with the ID token when signed in so `binder.views.per_day` counts and blocks apply). Owner
   card with the owner's state or province only (ADR 0017), game pills, search and
