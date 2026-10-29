@@ -111,8 +111,11 @@ test.describe('inventory import (web WB)', () => {
     await expect(page.getByRole('button', { name: 'Which copy? 1' })).toBeVisible({
       timeout: 30_000,
     });
-    await page.getByTestId('import-newest').click();
+    // By keyboard: the bar and its button leave, the focus goes to the check's heading (R1-1).
+    await page.getByTestId('import-newest').focus();
+    await page.keyboard.press('Enter');
     await expect(page.getByTestId('import-choose-bar')).toHaveCount(0, { timeout: 30_000 });
+    await expect(page.getByRole('heading', { level: 2, name: 'Check the cards' })).toBeFocused();
     await expect(page.getByTestId('import-commit')).toBeEnabled();
     // A card is one row, one printing: the Heron and its alternate artwork may become one card.
     const label = (await page.getByTestId('import-commit').textContent()) ?? '';

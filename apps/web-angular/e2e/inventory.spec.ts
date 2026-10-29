@@ -357,6 +357,53 @@ test.describe('inventory (web WB)', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'E2E shown binder' })).toBeVisible();
   });
 
+  test("the toolbar's Clear filters gives the focus to the list; a dropped photo stays on Inventory", async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(90_000);
+    const collector = await createOnboardedCollector(request, 'wbclear');
+    for (const code of ['AZR-EN001', 'SVX-001']) {
+      await apiCreateItem(request, collector.idToken, {
+        printingId: await printingIdOf(request, collector.idToken, code),
+        visibility: 'PRIVATE',
+        conditionStated: false,
+      });
+    }
+    await signInThroughUi(page, collector.email, collector.password);
+    await page.goto('/inventory?q=azure');
+    await expect(row(page, 'Azure-Eyes Sky Dragon')).toBeVisible();
+    await expect(row(page, 'Emberfang Fox VMAX')).toHaveCount(0);
+
+    // By keyboard: the link leaves with the filters, the focus lands on a row (WB review R1-1).
+    await page.getByTestId('clear-filters').focus();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(/\/inventory$/);
+    await expect(row(page, 'Emberfang Fox VMAX')).toBeVisible();
+    await expect(page.getByTestId('clear-filters')).toHaveCount(0);
+    await expect
+      .poll(() =>
+        page.evaluate(() => document.activeElement?.closest('[role="row"][data-item-id]') !== null),
+      )
+      .toBe(true);
+
+    // Only a .ydk or a .csv opens Import (spec 9.7, WB review R1-3): a photo says where it goes.
+    const host = page.locator('app-inventory-page');
+    const photo = await page.evaluateHandle(() => {
+      const data = new DataTransfer();
+      data.items.add(new File(['not a deck'], 'photo.png', { type: 'image/png' }));
+      return data;
+    });
+    await host.dispatchEvent('dragenter', { dataTransfer: photo });
+    await host.dispatchEvent('dragover', { dataTransfer: photo });
+    await host.dispatchEvent('drop', { dataTransfer: photo });
+    await expect(toast(page, 'Drop a .ydk or .csv file to import')).toContainText(
+      'To add photos, open a card and drop them there.',
+    );
+    await expect(page).toHaveURL(/\/inventory$/);
+    await expect(row(page, 'Emberfang Fox VMAX')).toBeVisible();
+  });
+
   test('a second collector opens a published binder with the owner state and country only', async ({
     page,
     request,
