@@ -159,6 +159,50 @@ describe('ChatDrawerComponent (web WC, spec 10.6)', () => {
     expect(close).toHaveBeenCalledWith(false);
   });
 
+  it('at md closes after the Esc of a combobox that prevents every Esc, once its list is closed (V3-2)', async () => {
+    const box = document.createElement('input');
+    box.setAttribute('role', 'combobox');
+    box.setAttribute('aria-expanded', 'true');
+    box.value = 'Lant';
+    page.append(box);
+    const afterTasks = () => new Promise((resolve) => setTimeout(resolve));
+    /** As Material's autocomplete does: every Esc prevented, and an open list closed by it. */
+    const autocomplete = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        box.setAttribute('aria-expanded', 'false');
+      }
+    };
+    box.addEventListener('keydown', autocomplete);
+
+    // The first Esc closes the list: the drawer stays.
+    escape(box);
+    await afterTasks();
+    expect(box.getAttribute('aria-expanded')).toBe('false');
+    expect(close).not.toHaveBeenCalled();
+
+    // The next Esc changes nothing in the field: it was unused, the drawer closes.
+    escape(box);
+    expect(close).not.toHaveBeenCalled();
+    await afterTasks();
+    expect(close).toHaveBeenCalledWith(false);
+
+    // An Esc that cleared the field (with its list closed) was the field's: the drawer stays.
+    close.mockClear();
+    const clears = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        box.value = '';
+      }
+    };
+    box.value = 'Lant';
+    box.addEventListener('keydown', clears);
+    escape(box);
+    await afterTasks();
+    expect(close).not.toHaveBeenCalled();
+    box.removeEventListener('keydown', clears);
+    box.removeEventListener('keydown', autocomplete);
+  });
+
   it('at md leaves Esc to a menu or a dialog on top, but not to a menu that is closing', () => {
     const container = page.querySelector('.cdk-overlay-container')!;
     container.innerHTML =
