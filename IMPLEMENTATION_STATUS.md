@@ -11362,9 +11362,10 @@ On the Mac mini (Apple M6, macOS 27, JDK 21), 2026-10-29:
   lines and Done; the drag ghost and "Add many at once" in their own components).
 - `npm run build:prod -w apps/web-angular`: passed, **initial total 833.67 kB** (budget 900; WA
   825.13 kB: the deck core tokens and the menus' styles in `styles.css`, the keyboard dialog's
-  Inventory group); lazy chunks `inventory-page-component` 339.89 kB (CDK drag-drop only here),
+  Inventory group); lazy chunks `inventory-page-component` 340.14 kB (CDK drag-drop only here),
   `import-page-component` 68.58 kB.
-- `npm run test:e2e -- --retries=0` (under the web E2E lock): **78 passed** in 1 min 35 s.
+- `npm run test:e2e -- --retries=0` (under the web E2E lock): **78 passed** (1 min 35 s, then again
+  1 min 19 s after the last web change, the drawers' leave guard).
 - `npm run test:scripts`: **153 passed** (147 before: the served-bundle guard and the E2E import
   fixtures); `npm run audit:gate`: OK.
 - Phone: `npm run typecheck -w apps/mobile`, `npm run lint -w apps/mobile`,
