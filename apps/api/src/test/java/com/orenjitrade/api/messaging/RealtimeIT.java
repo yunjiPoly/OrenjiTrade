@@ -311,6 +311,75 @@ class RealtimeIT extends AbstractMessagingIT {
         assertThat(back.session().isConnected()).isTrue();
     }
 
+    /**
+     * Owner decision of 2026-10-28, review fix 1 (P3, F3): a session opened before the suspension
+     * is closed by it, so nothing the suspended collector sends on it reaches anyone (typing) and
+     * it subscribes to nothing more; a ban and a deletion request close the session the same way.
+     */
+    @Test
+    void aSessionOpenedBeforeTheSuspensionIsClosedByIt() throws Exception {
+        Member suspended = member("rt-open-susp");
+        Member partner = member("rt-open-partner");
+        String conversationId = start(suspended, partner, 201);
+        String admin = uniqueUid("rt-open-admin");
+        provisionWithRoles(admin, Role.ADMIN);
+
+        Connection before = connectWithQueryToken(suspended.uid());
+        subscribeAll(before.session());
+        awaitSubscribed(suspended.id(), "/user/queue/typing");
+        StompSession partnerSession = connectWithQueryToken(partner.uid()).session();
+        Queues partnerQueues = subscribeAll(partnerSession);
+        awaitSubscribed(partner.id(), "/user/queue/typing");
+        before.session().send("/app/typing", Map.of("conversationId", conversationId));
+        assertThat(partnerQueues.typing().poll(10, TimeUnit.SECONDS))
+                .as("typing reaches the partner before the suspension")
+                .isNotNull();
+
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/admin/users/" + suspended.id() + "/suspend",
+                admin,
+                Map.of(
+                        "reason",
+                        "Realtime test",
+                        "until",
+                        java.time.Instant.now().plusSeconds(3600).toString()),
+                204);
+        await().atMost(Duration.ofSeconds(10))
+                .alias("the suspension closes the session opened before it")
+                .until(() -> !before.session().isConnected());
+        assertThat(userRegistry.getUser(suspended.id().toString())).isNull();
+        try {
+            before.session().send("/app/typing", Map.of("conversationId", conversationId));
+        } catch (RuntimeException closed) {
+            // the client already knows the session is closed
+        }
+        assertThat(partnerQueues.typing().poll(1, TimeUnit.SECONDS))
+                .as("no typing from the suspended collector after the suspension")
+                .isNull();
+        assertThat(partnerSession.isConnected()).as("the partner's session stays").isTrue();
+
+        // A ban (a report decision's or an admin's) and a deletion request close it the same way.
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/admin/users/" + suspended.id() + "/unsuspend",
+                admin,
+                null,
+                204);
+        Connection again = connectWithQueryToken(suspended.uid());
+        subscribeAll(again.session());
+        awaitSubscribed(suspended.id(), "/user/queue/typing");
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/me/deletion-requests",
+                suspended.uid(),
+                Map.of("reason", "Leaving"),
+                201);
+        await().atMost(Duration.ofSeconds(10))
+                .alias("a deletion request closes the session")
+                .until(() -> !again.session().isConnected());
+    }
+
     // ---------------------------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------------------------
