@@ -1,3 +1,4 @@
+import { DOCUMENT } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -241,6 +242,8 @@ export class MessageComposerComponent {
   private readonly drafts = inject(ChatDrafts);
   /** Below 960 the "+" menu is a bottom sheet (spec 16). */
   protected readonly layout = inject(ShellLayout);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly view = inject(DOCUMENT).defaultView;
 
   /** Sending in progress. */
   readonly busy = input(false);
@@ -387,6 +390,11 @@ export class MessageComposerComponent {
       element.style.height = 'auto';
       const max = MAX_LINES * LINE_PX + 20;
       element.style.height = `${Math.min(Math.max(element.scrollHeight, 40), max)}px`;
+      // A short window scrolls the chat's column: the whole composer, its counter included,
+      // stays in view while the field grows (WC review A5).
+      if (typed && this.shortWindow()) {
+        this.host.nativeElement.scrollIntoView({ block: 'nearest' });
+      }
     }
     if (value && typed) {
       this.typing.emit();
@@ -417,6 +425,11 @@ export class MessageComposerComponent {
     if (!this.busy()) {
       this.quickReply.emit(reply);
     }
+  }
+
+  /** The window is short (a 200 percent zoom): the chat's column scrolls (spec 16). */
+  private shortWindow(): boolean {
+    return !!this.view?.matchMedia?.('(max-height: 560px)').matches;
   }
 
   protected tryAgain(): void {
