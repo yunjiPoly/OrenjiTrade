@@ -104,12 +104,87 @@ describe(`the web E2E API in CI (${SHOWN}, job ${JOB})`, () => {
     assert.deepEqual(isolationProblems(ci, { workDir: path.join(runnerTemp, 'e2e'), devDirs: [] }), []);
   });
 
-  it('starts the jar with the identity block the suite checks (database, per-run instance)', () => {
-    const { run } = ciApiStep();
-    for (const arg of identityArgs('INSTANCE')) {
-      const expected = arg.endsWith('=INSTANCE') ? arg.slice(0, -'INSTANCE'.length) : arg;
-      assert.ok(run.includes(expected), `the CI command lacks ${expected}`);
-    }
+  it('starts the jar exactly as the harness does: the identity block and nothing else', () => {
+    const problems = startScriptProblems(ciApiStep().run);
+    assert.deepEqual(
+      problems,
+      [],
+      `The CI step "${API_STEP}" starts the API with more than its environment:\n` +
+        problems.map((problem) => `  - ${problem}`).join('\n'),
+    );
+  });
+});
+
+/** The instance the CI step names in its identity block (one per workflow run). */
+const CI_INSTANCE = 'ci-$GITHUB_RUN_ID';
+
+/**
+ * What is wrong with the CI step's script beyond its environment. The harness starts the jar with
+ * `-jar <jar> ...identityArgs(instance)` and nothing else, so the script may hold only its
+ * `export` lines (compared above), one `nohup java -jar` whose arguments are exactly the identity
+ * block, and the line that keeps the PID. Anything else could give the API what the harness does
+ * not: a `NAME=value` or `env` in front of the command, a JVM `-D` option, a `--property=` override
+ * after the jar, `set -a`, `unset`.
+ */
+function startScriptProblems(run) {
+  const lines = run
+    .replace(/\\\n\s*/g, ' ')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#'));
+  const problems = [];
+  const starts = [];
+  for (const line of lines) {
+    if (/^export [A-Z_][A-Z0-9_]*=/.test(line) || line === 'echo $! > "$RUNNER_TEMP/api.pid"') continue;
+    if (/\bjava\b/.test(line)) starts.push(line);
+    else problems.push(`unexpected line: ${line}`);
+  }
+  if (starts.length !== 1) {
+    problems.push(`the jar must be started exactly once (found ${starts.length})`);
+    return problems;
+  }
+  const command = starts[0].match(/^nohup java -jar (\S+) (.*?) > "\$RUNNER_TEMP\/api\.log" 2>&1 &$/);
+  if (!command) {
+    problems.push(`the start command is not "nohup java -jar <jar> <identity block> > ... &": ${starts[0]}`);
+    return problems;
+  }
+  const args = command[2].trim().split(/\s+/).filter(Boolean).map((arg) => arg.replaceAll('"', ''));
+  const expected = identityArgs(CI_INSTANCE);
+  if (args.join(' ') !== expected.join(' ')) {
+    problems.push(`the jar gets "${args.join(' ')}"; exactly "${expected.join(' ')}" expected`);
+  }
+  return problems;
+}
+
+describe('startScriptProblems', () => {
+  const start = [
+    'export DIR="$RUNNER_TEMP/e2e/media"',
+    'nohup java -jar build/libs/app.jar \\',
+    ...identityArgs(`"${CI_INSTANCE}"`).map((arg) => `  ${arg} \\`),
+    '  > "$RUNNER_TEMP/api.log" 2>&1 &',
+    'echo $! > "$RUNNER_TEMP/api.pid"',
+  ].join('\n');
+
+  it('accepts the exports, the identity block and the PID line', () => {
+    assert.deepEqual(startScriptProblems(start), []);
+  });
+
+  it('refuses a variable in front of the command, a JVM option and an override after the jar', () => {
+    const inline = start.replace('nohup java', 'SEED_IMPORT_FIXTURES=false nohup java');
+    assert.match(startScriptProblems(inline)[0], /^the start command is not/);
+    const jvm = start.replace('java -jar', 'java -Dorenji.seed.import-fixtures=false -jar');
+    assert.match(startScriptProblems(jvm)[0], /^the start command is not/);
+    const override = start.replace(
+      '  > "$RUNNER_TEMP/api.log"',
+      '  --orenji.seed.import-fixtures=false \\\n  > "$RUNNER_TEMP/api.log"',
+    );
+    assert.match(startScriptProblems(override)[0], /^the jar gets ".*--orenji\.seed\.import-fixtures=false"/);
+  });
+
+  it('refuses any other line and a second start', () => {
+    assert.match(startScriptProblems(`set -a\n${start}`)[0], /^unexpected line: set -a/);
+    assert.match(startScriptProblems(`unset SEED_IMPORT_FIXTURES\n${start}`)[0], /^unexpected line: unset/);
+    assert.match(startScriptProblems(`${start}\n${start}`).at(-1), /^the jar must be started exactly once \(found 2\)/);
   });
 });
 
