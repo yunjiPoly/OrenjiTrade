@@ -1,6 +1,7 @@
 import { DOCUMENT } from '@angular/common';
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import type { GameResponse } from '@orenji/api-client';
+import { AuthService } from '../auth/auth.service';
 import { SessionService } from '../auth/session.service';
 import { GamesStore } from '../../shared/catalog/games.store';
 import { MyProfileStore } from '../../shared/profile/my-profile.store';
@@ -11,8 +12,9 @@ export const DEFAULT_GAME = 'yugioh';
 
 /**
  * localStorage key prefix of the browsed game (spec 4.5: "the last choice is also kept in this
- * browser"): `orenji.game.<account id>` for a collector, `orenji.game.guest` signed out, as the
- * phone keeps it per account.
+ * browser"): `orenji.game.<Firebase uid>` for a collector, `orenji.game.guest` signed out, as the
+ * phone keeps it per account. Never the API's account id, which other members see as a holder's
+ * or an owner's id (WD review P4); a key of that old form is moved and removed.
  */
 export const GAME_STORAGE_PREFIX = 'orenji.game.';
 export const GUEST_GAME_KEY = 'guest';
@@ -80,6 +82,7 @@ export function resolveGame(input: {
 export class GameContext {
   private readonly document = inject(DOCUMENT);
   private readonly session = inject(SessionService);
+  private readonly auth = inject(AuthService);
   private readonly gamesStore = inject(GamesStore);
   private readonly profiles = inject(MyProfileStore);
 
@@ -116,7 +119,8 @@ export class GameContext {
       const status = this.session.status();
       const id = this.session.me()?.id ?? null;
       untracked(() => {
-        const account = status === 'ready' ? id : null;
+        const uid = this.auth.user()?.uid ?? null;
+        const account = status === 'ready' && id ? uid : null;
         if (status !== 'ready' && status !== 'anonymous') {
           return;
         }
@@ -126,6 +130,9 @@ export class GameContext {
         // Another account (or signing out): its own kept game wins over this visit's pick.
         this.accountState.set(account);
         this.pickedState.set(null);
+        if (account && id) {
+          this.migrateLegacyKey(id, account);
+        }
         const stored = this.read(account ?? GUEST_GAME_KEY);
         this.storedState.set(stored);
         if (account && !stored && !this.profiles.profile() && !this.profiles.loading()) {
@@ -156,6 +163,25 @@ export class GameContext {
   canBrowse(slug: string | null | undefined): boolean {
     const browsable = this.browsable();
     return !!slug && (browsable === null || browsable.has(slug));
+  }
+
+  /** Moves a choice kept under the API account id (before WD's review) to the uid key. */
+  private migrateLegacyKey(accountId: string, uid: string): void {
+    if (accountId === uid) {
+      return;
+    }
+    try {
+      const legacy = this.storage?.getItem(GAME_STORAGE_PREFIX + accountId) ?? null;
+      if (legacy === null) {
+        return;
+      }
+      this.storage?.removeItem(GAME_STORAGE_PREFIX + accountId);
+      if (GAME_SLUG.test(legacy) && this.storage?.getItem(GAME_STORAGE_PREFIX + uid) == null) {
+        this.storage?.setItem(GAME_STORAGE_PREFIX + uid, legacy);
+      }
+    } catch {
+      // Storage may be unavailable: nothing to move.
+    }
   }
 
   private read(key: string): string | null {

@@ -1,7 +1,8 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { CatalogService, ProfileService } from '@orenji/api-client';
-import { of } from 'rxjs';
+import { Subject, of } from 'rxjs';
+import { AuthService } from '../auth/auth.service';
 import { SessionService, SessionStatus } from '../auth/session.service';
 import { GameContext, browsableGames, resolveGame } from './game-context.service';
 
@@ -44,14 +45,17 @@ describe("resolveGame (the phone's order, stage G; web stage WD)", () => {
 describe('GameContext', () => {
   const status = signal<SessionStatus>('anonymous');
   const me = signal<{ id: string } | null>(null);
+  const user = signal<{ uid: string } | null>(null);
 
   beforeEach(() => {
     localStorage.clear();
     status.set('anonymous');
     me.set(null);
+    user.set(null);
     TestBed.configureTestingModule({
       providers: [
         { provide: SessionService, useValue: { status, me } },
+        { provide: AuthService, useValue: { user, changes$: new Subject() } },
         {
           provide: CatalogService,
           useValue: {
@@ -87,6 +91,7 @@ describe('GameContext', () => {
     const context = TestBed.inject(GameContext);
     TestBed.tick();
     await settle();
+    user.set({ uid: 'fb-u1' });
     me.set({ id: 'u1' });
     status.set('ready');
     TestBed.tick();
@@ -94,10 +99,29 @@ describe('GameContext', () => {
     TestBed.tick();
     expect(context.current()).toBe('pokemon');
 
-    localStorage.setItem('orenji.game.u2', 'yugioh');
+    localStorage.setItem('orenji.game.fb-u2', 'yugioh');
+    user.set({ uid: 'fb-u2' });
     me.set({ id: 'u2' });
     TestBed.tick();
     await settle();
     expect(context.current()).toBe('yugioh');
+  });
+  it("keys the kept game by the Firebase uid, never the API's account id (WD review P4)", async () => {
+    // A key of the old form (the account id other members see) is moved, then removed.
+    localStorage.setItem('orenji.game.acc-3', 'pokemon');
+    const context = TestBed.inject(GameContext);
+    TestBed.tick();
+    await settle();
+    user.set({ uid: 'fb-u3' });
+    me.set({ id: 'acc-3' });
+    status.set('ready');
+    TestBed.tick();
+    await settle();
+    expect(context.current()).toBe('pokemon');
+    expect(localStorage.getItem('orenji.game.acc-3')).toBeNull();
+    expect(localStorage.getItem('orenji.game.fb-u3')).toBe('pokemon');
+    context.select('yugioh');
+    expect(localStorage.getItem('orenji.game.fb-u3')).toBe('yugioh');
+    expect(Object.keys(localStorage).filter((key) => key.includes('acc-3'))).toEqual([]);
   });
 });

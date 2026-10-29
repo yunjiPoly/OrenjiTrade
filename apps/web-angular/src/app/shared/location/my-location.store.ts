@@ -6,6 +6,7 @@ import {
   SettingsService,
 } from '@orenji/api-client';
 import { Observable, firstValueFrom } from 'rxjs';
+import { AuthService } from '../../core/auth/auth.service';
 import { SessionService } from '../../core/auth/session.service';
 import { ApiError, toApiError } from '../../core/http/api-error';
 import { silentErrors } from '../../core/http/http-context';
@@ -34,6 +35,9 @@ export const CITY_MAX_LENGTH = 80;
 /**
  * The collector's own location (`/me/location`: country, state/province, optional city) and
  * privacy settings, shared by onboarding and settings. Writes reject with an {@link ApiError}.
+ * They belong to the signed-in account: signing out or another account signing in (in this tab
+ * or another) forgets them, and a read still in flight for the previous account is dropped (WD
+ * review P1: the next collector saw the previous one's province as "your province").
  */
 @Injectable({ providedIn: 'root' })
 export class MyLocationStore {
@@ -41,6 +45,10 @@ export class MyLocationStore {
   private readonly settingsApi = inject(SettingsService);
   private readonly session = inject(SessionService);
   private readonly region = inject(RegionContext);
+  private readonly auth = inject(AuthService);
+  private uid: string | null = this.auth.user()?.uid ?? null;
+  /** Bumped on every account change: an answer for an older account is dropped. */
+  private generation = 0;
 
   private readonly locationState = signal<MyLocationResponse | null>(null);
   private readonly privacyState = signal<PrivacySettings | null>(null);
@@ -52,8 +60,28 @@ export class MyLocationStore {
   readonly loading = this.loadingState.asReadonly();
   readonly error = this.errorState.asReadonly();
 
+  constructor() {
+    this.auth.changes$.subscribe((change) => {
+      const uid = change.user?.uid ?? null;
+      if (uid !== this.uid) {
+        this.uid = uid;
+        this.reset();
+      }
+    });
+  }
+
+  /** Forgets the location and privacy settings (signing out, another account). */
+  reset(): void {
+    this.generation++;
+    this.locationState.set(null);
+    this.privacyState.set(null);
+    this.errorState.set(null);
+    this.loadingState.set(false);
+  }
+
   /** Loads location and privacy together; resolves false (and sets `error`) on failure. */
   async load(): Promise<boolean> {
+    const generation = this.generation;
     this.loadingState.set(true);
     this.errorState.set(null);
     try {
@@ -61,14 +89,21 @@ export class MyLocationStore {
         call(this.locationApi.getMyLocation('body', false, { context: silentErrors() })),
         call(this.settingsApi.getPrivacySettings('body', false, { context: silentErrors() })),
       ]);
+      if (generation !== this.generation) {
+        return false;
+      }
       this.locationState.set(location);
       this.privacyState.set(privacy);
       return true;
     } catch (error) {
-      this.errorState.set(error as ApiError);
+      if (generation === this.generation) {
+        this.errorState.set(error as ApiError);
+      }
       return false;
     } finally {
-      this.loadingState.set(false);
+      if (generation === this.generation) {
+        this.loadingState.set(false);
+      }
     }
   }
 

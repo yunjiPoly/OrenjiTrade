@@ -6,6 +6,7 @@ import {
   UpdateProfileRequest,
 } from '@orenji/api-client';
 import { Observable, firstValueFrom } from 'rxjs';
+import { AuthService } from '../../core/auth/auth.service';
 import { SessionService } from '../../core/auth/session.service';
 import { ApiError, toApiError } from '../../core/http/api-error';
 import { silentErrors } from '../../core/http/http-context';
@@ -21,12 +22,16 @@ async function call<T>(request: Observable<T>): Promise<T> {
 /**
  * The signed-in collector's own profile (`/me/profile`, tags, avatar) shared by onboarding and
  * settings. Writes refresh the session so onboarding flags, name and avatar update everywhere.
- * Every method rejects with an {@link ApiError}.
+ * Every method rejects with an {@link ApiError}. The profile belongs to the signed-in account:
+ * signing out or another account forgets it (WD review P1; the game pill reads its games).
  */
 @Injectable({ providedIn: 'root' })
 export class MyProfileStore {
   private readonly profileApi = inject(ProfileService);
   private readonly session = inject(SessionService);
+  private readonly auth = inject(AuthService);
+  private uid: string | null = this.auth.user()?.uid ?? null;
+  private generation = 0;
 
   private readonly profileState = signal<MyProfileResponse | null>(null);
   private readonly loadingState = signal(false);
@@ -36,21 +41,47 @@ export class MyProfileStore {
   readonly loading = this.loadingState.asReadonly();
   readonly error = this.errorState.asReadonly();
 
+  constructor() {
+    this.auth.changes$.subscribe((change) => {
+      const uid = change.user?.uid ?? null;
+      if (uid !== this.uid) {
+        this.uid = uid;
+        this.reset();
+      }
+    });
+  }
+
+  /** Forgets the profile (signing out, another account). */
+  reset(): void {
+    this.generation++;
+    this.profileState.set(null);
+    this.errorState.set(null);
+    this.loadingState.set(false);
+  }
+
   /** Loads the profile; resolves null (and sets `error`) on failure. */
   async load(): Promise<MyProfileResponse | null> {
+    const generation = this.generation;
     this.loadingState.set(true);
     this.errorState.set(null);
     try {
       const profile = await call(
         this.profileApi.getMyProfile('body', false, { context: silentErrors() }),
       );
+      if (generation !== this.generation) {
+        return null;
+      }
       this.profileState.set(profile);
       return profile;
     } catch (error) {
-      this.errorState.set(error as ApiError);
+      if (generation === this.generation) {
+        this.errorState.set(error as ApiError);
+      }
       return null;
     } finally {
-      this.loadingState.set(false);
+      if (generation === this.generation) {
+        this.loadingState.set(false);
+      }
     }
   }
 
