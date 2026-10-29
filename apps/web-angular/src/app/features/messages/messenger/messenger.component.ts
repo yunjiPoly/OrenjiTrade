@@ -6,6 +6,7 @@ import {
   input,
   output,
   untracked,
+  viewChild,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import type { ConversationSummary } from '@orenji/api-client';
@@ -16,9 +17,11 @@ import { ConversationsStore } from '../data/conversations.store';
 import { ThreadViewComponent } from '../thread/thread-view.component';
 
 /**
- * Conversation list + thread, shared by the map's Messages panel (one column: the list, or the
- * open thread with a back button) and the `/messages` page (two columns when `split`). Container
- * of {@link ConversationsStore}.
+ * The inbox beside the chat (spec 10.1, board W18): at 960 px and wider the inbox column (340 at
+ * lg, 300 at md, with the page's header projected on top as `[inboxHeader]`) beside the chat and
+ * its deal panel; below 960 one pane per route, the phone's way: the inbox, or the open chat with a
+ * back button. Esc in the chat gives the focus back to the inbox row. Container of
+ * {@link ConversationsStore}.
  */
 @Component({
   selector: 'app-messenger',
@@ -34,6 +37,7 @@ import { ThreadViewComponent } from '../thread/thread-view.component';
     <div class="messenger" [class.messenger--split]="split()">
       @if (split() || !activeId()) {
         <div class="messenger__list">
+          <ng-content select="[inboxHeader]" />
           <app-conversation-list
             [conversations]="store.conversations()"
             [status]="store.status()"
@@ -55,6 +59,7 @@ import { ThreadViewComponent } from '../thread/thread-view.component';
           [visible]="visible()"
           [showBack]="!split()"
           (back)="select(null)"
+          (keydown.escape)="onEscape($event)"
         />
       } @else if (activeId()) {
         <div class="messenger__thread messenger__missing">
@@ -66,7 +71,7 @@ import { ThreadViewComponent } from '../thread/thread-view.component';
             <app-empty-state
               icon="speaker_notes_off"
               title="Conversation not found"
-              description="It may have been archived or hidden because of a block."
+              description="It may have been archived, or the collector can no longer receive messages."
             >
               <button actions matButton="filled" type="button" (click)="select(null)">
                 All conversations
@@ -101,15 +106,18 @@ import { ThreadViewComponent } from '../thread/thread-view.component';
       flex: 1 1 auto;
       min-height: 0;
       overflow-y: auto;
+      background: var(--color-background);
     }
     .messenger__thread {
       display: flex;
       flex: 1 1 auto;
       flex-direction: column;
+      min-width: 0;
       min-height: 0;
     }
     .messenger__missing {
       justify-content: center;
+      background: var(--color-background);
     }
     .messenger__pad {
       padding: var(--spacing-4);
@@ -119,17 +127,25 @@ import { ThreadViewComponent } from '../thread/thread-view.component';
     }
     .messenger--split .messenger__list {
       flex: 0 0 340px;
+      width: 340px;
       border-right: 1px solid var(--color-border);
+    }
+    @media (max-width: 1279.98px) {
+      .messenger--split .messenger__list {
+        flex-basis: 300px;
+        width: 300px;
+      }
     }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MessengerComponent {
   protected readonly store = inject(ConversationsStore);
+  private readonly list = viewChild(ConversationListComponent);
 
-  /** Two columns (list beside the thread). */
+  /** Two columns (the inbox beside the chat). */
   readonly split = input(false);
-  /** Whether the messenger is on screen (the map panel can be collapsed). */
+  /** Whether the messenger is on screen. */
   readonly visible = input(true);
   /** Conversation to open (the `/messages/:id` route). */
   readonly conversationId = input<string | null>(null);
@@ -175,5 +191,18 @@ export class MessengerComponent {
   protected select(id: string | null): void {
     this.store.open(id);
     this.openedChange.emit(id);
+  }
+
+  /** Esc in the chat (nothing else took it): the focus goes back to the inbox (spec 10.2). */
+  protected onEscape(event: Event): void {
+    if (event.defaultPrevented || !this.split()) {
+      return;
+    }
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('[role="dialog"], .mat-mdc-menu-panel')) {
+      return;
+    }
+    event.preventDefault();
+    this.list()?.focusActive();
   }
 }

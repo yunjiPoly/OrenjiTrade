@@ -1,3 +1,4 @@
+import { CdkTrapFocus } from '@angular/cdk/a11y';
 import { DOCUMENT } from '@angular/common';
 import {
   ChangeDetectionStrategy,
@@ -13,235 +14,183 @@ import {
   viewChild,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import type { ConversationSummary, RatingEligibilityInteraction } from '@orenji/api-client';
+import type {
+  ConversationSummary,
+  RatingEligibilityInteraction,
+  SaleResponse,
+} from '@orenji/api-client';
+import { DealsService } from '@orenji/api-client';
+import { firstValueFrom } from 'rxjs';
 import { toApiError } from '../../../core/http/api-error';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
+import { silentErrors } from '../../../core/http/http-context';
+import { ShellLayout } from '../../../core/layout/shell-layout.service';
+import { ToastService } from '../../../core/feedback/toast.service';
 import { BlockActionsService } from '../../../shared/messaging/block-actions.service';
 import { RatingActionsService } from '../../../shared/ratings/rating-actions.service';
 import { rateableInteractions } from '../../../shared/ratings/rating-labels';
 import { ReportActionsService } from '../../../shared/reports/report-actions.service';
-import { TradingSafetyNoticeComponent } from '../../../shared/safety/trading-safety-notice.component';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
-import { MessageComposerComponent } from '../composer/message-composer.component';
+import { ComposerAction, MessageComposerComponent } from '../composer/message-composer.component';
+import { CHAT_COPY, COMPOSER_COPY, MARK_SOLD_COPY, SEND_DETAIL_COPY, TIP_COPY } from '../data/chat-copy';
 import { ConversationsStore } from '../data/conversations.store';
+import { canUndoSale, chatSide, quickReplies } from '../data/deal-rules';
 import { MessageDraft } from '../data/message-draft';
+import { saleErrorMessage } from '../data/sale-errors';
 import { ThreadStore } from '../data/thread.store';
+import { DealPanelComponent } from '../deal/deal-panel.component';
+import {
+  MarkSoldData,
+  MarkSoldDialogComponent,
+  MarkSoldResult,
+} from '../dialogs/mark-sold-dialog.component';
+import {
+  SendDetailData,
+  SendDetailDialogComponent,
+  SendDetailKind,
+} from '../dialogs/send-detail-dialog.component';
+import {
+  ShareChoice,
+  SharePickerData,
+  SharePickerDialogComponent,
+} from '../dialogs/share-picker-dialog.component';
 import { MessageListComponent } from './message-list.component';
+import { PinnedBarComponent } from './pinned-bar.component';
 import { ThreadHeaderComponent, ThreadMenuAction } from './thread-header.component';
 
+/** The deal panel's open state at lg, remembered in this browser (spec 10.1; a convenience). */
+export const DEAL_PANEL_KEY = 'orenjitrade.messages.dealPanel';
+
+function readDealPanel(): boolean {
+  try {
+    return globalThis.localStorage?.getItem(DEAL_PANEL_KEY) !== 'off';
+  } catch {
+    return true;
+  }
+}
+
+function saveDealPanel(open: boolean): void {
+  try {
+    globalThis.localStorage?.setItem(DEAL_PANEL_KEY, open ? 'on' : 'off');
+  } catch {
+    // Kept for this page only.
+  }
+}
+
 /**
- * One conversation: header with the conversation menu, the message history and the composer.
- * Container of {@link ThreadStore}; talks to the surrounding {@link ConversationsStore} for mute,
- * archive and block.
+ * One chat (spec 10.3 to 10.5, boards W18 to W21), on the Messages page (`mode="page"`, with the
+ * deal panel: a 320 pane at lg, remembered; a 360 drawer at md opened from "Deal"; a full-screen
+ * sheet below 960) or in the chat drawer (`mode="drawer"`, whose own header the drawer draws):
+ * the header and its menu, the pinned card or deck core with the seller's Mark as sold, the shield
+ * tip of the reader's side, the thread with its sale notes (Undo for 10 minutes, Rate), the quick
+ * replies and the composer with its "+" menu. Container of {@link ThreadStore}; the inbox
+ * ({@link ConversationsStore}, when there is one) follows mute, archive, block and the pinned
+ * card. Every action answers in a toast or in its dialog; refusals read in plain words.
  */
 @Component({
   selector: 'app-thread-view',
   imports: [
+    CdkTrapFocus,
     MatButtonModule,
     MatIconModule,
+    DealPanelComponent,
     EmptyStateComponent,
     ErrorStateComponent,
     MessageComposerComponent,
     MessageListComponent,
+    PinnedBarComponent,
     SkeletonComponent,
     ThreadHeaderComponent,
-    TradingSafetyNoticeComponent,
   ],
   providers: [ThreadStore],
-  template: `
-    @let c = conversation();
-    <section class="thread" [attr.aria-label]="'Conversation with ' + c.other.displayName">
-      <app-thread-header
-        [conversation]="c"
-        [typing]="store.otherTyping()"
-        [blocked]="blockedByMe()"
-        [canRate]="rateable().length > 0"
-        [showBack]="showBack()"
-        (back)="back.emit()"
-        (action)="onAction($event)"
-      />
-
-      @if (blockedByMe()) {
-        <div class="banner" role="status">
-          <mat-icon aria-hidden="true">block</mat-icon>
-          <span>
-            You blocked {{ c.other.displayName }}. Neither of you can send messages and this
-            conversation is hidden from your inbox.
-          </span>
-          <button matButton type="button" (click)="onAction('unblock')">Unblock</button>
-        </div>
-      } @else if (store.messagingBlocked()) {
-        <div class="banner" role="status">
-          <mat-icon aria-hidden="true">speaker_notes_off</mat-icon>
-          <span>You can no longer message {{ c.other.displayName }}.</span>
-        </div>
-      } @else if (store.status() !== 'unavailable') {
-        <!-- Shown until dismissed (per collector, this browser); never blocks the composer. -->
-        <app-trading-safety-notice
-          class="thread__safety"
-          context="conversation"
-          [otherName]="c.other.displayName"
-          (reportRequested)="onAction('report')"
-          (blockRequested)="onAction('block')"
-        />
-      }
-
-      <div class="thread__body">
-        @switch (store.status()) {
-          @case ('loading') {
-            <div class="thread__skeleton" aria-busy="true">
-              <span class="visually-hidden">Loading messages</span>
-              <app-skeleton width="55%" height="40px" />
-              <app-skeleton class="thread__skeleton-own" width="45%" height="40px" />
-              <app-skeleton width="62%" height="56px" />
-              <app-skeleton class="thread__skeleton-own" width="38%" height="40px" />
-            </div>
-          }
-          @case ('error') {
-            <div class="thread__pad">
-              <app-error-state
-                title="Messages could not load"
-                [message]="errorMessage()"
-                [requestId]="store.error()?.requestId ?? null"
-                (retry)="store.load()"
-              />
-            </div>
-          }
-          @case ('unavailable') {
-            <app-empty-state
-              icon="speaker_notes_off"
-              title="This conversation is not available"
-              description="It may be hidden because of a block, or the collector left OrenjiTrade."
-            />
-          }
-          @default {
-            @if (store.messages().length === 0) {
-              <app-empty-state
-                icon="waving_hand"
-                [title]="'Say hello to ' + c.other.displayName"
-                description="Ask about a card, share one from the catalog or one of your public binders."
-              />
-            } @else {
-              <app-message-list
-                class="thread__list"
-                [messages]="store.messages()"
-                [other]="c.other"
-                [selfId]="store.selfId()"
-                [hasOlder]="store.hasOlder()"
-                [loadingOlder]="store.loadingOlder()"
-                [typing]="store.otherTyping()"
-                (loadOlder)="store.loadOlder()"
-              />
-            }
-          }
-        }
-      </div>
-
-      <app-message-composer
-        [busy]="store.sending()"
-        [disabled]="cannotSend()"
-        [error]="store.sendError()"
-        [placeholder]="composerPlaceholder()"
-        [otherId]="c.other.id"
-        [otherName]="c.other.displayName"
-        (send)="onSend($event)"
-        (typing)="store.userTyping()"
-      />
-    </section>
-  `,
-  styles: `
-    :host {
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-    }
-    .thread {
-      display: flex;
-      flex: 1 1 auto;
-      flex-direction: column;
-      min-height: 0;
-    }
-    .thread__body {
-      display: flex;
-      flex: 1 1 auto;
-      flex-direction: column;
-      min-height: 0;
-      overflow: hidden;
-      background: var(--color-background);
-    }
-    .thread__list {
-      flex: 1 1 auto;
-    }
-    .thread__pad {
-      padding: var(--spacing-4);
-    }
-    .thread__skeleton {
-      display: flex;
-      flex-direction: column;
-      gap: var(--spacing-3);
-      padding: var(--spacing-4);
-    }
-    .thread__skeleton-own {
-      align-self: flex-end;
-    }
-    .thread__safety {
-      padding: var(--spacing-2) var(--spacing-3) 0;
-      background: var(--color-background);
-    }
-    .banner {
-      display: flex;
-      align-items: center;
-      gap: var(--spacing-2);
-      padding: var(--spacing-2) var(--spacing-3);
-      border-bottom: 1px solid var(--color-border);
-      background: color-mix(in srgb, var(--color-warning) 14%, var(--color-surface));
-      font-size: var(--font-size-sm);
-    }
-    .banner span {
-      flex: 1 1 auto;
-    }
-  `,
+  templateUrl: './thread-view.component.html',
+  styleUrl: './thread-view.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ThreadViewComponent {
   protected readonly store = inject(ThreadStore);
-  private readonly conversations = inject(ConversationsStore);
+  private readonly conversations = inject(ConversationsStore, { optional: true });
   private readonly blocks = inject(BlockActionsService);
   private readonly reports = inject(ReportActionsService);
   private readonly ratings = inject(RatingActionsService);
+  private readonly deals = inject(DealsService);
+  private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly toasts = inject(ToastService);
+  private readonly layout = inject(ShellLayout);
   private readonly doc = inject(DOCUMENT);
   private readonly composer = viewChild(MessageComposerComponent);
 
   readonly conversation = input.required<ConversationSummary>();
-  /** The thread is on screen (the map panel may be collapsed). */
+  /** The thread is on screen (the page tab may be hidden). */
   readonly visible = input(true);
   readonly showBack = input(true);
+  /** On the Messages page (with the deal panel) or in the chat drawer. */
+  readonly mode = input<'page' | 'drawer'>('page');
   readonly back = output<void>();
+  /** The conversation as read again (its pinned card after a pin, a sale or an undo). */
+  readonly updated = output<ConversationSummary>();
+
+  protected readonly chat = CHAT_COPY;
+  protected readonly composerCopy = COMPOSER_COPY;
+  protected readonly c = computed(() => this.store.conversation() ?? this.conversation());
 
   /** The caller blocked the other collector from this thread. */
   protected readonly blockedByMe = signal(false);
-  /** Interactions with the other collector the caller can still rate ("Rate" menu item). */
+  /** Interactions with the other collector the caller can still rate. */
   protected readonly rateable = signal<RatingEligibilityInteraction[]>([]);
   private eligibilityFor: string | null = null;
   private readonly pageVisible = signal(this.doc.visibilityState !== 'hidden');
+  /** The clock of the sale notes' Undo (ticks every 15 s while one is open). */
+  protected readonly now = signal(Date.now());
+
+  protected readonly side = computed(() => chatSide(this.c().subject, this.store.selfId()));
   protected readonly cannotSend = computed(
     () =>
       this.blockedByMe() || this.store.messagingBlocked() || this.store.status() === 'unavailable',
   );
-  protected readonly composerPlaceholder = computed(() =>
-    this.cannotSend()
-      ? `You cannot message ${this.conversation().other.displayName}`
-      : `Message ${this.conversation().other.displayName}`,
+  protected readonly placeholder = computed(() =>
+    this.cannotSend() ? COMPOSER_COPY.cannotSend : COMPOSER_COPY.placeholder,
   );
+  protected readonly replies = computed(() =>
+    this.cannotSend()
+      ? []
+      : quickReplies(
+          this.side(),
+          this.store.messages(),
+          this.store.selfId(),
+          this.c().other.id,
+          !!this.c().subject?.sold,
+        ),
+  );
+  protected readonly tip = computed(() => TIP_COPY[this.side()]);
   protected readonly errorMessage = computed(() => {
     const error = this.store.error();
     return error ? friendlyMessage(error) : '';
   });
+
+  /** Where the deal panel shows: a pane (lg), a drawer (md), a sheet (narrow), or nowhere. */
+  protected readonly dealMode = computed<'pane' | 'drawer' | 'sheet' | null>(() => {
+    if (this.mode() !== 'page') {
+      return null;
+    }
+    if (this.layout.narrow()) {
+      return 'sheet';
+    }
+    return this.layout.medium() ? 'drawer' : 'pane';
+  });
+  private readonly dealPane = signal(readDealPanel());
+  private readonly dealOverlay = signal(false);
+  protected readonly dealOpen = computed(() => {
+    const mode = this.dealMode();
+    return mode === 'pane' ? this.dealPane() : mode ? this.dealOverlay() : false;
+  });
+  protected readonly dropping = signal(false);
 
   constructor() {
     effect(() => {
@@ -249,6 +198,7 @@ export class ThreadViewComponent {
       untracked(() => {
         if (this.store.conversation()?.id !== conversation.id) {
           this.blockedByMe.set(false);
+          this.dealOverlay.set(false);
         }
         this.store.open(conversation);
         void this.loadEligibility(conversation.other.id);
@@ -258,12 +208,31 @@ export class ThreadViewComponent {
       const visible = this.visible() && this.pageVisible();
       untracked(() => this.store.setVisible(visible));
     });
+    effect(() => {
+      const fresh = this.store.refreshed();
+      if (fresh) {
+        untracked(() => {
+          this.conversations?.upsert({ ...fresh, unreadCount: 0 });
+          this.updated.emit(fresh);
+        });
+      }
+    });
     const onVisibility = () => this.pageVisible.set(this.doc.visibilityState !== 'hidden');
     this.doc.addEventListener('visibilitychange', onVisibility);
-    inject(DestroyRef).onDestroy(() =>
-      this.doc.removeEventListener('visibilitychange', onVisibility),
-    );
+    // The Undo of a sale note goes after 10 minutes: the clock ticks while one is open.
+    const tick = setInterval(() => {
+      const self = this.store.selfId();
+      if (this.store.messages().some((message) => canUndoSale(message, self, this.now()))) {
+        this.now.set(Date.now());
+      }
+    }, 15_000);
+    inject(DestroyRef).onDestroy(() => {
+      this.doc.removeEventListener('visibilitychange', onVisibility);
+      clearInterval(tick);
+    });
   }
+
+  // --- composer ------------------------------------------------------------------------------
 
   protected async onSend(draft: MessageDraft): Promise<void> {
     if (await this.store.send(draft)) {
@@ -271,16 +240,189 @@ export class ThreadViewComponent {
     }
   }
 
+  protected onQuickReply(text: string): void {
+    void this.store.sendDirect({ text, attachment: null }, true);
+  }
+
+  protected onComposerAction(action: ComposerAction): void {
+    switch (action) {
+      case 'address':
+      case 'etransfer':
+        this.openSendDetail(action);
+        break;
+      case 'card':
+      case 'binder':
+        void this.openSharePicker(action);
+        break;
+    }
+  }
+
+  /** "More from {seller}": the question goes into the composer, ready to send. */
+  protected onAsk(text: string): void {
+    if (this.dealMode() !== 'pane') {
+      this.dealOverlay.set(false);
+    }
+    setTimeout(() => this.composer()?.prefill(text));
+  }
+
+  protected onDragOver(event: DragEvent): void {
+    if (this.cannotSend() || !event.dataTransfer?.types.includes('Files')) {
+      return;
+    }
+    event.preventDefault();
+    this.dropping.set(true);
+  }
+
+  protected onDragLeave(event: DragEvent): void {
+    if (!(event.currentTarget as HTMLElement).contains(event.relatedTarget as Node | null)) {
+      this.dropping.set(false);
+    }
+  }
+
+  protected onDrop(event: DragEvent): void {
+    this.dropping.set(false);
+    const file = event.dataTransfer?.files?.[0];
+    if (!file || this.cannotSend()) {
+      return;
+    }
+    event.preventDefault();
+    this.composer()?.attachFile(file);
+  }
+
+  private openSendDetail(kind: SendDetailKind): void {
+    const c = this.c();
+    const data: SendDetailData = {
+      kind,
+      other: c.other.handle,
+      subject: c.subject?.name ?? null,
+      send: (text) => this.store.sendDirect({ text, attachment: null }),
+    };
+    const ref = this.dialog.open<SendDetailDialogComponent, SendDetailData, boolean>(
+      SendDetailDialogComponent,
+      { data, panelClass: 'app-dialog--send', ariaLabelledBy: 'send-detail-title' },
+    );
+    ref.afterClosed().subscribe((sent) => {
+      if (sent) {
+        this.toasts.show({
+          title: kind === 'address' ? SEND_DETAIL_COPY.addressSent : SEND_DETAIL_COPY.etransferSent,
+          sub: SEND_DETAIL_COPY.noCopy,
+        });
+      }
+      this.composer()?.focus();
+    });
+  }
+
+  private async openSharePicker(mode: 'card' | 'binder'): Promise<void> {
+    const choice = await firstValueFrom(
+      this.dialog
+        .open<SharePickerDialogComponent, SharePickerData, ShareChoice>(SharePickerDialogComponent, {
+          data: { mode, other: this.c().other.handle },
+          panelClass: 'app-dialog--form',
+        })
+        .afterClosed(),
+    );
+    if (!choice) {
+      this.composer()?.focus();
+      return;
+    }
+    const problem = await this.store.sendDirect({ text: '', attachment: choice });
+    if (problem) {
+      this.toasts.show({ title: problem, tone: 'error' });
+    }
+    this.composer()?.focus();
+  }
+
+  // --- deal ----------------------------------------------------------------------------------
+
+  protected toggleDeal(): void {
+    if (this.dealMode() === 'pane') {
+      const open = !this.dealPane();
+      this.dealPane.set(open);
+      saveDealPanel(open);
+      return;
+    }
+    this.dealOverlay.update((open) => !open);
+  }
+
+  protected closeDeal(): void {
+    if (this.dealMode() === 'pane') {
+      this.dealPane.set(false);
+      saveDealPanel(false);
+    } else {
+      this.dealOverlay.set(false);
+    }
+    setTimeout(() =>
+      this.doc.querySelector<HTMLElement>('[data-testid="deal-toggle"]')?.focus(),
+    );
+  }
+
+  protected async markSold(): Promise<void> {
+    const c = this.c();
+    const subject = c.subject;
+    if (!subject) {
+      return;
+    }
+    const result = await firstValueFrom(
+      this.dialog
+        .open<MarkSoldDialogComponent, MarkSoldData, MarkSoldResult>(MarkSoldDialogComponent, {
+          data: { conversationId: c.id, subject, buyer: c.other.handle },
+          panelClass: 'app-dialog--sold',
+        })
+        .afterClosed(),
+    );
+    if (!result) {
+      return;
+    }
+    if ('changed' in result) {
+      this.toasts.show({ title: result.message, tone: 'error' });
+      void this.store.refreshConversation();
+      return;
+    }
+    void this.store.refreshConversation();
+    this.eligibilityFor = null;
+    void this.loadEligibility(c.other.id);
+    this.offerUndo(result.sale);
+  }
+
+  private offerUndo(sale: SaleResponse): void {
+    const ref = this.toasts.show({ title: MARK_SOLD_COPY.toast, action: MARK_SOLD_COPY.undo });
+    ref.onAction().subscribe(() => void this.undoSale(sale.id));
+  }
+
+  protected async undoSale(saleId: string): Promise<void> {
+    const handle = this.c().other.handle;
+    try {
+      await firstValueFrom(
+        this.deals.undoSale({ id: saleId }, 'body', false, { context: silentErrors() }),
+      );
+      this.store.dropSale(saleId);
+      this.toasts.show({ title: MARK_SOLD_COPY.undone });
+      void this.store.refreshConversation();
+      this.eligibilityFor = null;
+      void this.loadEligibility(this.c().other.id);
+    } catch (error) {
+      this.toasts.show({ title: saleErrorMessage(toApiError(error), handle), tone: 'error' });
+    }
+  }
+
+  // --- the "⋯" menu ----------------------------------------------------------------------------
+
   protected async onAction(action: ThreadMenuAction): Promise<void> {
-    const conversation = this.conversation();
-    const target = { id: conversation.other.id, displayName: conversation.other.displayName };
+    const conversation = this.c();
+    const target = { id: conversation.other.id, displayName: conversation.other.handle };
+    const collector = {
+      id: conversation.other.id,
+      displayName: conversation.other.handle,
+      handle: conversation.other.handle,
+      avatarUrl: conversation.other.avatarUrl,
+    };
     switch (action) {
       case 'mute':
       case 'unmute':
         await this.update(
           conversation,
           { muted: action === 'mute' },
-          action === 'mute' ? 'Conversation muted.' : 'Conversation unmuted.',
+          action === 'mute' ? 'Chat muted.' : 'Chat unmuted.',
         );
         break;
       case 'archive':
@@ -288,7 +430,7 @@ export class ThreadViewComponent {
           await this.update(
             conversation,
             { archived: true },
-            'Conversation archived. A new message brings it back.',
+            'Chat archived. A new message brings it back.',
           )
         ) {
           this.back.emit();
@@ -298,44 +440,43 @@ export class ThreadViewComponent {
         if (await this.blocks.block(target)) {
           this.blockedByMe.set(true);
           this.store.setMessagingBlocked(true);
-          this.conversations.remove(conversation.id, true);
+          this.conversations?.remove(conversation.id, true);
         }
         break;
       case 'unblock':
         if (await this.blocks.unblock(target)) {
           this.blockedByMe.set(false);
           this.store.setMessagingBlocked(false);
-          this.conversations.upsert(this.conversation());
+          this.conversations?.upsert(conversation);
           this.store.load();
         }
         break;
       case 'report':
-        await this.reports.report(
-          {
-            id: conversation.other.id,
-            displayName: conversation.other.displayName,
-            handle: conversation.other.handle,
-            avatarUrl: conversation.other.avatarUrl,
-          },
-          { source: 'CONVERSATION', conversationId: conversation.id },
-        );
+        await this.reports.report(collector, {
+          source: 'CONVERSATION',
+          conversationId: conversation.id,
+        });
         break;
       case 'rate':
-        if (
-          await this.ratings.rate(
-            {
-              id: conversation.other.id,
-              displayName: conversation.other.displayName,
-              handle: conversation.other.handle,
-              avatarUrl: conversation.other.avatarUrl,
-            },
-            this.rateable(),
-          )
-        ) {
-          this.eligibilityFor = null;
-          await this.loadEligibility(conversation.other.id);
-        }
+        await this.rate();
         break;
+    }
+  }
+
+  protected async rate(): Promise<void> {
+    const conversation = this.c();
+    const rated = await this.ratings.rate(
+      {
+        id: conversation.other.id,
+        displayName: conversation.other.handle,
+        handle: conversation.other.handle,
+        avatarUrl: conversation.other.avatarUrl,
+      },
+      this.rateable(),
+    );
+    if (rated) {
+      this.eligibilityFor = null;
+      await this.loadEligibility(conversation.other.id);
     }
   }
 
@@ -352,7 +493,7 @@ export class ThreadViewComponent {
         this.rateable.set(rateableInteractions(eligibility));
       }
     } catch {
-      // No "Rate" item without an answer.
+      // No "Rate" without an answer.
     }
   }
 
@@ -362,7 +503,11 @@ export class ThreadViewComponent {
     confirmation: string,
   ): Promise<boolean> {
     try {
-      await this.conversations.update(conversation.id, changes);
+      if (this.conversations) {
+        await this.conversations.update(conversation.id, changes);
+      } else {
+        await this.store.updateConversation(changes);
+      }
       this.snackBar.open(confirmation, 'OK', { duration: 4000 });
       return true;
     } catch (error) {

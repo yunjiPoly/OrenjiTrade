@@ -24,6 +24,8 @@ import {
   REALTIME_DESTINATIONS,
   ReadReceiptNotice,
   TypingNotice,
+  ConversationNotice,
+  isConversationNotice,
   isNotificationResponse,
   isPresenceNotice,
   isReadReceipt,
@@ -138,6 +140,7 @@ export class RealtimeService {
   private readonly typingSubject = new Subject<TypingNotice>();
   private readonly presenceSubject = new Subject<PresenceNotice>();
   private readonly notificationsSubject = new Subject<NotificationResponse>();
+  private readonly conversationsSubject = new Subject<ConversationNotice>();
   private readonly resyncSubject = new Subject<void>();
 
   /** Connection state, for status indicators. */
@@ -151,6 +154,9 @@ export class RealtimeService {
   /** New in-app notifications of the caller (Phase 6 notification centre). */
   readonly notifications$: Observable<NotificationResponse> =
     this.notificationsSubject.asObservable();
+  /** A chat's pinned card or deck core changed (the other collector pinned another listing). */
+  readonly conversations$: Observable<ConversationNotice> =
+    this.conversationsSubject.asObservable();
   /** Fires after each successful (re)connection: re-read over REST what may have been missed. */
   readonly resync$: Observable<void> = this.resyncSubject.asObservable();
 
@@ -318,6 +324,12 @@ export class RealtimeService {
       const body = parseJson(frame.body);
       if (isNotificationResponse(body)) {
         this.notificationsSubject.next(body);
+      }
+    });
+    connection.subscribe(REALTIME_DESTINATIONS.conversations, (frame) => {
+      const body = parseJson(frame.body);
+      if (isConversationNotice(body)) {
+        this.conversationsSubject.next(body);
       }
     });
   }

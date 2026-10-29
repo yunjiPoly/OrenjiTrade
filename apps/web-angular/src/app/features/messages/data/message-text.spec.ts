@@ -50,7 +50,7 @@ describe('message text helpers', () => {
     expect(messagePreview({ kind: Kind.Image, body: '  the  page ', payload: {} })).toBe(
       'Photo: the page',
     );
-    expect(messagePreview({ kind: Kind.OfferLink, body: 'x', payload: {} })).toBe('Offer');
+    expect(messagePreview({ kind: Kind.OfferLink, body: 'x', payload: {} })).toBe('Offer (no longer available)');
     expect(messagePreview({ kind: Kind.Text, body: 'Hello\n\nthere', payload: {} })).toBe(
       'Hello there',
     );

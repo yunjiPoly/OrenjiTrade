@@ -41,6 +41,9 @@ export function sendErrorMessage(error: ApiError): string {
     }
     case 'VALIDATION_FAILED':
       return error.message || 'This message cannot be sent.';
+    // The same words for every refusal: a block is never told apart (owner decision 2026-10-28).
+    case 'MESSAGING_BLOCKED':
+      return 'This collector cannot receive messages right now.';
     default:
       return friendlyMessage(error);
   }
@@ -73,6 +76,7 @@ export class ThreadStore {
   private readonly blockedState = signal(false);
   private readonly typingState = signal(false);
   private readonly visibleState = signal(true);
+  private readonly refreshedState = signal<ConversationSummary | null>(null);
 
   readonly conversation = this.conversationState.asReadonly();
   readonly messages = this.messagesState.asReadonly();
@@ -88,6 +92,8 @@ export class ThreadStore {
   /** The other participant is typing. */
   readonly otherTyping = this.typingState.asReadonly();
   readonly selfId = computed(() => this.session.me()?.id ?? null);
+  /** The conversation as last read again ({@link refreshConversation}), for the inbox to follow. */
+  readonly refreshed = this.refreshedState.asReadonly();
 
   private olderCursor: string | null = null;
   private loadSubscription: Subscription | null = null;
@@ -189,17 +195,38 @@ export class ThreadStore {
 
   /** Sends a draft; resolves `true` when the message was accepted (the composer clears). */
   async send(draft: MessageDraft): Promise<boolean> {
+    const problem = await this.deliver(draft, true);
+    return problem === null;
+  }
+
+  /**
+   * Sends a message that is not the composer's draft (a quick reply, the address or e-Transfer
+   * email typed in their dialog, a card or binder chosen in a picker): resolves the reason it was
+   * not sent, or `null`. With `showError`, the reason also shows under the composer.
+   */
+  sendDirect(draft: MessageDraft, showError = false): Promise<string | null> {
+    return this.deliver(draft, showError);
+  }
+
+  private async deliver(draft: MessageDraft, showError: boolean): Promise<string | null> {
     const conversation = this.conversationState();
     const problem = draftProblem(draft);
-    if (!conversation || this.sendingState()) {
-      return false;
+    if (!conversation) {
+      return 'This conversation is not open.';
+    }
+    if (this.sendingState()) {
+      return 'Wait for the last message to be sent.';
     }
     if (problem) {
-      this.sendErrorState.set(problem);
-      return false;
+      if (showError) {
+        this.sendErrorState.set(problem);
+      }
+      return problem;
     }
     this.sendingState.set(true);
-    this.sendErrorState.set(null);
+    if (showError) {
+      this.sendErrorState.set(null);
+    }
     try {
       let uploadId: string | undefined;
       if (draft.attachment?.kind === 'image') {
@@ -224,17 +251,79 @@ export class ThreadStore {
         ),
       );
       this.applyMessage(message);
-      return true;
+      if (message.payload?.item) {
+        // Sharing one's own card pins it as the chat's subject (stage R4).
+        void this.refreshConversation();
+      }
+      return null;
     } catch (error) {
       const apiError = toApiError(error);
       if (apiError.errorCode === 'MESSAGING_BLOCKED') {
         this.blockedState.set(true);
       }
-      this.sendErrorState.set(sendErrorMessage(apiError));
-      return false;
+      const reason = sendErrorMessage(apiError);
+      if (showError) {
+        this.sendErrorState.set(reason);
+      }
+      return reason;
     } finally {
       this.sendingState.set(false);
     }
+  }
+
+  /**
+   * Reads the open conversation again (`GET /conversations/{id}`): its pinned card after a pin, a
+   * sale or its undo. Quiet: what is shown stays on failure.
+   */
+  async refreshConversation(): Promise<ConversationSummary | null> {
+    const conversation = this.conversationState();
+    if (!conversation) {
+      return null;
+    }
+    try {
+      const fresh = await firstValueFrom(
+        this.api.getConversation({ id: conversation.id }, 'body', false, {
+          context: silentErrors(),
+        }),
+      );
+      if (this.conversationState()?.id !== fresh.id) {
+        return null;
+      }
+      this.conversationState.set({ ...fresh, unreadCount: this.conversationState()?.unreadCount ?? 0 });
+      this.refreshedState.set(fresh);
+      return fresh;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Mute or archive the open conversation (the chat drawer, which has no inbox). */
+  async updateConversation(changes: { muted?: boolean; archived?: boolean }): Promise<void> {
+    const conversation = this.conversationState();
+    if (!conversation) {
+      return;
+    }
+    try {
+      const updated = await firstValueFrom(
+        this.api.updateConversation(
+          { id: conversation.id, updateConversationRequest: changes },
+          'body',
+          false,
+          { context: silentErrors() },
+        ),
+      );
+      this.conversationState.set(updated);
+      this.refreshedState.set(updated);
+    } catch (error) {
+      throw toApiError(error);
+    }
+  }
+
+  /** The seller undid a sale: its note leaves the thread at once (the push confirms it). */
+  dropSale(saleId: string): void {
+    this.messagesState.update((messages) =>
+      messages.filter((message) => message.payload?.sale?.saleId !== saleId),
+    );
   }
 
   dismissSendError(): void {
@@ -295,6 +384,10 @@ export class ThreadStore {
       return;
     }
     this.messagesState.update((messages) => mergeMessages(messages, [message]));
+    if (message.payload?.sale) {
+      // A sale or its undo: the pinned card's "Sold" and copies change (stage R4).
+      void this.refreshConversation();
+    }
     if (message.senderId && message.senderId !== this.selfId()) {
       this.typingState.set(false);
       this.clearTypingTimer();
@@ -360,6 +453,13 @@ export class ThreadStore {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((notice) => this.applyTyping(notice));
     this.realtime.resync$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.resync());
+    this.realtime.conversations$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((notice) => {
+        if (notice.conversationId === this.conversationState()?.id) {
+          void this.refreshConversation();
+        }
+      });
   }
 
   private clearTypingTimer(): void {

@@ -1,0 +1,255 @@
+:host {
+  display: block;
+}
+
+.tools {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+  padding: var(--spacing-3) var(--spacing-6) var(--spacing-3);
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  height: 40px;
+  padding: 0 10px 0 12px;
+  border: 1px solid var(--color-border-input);
+  border-radius: var(--radius-input);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+
+  &:focus-within {
+    border-color: var(--color-primary);
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: 1px;
+  }
+
+  mat-icon {
+    width: 20px;
+    height: 20px;
+    font-size: 20px;
+  }
+
+  input {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: 0;
+    background: none;
+    color: var(--color-ink);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    outline: none;
+  }
+
+  input::placeholder {
+    color: var(--color-text-muted);
+  }
+}
+
+.search__key {
+  display: grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 6px;
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+}
+
+.tools app-segmented {
+  align-self: flex-start;
+}
+
+.list-skeleton,
+.list-pad {
+  padding: var(--spacing-3) var(--spacing-6);
+}
+
+.sk-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  height: 76px;
+}
+
+.sk-row__text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.list {
+  margin: 0;
+  padding: 0 0 var(--spacing-2);
+  list-style: none;
+}
+
+/* Rows of 76 (spec 10.2). */
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  width: 100%;
+  min-height: 76px;
+  padding: 0 var(--spacing-4) 0 var(--spacing-6);
+  border: 0;
+  background: transparent;
+  color: var(--color-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--motion-duration-fast) var(--motion-easing-standard);
+
+  &:hover {
+    background: var(--color-primary-tint-subtle);
+  }
+
+  &:focus-visible {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: calc(-1 * var(--focus-width));
+  }
+}
+
+.row--active,
+.row--active:hover {
+  background: var(--color-surface-variant);
+  box-shadow: inset 2px 0 0 var(--color-primary);
+}
+
+.row__avatar {
+  position: relative;
+  flex: 0 0 44px;
+  width: 44px;
+}
+
+.row__online {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--color-background);
+  border-radius: 50%;
+  background: var(--color-online-online);
+}
+
+.row__main {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.row__top,
+.row__bottom {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  min-width: 0;
+}
+
+.row__name {
+  flex: 1 1 auto;
+  overflow: hidden;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row__time {
+  flex: 0 0 auto;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.row__preview {
+  flex: 1 1 auto;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row--unread .row__name {
+  font-weight: var(--font-weight-bold);
+}
+
+.row--unread .row__time {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.row--unread .row__preview {
+  color: var(--color-ink);
+  font-weight: var(--font-weight-semibold);
+}
+
+.row__muted {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  color: var(--color-text-muted);
+  font-size: 16px;
+}
+
+.row__badge {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: var(--font-size-tag);
+  font-weight: var(--font-weight-bold);
+}
+
+/* The chat's card or deck core, 28×40. */
+.row__thumb {
+  flex: 0 0 28px;
+  width: 28px;
+}
+
+.row__core {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 40px;
+  border-radius: 4px;
+  background: var(--color-deck-core-tag-background);
+  color: var(--color-deck-core-tag-text);
+
+  mat-icon {
+    width: 16px;
+    height: 16px;
+    font-size: 16px;
+  }
+}
+
+.list-more {
+  display: flex;
+  justify-content: center;
+  padding: var(--spacing-2);
+}
+
+@media (max-width: 1279.98px) {
+  .tools,
+  .list-skeleton,
+  .list-pad {
+    padding-inline: var(--spacing-4);
+  }
+
+  .row {
+    padding-left: var(--spacing-4);
+  }
+}
