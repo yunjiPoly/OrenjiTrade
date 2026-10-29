@@ -1,8 +1,9 @@
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { Injectable, Injector, inject } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import type { InventoryItemResponse } from '@orenji/api-client';
 import { firstValueFrom } from 'rxjs';
-import { ToastService } from '../../../core/feedback/toast.service';
+import { ToastRef, ToastService } from '../../../core/feedback/toast.service';
 import { ApiError } from '../../../core/http/api-error';
 import { friendlyError } from '../../../core/http/api-error-messages';
 import { isLimitReached } from '../../../core/limits/limit-reached';
@@ -11,10 +12,60 @@ import {
   ConfirmDialogData,
 } from '../../../shared/ui/confirm-dialog/confirm-dialog.component';
 import { BulkAction, bulkOutcome, cardsLabel, hiddenAfterPublic } from './bulk-actions';
-import { InventoryStore } from './inventory.store';
+import { InventoryStore, RestoreOutcome } from './inventory.store';
 
 /** The server keeps a deleted card 10 minutes for an undo. */
 export const UNDO_WINDOW_MS = 10 * 60 * 1000;
+
+/** What a screen reader hears once an inline edit of the table is saved (spec 9.4). */
+export const INLINE_SAVED = {
+  price: 'Price saved',
+  copies: 'Copies saved',
+  visibility: 'Who can see it saved',
+  binder: 'Binder saved',
+} as const;
+
+/**
+ * The words of an Undo's outcome (F1): the cards back, the ones the server can no longer restore,
+ * and the ones still waiting (the per-minute limit, offline), which a new Undo brings back.
+ */
+export function restoreMessage(
+  outcome: Pick<RestoreOutcome, 'gone' | 'waiting' | 'retryAfterSeconds'> & { restored: number },
+  asked: number,
+): { title: string; sub: string | null; tone: 'success' | 'error' | 'info' } {
+  const gone = outcome.gone.length;
+  const waiting = outcome.waiting.length;
+  const restored = outcome.restored;
+  if (waiting > 0) {
+    const when = outcome.retryAfterSeconds
+      ? `Try again in ${outcome.retryAfterSeconds} s.`
+      : 'Try again in a moment.';
+    const goneText = gone > 0 ? ` ${cardsLabel(gone)} could no longer be restored.` : '';
+    return {
+      title:
+        restored > 0
+          ? `${restored === 1 ? 'Card' : cardsLabel(restored)} restored`
+          : `${cardsLabel(waiting)} not restored yet`,
+      sub: `${restored > 0 ? `${cardsLabel(waiting)} not restored yet. ` : ''}${when}${goneText}`,
+      tone: restored > 0 ? 'info' : 'error',
+    };
+  }
+  if (restored === 0) {
+    return {
+      title:
+        asked === 1
+          ? 'This card can no longer be restored.'
+          : 'These cards can no longer be restored.',
+      sub: null,
+      tone: 'error',
+    };
+  }
+  return {
+    title: restored === 1 ? 'Card restored' : `${cardsLabel(restored)} restored`,
+    sub: gone > 0 ? `${cardsLabel(gone)} could no longer be restored.` : null,
+    tone: 'success',
+  };
+}
 
 /** Words of a binder's game errors (stage G 409s, spec 9.12). */
 export function binderGameError(error: ApiError, gameLabel: string | null): string | null {
@@ -43,6 +94,7 @@ export class InventoryActions {
   private readonly dialog = inject(MatDialog);
   private readonly toasts = inject(ToastService);
   private readonly injector = inject(Injector);
+  private readonly announcer = inject(LiveAnnouncer);
   private lastUndo: { run: () => Promise<void>; until: number } | null = null;
 
   /** Whether an Undo is still waiting (Ctrl/Cmd+Z then does it). */
@@ -57,7 +109,6 @@ export class InventoryActions {
       this.lastUndo = null;
       return false;
     }
-    this.lastUndo = null;
     await undo.run();
     return true;
   }
@@ -84,8 +135,15 @@ export class InventoryActions {
     return true;
   }
 
-  /** A bulk action on the selection, with its result toast (spec 9.6). */
-  async bulk(action: BulkAction, ids: readonly string[]): Promise<boolean> {
+  /**
+   * A bulk action on the selection, with its result toast (spec 9.6). `started` runs once the
+   * action is really sent (after the delete's confirmation), so the dock is busy only meanwhile.
+   */
+  async bulk(
+    action: BulkAction,
+    ids: readonly string[],
+    started: () => void = () => undefined,
+  ): Promise<boolean> {
     if (ids.length === 0) {
       return false;
     }
@@ -102,6 +160,7 @@ export class InventoryActions {
       }
     }
     const items = this.store.items();
+    started();
     try {
       const response = await this.store.bulk(action, ids);
       if (action.kind === 'delete') {
@@ -138,6 +197,8 @@ export class InventoryActions {
   ): Promise<boolean> {
     try {
       await save();
+      // The teal check is for the eyes; a screen reader hears it (spec 9.4, F8).
+      void this.announcer.announce(INLINE_SAVED[what], 'polite');
       return true;
     } catch (error) {
       const apiError = error as ApiError;
@@ -248,31 +309,48 @@ export class InventoryActions {
       this.toasts.show({ title, sub, tone: 'info' });
       return;
     }
-    const run = async () => {
-      const { restored, failed } = await this.store.restoreItems(ids);
-      if (failed > 0 && restored === 0) {
-        this.toasts.show({
-          title:
-            ids.length === 1
-              ? 'This card can no longer be restored.'
-              : 'These cards can no longer be restored.',
-          tone: 'error',
-        });
-        return;
-      }
-      this.toasts.show({
-        title: restored === 1 ? 'Card restored' : `${cardsLabel(restored)} restored`,
-        sub: failed > 0 ? `${cardsLabel(failed)} could no longer be restored.` : null,
-      });
-    };
-    this.lastUndo = { run, until: Date.now() + UNDO_WINDOW_MS };
+    const until = Date.now() + UNDO_WINDOW_MS;
     const ref = this.toasts.show({ title, sub, action: 'Undo' });
-    ref.onAction().subscribe(() => {
+    this.keepUndo(ref, ids, until);
+  }
+
+  /**
+   * Undo (the toast's action, or Ctrl/Cmd+Z) restores `ids`, paced against the per-minute limit;
+   * the cards still waiting afterwards keep an Undo of their own until the server's 10 minutes end.
+   */
+  private keepUndo(ref: ToastRef, ids: readonly string[], until: number): void {
+    let started = false;
+    const run = async () => {
       if (this.lastUndo?.run === run) {
         this.lastUndo = null;
       }
-      void run();
-    });
+      if (started) {
+        return; // the toast's Undo and Ctrl/Cmd+Z run it once
+      }
+      started = true;
+      let progress: ToastRef | null = null;
+      const outcome = await this.store.restoreItems(ids, {
+        onWait: (seconds, done) => {
+          progress?.dismiss();
+          progress = this.toasts.show({
+            title: `Restoring ${cardsLabel(ids.length)}…`,
+            sub: `${done} back so far. The rest follow in ${seconds} s.`,
+            tone: 'info',
+            duration: seconds * 1000 + 2000,
+          });
+        },
+      });
+      (progress as ToastRef | null)?.dismiss();
+      const words = restoreMessage({ ...outcome, restored: outcome.restored.length }, ids.length);
+      if (outcome.waiting.length > 0 && Date.now() < until) {
+        const again = this.toasts.show({ ...words, action: 'Try again', duration: 10000 });
+        this.keepUndo(again, outcome.waiting, until);
+        return;
+      }
+      this.toasts.show(words);
+    };
+    this.lastUndo = { run, until };
+    ref.onAction().subscribe(() => void run());
   }
 
   private confirm(data: ConfirmDialogData): Promise<boolean> {

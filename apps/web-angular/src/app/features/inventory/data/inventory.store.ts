@@ -18,9 +18,9 @@ import {
 import { Observable, Subscription, firstValueFrom } from 'rxjs';
 import { ApiError, toApiError } from '../../../core/http/api-error';
 import { SKIP_LIMIT_DIALOG, silentErrors } from '../../../core/http/http-context';
+import { isLimitReached } from '../../../core/limits/limit-reached';
 import { PublishMode } from '../../../shared/inventory/inventory-labels';
 import { BulkAction, toBulkRequest } from './bulk-actions';
-import { cardFormOf } from './card-form';
 import { InventoryParams, listKey, toListRequest } from './inventory-params';
 import { pruneSelection, selectAllLoaded, selectRange, toggleOne } from './selection';
 import { ownerIsVisible } from './visibility-status';
@@ -30,6 +30,46 @@ const CONFIRM_ALL_MAX = 500;
 const CONFIRM_ALL_PAGE = 100;
 /** How long a new or restored row is highlighted (spec 9.9: 1.5 s). */
 export const HIGHLIGHT_MS = 1500;
+/** Restores sent at once by an Undo (each one counts against the per-minute request limit). */
+export const RESTORE_CONCURRENCY = 4;
+/** How many 429 pauses an Undo waits through before it hands the rest back (F1). */
+export const RESTORE_MAX_WAITS = 2;
+/** The longest pause asked by a 429 that the queue honours (the limit's window is a minute). */
+const RESTORE_WAIT_MAX_S = 60;
+
+export interface RestoreOptions {
+  /** A pause began: the seconds it lasts and how many cards are back so far. */
+  onWait?: (seconds: number, restoredSoFar: number) => void;
+  /** Waits `ms` (tests pass their own). */
+  sleep?: (ms: number) => Promise<void>;
+}
+
+/** What an Undo brought back. */
+export interface RestoreOutcome {
+  restored: string[];
+  /** Past the server's 10 minutes, or gone another way: no Undo brings them back. */
+  gone: string[];
+  /** Still restorable but not restored yet (rate-limited, offline or a server failure). */
+  waiting: string[];
+  /** The server's last "retry in" (429 `RATE_LIMITED`) while cards are waiting, or null. */
+  retryAfterSeconds: number | null;
+}
+
+function isRateLimited(error: ApiError): boolean {
+  return error.errorCode === 'RATE_LIMITED' || (error.status === 429 && !isLimitReached(error));
+}
+
+function retryAfterOf(error: ApiError): number {
+  const seconds = Number(error.problem?.retryAfterSeconds);
+  return Number.isFinite(seconds) && seconds > 0
+    ? Math.min(RESTORE_WAIT_MAX_S, Math.ceil(seconds))
+    : RESTORE_WAIT_MAX_S;
+}
+
+/** A failure after which the same restore may still work (offline, a server error). */
+function restoreMayWork(error: ApiError): boolean {
+  return error.isNetworkError || error.isServerError || error.status === 429;
+}
 
 /**
  * State and API calls of `/inventory` (provided by the page, shared with its drawers and dialogs).
@@ -359,11 +399,15 @@ export class InventoryStore {
     });
   }
 
-  /** Files a card in a binder (or none); its visibility is sent as the card shows it. */
+  /**
+   * Files a card in a binder (or none). Its stored visibility is sent unchanged, so the move keeps
+   * it exactly (a running temporary publication stays temporary, F4) and the server does not
+   * re-derive it for a move to Unfiled.
+   */
   setBinder(item: InventoryItemResponse, binderId: string | null): Promise<InventoryItemResponse> {
     return this.inlineUpdate(item, {
       binderId,
-      visibility: cardFormOf(item).visibility as UpdateInventoryItemRequest['visibility'],
+      visibility: item.visibility as string as UpdateInventoryItemRequest['visibility'],
     });
   }
 
@@ -385,21 +429,71 @@ export class InventoryStore {
     this.refresh({ items: false });
   }
 
-  /** Undo of a delete: `POST /items/{id}/restore` for each card (no bulk restore yet). */
-  async restoreItems(ids: readonly string[]): Promise<{ restored: number; failed: number }> {
-    const results = await Promise.allSettled(
-      ids.map((id) =>
-        this.call(
-          this.inventoryApi.restoreInventoryItem({ id }, 'body', false, {
-            context: silentErrors(),
-          }),
-        ),
-      ),
+  /**
+   * Undo of a delete: `POST /items/{id}/restore` for each card (no bulk restore yet, decision 19),
+   * a few at a time. Every restore counts against the collector's per-minute request limit, so a
+   * 429 `RATE_LIMITED` pauses the queue for the server's `retryAfterSeconds` and retries the card
+   * (at most {@link RESTORE_MAX_WAITS} pauses); the cards still restorable after that, or after a
+   * network or server failure, come back as `waiting` so the caller can offer Undo again. Only a
+   * card the server can no longer restore (its 10 minutes passed) is `gone`.
+   */
+  async restoreItems(
+    ids: readonly string[],
+    options: RestoreOptions = {},
+  ): Promise<RestoreOutcome> {
+    const sleep = options.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+    const queue = [...ids];
+    const restored: string[] = [];
+    const gone: string[] = [];
+    const waiting: string[] = [];
+    let retryAfterSeconds: number | null = null;
+    let pause: Promise<void> | null = null;
+    let waits = 0;
+    let stopped = false;
+    const worker = async (): Promise<void> => {
+      while (queue.length > 0 && !stopped) {
+        if (pause) {
+          await pause;
+          continue;
+        }
+        const id = queue.shift()!;
+        try {
+          await this.call(
+            this.inventoryApi.restoreInventoryItem({ id }, 'body', false, {
+              context: silentErrors(),
+            }),
+          );
+          restored.push(id);
+        } catch (error) {
+          const apiError = error as ApiError;
+          if (!isRateLimited(apiError)) {
+            (restoreMayWork(apiError) ? waiting : gone).push(id);
+            continue;
+          }
+          retryAfterSeconds = retryAfterOf(apiError);
+          queue.unshift(id);
+          if (pause) {
+            continue;
+          }
+          if (waits >= RESTORE_MAX_WAITS) {
+            stopped = true;
+            continue;
+          }
+          waits++;
+          options.onWait?.(retryAfterSeconds, restored.length);
+          pause = sleep(retryAfterSeconds * 1000).then(() => {
+            pause = null;
+          });
+        }
+      }
+    };
+    await Promise.all(
+      Array.from({ length: Math.min(RESTORE_CONCURRENCY, ids.length) }, () => worker()),
     );
-    const restored = results.filter((result) => result.status === 'fulfilled').length;
+    waiting.push(...queue);
     this.refresh();
-    ids.forEach((id) => this.flash(this.highlightState, id, HIGHLIGHT_MS));
-    return { restored, failed: ids.length - restored };
+    restored.forEach((id) => this.flash(this.highlightState, id, HIGHLIGHT_MS));
+    return { restored, gone, waiting, retryAfterSeconds: waiting.length ? retryAfterSeconds : null };
   }
 
   async uploadImage(id: string, file: Blob): Promise<InventoryItemResponse> {
