@@ -1,98 +1,105 @@
 import { Injectable, Injector, inject } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import type { BinderResponse } from '@orenji/api-client';
+import type { BinderResponse, InventoryItemResponse } from '@orenji/api-client';
 import { firstValueFrom } from 'rxjs';
+import { ToastService } from '../../../core/feedback/toast.service';
 import { ApiError } from '../../../core/http/api-error';
 import { friendlyError } from '../../../core/http/api-error-messages';
 import { isLimitReached } from '../../../core/limits/limit-reached';
-import { PublishMode } from '../../../shared/inventory/inventory-labels';
 import {
   ConfirmDialogComponent,
   ConfirmDialogData,
 } from '../../../shared/ui/confirm-dialog/confirm-dialog.component';
+import { BINDER_COPY } from '../data/binder-form';
+import { reorderWithinGame } from '../data/binder-games';
 import { InventoryStore } from '../data/inventory.store';
-import { BinderFormDialogComponent, BinderFormDialogData } from './binder-form-dialog.component';
-
-const SNACK_MS = 5000;
-
-/** Wording of a successful publication. */
-export function publishedMessage(binder: Pick<BinderResponse, 'name'>, mode: PublishMode): string {
-  switch (mode) {
-    case 'ONE_HOUR':
-      return `“${binder.name}” is public for 1 hour.`;
-    case 'ONE_DAY':
-      return `“${binder.name}” is public for 24 hours.`;
-    default:
-      return `“${binder.name}” is public until you make it private.`;
-  }
-}
+import {
+  NewBinderData,
+  NewBinderDialogComponent,
+  NewBinderResult,
+} from './new-binder-dialog.component';
 
 /**
- * Binder actions shared by the page and the binder manager: create/edit dialogs, publish,
- * unpublish, confirm and delete (with a confirmation), each with a snack bar outcome. Errors are
- * explained in the snack bar, except a reached usage limit (the global dialog explains it).
+ * Binder actions shared by the pane, the binder strip and the Binders tab (spec 9.2 and 9.12): New
+ * binder, Make public or private, Move up or down, delete (with a confirmation), confirm; each
+ * with a toast. A reached usage limit has its own words or dialog.
  */
 @Injectable()
 export class BinderActionsService {
   private readonly store = inject(InventoryStore);
   private readonly dialog = inject(MatDialog);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly toasts = inject(ToastService);
   private readonly injector = inject(Injector);
 
-  async create(): Promise<BinderResponse | undefined> {
-    const binder = await this.openForm({});
-    if (binder) {
-      this.snackBar.open(`Binder “${binder.name}” created.`, 'OK', { duration: SNACK_MS });
-    }
-    return binder;
-  }
-
-  async edit(binder: BinderResponse): Promise<BinderResponse | undefined> {
-    const saved = await this.openForm({ binder });
-    if (saved) {
-      this.snackBar.open('Binder saved.', 'OK', { duration: SNACK_MS });
-    }
-    return saved;
-  }
-
-  async publish(binder: BinderResponse, mode: PublishMode): Promise<boolean> {
-    return this.run(
-      () => this.store.publishBinder(binder.id, mode),
-      publishedMessage(binder, mode),
+  /** New binder (from a selection: its cards of the binder's game move in). */
+  async create(data: NewBinderData = {}): Promise<NewBinderResult | undefined> {
+    const result = await firstValueFrom(
+      this.dialog
+        .open<NewBinderDialogComponent, NewBinderData, NewBinderResult>(NewBinderDialogComponent, {
+          data,
+          panelClass: 'app-dialog--form',
+          injector: this.injector,
+          autoFocus: false,
+          restoreFocus: true,
+          ariaLabelledBy: 'new-binder-title',
+        })
+        .afterClosed(),
     );
+    if (result) {
+      this.toasts.show({
+        title: `${result.binder.name} created`,
+        sub: result.moved > 0 ? `${result.moved} ${result.moved === 1 ? 'card' : 'cards'} moved in.` : null,
+      });
+    }
+    return result;
   }
 
-  async unpublish(binder: BinderResponse): Promise<boolean> {
+  /** Make public (until made private) or private again. */
+  async toggleVisibility(binder: BinderResponse): Promise<boolean> {
+    const toPublic = binder.visibility === 'PRIVATE';
     return this.run(
-      () => this.store.unpublishBinder(binder.id),
-      `“${binder.name}” is private now.`,
+      () =>
+        toPublic
+          ? this.store.publishBinder(binder.id, 'UNTIL_DISABLED')
+          : this.store.unpublishBinder(binder.id),
+      toPublic ? `${binder.name} is public` : `${binder.name} is private`,
     );
   }
 
   async confirm(binder: BinderResponse): Promise<boolean> {
     return this.run(
       () => this.store.confirmBinder(binder.id),
-      `“${binder.name}” and its cards are confirmed as still available.`,
+      `${binder.name} and its cards are confirmed as still available`,
     );
   }
 
-  /** Asks first; items become unfiled. Resolves `true` once deleted. */
+  /** Move up / Move down, or a drop at a new place, within the binder's game. */
+  async move(binder: BinderResponse, offset: number): Promise<void> {
+    const binders = this.store.binders() ?? [];
+    const ids = reorderWithinGame(binders, binder.id, offset);
+    if (ids.join() === binders.map((b) => b.id).join()) {
+      return;
+    }
+    try {
+      await this.store.reorderBinders(ids);
+    } catch (error) {
+      this.toasts.show({ title: friendlyError(error as ApiError).message, tone: 'error' });
+    }
+  }
+
+  /** "Delete {name}?"; the cards stay in the inventory, unfiled. Resolves true once deleted. */
   async remove(binder: BinderResponse): Promise<boolean> {
-    const cards = `${binder.itemCount} ${binder.itemCount === 1 ? 'card' : 'cards'}`;
     const confirmed = await firstValueFrom(
       this.dialog
         .open<ConfirmDialogComponent, ConfirmDialogData, boolean>(ConfirmDialogComponent, {
           data: {
-            title: `Delete “${binder.name}”?`,
-            message:
-              binder.itemCount > 0
-                ? `Its ${cards} stay in your inventory as unfiled cards (private unless the binder was public without an end date).`
-                : 'The binder is empty.',
+            title: `Delete ${binder.name}?`,
+            message: binder.sellsAsCore ? BINDER_COPY.deleteBodyCore : BINDER_COPY.deleteBodyPlain,
             confirmLabel: 'Delete binder',
+            cancelLabel: 'Keep it',
             tone: 'danger',
           },
-          panelClass: 'app-dialog--md',
+          panelClass: 'app-dialog--confirm',
           injector: this.injector,
         })
         .afterClosed(),
@@ -100,35 +107,23 @@ export class BinderActionsService {
     if (!confirmed) {
       return false;
     }
-    return this.run(() => this.store.deleteBinder(binder.id), `Binder “${binder.name}” deleted.`);
+    return this.run(() => this.store.deleteBinder(binder.id), 'Binder deleted');
   }
 
-  private openForm(data: BinderFormDialogData): Promise<BinderResponse | undefined> {
-    return firstValueFrom(
-      this.dialog
-        .open<BinderFormDialogComponent, BinderFormDialogData, BinderResponse>(
-          BinderFormDialogComponent,
-          {
-            data,
-            panelClass: 'app-dialog--md',
-            injector: this.injector,
-            autoFocus: 'first-tabbable',
-            restoreFocus: true,
-          },
-        )
-        .afterClosed(),
-    );
+  /** The selection, for New binder… of the bulk dock. */
+  selectionOf(ids: ReadonlySet<string>): InventoryItemResponse[] {
+    return this.store.items().filter((item) => ids.has(item.id));
   }
 
   private async run(action: () => Promise<unknown>, success: string): Promise<boolean> {
     try {
       await action();
-      this.snackBar.open(success, 'OK', { duration: SNACK_MS });
+      this.toasts.show({ title: success });
       return true;
     } catch (error) {
       const apiError = error as ApiError;
       if (!isLimitReached(apiError)) {
-        this.snackBar.open(friendlyError(apiError).message, 'OK', { duration: 8000 });
+        this.toasts.show({ title: friendlyError(apiError).message, tone: 'error' });
       }
       return false;
     }

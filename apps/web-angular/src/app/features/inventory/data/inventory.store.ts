@@ -354,12 +354,17 @@ export class InventoryStore {
     item: InventoryItemResponse,
     visibility: 'PRIVATE' | 'PUBLIC',
   ): Promise<InventoryItemResponse> {
-    return this.inlineUpdate(item, { visibility });
+    return this.inlineUpdate(item, {
+      visibility: visibility as UpdateInventoryItemRequest['visibility'],
+    });
   }
 
   /** Files a card in a binder (or none); its visibility is sent as the card shows it. */
   setBinder(item: InventoryItemResponse, binderId: string | null): Promise<InventoryItemResponse> {
-    return this.inlineUpdate(item, { binderId, visibility: cardFormOf(item).visibility });
+    return this.inlineUpdate(item, {
+      binderId,
+      visibility: cardFormOf(item).visibility as UpdateInventoryItemRequest['visibility'],
+    });
   }
 
   async confirmItem(id: string): Promise<InventoryItemResponse> {
@@ -474,10 +479,13 @@ export class InventoryStore {
 
   // --- binder writes -----------------------------------------------------------------------
 
-  async createBinder(request: CreateBinderRequest): Promise<BinderResponse> {
+  async createBinder(
+    request: CreateBinderRequest,
+    options: { explainLimit?: boolean } = {},
+  ): Promise<BinderResponse> {
     const binder = await this.call(
       this.bindersApi.createBinder({ createBinderRequest: request }, 'body', false, {
-        context: silentErrors(),
+        context: this.context(options.explainLimit),
       }),
     );
     this.bindersState.update((binders) => [...(binders ?? []), binder]);

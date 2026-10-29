@@ -1,150 +1,358 @@
+// Inventory (web redesign spec 9.1): | pane 256 | main (padding 24) | drawer 440 |.
+:host {
+  display: block;
+  --inv-toolbar-h: 56px;
+}
+
 .inv {
-  max-width: 1440px;
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: calc(100dvh - 64px);
 }
 
-.inv__loading {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-4);
+.inv--pane {
+  grid-template-columns: 256px minmax(0, 1fr);
 }
 
-.inv__summary {
-  margin-bottom: var(--spacing-4);
+.inv--push {
+  grid-template-columns: minmax(0, 1fr) 440px;
 }
 
-.inv__banner {
+.inv--pane.inv--push {
+  grid-template-columns: 256px minmax(0, 1fr) 440px;
+}
+
+.inv__pane {
+  position: sticky;
+  top: 64px;
+  align-self: start;
+  height: calc(100dvh - 64px);
+  overflow-y: auto;
+  border-right: 1px solid var(--color-border);
+}
+
+.inv__main {
+  position: relative;
+  min-width: 0;
+  padding: 24px 24px 120px;
+}
+
+.inv--guest {
+  display: block;
+  padding: 24px;
+}
+
+.inv__head-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--spacing-3);
-  margin-bottom: var(--spacing-4);
-  padding: var(--spacing-3) var(--spacing-4);
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 64px;
+}
+
+.inv__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--font-size-title);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.2;
+}
+
+.inv__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.inv__import,
+.split__main,
+.split__caret {
+  min-height: 40px;
+}
+
+.inv__import {
+  border-radius: 999px;
+}
+
+// The orange split button: the view's one orange (spec 9.3).
+.split {
+  display: inline-flex;
+}
+
+.split__main {
+  border-radius: 999px 0 0 999px;
+}
+
+.split__caret {
+  min-width: 44px;
+  padding: 0 10px;
+  border-left: 1px solid color-mix(in srgb, var(--color-on-primary) 25%, transparent);
+  border-radius: 0 999px 999px 0;
+}
+
+.split__caret mat-icon {
+  margin: 0;
+}
+
+.inv__summary {
+  margin: 14px 0 12px;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.inv__summary strong {
+  color: var(--color-ink);
+}
+
+.strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 10px 12px 10px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface);
+}
+
+.strip__name {
+  font-family: var(--font-display);
+  font-size: var(--font-size-section);
+  font-weight: var(--font-weight-semibold);
+}
+
+.strip__core {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--color-deck-core-tag-background);
+  color: var(--color-deck-core-tag-text);
+  font-size: var(--font-size-tag);
+  font-weight: var(--font-weight-semibold);
+}
+
+.strip__muted {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-meta);
+}
+
+.strip__spacer {
+  flex: 1 1 auto;
+}
+
+// Banners (spec 9.3): 48 tall, radius 12, amber tint; only when they apply.
+.banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  min-height: 48px;
+  margin-bottom: 10px;
+  padding: 8px 16px;
   border: 1px solid color-mix(in srgb, var(--color-warning) 45%, var(--color-border));
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--color-warning) 9%, var(--color-surface));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-warning) 8%, var(--color-surface));
 }
 
-.inv__banner-icon {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--color-warning) 22%, var(--color-surface));
-  color: color-mix(in srgb, var(--color-warning) 60%, var(--color-ink));
+.banner > mat-icon {
+  color: light-dark(color-mix(in srgb, var(--color-warning) 60%, var(--color-ink)), var(--color-warning));
 }
 
-.inv__banner-text {
+.banner__text {
   flex: 1 1 320px;
   margin: 0;
   font-size: var(--font-size-sm);
 }
 
-.inv__layout {
-  display: grid;
-  grid-template-columns: 264px minmax(0, 1fr);
-  gap: var(--spacing-5);
-  align-items: start;
-}
-
-.inv__side {
-  position: sticky;
-  top: 80px;
-}
-
-.inv__main {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-4);
-  min-width: 0;
-}
-
-.inv__list-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--spacing-2);
-}
-
-.inv__list-title {
-  font-size: var(--font-size-xl);
-}
-
-.inv__count {
-  margin: 0;
-  color: var(--color-text-muted);
+.banner__pill {
+  min-height: 32px;
+  padding: 0 14px;
+  border: 1px solid light-dark(color-mix(in srgb, var(--color-warning) 60%, var(--color-ink)), var(--color-warning));
+  border-radius: 999px;
+  background: transparent;
+  color: light-dark(color-mix(in srgb, var(--color-warning) 60%, var(--color-ink)), var(--color-warning));
+  font: inherit;
   font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
 }
 
-.inv__bulk {
-  position: sticky;
-  top: 76px;
-  z-index: 5;
-}
-
-.inv__result {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--spacing-2);
-  margin: 0;
-  padding: var(--spacing-2) var(--spacing-3);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-variant);
+.banner__link {
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-accent);
+  font: inherit;
   font-size: var(--font-size-sm);
-
-  mat-icon {
-    flex: 0 0 auto;
-    width: 18px;
-    height: 18px;
-    font-size: 18px;
-    color: var(--color-info);
-  }
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
 }
 
-.inv__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
-  gap: var(--spacing-4);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  transition: opacity var(--motion-duration-fast) var(--motion-easing-standard);
+.banner__pill:focus-visible,
+.banner__link:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: 2px;
 }
 
-.inv__cell {
-  min-width: 0;
-  animation: inv-in var(--motion-duration-base) var(--motion-easing-standard);
+// The toolbar is sticky under the top bar (spec 9.3).
+.inv__toolbar {
+  position: sticky;
+  top: 64px;
+  z-index: 4;
+  margin: 0 -24px 8px;
+  padding: 0 24px;
+  background: var(--color-background);
 }
 
 .inv__dim {
   opacity: 0.6;
+  transition: opacity var(--motion-duration-fast);
 }
 
-.inv__paginator {
-  background: transparent;
+.skel {
+  display: grid;
+  gap: 2px;
 }
 
-@keyframes inv-in {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
+.skel--tiles {
+  grid-template-columns: repeat(auto-fill, minmax(136px, 1fr));
+  gap: 16px;
+}
+
+.inv__note {
+  margin: 12px 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-meta);
+  text-align: center;
+}
+
+.more {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.more__count {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-meta);
+}
+
+.more__error {
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+}
+
+// The bulk dock floats at the bottom centre of the list, 24 above the edge (spec 9.6).
+.dock {
+  position: sticky;
+  bottom: 24px;
+  z-index: 6;
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+  pointer-events: none;
+}
+
+.dock app-bulk-dock {
+  pointer-events: auto;
+}
+
+// The drawer: from the top bar down; it pushes the list at lg and xl (spec 4.8).
+.inv__drawer {
+  position: sticky;
+  top: 64px;
+  z-index: 7;
+  align-self: start;
+  width: 440px;
+  height: calc(100dvh - 64px);
+}
+
+.inv__drawer-loading {
+  height: 100%;
+  border-left: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.inv__scrim {
+  position: fixed;
+  inset: 64px 0 0;
+  z-index: 20;
+  background: var(--color-overlay);
+}
+
+.inv--drawer:not(.inv--push) .inv__drawer {
+  position: fixed;
+  top: 64px;
+  right: 0;
+  z-index: 21;
+  width: min(440px, 100vw);
+}
+
+// A .ydk or .csv dragged over Inventory (spec 9.7).
+.drop {
+  position: fixed;
+  inset: 64px 0 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--color-background) 80%, transparent);
+  pointer-events: none;
+}
+
+.drop__box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 32px 40px;
+  border: 2px dashed var(--app-primary-text);
+  border-radius: 16px;
+  background: var(--color-surface);
+  font-size: var(--font-size-section);
+  font-weight: var(--font-weight-semibold);
+}
+
+// Below 960: the phone's design in the browser (spec 16).
+@media (max-width: 959.98px) {
+  .inv__main {
+    padding: 12px 16px 120px;
+  }
+
+  .inv__toolbar {
+    margin: 0 -16px 8px;
+    padding: 0 16px;
+  }
+
+  .inv__head-row {
+    min-height: 0;
+  }
+
+  .inv__actions {
+    margin-left: auto;
+  }
+
+  .inv--drawer:not(.inv--push) .inv__drawer {
+    top: 0;
+    width: 100vw;
+    height: 100dvh;
+    z-index: 40;
+  }
+
+  .inv__scrim {
+    display: none;
+  }
+
+  .dock {
+    bottom: calc(80px + env(safe-area-inset-bottom));
   }
 }
 
-@media (max-width: 959px) {
-  .inv__layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .inv__side {
-    position: static;
-  }
-}
-
-@media (max-width: 599px) {
-  .inv__grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--spacing-3);
+@media (prefers-reduced-motion: reduce) {
+  .inv__dim {
+    transition: none;
   }
 }

@@ -1,0 +1,465 @@
+// Inventory's table (web redesign spec 9.4). The columns follow the width of the table itself
+// (container queries): full at lg (inner 1064), Binder and Updated dropped at md (inner 904), and
+// the phone's row with the drawer open (inner 624).
+:host {
+  display: block;
+  container-type: inline-size;
+  container-name: invtable;
+}
+
+.tbl {
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface);
+}
+
+.tbl__row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 40px 56px minmax(240px, 1fr) 168px 148px 104px 136px 80px 40px;
+  align-items: center;
+  min-height: 72px;
+  border-top: 1px solid var(--color-border);
+  outline: none;
+  cursor: pointer;
+}
+
+.tbl__row--head {
+  position: sticky;
+  top: calc(64px + var(--inv-toolbar-h, 56px));
+  z-index: 3;
+  min-height: 40px;
+  border-top: 0;
+  border-radius: 14px 14px 0 0;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-tag);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: default;
+}
+
+.tbl__body .tbl__row:hover,
+.tbl__row--active:focus-within {
+  background: var(--color-surface-variant);
+}
+
+.tbl__body .tbl__row:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: -2px;
+}
+
+.tbl__row--selected {
+  background: var(--color-primary-tint-subtle);
+  box-shadow: inset 3px 0 0 var(--app-primary-text);
+}
+
+.tbl__row--new {
+  background: var(--color-primary-tint);
+  transition: background 1.5s var(--motion-easing-standard);
+}
+
+.tbl__row--busy {
+  opacity: 0.75;
+}
+
+.c {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: 0 8px;
+}
+
+.c-sel {
+  justify-content: center;
+  padding: 0;
+}
+
+.cb {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.cb:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.c-art {
+  position: relative;
+  padding: 6px 0;
+}
+
+.art {
+  --card-image-width: 42px;
+  --card-image-radius: 4px;
+  --card-image-shadow: 0 2px 6px -2px rgb(0 0 0 / 0.45);
+  cursor: grab;
+}
+
+.art__preview {
+  position: absolute;
+  top: 50%;
+  left: 52px;
+  z-index: 12;
+  display: none;
+  width: 160px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  --card-image-width: 160px;
+  --card-image-radius: 8px;
+  --card-image-shadow: 0 18px 40px -12px rgb(0 0 0 / 0.7);
+}
+
+.c-art:hover .art__preview {
+  display: block;
+}
+
+.c-card {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.name {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--color-ink);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.line2 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-meta);
+  white-space: nowrap;
+}
+
+.code {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-meta);
+}
+
+.rarity {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tag-inline {
+  display: none;
+}
+
+.cellbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  min-height: 36px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-ink);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.cellbtn:hover {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+}
+
+.cellbtn:focus-visible,
+.more:focus-visible,
+.stepper button:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: 1px;
+}
+
+.cellbtn__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cellbtn.muted {
+  color: var(--color-text-muted);
+}
+
+.chev,
+.pen {
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
+  color: var(--color-text-muted);
+  opacity: 0;
+}
+
+.tbl__row:hover .chev,
+.tbl__row:hover .pen,
+.cellbtn:focus-visible .chev,
+.cellbtn:focus-visible .pen {
+  opacity: 1;
+}
+
+.cellbtn--tag {
+  padding: 0 4px;
+}
+
+.c-copies {
+  position: relative;
+  font-variant-numeric: tabular-nums;
+}
+
+.qty {
+  padding-left: 8px;
+  color: var(--color-ink);
+  font-size: var(--font-size-sm);
+}
+
+.stepper {
+  display: none;
+  align-items: center;
+  gap: 2px;
+  height: 34px;
+  padding: 0 2px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 999px;
+  background: var(--color-surface);
+}
+
+.tbl__row:hover .stepper,
+.c-copies:focus-within .stepper {
+  display: inline-flex;
+}
+
+.tbl__row:hover .qty,
+.c-copies:focus-within .qty {
+  display: none;
+}
+
+.stepper button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.stepper button:disabled {
+  color: var(--color-text-faint);
+  cursor: default;
+}
+
+.stepper button mat-icon {
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
+}
+
+.stepper__n {
+  min-width: 22px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-align: center;
+}
+
+.c-price {
+  position: relative;
+  justify-content: flex-end;
+}
+
+.cellbtn--price {
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.cellbtn--price.muted {
+  font-weight: var(--font-weight-medium);
+}
+
+.c-upd {
+  gap: 6px;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-meta);
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-status-aging);
+}
+
+.dot--stale {
+  background: var(--color-status-stale);
+}
+
+.saved {
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
+  color: var(--color-accent);
+}
+
+.more {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.more:hover {
+  background: var(--color-surface-elevated);
+  color: var(--color-ink);
+}
+
+.danger {
+  color: var(--color-danger);
+}
+
+.tbl__placeholder {
+  min-height: 72px;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface-variant);
+  opacity: 0.6;
+}
+
+// The drag ghost (spec 9.7): up to three fanned thumbnails and "3 cards".
+.drag-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px 8px 8px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 12px;
+  background: var(--color-surface-elevated);
+  box-shadow: var(--elevation-menu);
+  color: var(--color-ink);
+  font-weight: var(--font-weight-semibold);
+}
+
+.drag-ghost__fan {
+  display: inline-flex;
+}
+
+.drag-ghost__fan app-card-image {
+  --card-image-width: 30px;
+  --card-image-radius: 3px;
+  margin-right: -14px;
+}
+
+.drag-ghost__fan app-card-image:nth-child(1) {
+  transform: rotate(-8deg);
+}
+
+.drag-ghost__fan app-card-image:nth-child(3) {
+  transform: rotate(8deg);
+}
+
+.drag-ghost__label {
+  margin-left: 16px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: var(--font-size-meta);
+}
+
+// md (inner 904): Binder and Updated drop.
+@container invtable (max-width: 1000px) {
+  .tbl__row {
+    grid-template-columns: 40px 56px minmax(200px, 1fr) 148px 104px 136px 40px;
+  }
+
+  .c-binder,
+  .c-upd {
+    display: none;
+  }
+}
+
+// The drawer open (inner 624): the phone's row (spec 9.4).
+@container invtable (max-width: 720px) {
+  .tbl__row {
+    grid-template-columns: 40px 56px minmax(0, 1fr) 136px 72px 40px;
+  }
+
+  .tbl__row--head .c-price {
+    order: 4;
+  }
+
+  .c-vis,
+  .c-binder,
+  .c-upd {
+    display: none;
+  }
+
+  .c-price {
+    order: 4;
+  }
+
+  .c-copies {
+    order: 5;
+  }
+
+  .c-menu {
+    order: 6;
+  }
+
+  .tag-inline {
+    display: inline-flex;
+  }
+
+  .rarity {
+    display: none;
+  }
+}
+
+// Below 480 (a phone-sized window, spec 16): art, card, price, menu.
+@container invtable (max-width: 480px) {
+  .tbl__row {
+    grid-template-columns: 36px 52px minmax(0, 1fr) 96px 40px;
+  }
+
+  .c-copies {
+    display: none;
+  }
+
+  .tbl__row--head .c-card,
+  .tbl__row--head .c-price {
+    font-size: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tbl__row--new {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .tbl__row--selected {
+    outline: 2px solid Highlight;
+  }
+}

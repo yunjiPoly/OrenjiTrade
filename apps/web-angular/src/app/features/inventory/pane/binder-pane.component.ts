@@ -283,7 +283,7 @@ export type BinderPaneAction =
       outline-offset: -2px;
     }
     .bp__item .bp__row {
-      padding-right: 44px;
+      padding-right: 10px;
     }
     .bp__icon {
       width: 20px;
@@ -329,7 +329,9 @@ export type BinderPaneAction =
       text-align: right;
     }
     .bp__item:hover .bp__count,
-    .bp__item:focus-within .bp__count {
+    .bp__item:focus-within .bp__count,
+    .bp__item:hover .bp__vis,
+    .bp__item:focus-within .bp__vis {
       visibility: hidden;
     }
     .bp__more {

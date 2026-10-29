@@ -90,7 +90,7 @@ export function newCardForm(
 
 /** A temporary publication (set on the old web form) whose end has passed. */
 export function temporaryPublicationEnded(
-  item: Pick<InventoryItemResponse, 'visibility' | 'publicUntil'>,
+  item: { visibility: string; publicUntil?: string | null },
   now = Date.now(),
 ): boolean {
   return (
@@ -210,8 +210,8 @@ export function toCreateBody(value: CardFormValue, printingId: string): CreateIn
   const body: CreateInventoryItemRequest = {
     printingId,
     quantity: parseQuantity(value.quantity),
-    visibility: value.visibility,
-    availability: 'TRADE_OR_SALE',
+    visibility: value.visibility as CreateInventoryItemRequest['visibility'],
+    availability: 'TRADE_OR_SALE' as CreateInventoryItemRequest['availability'],
     acceptsOffers: false,
     conditionStated: false,
   };
@@ -256,7 +256,7 @@ export function toPatch(
     patch.binderId = value.binderId;
   }
   if (binderChanged || value.visibility !== before.visibility) {
-    patch.visibility = value.visibility;
+    patch.visibility = value.visibility as UpdateInventoryItemRequest['visibility'];
   }
   if (Object.keys(patch).length === 0) {
     return null;
