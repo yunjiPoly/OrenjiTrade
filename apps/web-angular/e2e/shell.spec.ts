@@ -61,6 +61,7 @@ test.describe('the web redesign shell (WA)', () => {
       const nav = page.getByRole('navigation', { name: 'Main' });
       // At 960 and wider the rail, below it the phone's tab bar (spec 3 and 16).
       await expect(page.getByTestId(width >= 960 ? 'rail-home' : 'tab-home')).toBeVisible();
+      const bar = page.getByTestId('top-bar');
       for (const [label, url] of AREAS) {
         await nav.getByRole('link', { name: new RegExp(`^${label}`) }).click();
         await expect(page).toHaveURL(url);
@@ -68,6 +69,56 @@ test.describe('the web redesign shell (WA)', () => {
           'aria-current',
           'page',
         );
+        await expect(bar.getByTestId('notification-bell')).toBeVisible();
+        if (width >= 960) {
+          await expect(bar.getByRole('link', { name: 'OrenjiTrade, Home' })).toBeVisible();
+          await expect(bar.getByTestId('tab-title')).toHaveCount(0);
+          await expect(bar.getByTestId('account-menu-trigger')).toBeVisible();
+          continue;
+        }
+        // Below 960 the phone's per-tab bar (spec 16, board W29): the tab's title in Sora 28
+        // (Home shows its pills), the pills on Home and Search, the bell; no wordmark; the
+        // account menu on Profile only.
+        await expect(bar.getByRole('link', { name: 'OrenjiTrade, Home' })).toHaveCount(0);
+        if (label === 'Home') {
+          await expect(bar.getByTestId('tab-title')).toHaveCount(0);
+        } else {
+          await expect(bar.getByTestId('tab-title')).toHaveText(label);
+          expect(
+            await bar
+              .getByTestId('tab-title')
+              .evaluate((node) => [
+                getComputedStyle(node).fontSize,
+                getComputedStyle(node).fontFamily,
+              ]),
+          ).toEqual(['28px', expect.stringContaining('Sora')]);
+        }
+        const pills = label === 'Home' || label === 'Search' ? 1 : 0;
+        await expect(bar.getByTestId('region-pill')).toHaveCount(pills);
+        await expect(bar.getByTestId('game-pill')).toHaveCount(pills);
+        await expect(bar.getByTestId('account-menu-trigger')).toHaveCount(
+          label === 'Profile' ? 1 : 0,
+        );
+        // One h1 per page: the page's own title steps back, still there for screen readers.
+        if (label === 'Search' || label === 'Inventory' || label === 'Messages') {
+          const h1 = page.locator('main h1');
+          await expect(h1).toHaveCount(1);
+          await expect(h1).toHaveText(label);
+          await expect(h1).toHaveClass(/visually-hidden/);
+        }
+      }
+      if (width < 960) {
+        // Settings, Appearance, Admin (staff) and Sign out stay one tap away, from Profile.
+        await openAccountMenu(page);
+        for (const name of ['Settings', 'Appearance', 'Sign out']) {
+          await expect(page.getByRole('menuitem', { name: new RegExp(`^${name}`) })).toBeVisible();
+        }
+        await page.keyboard.press('Escape');
+        // Any other page keeps the bar with the wordmark and the avatar.
+        await page.goto('/settings/appearance');
+        await expect(bar.getByRole('link', { name: 'OrenjiTrade, Home' })).toBeVisible();
+        await expect(bar.getByTestId('account-menu-trigger')).toBeVisible();
+        await page.goto('/profile');
       }
       // The profile is your own collector page.
       await expect(page.getByRole('heading', { level: 1, name: 'Sam Shell' })).toBeVisible();
