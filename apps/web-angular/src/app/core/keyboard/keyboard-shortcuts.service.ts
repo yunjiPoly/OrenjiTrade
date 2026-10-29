@@ -192,9 +192,13 @@ export class KeyboardShortcuts {
     return path === '/search' || path.startsWith('/search/');
   }
 
+  /**
+   * A dialog, a menu or a list lies on top, or an in-page drawer is open (`data-shortcuts-off`,
+   * Inventory's drawers, WB review A6): single keys then belong to it.
+   */
   private overlayOpen(): boolean {
     return !!this.document.querySelector(
-      '.cdk-overlay-container [role="dialog"], .cdk-overlay-container .mat-mdc-menu-panel, .cdk-overlay-container [role="listbox"]',
+      '.cdk-overlay-container [role="dialog"], .cdk-overlay-container .mat-mdc-menu-panel, .cdk-overlay-container [role="listbox"], [data-shortcuts-off]',
     );
   }
 

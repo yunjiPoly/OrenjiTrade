@@ -308,3 +308,19 @@ export function doneLines(preview: Pick<InventoryImportResponse, 'result'>): {
     copies,
   };
 }
+
+/** What a screen reader hears once the check loaded (A2): "4 lines read, 2 need a printing." */
+export function checkSummary(summary: {
+  rows: number;
+  toChoose: number;
+  unmatched: number;
+}): string {
+  const parts = [`${summary.rows} ${summary.rows === 1 ? 'line' : 'lines'} read`];
+  if (summary.toChoose > 0) {
+    parts.push(`${summary.toChoose} ${summary.toChoose === 1 ? 'needs' : 'need'} a printing`);
+  }
+  if (summary.unmatched > 0) {
+    parts.push(`${summary.unmatched} not recognised`);
+  }
+  return `${parts.join(', ')}.`;
+}

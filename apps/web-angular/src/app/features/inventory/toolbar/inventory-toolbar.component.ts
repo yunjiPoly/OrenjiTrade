@@ -68,7 +68,7 @@ const VIEW_OPTIONS: readonly SegmentOption<InventoryView>[] = [
     SegmentedComponent,
   ],
   template: `
-    <div class="tb" role="toolbar" aria-label="Inventory filters">
+    <div class="tb" role="group" aria-label="Inventory filters">
       <label class="tb__search" data-page-search>
         <mat-icon aria-hidden="true">search</mat-icon>
         <span class="visually-hidden">Search your cards</span>
@@ -91,11 +91,33 @@ const VIEW_OPTIONS: readonly SegmentOption<InventoryView>[] = [
             <mat-icon aria-hidden="true">expand_more</mat-icon>
           </button>
           <mat-menu #binderMenu="matMenu">
-            <button mat-menu-item type="button" (click)="emit({ binder: null })">All cards</button>
-            <button mat-menu-item type="button" (click)="emit({ binder: unfiled })">Unfiled</button>
+            <button
+              mat-menu-item
+              type="button"
+              role="menuitemradio"
+              [attr.aria-checked]="!params().binder"
+              (click)="emit({ binder: null })"
+            >
+              All cards
+            </button>
+            <button
+              mat-menu-item
+              type="button"
+              role="menuitemradio"
+              [attr.aria-checked]="params().binder === unfiled"
+              (click)="emit({ binder: unfiled })"
+            >
+              Unfiled
+            </button>
             @for (group of binderGroups(); track group.game) {
               @for (binder of group.binders; track binder.id) {
-                <button mat-menu-item type="button" (click)="emit({ binder: binder.id })">
+                <button
+                  mat-menu-item
+                  type="button"
+                  role="menuitemradio"
+                  [attr.aria-checked]="params().binder === binder.id"
+                  (click)="emit({ binder: binder.id })"
+                >
                   <app-game-monogram [game]="group.game" size="16" />
                   <span>{{ binder.name }}</span>
                 </button>
@@ -114,9 +136,23 @@ const VIEW_OPTIONS: readonly SegmentOption<InventoryView>[] = [
           <mat-icon aria-hidden="true">expand_more</mat-icon>
         </button>
         <mat-menu #gameMenu="matMenu">
-          <button mat-menu-item type="button" (click)="emit({ game: null })">All games</button>
+          <button
+            mat-menu-item
+            type="button"
+            role="menuitemradio"
+            [attr.aria-checked]="!params().game"
+            (click)="emit({ game: null })"
+          >
+            All games
+          </button>
           @for (game of games(); track game.slug) {
-            <button mat-menu-item type="button" (click)="emit({ game: game.slug ?? null })">
+            <button
+              mat-menu-item
+              type="button"
+              role="menuitemradio"
+              [attr.aria-checked]="params().game === game.slug"
+              (click)="emit({ game: game.slug ?? null })"
+            >
               <app-game-monogram [game]="game.slug ?? ''" size="16" />
               <span>{{ nameOf(game) }}</span>
             </button>

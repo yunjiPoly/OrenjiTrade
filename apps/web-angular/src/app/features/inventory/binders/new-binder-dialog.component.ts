@@ -175,6 +175,7 @@ const VISIBILITIES: readonly SegmentOption<BinderVisibilityChoice>[] = [
         type="button"
         class="create"
         [disabled]="saving()"
+        disabledInteractive
         (click)="create()"
         data-testid="new-binder-create"
       >
@@ -280,6 +281,9 @@ export class NewBinderDialogComponent {
   }
 
   protected async create(): Promise<void> {
+    if (this.saving()) {
+      return; // the button keeps its focus while it works (aria-disabled, A1)
+    }
     const errors = validateBinderForm(this.form());
     this.errors.set(errors);
     if (hasBinderErrors(errors)) {
@@ -294,8 +298,10 @@ export class NewBinderDialogComponent {
     this.saving.set(true);
     this.error.set(null);
     try {
-      // A reached limit also opens the app's limit dialog (the same for every limit).
-      const binder = await this.store.createBinder(toCreateBinderBody(this.form(), gameId));
+      // A reached limit is said here, in plain words, not by the app's limit dialog too (U13).
+      const binder = await this.store.createBinder(toCreateBinderBody(this.form(), gameId), {
+        explainLimit: true,
+      });
       let moved = 0;
       const ids = this.sameGame().map((item) => item.id);
       if (ids.length) {

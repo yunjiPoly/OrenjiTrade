@@ -320,3 +320,15 @@
 .import-print-menu.mat-mdc-menu-panel {
   max-width: 420px;
 }
+
+// Import's sticky footer (72; above the tab bar below 960) never hides the focused control: the
+// page scrolls it clear (WCAG 2.4.11, WB review A8).
+html:has(.imp .foot) {
+  scroll-padding-bottom: 96px;
+}
+
+@media (max-width: 959.98px) {
+  html:has(.imp .foot) {
+    scroll-padding-bottom: calc(168px + env(safe-area-inset-bottom));
+  }
+}

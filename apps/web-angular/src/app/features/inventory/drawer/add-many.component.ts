@@ -1,12 +1,13 @@
-import { ChangeDetectionStrategy, Component, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, output } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
+import { ShellLayout } from '../../../core/layout/shell-layout.service';
 
 /** What "Add many at once" opens. */
 export type AddManyChoice = 'quick' | 'ydk' | 'csv';
 
 /**
- * "Add many at once" of the Add cards drawer (spec 9.9): Quick add rows, Import a deck, Import
- * from Collectr. No camera scan on the web (ML hold).
+ * "Add many at once" of the Add cards drawer (spec 9.9): Quick add rows (not below 960, spec 16),
+ * Import a deck, Import from Collectr. No camera scan on the web (ML hold).
  */
 @Component({
   selector: 'app-add-many',
@@ -14,14 +15,16 @@ export type AddManyChoice = 'quick' | 'ydk' | 'csv';
   template: `
     <section class="many" aria-labelledby="add-many">
       <h3 id="add-many" class="label">Add many at once</h3>
-      <button type="button" class="many__row" (click)="choose.emit('quick')">
-        <mat-icon aria-hidden="true">playlist_add</mat-icon>
-        <span class="many__text">
-          <span class="many__title">Quick add rows</span>
-          <span class="many__body">Type codes one after another, right in the table</span>
-        </span>
-        <kbd aria-hidden="true">Shift+N</kbd>
-      </button>
+      @if (!layout.narrow()) {
+        <button type="button" class="many__row" (click)="choose.emit('quick')">
+          <mat-icon aria-hidden="true">playlist_add</mat-icon>
+          <span class="many__text">
+            <span class="many__title">Quick add rows</span>
+            <span class="many__body">Type codes one after another, right in the table</span>
+          </span>
+          <kbd aria-hidden="true">Shift+N</kbd>
+        </button>
+      }
       <button type="button" class="many__row" (click)="choose.emit('ydk')">
         <mat-icon aria-hidden="true">description</mat-icon>
         <span class="many__text">
@@ -118,5 +121,6 @@ export type AddManyChoice = 'quick' | 'ydk' | 'csv';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AddManyComponent {
+  protected readonly layout = inject(ShellLayout);
   readonly choose = output<AddManyChoice>();
 }

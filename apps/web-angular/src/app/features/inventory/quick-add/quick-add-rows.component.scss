@@ -99,7 +99,10 @@ kbd {
 .qa__cols,
 .qa__entry {
   display: grid;
-  grid-template-columns: minmax(200px, 240px) minmax(120px, 1fr) 108px 190px 150px 140px 40px;
+  // Every column may give way a little, so the row fits the md list (inner 904, WB review A9).
+  grid-template-columns:
+    minmax(150px, 240px) minmax(96px, 1fr) 108px minmax(150px, 190px) minmax(132px, 150px)
+    minmax(100px, 140px) 40px;
   align-items: center;
   gap: 8px;
 }

@@ -481,6 +481,13 @@ export class InventoryPageComponent {
 
   protected clearFilters(): void {
     this.navigate({ ...CLEARED_FILTERS, binder: null });
+    this.refocusAfterAction(400);
+  }
+
+  /** Quick add rows closed (Esc or ×): the focus goes back to the list (A1). */
+  protected closeQuick(): void {
+    this.quickOpen.set(false);
+    this.refocusAfterAction();
   }
 
   protected setView(view: InventoryView): void {
@@ -913,7 +920,7 @@ export class InventoryPageComponent {
    * After a dock action, Esc or a delete the focused control may be gone (the dock leaves with the
    * selection): the focus goes back to the dock, else to the list's active row (A1, F7, U10).
    */
-  private refocusAfterAction(): void {
+  private refocusAfterAction(delay = 0): void {
     setTimeout(() => {
       if (!this.focusLost()) {
         return;
@@ -923,8 +930,13 @@ export class InventoryPageComponent {
         dock.focus();
         return;
       }
-      this.focusList(null);
-    });
+      if (this.store.items().length > 0 && (this.table() || this.grid())) {
+        this.focusList(null);
+      } else {
+        // No row to focus (an empty list): the page's own search.
+        this.document.querySelector<HTMLElement>('input[data-page-search]')?.focus();
+      }
+    }, delay);
   }
 
   /** Focuses a row of the list (`id`, else the active one, else the first). */

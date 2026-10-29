@@ -90,7 +90,7 @@
           (retryLimits)="loadLimits()"
         />
 
-        <section class="chk" aria-labelledby="chk-title" aria-live="polite">
+        <section class="chk" aria-labelledby="chk-title">
           <h2 id="chk-title" class="chk__title">Check the cards</h2>
           <p class="muted">
             We match every card of the file. You see them all and choose what goes in before
@@ -163,7 +163,7 @@
                 <button
                   type="button"
                   class="amber__btn"
-                  [disabled]="working()"
+                  [attr.aria-disabled]="working() || null"
                   (click)="useNewest()"
                   data-testid="import-newest"
                 >

@@ -186,6 +186,7 @@ export type BinderPaneAction =
                     [matMenuTriggerFor]="menu"
                     [matMenuTriggerData]="{ binder: binder, first: first, last: last }"
                     [attr.aria-label]="'More for ' + binder.name"
+                    [attr.data-binder-more]="binder.id"
                     [attr.data-testid]="'pane-more-' + binder.id"
                   >
                     <mat-icon>more_horiz</mat-icon>

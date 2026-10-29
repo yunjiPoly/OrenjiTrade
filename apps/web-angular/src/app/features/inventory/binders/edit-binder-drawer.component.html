@@ -183,20 +183,27 @@
             }
           </ul>
           <span class="typeahead">
+            <!-- A search field and a list of buttons (Tab reaches them), not a combobox (A13). -->
             <input
               class="input"
-              role="combobox"
+              type="search"
               aria-label="Add a key card from your cards"
-              aria-controls="eb-key-options"
-              [attr.aria-expanded]="keyOptions().length > 0"
+              aria-describedby="eb-key-count"
               placeholder="Add a card you own, like Yubel"
               [value]="keyQuery()"
               (input)="searchKeyCards(text($event))"
             />
+            <span id="eb-key-count" class="visually-hidden" aria-live="polite">{{
+              keyQuery().trim()
+                ? keyOptions().length +
+                  (keyOptions().length === 1 ? ' card' : ' cards') +
+                  ' found. Tab to them.'
+                : ''
+            }}</span>
             @if (keyOptions().length) {
-              <ul id="eb-key-options" class="options" role="listbox" aria-label="Your cards">
+              <ul class="options" aria-label="Your cards">
                 @for (item of keyOptions(); track item.id) {
-                  <li role="option" aria-selected="false">
+                  <li>
                     <button type="button" class="option" (click)="addKeyCard(item)">
                       {{ item.card.name }} <span class="muted">×{{ item.quantity }}</span>
                     </button>

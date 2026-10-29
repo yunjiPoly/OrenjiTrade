@@ -4,7 +4,8 @@ import { ChangeDetectionStrategy, Component, booleanAttribute, input, output } f
 /**
  * A 440 drawer of Inventory (spec 4.8): beside the list from the top bar down; it pushes the list
  * at lg and xl and lies over it with a scrim at md; a full-screen sheet below 960. Focus is
- * trapped and Esc asks to close; the opener gets the focus back (the page).
+ * trapped and Esc asks to close; the opener gets the focus back (the page). While it is open the
+ * app's single-key shortcuts ("/", "n", "g h") are off (`data-shortcuts-off`), as in a dialog.
  */
 @Component({
   selector: 'app-drawer-frame',
@@ -13,6 +14,7 @@ import { ChangeDetectionStrategy, Component, booleanAttribute, input, output } f
     <section
       class="dr"
       role="dialog"
+      data-shortcuts-off
       [attr.aria-modal]="modal() ? 'true' : null"
       [attr.aria-labelledby]="titleId()"
       cdkTrapFocus

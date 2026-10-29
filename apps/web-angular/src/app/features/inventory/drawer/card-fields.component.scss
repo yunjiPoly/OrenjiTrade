@@ -136,8 +136,15 @@
   align-items: center;
 }
 
-.cf__select.mat-focused {
+// MatSelect sets no focus class on its host (A5): its own :focus-visible shows the 2 px ring.
+.cf__select:focus-visible,
+.cf__select.mat-select-open {
   border-color: var(--color-accent);
+}
+
+.cf__select:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: 2px;
 }
 
 .cf__trigger {

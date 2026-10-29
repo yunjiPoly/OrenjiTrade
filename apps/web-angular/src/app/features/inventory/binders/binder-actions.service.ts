@@ -1,3 +1,4 @@
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { Injectable, Injector, inject } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import type { BinderResponse, InventoryItemResponse } from '@orenji/api-client';
@@ -30,6 +31,7 @@ export class BinderActionsService {
   private readonly dialog = inject(MatDialog);
   private readonly toasts = inject(ToastService);
   private readonly injector = inject(Injector);
+  private readonly announcer = inject(LiveAnnouncer);
 
   /** New binder (from a selection: its cards of the binder's game move in). */
   async create(data: NewBinderData = {}): Promise<NewBinderResult | undefined> {
@@ -85,6 +87,18 @@ export class BinderActionsService {
     }
     try {
       await this.store.reorderBinders(ids);
+      // The new place is said (A11), and the moved binder's "⋯" keeps the focus (A1): moving
+      // its row in the page drops the focus otherwise.
+      void this.announcer.announce(
+        `${binder.name} moved ${offset < 0 ? 'up' : 'down'}`,
+        'polite',
+      );
+      setTimeout(() => {
+        const active = document.activeElement;
+        if (!active || active === document.body || !active.isConnected) {
+          document.querySelector<HTMLElement>(`[data-binder-more="${binder.id}"]`)?.focus();
+        }
+      }, 50);
     } catch (error) {
       this.toasts.show({ title: friendlyError(error as ApiError).message, tone: 'error' });
     }

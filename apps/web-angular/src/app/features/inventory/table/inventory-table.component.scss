@@ -24,10 +24,15 @@
   cursor: pointer;
 }
 
-.tbl__row--head {
+// The head's rowgroup sticks under the toolbar against the whole table (U4; its row alone sat in
+// a wrapper of its own height, with no room to stick).
+.tbl__head {
   position: sticky;
   top: calc(64px + var(--inv-toolbar-h, 56px));
   z-index: 3;
+}
+
+.tbl__row--head {
   min-height: 40px;
   border-top: 0;
   border-radius: 14px 14px 0 0;
@@ -83,11 +88,6 @@
   margin: 0;
   accent-color: var(--color-primary);
   cursor: pointer;
-}
-
-.cb:focus-visible {
-  outline: var(--focus-width) solid var(--color-focus-ring);
-  outline-offset: 2px;
 }
 
 .c-art {
@@ -178,6 +178,7 @@
   background: var(--color-surface);
 }
 
+.cb:focus-visible,
 .cellbtn:focus-visible,
 .more:focus-visible,
 .stepper button:focus-visible {
@@ -233,13 +234,14 @@
   background: var(--color-surface);
 }
 
+// The stepper shows on hover and while the row holds the focus (A3: Tab then reaches − and +).
 .tbl__row:hover .stepper,
-.c-copies:focus-within .stepper {
+.tbl__row:focus-within .stepper {
   display: inline-flex;
 }
 
 .tbl__row:hover .qty,
-.c-copies:focus-within .qty {
+.tbl__row:focus-within .qty {
   display: none;
 }
 
@@ -255,7 +257,7 @@
   cursor: pointer;
 }
 
-.stepper button:disabled {
+.stepper button[aria-disabled='true'] {
   color: var(--color-text-faint);
   cursor: default;
 }
@@ -288,7 +290,8 @@
   font-weight: var(--font-weight-medium);
 }
 
-.c-upd {
+// The body's cells only: the header's "Updated" keeps the label style of the others.
+.tbl__body .c-upd {
   gap: 6px;
   color: var(--color-text-muted);
   font-size: var(--font-size-meta);
@@ -376,12 +379,12 @@
   }
 
   .tbl__row:hover .stepper,
-  .c-copies:focus-within .stepper {
+  .tbl__row:focus-within .stepper {
     display: none;
   }
 
   .tbl__row:hover .qty,
-  .c-copies:focus-within .qty {
+  .tbl__row:focus-within .qty {
     display: inline;
   }
 

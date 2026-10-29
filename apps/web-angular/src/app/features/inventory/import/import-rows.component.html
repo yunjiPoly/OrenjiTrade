@@ -14,8 +14,9 @@
           <input
             type="checkbox"
             [checked]="group.include"
-            [disabled]="working()"
+            [attr.aria-disabled]="working() || null"
             [attr.aria-label]="'Include the ' + group.title"
+            (click)="working() && $event.preventDefault()"
             (change)="includeSection.emit({ key: group.key, include: $any($event.target).checked })"
           />
         </span>
@@ -54,8 +55,9 @@
               <input
                 type="checkbox"
                 [checked]="row.included"
-                [disabled]="isBusy(row)"
+                [attr.aria-disabled]="isBusy(row) || null"
                 [attr.aria-label]="'Include ' + name(row)"
+                (click)="isBusy(row) && $event.preventDefault()"
                 (change)="include.emit({ row, included: $any($event.target).checked })"
               />
             } @else {
@@ -89,7 +91,7 @@
                 [matMenuTriggerData]="{ row: row }"
                 (menuOpened)="onMenuOpened(row)"
                 (menuClosed)="onMenuClosed()"
-                [disabled]="isBusy(row)"
+                [attr.aria-disabled]="isBusy(row) || null"
                 [attr.aria-label]="
                   row.printing
                     ? 'Printing: ' + code(row.printing) + '. Change it'
@@ -120,7 +122,7 @@
               <span class="stepper" role="group" [attr.aria-label]="'Copies of ' + name(row)">
                 <button
                   type="button"
-                  [disabled]="isBusy(row) || row.quantity <= 1"
+                  [attr.aria-disabled]="isBusy(row) || row.quantity <= 1 || null"
                   [attr.aria-label]="'One less ' + name(row)"
                   (click)="step.emit({ row, direction: -1 })"
                 >
@@ -129,7 +131,7 @@
                 <span>{{ row.quantity }}</span>
                 <button
                   type="button"
-                  [disabled]="isBusy(row) || row.quantity >= 9999"
+                  [attr.aria-disabled]="isBusy(row) || row.quantity >= 9999 || null"
                   [attr.aria-label]="'One more ' + name(row)"
                   (click)="step.emit({ row, direction: 1 })"
                 >

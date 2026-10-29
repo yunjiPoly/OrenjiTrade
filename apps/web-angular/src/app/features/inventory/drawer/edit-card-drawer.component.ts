@@ -1,3 +1,4 @@
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -223,6 +224,7 @@ export class EditCardDrawerComponent {
   private readonly dialog = inject(MatDialog);
   private readonly injector = inject(Injector);
   private readonly toasts = inject(ToastService);
+  private readonly announcer = inject(LiveAnnouncer);
   private readonly region = inject(RegionContext);
   private readonly regions = inject(RegionsStore);
 
@@ -277,13 +279,23 @@ export class EditCardDrawerComponent {
   });
 
   constructor() {
-    // A new card in the drawer: no old errors.
+    // A new card in the drawer: no old errors; Previous or Next says where the drawer is now
+    // ("3 of 14 in All cards: Lantern Fox Spirit", A11).
+    let first = true;
     effect(() => {
       this.itemId();
       untracked(() => {
         this.errors.set({});
         this.saveError.set(null);
         this.photoError.set(null);
+        if (!first) {
+          const where = this.position();
+          void this.announcer.announce(
+            `${where ? `${where}: ` : ''}${this.item().card.name}`,
+            'polite',
+          );
+        }
+        first = false;
       });
     });
   }

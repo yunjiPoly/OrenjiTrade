@@ -1,3 +1,5 @@
+import { LiveAnnouncer } from '@angular/cdk/a11y';
+import { DOCUMENT } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -29,6 +31,7 @@ import {
   doneLines,
   footerLine,
   formatBytes,
+  checkSummary,
   importRefusal,
   keptLine,
   limitsLine,
@@ -76,6 +79,8 @@ export class ImportPageComponent {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly handoff = inject(ImportHandoff);
+  private readonly announcer = inject(LiveAnnouncer);
+  private readonly document = inject(DOCUMENT);
   protected readonly games = inject(GamesStore);
 
   /** `?source=ydk|csv` (Add cards' menu, a dropped file). */
@@ -139,9 +144,17 @@ export class ImportPageComponent {
       await this.loadLimits();
       const file = this.handoff.take();
       if (file) {
-        this.choice.set(sourceOfFile(file.name) ?? this.choice());
-        await this.upload(file);
-        return;
+        // Only a .ydk or a .csv is handed over (spec 9.7, F10); anything else is not uploaded.
+        const source = sourceOfFile(file.name);
+        if (source) {
+          this.choice.set(source);
+          await this.upload(file);
+          return;
+        }
+        this.problem.set({
+          title: 'This is not a deck or a Collectr export',
+          message: 'Choose a .ydk or a .csv file.',
+        });
       }
       await this.resume();
     });
@@ -238,7 +251,30 @@ export class ImportPageComponent {
     this.preview.set(preview);
     this.phase.set('check');
     this.filter.set('all');
-    void this.loadRows(true);
+    void this.loadRows(true).then(() => {
+      // The check is read once (A2): its summary, and the focus on its heading when the chosen
+      // file's button was swapped for "Choose another file".
+      const summary = this.preview()?.summary;
+      if (summary) {
+        void this.announcer.announce(checkSummary(summary), 'polite');
+      }
+      this.focusIfLost('chk-title');
+    });
+  }
+
+  /** Moves the focus to `id` when the control that had it was removed or swapped (A1, A2). */
+  private focusIfLost(id: string, always = false): void {
+    setTimeout(() => {
+      const active = this.document.activeElement;
+      if (!always && active && active !== this.document.body && active.isConnected) {
+        return;
+      }
+      const target = this.document.getElementById(id);
+      if (target) {
+        target.setAttribute('tabindex', '-1');
+        target.focus();
+      }
+    });
   }
 
   // --- check ---------------------------------------------------------------------------------
@@ -318,7 +354,7 @@ export class ImportPageComponent {
 
   async includeSection(key: string, include: boolean): Promise<void> {
     const preview = this.preview();
-    if (!preview) {
+    if (!preview || this.working()) {
       return;
     }
     const body =
@@ -351,7 +387,7 @@ export class ImportPageComponent {
 
   async useNewest(): Promise<void> {
     const preview = this.preview();
-    if (!preview) {
+    if (!preview || this.working()) {
       return;
     }
     this.working.set(true);
@@ -407,6 +443,10 @@ export class ImportPageComponent {
       }
       this.preview.set(result);
       this.phase.set(result.status === 'COMMITTED' ? 'done' : 'check');
+      if (result.status === 'COMMITTED') {
+        // Done replaces the page (A2): its heading takes the focus and is read.
+        this.focusIfLost('done-title', true);
+      }
     } catch (error) {
       this.phase.set('check');
       this.fail(error);
@@ -437,6 +477,12 @@ export class ImportPageComponent {
     this.fileName.set(null);
     this.fileSize.set(null);
     this.phase.set('source');
+    setTimeout(() => {
+      const active = this.document.activeElement;
+      if (!active || active === this.document.body || !active.isConnected) {
+        this.document.querySelector<HTMLElement>('[data-testid="import-choose"]')?.focus();
+      }
+    });
   }
 
   /** "Go to my inventory": sorted by Recently added (the new cards first). */
@@ -458,7 +504,8 @@ export class ImportPageComponent {
     patch: { printingId?: string | null; quantity?: number; included?: boolean },
   ): Promise<void> {
     const preview = this.preview();
-    if (!preview) {
+    // A row saving (or the whole check) ignores more edits: its controls stay focusable (A1).
+    if (!preview || this.busyRows().has(row.id) || this.working()) {
       return;
     }
     this.busyRows.set(new Set([...this.busyRows(), row.id]));

@@ -215,8 +215,8 @@ export interface RowDrag {
                   '. Make it ' +
                   (isPrivate(it) ? 'public' : 'private')
                 "
-                [disabled]="row.busy"
-                (click)="toggleVisibility($event, it)"
+                [attr.aria-disabled]="row.busy || null"
+                (click)="toggleVisibility($event, it, row.busy)"
               >
                 <app-visibility-tag
                   [kind]="row.tag.kind"
@@ -226,24 +226,33 @@ export interface RowDrag {
               </button>
             </div>
             <div role="gridcell" class="c c-copies">
-              <span class="qty" aria-hidden="true">×{{ it.quantity }}</span>
-              <span class="stepper" role="group" [attr.aria-label]="'Copies of ' + it.card.name">
+              <span class="qty"
+                ><span aria-hidden="true">×{{ it.quantity }}</span
+                ><span class="visually-hidden"
+                  >{{ it.quantity }} {{ it.quantity === 1 ? 'copy' : 'copies' }}</span
+                ></span
+              >
+              <span
+                class="stepper"
+                role="group"
+                [attr.aria-label]="'Copies of ' + it.card.name + ': ' + it.quantity"
+              >
                 <button
                   type="button"
                   [tabindex]="controlTab(it.id, i)"
-                  [disabled]="row.busy || it.quantity <= 1"
+                  [attr.aria-disabled]="row.busy || it.quantity <= 1 || null"
                   [attr.aria-label]="'One less ' + it.card.name"
-                  (click)="step($event, it, -1)"
+                  (click)="step($event, it, -1, row.busy)"
                 >
                   <mat-icon aria-hidden="true">remove</mat-icon>
                 </button>
-                <span class="stepper__n" aria-live="polite">{{ it.quantity }}</span>
+                <span class="stepper__n" aria-hidden="true">{{ it.quantity }}</span>
                 <button
                   type="button"
                   [tabindex]="controlTab(it.id, i)"
-                  [disabled]="row.busy || it.quantity >= maxQuantity"
+                  [attr.aria-disabled]="row.busy || it.quantity >= maxQuantity || null"
                   [attr.aria-label]="'One more ' + it.card.name"
-                  (click)="step($event, it, 1)"
+                  (click)="step($event, it, 1, row.busy)"
                 >
                   <mat-icon aria-hidden="true">add</mat-icon>
                 </button>
@@ -497,8 +506,12 @@ export class InventoryTableComponent {
     this.selectedChange.emit({ id: item.id, selected: checked, range: event.shiftKey });
   }
 
-  protected toggleVisibility(event: Event, item: InventoryItemResponse): void {
+  /** A click while the row saves is ignored (the button keeps its focus, A1). */
+  protected toggleVisibility(event: Event, item: InventoryItemResponse, busy = false): void {
     event.stopPropagation();
+    if (busy) {
+      return;
+    }
     this.action.emit({
       kind: 'visibility',
       item,
@@ -506,8 +519,12 @@ export class InventoryTableComponent {
     });
   }
 
-  protected step(event: Event, item: InventoryItemResponse, direction: 1 | -1): void {
+  /** − or +; ignored while the row saves (the button keeps its focus, aria-disabled). */
+  protected step(event: Event, item: InventoryItemResponse, direction: 1 | -1, busy = false): void {
     event.stopPropagation();
+    if (busy) {
+      return;
+    }
     const quantity = Math.min(QUANTITY_MAX, Math.max(1, item.quantity + direction));
     if (quantity !== item.quantity) {
       this.quantityChange.emit({ item, quantity });

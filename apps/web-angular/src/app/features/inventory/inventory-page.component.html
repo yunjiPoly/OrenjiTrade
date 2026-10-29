@@ -210,7 +210,7 @@
           <app-quick-add-rows
             [games]="games.games() ?? []"
             [binderId]="selectedBinder()?.id ?? null"
-            (closed)="quickOpen.set(false)"
+            (closed)="closeQuick()"
           />
         }
 

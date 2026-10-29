@@ -178,17 +178,22 @@ html {
   }
 }
 
-// Material's own controls get the 2 px focusRing too, not only their faint state layer (spec 2.4).
+// Material's own controls get the 2 px focusRing too, not only their faint state layer (spec 2.4);
+// buttons (matButton, matIconButton) too, 2 px outside their edge (WB review, A4).
 .mat-mdc-checkbox,
 .mat-mdc-slide-toggle,
 .mat-mdc-radio-button,
 .mat-button-toggle,
 .mat-mdc-menu-item,
-.mat-mdc-option {
+.mat-mdc-option,
+.mat-mdc-button-base {
   --mat-focus-indicator-display: block;
   --mat-focus-indicator-border-color: var(--color-focus-ring);
   --mat-focus-indicator-border-width: var(--focus-width);
   --mat-focus-indicator-border-style: solid;
+}
+.mat-mdc-button-base > .mat-focus-indicator::before {
+  margin: calc((var(--focus-width) + 2px) * -1);
 }
 
 // Popovers and menus: surfaceElevated with a 1 px borderStrong and the menu shadow (spec 2.3).
