@@ -41,6 +41,32 @@ describe("the card form (decision 8: the phone's card model)", () => {
     expect(toPatch({ ...form, price: '' }, card)).toEqual({ askingPriceText: null, confirm: true });
   });
 
+  it('keeps a running temporary publication when only the binder changes (F4)', () => {
+    const future = new Date(Date.now() + 2 * 86_400_000).toISOString();
+    const card = item('a', {
+      visibility: 'TEMPORARILY_PUBLIC' as never,
+      publicUntil: future,
+      binder: { id: 'b1', name: 'YGO trades' } as never,
+    });
+    const form = cardFormOf(card);
+    expect(toPatch({ ...form, binderId: 'b2' }, card)).toEqual({
+      binderId: 'b2',
+      visibility: 'TEMPORARILY_PUBLIC',
+      confirm: true,
+    });
+    expect(toPatch({ ...form, binderId: null }, card)).toEqual({
+      binderId: null,
+      visibility: 'TEMPORARILY_PUBLIC',
+      confirm: true,
+    });
+    // The collector's own choice wins.
+    expect(toPatch({ ...form, binderId: 'b2', visibility: 'PRIVATE' }, card)).toEqual({
+      binderId: 'b2',
+      visibility: 'PRIVATE',
+      confirm: true,
+    });
+  });
+
   it('clears the number when the price mode switches, and steps copies within 1 to 9 999', () => {
     expect(switchPriceMode({ priceMode: 'usd' }, 'pct')).toEqual({ priceMode: 'pct', price: '' });
     expect(switchPriceMode({ priceMode: 'usd' }, 'usd')).toEqual({});

@@ -137,7 +137,7 @@ describe('EditCardDrawerComponent (spec 9.8)', () => {
       }),
     );
     expect(element.textContent).toContain(
-      'From the old web form: Near Mint · English · 1st Edition',
+      'Stated when it was added: Near Mint · English · 1st Edition',
     );
     [...element.querySelectorAll<HTMLButtonElement>('button')]
       .find((b) => b.textContent?.includes('Add to public note'))!

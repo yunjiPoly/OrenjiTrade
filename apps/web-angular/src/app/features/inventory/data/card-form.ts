@@ -67,7 +67,7 @@ export const CARD_FORM_COPY = {
   photos: 'Photos',
   photosHint: 'Show the real card, front and back. Location data is removed.',
   noteTooLong: 'At most 500 characters.',
-  legacy: (parts: string) => `From the old web form: ${parts}`,
+  legacy: (parts: string) => `Stated when it was added: ${parts}`,
   addToNote: 'Add to public note',
 } as const;
 
@@ -231,8 +231,10 @@ export function toCreateBody(value: CardFormValue, printingId: string): CreateIn
 
 /**
  * What the form changes on the card (`PATCH /inventory/items/{id}`): only the changed fields, with
- * `confirm: true` (a save confirms the card is still available). Visibility is sent when it
- * changed and whenever the binder changes. `null` when nothing changed.
+ * `confirm: true` (a save confirms the card is still available). Visibility is sent when the
+ * collector changed it; a binder change alone sends the card's stored visibility unchanged, so a
+ * running temporary publication stays temporary (F4) and the server does not re-derive it for a
+ * move to Unfiled. `null` when nothing changed.
  */
 export function toPatch(
   value: CardFormValue,
@@ -255,8 +257,10 @@ export function toPatch(
   if (binderChanged) {
     patch.binderId = value.binderId;
   }
-  if (binderChanged || value.visibility !== before.visibility) {
+  if (value.visibility !== before.visibility) {
     patch.visibility = value.visibility as UpdateInventoryItemRequest['visibility'];
+  } else if (binderChanged) {
+    patch.visibility = item.visibility as string as UpdateInventoryItemRequest['visibility'];
   }
   if (Object.keys(patch).length === 0) {
     return null;
@@ -289,9 +293,10 @@ export function serverCardErrors(error: ApiError): CardFormErrors {
 }
 
 /**
- * "Near Mint · English · 1st Edition" for a card made on the old web form (decision 8): its stated
- * condition, language and edition, read-only. Null for a card whose condition is not stated (every
- * card added on the phone or the new web), which shows nothing.
+ * "Near Mint · English · 1st Edition" for a card whose condition was stated when it was added
+ * (decision 8: the old web form; a Collectr import states it too, and the API cannot tell the two
+ * apart, so the words name neither): its condition, language and edition, read-only. Null for a
+ * card whose condition is not stated (every card added on the phone or the new web).
  */
 export function legacyDetails(
   item: Pick<InventoryItemResponse, 'condition' | 'conditionStated' | 'language' | 'edition'>,
