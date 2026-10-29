@@ -13024,7 +13024,7 @@ fixed and re-run alone first); the phone: `typecheck`, `lint` and `format:check`
 `test:mobile` **1,782 tests in 128 suites**, `expo export` for ios, android and web into the
 scratch folder passed, `test:mobile:e2e` **66 / 66** (1.1m; `--stack-only` first, the served bundle
 names `localhost:8090` and never `localhost:8080`, then `--reuse-running`, then `--stop`);
-`test:mobile:maestro -- --platform ios` MAESTRO_PLACEHOLDER; `test:scripts` **166 / 166**;
+`test:mobile:maestro -- --platform ios` **44 / 44 flows** on the owner's iPhone 18 Pro (71m 30s; the simulator left booted, light and large text as found); `test:scripts` **166 / 166**;
 `audit:gate` passed after allowlisting **GHSA-QR28-FPJM-WQ7F** (decode-uri-component ≤ 0.5.0, an
 advisory of 2026-10-29: the only fix, 0.5.1, is ESM only and expo-router 57's query-string 7
 `require()`s it, so no override works; only the phone's router decodes with it; expires
