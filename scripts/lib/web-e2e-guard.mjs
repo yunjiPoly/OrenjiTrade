@@ -345,6 +345,10 @@ export function e2eApiEnv(base, { apiPort, webPort, workDir }) {
     // The same for the short window of signed-out discovery reads (stage R15): every signed-out
     // spec searches, opens card holders and binders from the one address.
     RATE_LIMIT_GUEST_DISCOVERY_PER_10S: '1000',
+    // And for a signed-in collector (default 120 a minute): a spec file's collector serves every
+    // test one worker runs (beforeAll), and each page load makes 10 to 40 calls. With CI's two
+    // workers one collector of shell.spec.ts passed 120 within a minute and its search got 429.
+    RATE_LIMIT_DEFAULT_PER_MINUTE: '1200',
   };
 }
 

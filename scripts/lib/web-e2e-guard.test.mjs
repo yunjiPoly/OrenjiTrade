@@ -237,6 +237,8 @@ describe('E2E API database, Redis, ports and providers', () => {
     // The deck import of web WB: the fictional passcodes, never a provider.
     assert.equal(env.SEED_IMPORT_FIXTURES, 'true');
     assert.equal(env.RATE_LIMIT_GUEST_DISCOVERY_PER_10S, '1000');
+    // A spec file's collector serves every test of one worker: the per-user budget is raised too.
+    assert.equal(env.RATE_LIMIT_DEFAULT_PER_MINUTE, '1200');
   });
 });
 
