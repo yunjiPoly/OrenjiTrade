@@ -21,7 +21,13 @@ The frame of every page (`core/layout`, spec section 4, boards W1, W3, W28, W29 
   account menu; a guest gets "Sign in". The region and game pills open lazy popovers (`Popovers`,
   CDK overlay; a bottom sheet below 960): "Choose a region" (the home region marked, "Not your
   region" with the way back) and "Choose a game" (Yu-Gi-Oh! only until stage WD, the other games
-  "Cards coming soon", "{n} of your cards" from `GET /inventory/summary`).
+  "Cards coming soon", "{n} of your cards" from `GET /inventory/summary`). **Below 960**, on the
+  five tabs' own pages (route `data.shell.tabBar`: `/`, `/search`, `/inventory`, `/messages*`,
+  `/profile`), it is the phone's **per-tab bar** (spec 16, board W29): the tab's title in Sora 28
+  (`ShellLayout.tabTitle`; Home shows its two pills instead), the pills on Home and Search, the
+  bell, and on Profile the avatar with the account menu; the page's own title is then visually
+  hidden (`ShellTabTitleDirective`, `app-page-header`'s `tabTitle`), so each page keeps one h1.
+  Every other page keeps the wordmark, the pills in scope, the bell and the avatar.
 - **Global search** (`global-search`): `/` or Ctrl/Cmd+K, an ARIA combobox; empty, the recent
   searches of this browser (`core/search/recent-searches.service.ts`, localStorage per account,
   at most 8, never sent anywhere; Settings › Privacy › "Remember my searches"); typing (150 ms,
