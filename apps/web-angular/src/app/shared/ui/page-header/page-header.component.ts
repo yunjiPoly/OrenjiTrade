@@ -1,8 +1,18 @@
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  booleanAttribute,
+  computed,
+  inject,
+  input,
+} from '@angular/core';
+import { ShellLayout } from '../../../core/layout/shell-layout.service';
 
 /**
  * Page title row. Project buttons with the `actions` attribute; anything else
- * (tabs, segmented controls, filters) is rendered underneath.
+ * (tabs, segmented controls, filters) is rendered underneath. On a tab's own page (`tabTitle`),
+ * the title steps back below 960 while the top bar shows it as the phone's per-tab bar (spec 16):
+ * visually hidden, still the page's h1.
  */
 @Component({
   selector: 'app-page-header',
@@ -13,7 +23,9 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
           @if (level() === 2) {
             <h2 class="page-header__title">{{ title() }}</h2>
           } @else {
-            <h1 class="page-header__title">{{ title() }}</h1>
+            <h1 class="page-header__title" [class.visually-hidden]="titleInBar()">
+              {{ title() }}
+            </h1>
           }
           @if (subtitle()) {
             <p class="page-header__subtitle">{{ subtitle() }}</p>
@@ -67,4 +79,11 @@ export class PageHeaderComponent {
   readonly subtitle = input('');
   /** 2 when the page is a section of another page (a tab of Search, say): one h1 per page. */
   readonly level = input<1 | 2>(1);
+  /** The page is a tab's own page whose title the top bar shows below 960 (spec 16). */
+  readonly tabTitle = input(false, { transform: booleanAttribute });
+
+  private readonly layout = inject(ShellLayout);
+  protected readonly titleInBar = computed(
+    () => this.tabTitle() && this.layout.tabTitle() !== null,
+  );
 }

@@ -14,14 +14,18 @@ import {
   wishlistRedirect,
 } from './core/routing/legacy-redirects';
 
-/** `data.shell` of the web redesign's areas (spec 4.2 pill scope, 4.6 rail, 4.10 footer). */
-const HOME: ShellRouteData = { area: 'home', pills: 'both', layout: 'workspace' };
+/**
+ * `data.shell` of the web redesign's areas (spec 4.2 pill scope, 4.6 rail, 4.10 footer); `tabBar`
+ * marks the five tabs' own pages, whose top bar below 960 is the phone's per-tab bar (spec 16).
+ */
+const HOME: ShellRouteData = { area: 'home', pills: 'both', layout: 'workspace', tabBar: true };
 const SEARCH: ShellRouteData = {
   area: 'search',
   pills: 'both',
   layout: 'workspace',
   pageSearch: true,
   hideGlobalSearch: true,
+  tabBar: true,
 };
 const DISCOVERY_PAGE: ShellRouteData = { area: 'search', pills: 'region', layout: 'reading' };
 const INVENTORY: ShellRouteData = {
@@ -29,9 +33,17 @@ const INVENTORY: ShellRouteData = {
   pills: 'none',
   layout: 'workspace',
   pageSearch: true,
+  tabBar: true,
 };
-const MESSAGES: ShellRouteData = { area: 'messages', pills: 'none', layout: 'workspace' };
+const MESSAGES: ShellRouteData = {
+  area: 'messages',
+  pills: 'none',
+  layout: 'workspace',
+  tabBar: true,
+};
+/** Settings belongs to Profile too, but keeps the bar with the wordmark below 960. */
 const PROFILE: ShellRouteData = { area: 'profile', pills: 'none', layout: 'reading' };
+const PROFILE_TAB: ShellRouteData = { ...PROFILE, tabBar: true };
 
 /**
  * Top-level routes (web redesign spec 4.11). Every page is lazy (`loadComponent` /
@@ -155,7 +167,7 @@ export const routes: Routes = [
   {
     path: 'profile',
     title: 'Profile',
-    data: { shell: PROFILE },
+    data: { shell: PROFILE_TAB },
     canActivate: [authGuard, onboardingGuard],
     loadComponent: () =>
       import('./features/profile/my-profile-page.component').then((m) => m.MyProfilePageComponent),

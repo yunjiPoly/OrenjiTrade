@@ -16,6 +16,7 @@ import {
 import { UnifiedResultsComponent } from './results/unified-results.component';
 import { MapPageComponent } from '../map/map-page.component';
 import { WishlistPageComponent } from '../wishlist/wishlist-page.component';
+import { ShellTabTitleDirective } from '../../core/layout/shell-tab-title.directive';
 import {
   UnderlineTab,
   UnderlineTabsComponent,
@@ -57,15 +58,16 @@ export function searchViewOf(tab: string | undefined): SearchView {
     UnderlineTabsComponent,
     MapPageComponent,
     WishlistPageComponent,
+    ShellTabTitleDirective,
   ],
   template: `
     <div class="page search-page">
       <header class="search-page__head">
         @if (target()) {
           <!-- The card holders view has its own h1 ("Who has …"): one h1 per page. -->
-          <p class="search-page__title">Search</p>
+          <p class="search-page__title" appShellTabTitle>Search</p>
         } @else {
-          <h1 class="search-page__title">Search</h1>
+          <h1 class="search-page__title" appShellTabTitle>Search</h1>
         }
         <app-underline-tabs label="Search" [tabs]="tabs()" />
       </header>

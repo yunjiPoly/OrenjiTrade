@@ -19,8 +19,11 @@ import { ShellLayout } from '../shell-layout.service';
  * the wordmark, the region pill and the game pill, in the page's pill scope (spec 4.2). Right,
  * "what you do": the global search (400, 320 at md; hidden on Search, whose pane has its own),
  * the bell and the avatar with the account menu; a guest gets a "Sign in" pill instead of the bell
- * and the avatar. Below 960 the bar keeps the wordmark, the pills in scope (compact), the bell and
- * the avatar; the tab bar carries the areas, Search among them.
+ * and the avatar. Below 960, on the five tabs' own pages, it is the phone's per-tab bar (spec 16,
+ * board W29): the tab's title in Sora 28 (Home shows its pills instead), the pills on Home and
+ * Search, and the bell; Profile adds the account menu, which holds Settings, Appearance, Admin
+ * and Sign out. Every other page below 960 keeps the wordmark, the pills in scope (compact), the
+ * bell and the avatar. The tab bar carries the areas, Search among them.
  */
 @Component({
   selector: 'app-top-bar',
@@ -38,11 +41,17 @@ import { ShellLayout } from '../shell-layout.service';
     <header
       class="bar"
       [class.bar--line]="line()"
+      [class.bar--tab]="layout.tabBar()"
       [attr.data-pills]="layout.pills()"
       data-testid="top-bar"
     >
       <div class="bar__where">
-        <app-wordmark class="bar__wordmark" />
+        @if (!layout.tabBar()) {
+          <app-wordmark class="bar__wordmark" />
+        } @else if (layout.tabTitle(); as title) {
+          <!-- The tab's title (the page's own h1 steps back meanwhile: ShellTabTitleDirective). -->
+          <span class="bar__title" data-testid="tab-title">{{ title }}</span>
+        }
         @if (layout.pills() !== 'none') {
           <app-region-pill />
           @if (layout.pills() === 'both') {
@@ -76,7 +85,9 @@ import { ShellLayout } from '../shell-layout.service';
         }
         @if (auth.isAuthenticated()) {
           <app-notification-bell />
-          <app-account-menu />
+          @if (!layout.tabBar() || layout.area() === 'profile') {
+            <app-account-menu />
+          }
         } @else if (auth.authState() !== 'loading') {
           <a class="bar__signin" routerLink="/auth/sign-in" data-testid="top-bar-sign-in"
             >Sign in</a
@@ -185,10 +196,21 @@ import { ShellLayout } from '../shell-layout.service';
         margin-right: 16px;
       }
     }
+    /* The phone's per-tab title (spec 16, board W29): Sora 28 on 36, never cut. */
+    .bar__title {
+      flex: none;
+      margin-right: 4px;
+      color: var(--color-ink);
+      font-family: var(--font-display);
+      font-size: var(--font-size-title);
+      font-weight: var(--font-weight-bold);
+      letter-spacing: -0.4px;
+      line-height: 36px;
+      white-space: nowrap;
+    }
     @media (max-width: 959.98px) {
       .bar {
         gap: 8px;
-        height: 56px;
         padding: 0 16px;
       }
       .bar__wordmark {
@@ -201,6 +223,11 @@ import { ShellLayout } from '../shell-layout.service';
     @media (max-width: 599.98px) {
       .bar__wordmark {
         --wordmark-size: var(--font-size-lg);
+      }
+    }
+    @media (max-width: 359.98px) {
+      .bar__title {
+        font-size: var(--font-size-2xl);
       }
     }
   `,

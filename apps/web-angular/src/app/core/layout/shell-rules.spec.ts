@@ -57,6 +57,34 @@ describe('the shell rules (web redesign WA)', () => {
     expect(shellOf('admin')).toMatchObject({ area: 'admin' });
   });
 
+  it('marks the five tabs’ own pages, and only them, for the phone’s per-tab bar below 960 (spec 16)', () => {
+    const shellOf = (path: string) =>
+      routes.find((route) => route.path === path)?.data?.['shell'] as ShellRouteData | undefined;
+    for (const path of [
+      '',
+      'search',
+      'inventory',
+      'messages',
+      'messages/community/:room',
+      'messages/:id',
+      'profile',
+    ]) {
+      expect(shellOf(path)?.tabBar, path || '/').toBe(true);
+    }
+    for (const path of [
+      'binders/:id',
+      'cards',
+      'sets/:id',
+      'notifications',
+      'collectors/:handle',
+      'settings',
+      'admin',
+      'legal',
+    ]) {
+      expect(shellOf(path)?.tabBar ?? false, path).toBe(false);
+    }
+  });
+
   it('indexes only the routes that say so (decision 6: the landing and legal pages)', () => {
     const state = (root: ActivatedRouteSnapshot) => ({ root }) as RouterStateSnapshot;
     expect(indexable(state(chain(undefined, { shell: {} })))).toBe(false);

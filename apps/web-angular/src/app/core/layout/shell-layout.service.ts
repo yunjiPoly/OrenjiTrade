@@ -2,6 +2,7 @@ import { DOCUMENT } from '@angular/common';
 import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
 import { ActivatedRouteSnapshot, NavigationEnd, Router } from '@angular/router';
 import { filter } from 'rxjs';
+import { SHELL_AREAS } from './nav-links';
 
 /**
  * The five areas of the rail and the tab bar, in the phone's order (spec 4.6), and the staff's
@@ -28,6 +29,11 @@ export interface ShellRouteData {
   pageSearch?: boolean;
   /** The top bar's global search is hidden (Search, whose pane has its own field). */
   hideGlobalSearch?: boolean;
+  /**
+   * The page is a tab's own page (Home, Search, Inventory, Messages, Profile): below 960 the top
+   * bar is that tab's bar of the phone (spec 16, board W29), its title and no wordmark.
+   */
+  tabBar?: boolean;
 }
 
 export const SHELL_DEFAULTS: Required<ShellRouteData> = {
@@ -36,6 +42,7 @@ export const SHELL_DEFAULTS: Required<ShellRouteData> = {
   layout: 'reading',
   pageSearch: false,
   hideGlobalSearch: false,
+  tabBar: false,
 };
 
 /** The shell data of a navigation: every route's `data.shell` from the root down, merged. */
@@ -77,6 +84,20 @@ export class ShellLayout {
   readonly pageSearch = computed(() => this.dataState().pageSearch);
   readonly hideGlobalSearch = computed(() => this.dataState().hideGlobalSearch);
   readonly narrow = this.narrowState.asReadonly();
+  /** Below 960 on a tab's own page: the top bar is the phone's per-tab bar (spec 16). */
+  readonly tabBar = computed(() => this.narrowState() && this.dataState().tabBar);
+  /**
+   * The title of that per-tab bar ("Search", "Inventory", "Messages", "Profile"; Home shows its
+   * pills instead), `null` while there is none. The page's own title steps back meanwhile
+   * (`ShellTabTitleDirective`).
+   */
+  readonly tabTitle = computed(() => {
+    const area = this.dataState().area;
+    if (!this.tabBar() || area === 'home') {
+      return null;
+    }
+    return SHELL_AREAS.find((link) => link.area === area)?.label ?? null;
+  });
   readonly medium = this.mediumState.asReadonly();
   /** Id of the element "Skip the map" jumps to, while a page shows the map. */
   readonly skipMapTarget = this.skipMapState.asReadonly();

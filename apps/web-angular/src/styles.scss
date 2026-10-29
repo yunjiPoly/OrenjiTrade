@@ -167,14 +167,13 @@ html {
   );
 }
 
-// Focused controls are never hidden under the sticky top bar (64) or, below 960, the tab bar
-// (64 plus the safe area) (WCAG 2.4.11).
+// Focused controls are never hidden under the sticky top bar (64 at every width) or, below 960,
+// the tab bar (64 plus the safe area) (WCAG 2.4.11).
 html {
   scroll-padding-top: 72px;
 }
 @media (max-width: 959.98px) {
   html {
-    scroll-padding-top: 64px;
     scroll-padding-bottom: calc(72px + env(safe-area-inset-bottom));
   }
 }

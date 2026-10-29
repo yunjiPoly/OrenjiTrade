@@ -111,7 +111,6 @@ import { UnreadChatsProbeComponent } from '../unread-chats/unread-chats-probe.co
       min-height: 0;
     }
     .shell--narrow .shell__content {
-      min-height: calc(100dvh - 56px);
       padding-bottom: calc(64px + env(safe-area-inset-bottom));
     }
     /* sm: the phone's design, centred at 640 (spec 16). */

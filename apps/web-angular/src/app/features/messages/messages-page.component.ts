@@ -7,6 +7,7 @@ import { Router, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { FEATURE, FeatureFlagsService } from '../../core/feature-flags/feature-flags.service';
+import { ShellTabTitleDirective } from '../../core/layout/shell-tab-title.directive';
 import { UnreadChats } from '../../core/layout/unread-chats/unread-chats';
 import { CommunityPageComponent } from '../community/community-page.component';
 import { EmptyStateComponent } from '../../shared/ui/empty-state/empty-state.component';
@@ -39,13 +40,14 @@ const SPLIT_QUERY = '(min-width: 840px)';
     RealtimeStatusComponent,
     UnderlineTabsComponent,
     CommunityPageComponent,
+    ShellTabTitleDirective,
   ],
   template: `
     <div class="page messages-page">
       @if (auth.isAuthenticated()) {
         <header class="messages-page__header">
           <div class="messages-page__titles">
-            <h1 class="messages-page__title">Messages</h1>
+            <h1 class="messages-page__title" appShellTabTitle>Messages</h1>
             <app-realtime-status />
           </div>
           @if (communityOn()) {
