@@ -4,7 +4,9 @@
       <div class="cp__state" role="status">
         <h1 class="cp__state-title">This card isn't in the catalogue</h1>
         <p class="cp__state-text">It may have been removed, or the link is incomplete.</p>
-        <a class="cp__outline" routerLink="/search" [queryParams]="{ tab: 'cards' }">Search cards</a>
+        <a class="cp__outline" routerLink="/search" [queryParams]="{ tab: 'cards' }"
+          >Search cards</a
+        >
       </div>
     }
     @case ('error') {

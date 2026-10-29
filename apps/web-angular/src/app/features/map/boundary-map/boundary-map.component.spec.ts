@@ -110,24 +110,44 @@ describe('BoundaryMapComponent', () => {
     );
   });
 
-  it('shades states by binder count and emits the clicked state', () => {
+  it('shades states with the map steps by binder count and emits the clicked state', () => {
     const [quebec, ontario] = paths();
-    expect(Number(quebec.getAttribute('fill-opacity'))).toBeCloseTo(0.88);
-    expect(ontario.getAttribute('fill-opacity')).toBe('1');
+    // 12 binders: step 4; none: step 0 (spec 6.4's tokens; the test DOM has no tokens, the
+    // fallbacks are the dark values).
+    expect(quebec.getAttribute('fill')).toBe('#ff8f3d');
+    expect(ontario.getAttribute('fill')).toBe('#2c2724');
+    expect(quebec.getAttribute('stroke-width')).toBe('0.8');
     quebec.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(selected).toEqual(['CA-QC']);
   });
 
-  it('outlines the selected state and follows new counts', async () => {
+  it('outlines the selected state in orange, a highlighted one in ink, and follows new counts', async () => {
     fixture.componentRef.setInput('selected', 'CA-ON');
     fixture.componentRef.setInput('counts', new Map([['CA-ON', 1]]));
     fixture.detectChanges();
     await settle();
-    // The selected state is brought to the front (drawn last), with a stronger outline.
-    const ontario = paths().at(-1)!;
-    expect(ontario.getAttribute('stroke-width')).toBe('2.5');
-    expect(Number(ontario.getAttribute('fill-opacity'))).toBeCloseTo(0.28);
-    expect(paths()[0].getAttribute('fill-opacity')).toBe('1');
+    // The selected state is brought to the front (drawn last), with a 2 px orange outline.
+    const ontario = paths().find((path) => path.getAttribute('data-code') === 'CA-ON')!;
+    expect(ontario.getAttribute('stroke-width')).toBe('2');
+    expect(ontario.getAttribute('stroke')).toBe('#f4761a');
+    expect(ontario.getAttribute('fill')).toBe('#5c3418');
+    fixture.componentRef.setInput('highlight', 'CA-QC');
+    fixture.detectChanges();
+    await settle();
+    const quebec = paths().find((path) => path.getAttribute('data-code') === 'CA-QC')!;
+    expect(quebec.getAttribute('stroke-width')).toBe('1.5');
+  });
+
+  it("draws the viewer's province with a teal dashed outline that takes no click", async () => {
+    fixture.componentRef.setInput('home', 'CA-QC');
+    fixture.detectChanges();
+    await settle();
+    const dashed = [...element.querySelectorAll('.leaflet-overlay-pane path')].filter(
+      (path) => path.getAttribute('stroke-dasharray') === '4 3',
+    );
+    expect(dashed).toHaveLength(1);
+    expect(dashed[0].getAttribute('stroke')).toBe('#2dd4bf');
+    expect(dashed[0].getAttribute('fill')).toBe('none');
   });
 
   it('loads another region when the region changes and shows a retry when a file fails', async () => {

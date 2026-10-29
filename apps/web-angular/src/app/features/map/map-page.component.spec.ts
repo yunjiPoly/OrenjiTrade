@@ -117,14 +117,15 @@ describe('MapPageComponent', () => {
   it('opens the region and state of a shared link', async () => {
     await mount({ region: 'europe', state: 'FR-IDF' });
     expect(TestBed.inject(RegionContext).current()).toBe('europe');
+    // Home is scoped by the game pill too (stage WD): the browsed game's binders only.
     expect(mapApi['getRegionBinderCounts']).toHaveBeenLastCalledWith(
-      { region: 'europe' },
+      { region: 'europe', game: 'yugioh' },
       'body',
       false,
       expect.anything(),
     );
     expect(mapApi['listSubdivisionBinders']).toHaveBeenCalledWith(
-      expect.objectContaining({ region: 'europe', code: 'FR-IDF' }),
+      expect.objectContaining({ region: 'europe', code: 'FR-IDF', game: 'yugioh' }),
       'body',
       false,
       expect.anything(),

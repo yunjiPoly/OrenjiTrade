@@ -6,7 +6,8 @@
 
 // Leaflet containers take the token font and a focus ring consistent with the app. The region
 // map has no tiles (ADR 0017): the container colour is the sea.
-.leaflet-container {
+// Doubled class: Leaflet's own stylesheet (loaded later, with the map) sets a grey sea.
+.leaflet-container.leaflet-container {
   font-family: var(--font-body);
   // No tiles (spec 6.4): the map sits on the page's background.
   background: var(--color-background);

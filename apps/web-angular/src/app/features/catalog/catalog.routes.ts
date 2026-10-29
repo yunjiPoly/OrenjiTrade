@@ -18,7 +18,6 @@ export const CATALOG_ROUTES: Routes = [
   {
     path: ':id',
     title: 'Card',
-    loadComponent: () =>
-      import('./card-page/card-page.component').then((m) => m.CardPageComponent),
+    loadComponent: () => import('./card-page/card-page.component').then((m) => m.CardPageComponent),
   },
 ];

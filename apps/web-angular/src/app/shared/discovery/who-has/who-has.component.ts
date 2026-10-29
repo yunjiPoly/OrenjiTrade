@@ -123,7 +123,7 @@ type Status = 'loading' | 'ready' | 'error';
           </ul>
         </section>
       }
-      <div class="wh__groups" (keydown)="onKeydown($event)">
+      <div class="wh__groups" tabindex="-1" (keydown)="onKeydown($event)">
         @for (group of groups(); track group.key) {
           <section class="wh__group" [attr.aria-labelledby]="anchor(group)">
             <h3
@@ -153,6 +153,7 @@ type Status = 'loading' | 'ready' | 'error';
                   data-testid="holder-row"
                   (focus)="activeId.set(result.item.id)"
                   (click)="onRowClick($event, result)"
+                  (keydown.enter)="onRowEnter($event, result)"
                 >
                   <span class="wh__avatar">
                     @if (handle) {
@@ -212,7 +213,9 @@ type Status = 'loading' | 'ready' | 'error';
                       data-testid="holder-message"
                       [attr.tabindex]="active ? 0 : -1"
                       [attr.aria-label]="messageLabel(handle, cardName())"
-                      [disabled]="drawer.starting() === result.collector.id"
+                      [disabled]="
+                        !!result.collector.id && drawer.starting() === result.collector.id
+                      "
                       (click)="message($event, result)"
                     >
                       <app-shell-icon name="messages" [size]="18" />
@@ -286,7 +289,9 @@ export class WhoHasComponent {
   private request = 0;
   private subscriptions: Subscription[] = [];
 
-  protected readonly groups = computed<HolderGroup[]>(() => groupHolders(this.rows(), this.viewer()));
+  protected readonly groups = computed<HolderGroup[]>(() =>
+    groupHolders(this.rows(), this.viewer()),
+  );
   protected readonly hasMore = computed(() => this.page() + 1 < this.totalPages());
 
   constructor() {
@@ -448,6 +453,14 @@ export class WhoHasComponent {
     this.openRow(result);
   }
 
+  /** Enter on a row (not on its link or button) opens the holder's profile. */
+  protected onRowEnter(event: Event, result: CardHolderResult): void {
+    if (event.target === event.currentTarget) {
+      event.preventDefault();
+      this.openRow(result);
+    }
+  }
+
   private openRow(result: CardHolderResult): void {
     const handle = result.collector.handle;
     if (!handle) {
@@ -477,7 +490,7 @@ export class WhoHasComponent {
     }
     const rows = Array.from(this.host.nativeElement.querySelectorAll<HTMLElement>('.wh__row'));
     const index = rows.indexOf(row);
-    let next = -1;
+    let next: number;
     switch (event.key) {
       case 'ArrowDown':
       case 'j':
@@ -493,15 +506,6 @@ export class WhoHasComponent {
       case 'End':
         next = rows.length - 1;
         break;
-      case 'Enter':
-        if (target === row) {
-          event.preventDefault();
-          const result = this.rows().find((entry) => entry.item.id === row.dataset['item']);
-          if (result) {
-            this.openRow(result);
-          }
-        }
-        return;
       default:
         return;
     }

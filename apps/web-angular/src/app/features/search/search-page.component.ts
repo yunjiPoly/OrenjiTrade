@@ -203,7 +203,9 @@ export class SearchPageComponent {
   /** A binder open beside the list (lg) or in the middle pane (xl). */
   protected readonly openId = computed(() => {
     const url = this.url();
-    return url.tab === 'binders' && !this.layout.narrow() && !this.layout.medium() ? url.open : null;
+    return url.tab === 'binders' && !this.layout.narrow() && !this.layout.medium()
+      ? url.open
+      : null;
   });
   protected readonly openWhere = computed(() => {
     const url = this.url();
@@ -376,7 +378,11 @@ export class SearchPageComponent {
   protected chooseWish(wish: WishlistItemResponse): void {
     if (this.layout.narrow()) {
       void this.router.navigate(['/cards', wish.card?.id], {
-        queryParams: wish.printing?.id ? { printing: wish.printing.id } : wish.rarity ? { rarity: wish.rarity } : { printing: 'any' },
+        queryParams: wish.printing?.id
+          ? { printing: wish.printing.id }
+          : wish.rarity
+            ? { rarity: wish.rarity }
+            : { printing: 'any' },
       });
       return;
     }

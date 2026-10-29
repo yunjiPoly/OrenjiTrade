@@ -152,9 +152,7 @@
                 >
               </p>
               <h1 class="bnd__name">{{ binder.name }}</h1>
-              <p class="bnd__facts">
-                <app-shell-icon name="clock" [size]="16" /> {{ facts() }}
-              </p>
+              <p class="bnd__facts"><app-shell-icon name="clock" [size]="16" /> {{ facts() }}</p>
               @if (binder.description) {
                 <p class="bnd__description">{{ binder.description }}</p>
               }
@@ -167,7 +165,10 @@
             </div>
             <div class="bnd__actions">
               @if (isOwn()) {
-                <a class="pbp__outline" routerLink="/inventory" [queryParams]="{ binder: binder.id }"
+                <a
+                  class="pbp__outline"
+                  routerLink="/inventory"
+                  [queryParams]="{ binder: binder.id }"
                   >Manage in Inventory</a
                 >
               } @else {
@@ -244,13 +245,17 @@
             </div>
           } @else if (store.items().length === 0) {
             <p class="pbp__empty">
-              {{ store.query() ? 'No card in this binder matches.' : 'This binder has no public cards right now.' }}
+              {{
+                store.query()
+                  ? 'No card in this binder matches.'
+                  : 'This binder has no public cards right now.'
+              }}
             </p>
           } @else {
             <app-binder-cards
               [items]="store.items()"
               [canMessage]="canMessage()"
-              (message)="messageAbout($event.item, $event.opener)"
+              (messageAbout)="messageAbout($event.item, $event.opener)"
             />
             @if (store.hasMore()) {
               <button
@@ -265,7 +270,9 @@
             @if (store.itemsState() === 'error') {
               <p class="pbp__empty" role="alert">
                 More cards could not load.
-                <button type="button" class="pbp__link" (click)="store.retryItems()">Try again</button>
+                <button type="button" class="pbp__link" (click)="store.retryItems()">
+                  Try again
+                </button>
               </p>
             }
           }
@@ -276,8 +283,8 @@
               e-Transfer outside OrenjiTrade.
             </p>
             <p>
-              <app-shell-icon class="pbp__teal" name="shieldCheck" [size]="18" /> Check their
-              rating before you send an e-Transfer, and ask for tracking.
+              <app-shell-icon class="pbp__teal" name="shieldCheck" [size]="18" /> Check their rating
+              before you send an e-Transfer, and ask for tracking.
               <a routerLink="/legal/trading-safely">Trading safely</a>
             </p>
           </div>

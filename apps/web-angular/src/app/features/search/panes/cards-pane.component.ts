@@ -147,9 +147,15 @@ type Status = 'idle' | 'loading' | 'ready' | 'error';
                   (click)="remember()"
                   (mousedown)="$event.preventDefault()"
                 >
-                  <app-card-image class="cp__art" [src]="option.card.imageUrl" [game]="option.card.game" alt="" />
+                  <app-card-image
+                    class="cp__art"
+                    [src]="option.card.imageUrl"
+                    [game]="option.card.game"
+                    alt=""
+                  />
                   <span class="cp__name"
-                    >{{ name.pre }}<mark class="cp__hit">{{ name.hit }}</mark>{{ name.post }}</span
+                    >{{ name.pre }}<mark class="cp__hit">{{ name.hit }}</mark
+                    >{{ name.post }}</span
                   >
                   @if (option.card.kind === 'PRINTING' && option.card.printingCode) {
                     <span class="cp__code">{{ option.card.printingCode }}</span>
@@ -328,7 +334,10 @@ export class CardsPaneComponent {
     if (this.urlTimer) {
       clearTimeout(this.urlTimer);
     }
-    this.urlTimer = setTimeout(() => this.qChange.emit(value.trim().slice(0, SEARCH_TEXT_MAX)), 400);
+    this.urlTimer = setTimeout(
+      () => this.qChange.emit(value.trim().slice(0, SEARCH_TEXT_MAX)),
+      400,
+    );
   }
 
   private start(value: string): void {

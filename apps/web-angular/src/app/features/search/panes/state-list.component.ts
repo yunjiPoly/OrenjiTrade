@@ -91,7 +91,9 @@ export function stateGroups(
             (mouseenter)="highlight.emit(row.code)"
             (mouseleave)="highlight.emit(null)"
           >
-            <span class="sl__name">{{ row.name }} <span class="sl__mine">· your province</span></span>
+            <span class="sl__name"
+              >{{ row.name }} <span class="sl__mine">· your province</span></span
+            >
             <span class="sl__line">{{ row.line }}</span>
           </button>
         </div>
@@ -238,9 +240,7 @@ export class StateListComponent {
     }
     return null;
   });
-  protected readonly wholeLine = computed(() =>
-    stateLine(this.total(), this.deckCoreTotal()),
-  );
+  protected readonly wholeLine = computed(() => stateLine(this.total(), this.deckCoreTotal()));
 
   protected onFocus(key: string, code: string): void {
     this.active.set(key);

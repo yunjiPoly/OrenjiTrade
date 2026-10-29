@@ -371,7 +371,9 @@ export class BoundaryMapComponent {
     for (const path of paths) {
       const own = (path as unknown as Leaflet.Polygon).getBounds?.();
       if (own) {
-        bounds = bounds ? bounds.extend(own) : L.latLngBounds(own.getSouthWest(), own.getNorthEast());
+        bounds = bounds
+          ? bounds.extend(own)
+          : L.latLngBounds(own.getSouthWest(), own.getNorthEast());
       }
     }
     if (bounds) {

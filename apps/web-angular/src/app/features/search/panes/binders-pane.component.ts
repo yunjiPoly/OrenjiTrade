@@ -17,14 +17,22 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { SessionService } from '../../../core/auth/session.service';
 import { ShellIconComponent } from '../../../core/layout/shell-icon/shell-icon.component';
 import { PAGE_SEARCH_ATTR } from '../../../core/keyboard/keyboard-shortcuts.service';
-import { SegmentOption, SegmentedComponent } from '../../../shared/ui/segmented/segmented.component';
+import {
+  SegmentOption,
+  SegmentedComponent,
+} from '../../../shared/ui/segmented/segmented.component';
 import { BinderListStore } from '../data/binder-list.store';
 import { BinderKind, SEARCH_TEXT_MAX, WHOLE_REGION, showsStateList } from '../data/search-url';
 import { BinderRowComponent } from './binder-row.component';
 import { StateListComponent } from './state-list.component';
 
 /** The empty states of the list (spec 6.3). */
-export function bindersEmptyText(kind: BinderKind, q: string, game: string, guest: boolean): string {
+export function bindersEmptyText(
+  kind: BinderKind,
+  q: string,
+  game: string,
+  guest: boolean,
+): string {
   if (q) {
     return guest
       ? 'Nothing matches. Try a deck or card name. Sign in to find collectors by name.'

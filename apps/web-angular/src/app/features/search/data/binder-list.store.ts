@@ -110,7 +110,9 @@ export class BinderListStore {
         if (request !== this.request) {
           return;
         }
-        this.itemsSignal.set(cursor ? [...this.itemsSignal(), ...(page.items ?? [])] : (page.items ?? []));
+        this.itemsSignal.set(
+          cursor ? [...this.itemsSignal(), ...(page.items ?? [])] : (page.items ?? []),
+        );
         this.cursorSignal.set(page.hasMore && page.nextCursor ? page.nextCursor : null);
         this.statusSignal.set('ready');
       },

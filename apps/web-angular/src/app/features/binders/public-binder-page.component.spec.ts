@@ -2,8 +2,13 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { PublicBindersService } from '@orenji/api-client';
-import { Subject, throwError } from 'rxjs';
+import {
+  CatalogService,
+  CollectorsService,
+  ProfileService,
+  PublicBindersService,
+} from '@orenji/api-client';
+import { Subject, of, throwError } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { SessionService } from '../../core/auth/session.service';
 import { ReportActionsService } from '../../shared/reports/report-actions.service';
@@ -22,6 +27,7 @@ function limitReached(): HttpErrorResponse {
       requestId: 'req-limit',
       timestamp: '2026-10-05T12:00:00Z',
       limitKey: 'binder.views.per_day',
+      limit: 30,
       planCode: 'FREE',
       upgradeUrl: '/premium',
     },
@@ -35,7 +41,8 @@ describe('PublicBinderPageComponent (daily views limit)', () => {
     TestBed.configureTestingModule({
       imports: [PublicBinderPageComponent],
       providers: [
-        provideRouter([{ path: 'map', children: [] }]),
+        provideRouter([{ path: 'search', children: [] }]),
+        { provide: CollectorsService, useValue: {} },
         {
           provide: PublicBindersService,
           useValue: { getPublicBinder: () => throwError(() => limitReached()) },
@@ -49,7 +56,9 @@ describe('PublicBinderPageComponent (daily views limit)', () => {
             changes$: new Subject(),
           },
         },
-        { provide: SessionService, useValue: { me: signal(null) } },
+        { provide: SessionService, useValue: { me: signal(null), status: signal('anonymous') } },
+        { provide: CatalogService, useValue: { listGames: () => of([]) } },
+        { provide: ProfileService, useValue: {} },
         { provide: ReportActionsService, useValue: {} },
       ],
     });
@@ -60,15 +69,14 @@ describe('PublicBinderPageComponent (daily views limit)', () => {
     fixture.detectChanges();
   }
 
-  it('explains the daily views plainly and leads back to the map, never to a plan', async () => {
+  it('explains the daily views as spec 6.5 says and leads back to Search, never to a plan', async () => {
     await render();
-    expect(element.textContent).toContain("You reached today's binder views");
-    expect(element.textContent).toContain(
-      'Every collector can open a set number of public binders',
+    expect(element.querySelector('[data-testid="binder-limit"]')?.textContent).toContain(
+      "You've opened 30 public binders today. Every collector has the same limits. More tomorrow.",
     );
     expect(element.querySelector('a[href="/premium"]')).toBeNull();
-    const action = element.querySelector<HTMLAnchorElement>('a[href="/map"]');
-    expect(action?.textContent).toContain('Back to the map');
-    expect(element.textContent).not.toMatch(/plan|premium/i);
+    const action = element.querySelector<HTMLAnchorElement>('a[href="/search?tab=binders"]');
+    expect(action?.textContent).toContain('Back to Search');
+    expect(element.textContent).not.toMatch(/plan|premium|upgrade/i);
   });
 });

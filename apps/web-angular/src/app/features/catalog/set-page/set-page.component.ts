@@ -35,7 +35,10 @@ import { CardDataAttributionComponent } from '../../../shared/catalog/card-data-
 import { gameInfo } from '../../../shared/domain/games';
 import { printingCode, printingImageUrl } from '../../../shared/inventory/inventory-labels';
 import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
-import { SegmentOption, SegmentedComponent } from '../../../shared/ui/segmented/segmented.component';
+import {
+  SegmentOption,
+  SegmentedComponent,
+} from '../../../shared/ui/segmented/segmented.component';
 import { binderGame } from '../../inventory/data/binder-games';
 
 /** Printings per page of a set (the API's maximum). */
@@ -51,7 +54,10 @@ export function cardsLabel(count: number): string {
 }
 
 /** The binders "Add from this set" can file into: the collector's binders of the set's game. */
-export function sameGameBinders(binders: readonly BinderResponse[], game: string): BinderResponse[] {
+export function sameGameBinders(
+  binders: readonly BinderResponse[],
+  game: string,
+): BinderResponse[] {
   return binders.filter((binder) => {
     const own = binderGame(binder);
     return !own || own === game;
@@ -333,14 +339,12 @@ export class SetPageComponent {
     if (added > 0) {
       const binderId = this.binderId();
       const ref = this.toasts.show({ title: `${cardsLabel(added)} added`, action: 'View' });
-      ref
-        .onAction()
-        .subscribe(
-          () =>
-            void this.router.navigate(['/inventory'], {
-              queryParams: binderId ? { binder: binderId } : {},
-            }),
-        );
+      ref.onAction().subscribe(
+        () =>
+          void this.router.navigate(['/inventory'], {
+            queryParams: binderId ? { binder: binderId } : {},
+          }),
+      );
     }
     if (this.counts().size === 0) {
       this.adding.set(false);

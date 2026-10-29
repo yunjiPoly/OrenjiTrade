@@ -327,14 +327,12 @@ export class CardPageComponent {
         sub: `We'll tell you when someone in ${this.regionName()} lists it.`,
         action: 'View',
       });
-      ref
-        .onAction()
-        .subscribe(
-          () =>
-            void this.router.navigate(['/search'], {
-              queryParams: { tab: 'wishlist', wish: item.id },
-            }),
-        );
+      ref.onAction().subscribe(
+        () =>
+          void this.router.navigate(['/search'], {
+            queryParams: { tab: 'wishlist', wish: item.id },
+          }),
+      );
     } catch {
       // The error interceptors explain it (a limit, a refusal); the toggle stays off.
     } finally {

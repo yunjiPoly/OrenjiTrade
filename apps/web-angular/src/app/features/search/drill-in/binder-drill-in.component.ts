@@ -65,7 +65,12 @@ import { ReportActionsService } from '../../../shared/reports/report-actions.ser
         </button>
         <span class="di__where">{{ where() }}</span>
         @if (binder(); as binder) {
-          <button type="button" class="di__more" aria-label="More actions" [matMenuTriggerFor]="menu">
+          <button
+            type="button"
+            class="di__more"
+            aria-label="More actions"
+            [matMenuTriggerFor]="menu"
+          >
             <app-shell-icon name="more" [size]="18" />
           </button>
           <mat-menu #menu="matMenu" xPosition="before">
@@ -101,12 +106,18 @@ import { ReportActionsService } from '../../../shared/reports/report-actions.ser
           @case ('error') {
             <h2 class="di__state-title" id="drill-in-title">This binder could not load</h2>
             <p class="di__state" role="alert">{{ error() }}</p>
-            <button type="button" class="di__retry" (click)="store.open(binderId())">Try again</button>
+            <button type="button" class="di__retry" (click)="store.open(binderId())">
+              Try again
+            </button>
           }
           @case ('ready') {
             @if (binder(); as binder) {
               @if (binder.sellsAsCore) {
-                <app-deck-core-gallery [compact]="true" [photos]="binder.photos ?? []" [name]="binder.name" />
+                <app-deck-core-gallery
+                  [compact]="true"
+                  [photos]="binder.photos ?? []"
+                  [name]="binder.name"
+                />
                 <div class="di__tags">
                   <span class="di__tag di__tag--core"
                     ><app-shell-icon name="layers" [size]="14" /> Deck core</span
@@ -163,23 +174,33 @@ import { ReportActionsService } from '../../../shared/reports/report-actions.ser
                 @if (store.itemsState() === 'error' && store.items().length === 0) {
                   <p class="di__state" role="alert">
                     The cards could not load.
-                    <button type="button" class="di__retry" (click)="store.retryItems()">Try again</button>
+                    <button type="button" class="di__retry" (click)="store.retryItems()">
+                      Try again
+                    </button>
                   </p>
                 } @else if (store.itemsState() === 'loading' && store.items().length === 0) {
                   <span class="di__bone di__bone--grid" aria-hidden="true"></span>
                 } @else if (store.items().length === 0) {
                   <p class="di__state">
-                    {{ store.query() ? 'No card in this binder matches.' : 'No public cards right now.' }}
+                    {{
+                      store.query()
+                        ? 'No card in this binder matches.'
+                        : 'No public cards right now.'
+                    }}
                   </p>
                 } @else {
                   <app-binder-cards
                     [columns]="3"
                     [items]="store.items()"
                     [canMessage]="!isOwn()"
-                    (message)="messageAbout(binder, $event.item, $event.opener)"
+                    (messageAbout)="messageAbout(binder, $event.item, $event.opener)"
                   />
                   @if (store.hasMore()) {
-                    <button type="button" class="di__retry di__more-cards" (click)="store.loadMore()">
+                    <button
+                      type="button"
+                      class="di__retry di__more-cards"
+                      (click)="store.loadMore()"
+                    >
                       Load more
                     </button>
                   }

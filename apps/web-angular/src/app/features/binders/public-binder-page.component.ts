@@ -114,7 +114,9 @@ export class PublicBinderPageComponent {
   protected readonly game = computed(() => binderGame(this.binder()));
   protected readonly gameLabel = computed(() => gameInfo(this.game() ?? '').label);
   protected readonly rating = computed(() => ratingText(this.store.rating()));
-  protected readonly province = computed(() => this.binder()?.owner?.place?.subdivisionName ?? null);
+  protected readonly province = computed(
+    () => this.binder()?.owner?.place?.subdivisionName ?? null,
+  );
   protected readonly stateCode = computed(
     () => this.binder()?.owner?.place?.subdivisionCode ?? null,
   );

@@ -90,7 +90,11 @@
               }
             </a>
             @if (adding()) {
-              <div class="sp__stepper" role="group" [attr.aria-label]="'I have ' + tileLabel(printing)">
+              <div
+                class="sp__stepper"
+                role="group"
+                [attr.aria-label]="'I have ' + tileLabel(printing)"
+              >
                 <button
                   type="button"
                   class="sp__step"

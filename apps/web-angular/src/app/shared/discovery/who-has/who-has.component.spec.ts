@@ -1,0 +1,165 @@
+import { signal } from '@angular/core';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { Router, provideRouter } from '@angular/router';
+import { SearchService } from '@orenji/api-client';
+import { of, throwError } from 'rxjs';
+import { AuthService } from '../../../core/auth/auth.service';
+import { SessionService } from '../../../core/auth/session.service';
+import { ChatDrawer } from '../../messaging/chat-drawer.service';
+import { WhoHasComponent } from './who-has.component';
+
+function result(id: string, code: string, name: string, handle: string | null, note = '') {
+  return {
+    collector: {
+      id: handle ? `u-${id}` : null,
+      handle,
+      displayName: handle,
+      onlineStatus: 'ONLINE',
+      place: {
+        subdivisionCode: code,
+        subdivisionName: name,
+        countryCode: 'CA',
+        countryName: 'Canada',
+      },
+    },
+    item: {
+      id,
+      quantity: 2,
+      askingPriceText: '85% TCG',
+      publicNotes: note,
+      printing: { printingCode: 'LAVD-EN008', rarity: 'Ultra Rare' },
+    },
+  };
+}
+
+describe('WhoHasComponent (spec 7.3 and 7.4)', () => {
+  let fixture: ComponentFixture<WhoHasComponent>;
+  let element: HTMLElement;
+  let holders: ReturnType<typeof vi.fn>;
+  let message: ReturnType<typeof vi.fn>;
+  const authenticated = signal(true);
+
+  async function render(rows: unknown[], totalPages = 1) {
+    holders = vi.fn(() => of({ items: rows, page: 0, totalPages }));
+    message = vi.fn();
+    TestBed.configureTestingModule({
+      imports: [WhoHasComponent],
+      providers: [
+        provideRouter([]),
+        {
+          provide: SearchService,
+          useValue: {
+            searchCardHolders: holders,
+            searchDeckCores: () =>
+              of([
+                {
+                  id: 'core-1',
+                  name: 'Yubel core',
+                  askingPriceText: '$95',
+                  owner: { handle: 'duelist.jp', place: { subdivisionName: 'Quebec' } },
+                },
+              ]),
+          },
+        },
+        { provide: AuthService, useValue: { isAuthenticated: authenticated } },
+        { provide: SessionService, useValue: { me: signal({ id: 'me' }) } },
+        { provide: ChatDrawer, useValue: { message, starting: signal(null) } },
+      ],
+    });
+    fixture = TestBed.createComponent(WhoHasComponent);
+    fixture.componentRef.setInput('cardId', 'card-1');
+    fixture.componentRef.setInput('cardName', 'Ash Blossom & Joyous Spring');
+    fixture.componentRef.setInput('region', 'americas-north');
+    fixture.componentRef.setInput('regionName', 'Americas (North)');
+    fixture.componentRef.setInput('viewer', { subdivisionCode: 'CA-QC', countryCode: 'CA' });
+    element = fixture.nativeElement as HTMLElement;
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  beforeEach(() => authenticated.set(true));
+
+  it("asks for the holders by province without a deck core's cards, and shows no count", async () => {
+    await render([
+      result('1', 'CA-QC', 'Quebec', 'duelist.jp', 'NM, ships tracked'),
+      result('2', 'CA-ON', 'Ontario', 'lucas.tcg'),
+    ]);
+    expect(holders).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cardId: 'card-1',
+        region: 'americas-north',
+        sort: 'province',
+        excludeDeckCoreItems: true,
+        page: 0,
+        size: 20,
+      }),
+      'body',
+      false,
+      expect.anything(),
+    );
+    const titles = [...element.querySelectorAll('.wh__group-title')].map((h) =>
+      h.textContent?.replace(/\s+/g, ' ').trim(),
+    );
+    expect(titles).toEqual(['Quebec · your province', 'Ontario']);
+    expect([...element.querySelectorAll('.wh__chip')].map((c) => c.textContent?.trim())).toEqual([
+      'Quebec',
+      'Ontario',
+    ]);
+    expect(element.textContent).toContain('Also in a deck core');
+    expect(element.textContent).not.toMatch(/\d+ (holders|listings|results)/);
+    const row = element.querySelector<HTMLElement>('[data-testid="holder-row"]')!;
+    expect(row.getAttribute('tabindex')).toBe('0');
+    expect(row.getAttribute('aria-describedby')).toBeTruthy();
+    expect(
+      element.querySelector(`#${row.getAttribute('aria-describedby')}`)?.textContent,
+    ).toContain('NM, ships tracked');
+    expect(element.querySelector('[data-testid="holder-price"]')?.textContent).toBe('85% TCG');
+  });
+
+  it('Message opens the chat drawer about this copy, labelled with the handle and the card', async () => {
+    await render([result('1', 'CA-QC', 'Quebec', 'duelist.jp')]);
+    const button = element.querySelector<HTMLButtonElement>('[data-testid="holder-message"]')!;
+    expect(button.getAttribute('aria-label')).toBe(
+      'Message duelist.jp about Ash Blossom & Joyous Spring',
+    );
+    button.click();
+    expect(message).toHaveBeenCalledWith({ recipientId: 'u-1', subjectItemId: '1' }, button);
+  });
+
+  it('moves between rows with the arrows (one tab stop)', async () => {
+    await render([result('1', 'CA-QC', 'Quebec', 'a'), result('2', 'CA-QC', 'Quebec', 'b')]);
+    const rows = [...element.querySelectorAll<HTMLElement>('[data-testid="holder-row"]')];
+    rows[0].focus();
+    rows[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    fixture.detectChanges();
+    expect(document.activeElement).toBe(rows[1]);
+    expect(rows[1].getAttribute('tabindex')).toBe('0');
+    expect(rows[0].getAttribute('tabindex')).toBe('-1');
+  });
+
+  it('shows a guest "A collector", and Message asks them to sign in', async () => {
+    authenticated.set(false);
+    await render([result('1', 'CA-QC', 'Quebec', null)]);
+    expect(element.querySelector('.wh__handle')?.textContent?.trim()).toBe('A collector');
+    expect(element.querySelector('.wh__online')).toBeNull();
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    element.querySelector<HTMLButtonElement>('[data-testid="holder-message"]')!.click();
+    expect(message).not.toHaveBeenCalled();
+    expect(navigate).toHaveBeenCalledWith(['/auth/sign-in'], expect.anything());
+  });
+
+  it('has the empty state with "Add to wishlist", "Load more", and an error with "Try again"', async () => {
+    await render([]);
+    expect(element.textContent).toContain('Nobody in Americas (North) lists this card yet.');
+    expect(element.textContent).toContain("We'll tell you when someone lists it.");
+    TestBed.resetTestingModule();
+    await render([result('1', 'CA-QC', 'Quebec', 'a')], 3);
+    expect(element.querySelector('[data-testid="who-has-more"]')).not.toBeNull();
+    holders.mockReturnValueOnce(throwError(() => new Error('offline')));
+    (fixture.componentInstance as unknown as { reload(): void }).reload();
+    fixture.detectChanges();
+    expect(element.textContent).toContain("Couldn't load who has this card.");
+    expect(element.querySelector('.wh__retry')?.textContent).toContain('Try again');
+  });
+});

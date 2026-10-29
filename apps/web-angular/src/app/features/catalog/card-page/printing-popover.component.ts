@@ -92,7 +92,14 @@ export function filterPrintings(
           }
         </div>
       }
-      <div class="pp__list" id="pp-list" role="listbox" aria-label="Printings" (keydown)="onListKey($event)">
+      <div
+        class="pp__list"
+        id="pp-list"
+        role="listbox"
+        tabindex="-1"
+        aria-label="Printings"
+        (keydown)="onListKey($event)"
+      >
         <button
           type="button"
           role="option"
@@ -255,7 +262,9 @@ export class PrintingPopoverComponent {
   );
 
   constructor() {
-    afterNextRender(() => this.host.nativeElement.querySelector<HTMLInputElement>('input')?.focus());
+    afterNextRender(() =>
+      this.host.nativeElement.querySelector<HTMLInputElement>('input')?.focus(),
+    );
   }
 
   protected code(printing: PrintingSummary): string {

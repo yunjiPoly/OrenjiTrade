@@ -28,7 +28,9 @@ import { WishlistActions } from '../../../shared/wishlist/wishlist-actions.servi
 import { WishlistStore } from '../../wishlist/data/wishlist.store';
 
 /** "Any printing · 90% TCG", "TN19-EN013 · NM only" (spec 6.6: a wish's terms on one line). */
-export function wishTerms(wish: Pick<WishlistItemResponse, 'printing' | 'rarity' | 'nearMintOnly' | 'priceTerm'>): string {
+export function wishTerms(
+  wish: Pick<WishlistItemResponse, 'printing' | 'rarity' | 'nearMintOnly' | 'priceTerm'>,
+): string {
   const copy = wish.printing
     ? printingCode(wish.printing) || 'One printing'
     : wish.rarity
@@ -60,7 +62,9 @@ export function wishLimitLine(used: number, limit: number | null): string | null
   template: `
     @if (!auth.isAuthenticated()) {
       <section class="wp__guest" aria-labelledby="wp-guest-title">
-        <span class="wp__guest-icon" aria-hidden="true"><app-shell-icon name="star" [size]="28" /></span>
+        <span class="wp__guest-icon" aria-hidden="true"
+          ><app-shell-icon name="star" [size]="28"
+        /></span>
         <h2 class="wp__guest-title" id="wp-guest-title">Get told when it's listed</h2>
         <p class="wp__guest-text">
           Add the cards you are looking for. We tell you when a collector of your region lists one.
@@ -77,7 +81,9 @@ export function wishLimitLine(used: number, limit: number | null): string | null
         <div class="wp__switches">
           <div class="wp__switch-row">
             <app-shell-icon class="wp__orange" name="bell" [size]="20" />
-            <span class="wp__switch-text" id="wp-alerts">Tell me when someone in my region lists one</span>
+            <span class="wp__switch-text" id="wp-alerts"
+              >Tell me when someone in my region lists one</span
+            >
             <button
               type="button"
               role="switch"
@@ -87,7 +93,9 @@ export function wishLimitLine(used: number, limit: number | null): string | null
               [attr.aria-checked]="alerts() === true"
               [disabled]="alerts() === null || savingAlerts()"
               (click)="toggleAlerts()"
-            ></button>
+            >
+              <span class="visually-hidden">Wishlist alerts</span>
+            </button>
           </div>
           <div class="wp__switch-row">
             <app-shell-icon class="wp__teal" name="eye" [size]="20" />
@@ -107,7 +115,9 @@ export function wishLimitLine(used: number, limit: number | null): string | null
               [attr.aria-checked]="store.visible() === true"
               [disabled]="store.visible() === null || store.savingVisibility()"
               (click)="toggleVisible()"
-            ></button>
+            >
+              <span class="visually-hidden">Wishlist visible to others</span>
+            </button>
           </div>
         </div>
         @if (store.readiness() === 'no-location') {
@@ -133,7 +143,12 @@ export function wishLimitLine(used: number, limit: number | null): string | null
         <div class="wp__head">
           <h2 class="wp__label">Your wishes</h2>
           @if (wishes().length > 0) {
-            <button type="button" class="wp__select" [attr.aria-pressed]="selecting()" (click)="toggleSelecting()">
+            <button
+              type="button"
+              class="wp__select"
+              [attr.aria-pressed]="selecting()"
+              (click)="toggleSelecting()"
+            >
               {{ selecting() ? 'Done' : 'Select' }}
             </button>
           }
@@ -182,13 +197,20 @@ export function wishLimitLine(used: number, limit: number | null): string | null
                       [attr.aria-label]="rowLabel(wish, available)"
                       (click)="selecting() ? togglePick(wish.id) : chosen.emit(wish)"
                     >
-                      <app-card-image class="wp__art" [src]="wish.card?.imageUrl" [game]="wish.game" alt="" />
+                      <app-card-image
+                        class="wp__art"
+                        [src]="wish.card?.imageUrl"
+                        [game]="wish.game"
+                        alt=""
+                      />
                       <span class="wp__text-col">
                         <span class="wp__name">{{ wish.card?.name }}</span>
                         <span class="wp__terms">{{ terms(wish) }}</span>
                       </span>
                       @if (available) {
-                        <span class="wp__available"><span class="wp__dot" aria-hidden="true"></span>Available</span>
+                        <span class="wp__available"
+                          ><span class="wp__dot" aria-hidden="true"></span>Available</span
+                        >
                       } @else {
                         <span class="wp__none">None yet</span>
                       }

@@ -7,7 +7,7 @@ import { GameContext, browsableGames, resolveGame } from './game-context.service
 
 const BROWSABLE = new Set(['yugioh', 'pokemon', 'mtg']);
 
-describe('resolveGame (the phone\'s order, stage G; web stage WD)', () => {
+describe("resolveGame (the phone's order, stage G; web stage WD)", () => {
   const base = { picked: null, stored: null, profileGames: [], browsable: BROWSABLE };
 
   it('takes a pick first, then the kept game, then the profile, then Yu-Gi-Oh!', () => {
@@ -19,9 +19,9 @@ describe('resolveGame (the phone\'s order, stage G; web stage WD)', () => {
 
   it('passes over a game that cannot be browsed (hidden, or without cards)', () => {
     expect(resolveGame({ ...base, picked: 'onepiece', stored: 'riftbound' })).toBe('yugioh');
-    expect(
-      resolveGame({ ...base, browsable: new Set(['pokemon']), stored: 'onepiece' }),
-    ).toBe('pokemon');
+    expect(resolveGame({ ...base, browsable: new Set(['pokemon']), stored: 'onepiece' })).toBe(
+      'pokemon',
+    );
   });
 
   it('before the games answered, takes a pick or a kept game as it is, never the profile', () => {
@@ -70,7 +70,7 @@ describe('GameContext', () => {
 
   const settle = () => new Promise((resolve) => setTimeout(resolve));
 
-  it('keeps a guest\'s pick in this browser, and refuses a game without cards', async () => {
+  it("keeps a guest's pick in this browser, and refuses a game without cards", async () => {
     const context = TestBed.inject(GameContext);
     TestBed.tick();
     await settle();
@@ -82,7 +82,7 @@ describe('GameContext', () => {
     expect(context.options().find((o) => o.game.slug === 'onepiece')?.available).toBe(false);
   });
 
-  it('signed in, reads the account\'s own kept game, else the first browsable profile game', async () => {
+  it("signed in, reads the account's own kept game, else the first browsable profile game", async () => {
     localStorage.setItem('orenji.game.guest', 'yugioh');
     const context = TestBed.inject(GameContext);
     TestBed.tick();

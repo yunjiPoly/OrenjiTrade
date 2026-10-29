@@ -38,11 +38,23 @@ import { ShellIconComponent } from '../../../core/layout/shell-icon/shell-icon.c
           <span class="gal__none">No photos yet</span>
         }
         @if (photos().length > 1) {
-          <span class="gal__count" aria-live="polite">{{ index() + 1 }} / {{ photos().length }}</span>
-          <button type="button" class="gal__nav gal__nav--prev" aria-label="Previous photo" (click)="move(-1)">
+          <span class="gal__count" aria-live="polite"
+            >{{ index() + 1 }} / {{ photos().length }}</span
+          >
+          <button
+            type="button"
+            class="gal__nav gal__nav--prev"
+            aria-label="Previous photo"
+            (click)="move(-1)"
+          >
             <app-shell-icon name="chevronLeft" [size]="20" />
           </button>
-          <button type="button" class="gal__nav gal__nav--next" aria-label="Next photo" (click)="move(1)">
+          <button
+            type="button"
+            class="gal__nav gal__nav--next"
+            aria-label="Next photo"
+            (click)="move(1)"
+          >
             <app-shell-icon name="chevronRight" [size]="20" />
           </button>
         }
@@ -69,12 +81,22 @@ import { ShellIconComponent } from '../../../core/layout/shell-icon/shell-icon.c
             }
           </div>
           @if (!compact()) {
-            <span class="gal__keys" aria-hidden="true"><kbd>←</kbd><kbd>→</kbd> to switch photos</span>
+            <span class="gal__keys" aria-hidden="true"
+              ><kbd>←</kbd><kbd>→</kbd> to switch photos</span
+            >
           }
         </div>
       }
     </div>
-    <dialog #lightbox class="gal__lightbox" aria-label="Photo at full size" (close)="onLightboxClose()" (click)="onLightboxClick($event)">
+    <dialog
+      #lightbox
+      tabindex="-1"
+      (keydown.escape)="lightbox.close()"
+      class="gal__lightbox"
+      aria-label="Photo at full size"
+      (close)="onLightboxClose()"
+      (click)="onLightboxClick($event)"
+    >
       @if (current(); as photo) {
         <img [src]="photo.url" [alt]="photoAlt(index())" />
       }
@@ -250,7 +272,9 @@ export class DeckCoreGalleryComponent {
   readonly compact = input(false);
 
   protected readonly index = signal(0);
-  protected readonly current = computed(() => this.photos()[this.index()] ?? this.photos()[0] ?? null);
+  protected readonly current = computed(
+    () => this.photos()[this.index()] ?? this.photos()[0] ?? null,
+  );
   private readonly lightbox = viewChild.required<ElementRef<HTMLDialogElement>>('lightbox');
   private opener: HTMLElement | null = null;
 

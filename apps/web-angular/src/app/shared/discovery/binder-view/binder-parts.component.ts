@@ -20,7 +20,10 @@ export function ratingText(rating: CollectorRating | null | undefined): string |
 }
 
 /** "Quebec · 2 public binders" (the owner's place, never a city, ADR 0017). */
-export function ownerLine(owner: PublicBinderOwner | null | undefined, binders?: number | null): string {
+export function ownerLine(
+  owner: PublicBinderOwner | null | undefined,
+  binders?: number | null,
+): string {
   const place = owner?.place?.subdivisionName ?? owner?.place?.label ?? '';
   const count =
     typeof binders === 'number' && binders > 0
@@ -41,9 +44,16 @@ export function ownerLine(owner: PublicBinderOwner | null | undefined, binders?:
     @let o = owner();
     <div class="own" [class.own--card]="card()">
       @if (o?.handle) {
-        <app-avatar class="own__avatar" [src]="o?.avatarUrl" [name]="o?.displayName || o?.handle" [decorative]="true" />
+        <app-avatar
+          class="own__avatar"
+          [src]="o?.avatarUrl"
+          [name]="o?.displayName || o?.handle"
+          [decorative]="true"
+        />
       } @else {
-        <span class="own__guest" aria-hidden="true"><app-shell-icon name="profile" [size]="20" /></span>
+        <span class="own__guest" aria-hidden="true"
+          ><app-shell-icon name="profile" [size]="20"
+        /></span>
       }
       <span class="own__text">
         <span class="own__line1">
@@ -150,7 +160,12 @@ export class BinderOwnerComponent {
             [routerLink]="['/cards', item.card.id]"
             [queryParams]="{ printing: item.printing.id }"
           >
-            <app-card-image class="bc__art" [src]="image(item)" [alt]="item.card.name" [game]="item.card.game" />
+            <app-card-image
+              class="bc__art"
+              [src]="image(item)"
+              [alt]="item.card.name"
+              [game]="item.card.game"
+            />
             <span class="bc__name">{{ item.card.name }}</span>
           </a>
           <span class="bc__foot">
@@ -162,7 +177,7 @@ export class BinderOwnerComponent {
               type="button"
               class="bc__message"
               [attr.aria-label]="'Message about ' + item.card.name"
-              (click)="message.emit({ item, opener: $event.currentTarget })"
+              (click)="messageAbout.emit({ item, opener: $event.currentTarget })"
             >
               <app-shell-icon name="messages" [size]="18" />
             </button>
@@ -272,7 +287,7 @@ export class BinderCardsComponent {
   readonly canMessage = input(false);
   /** 3 beside Search's list; otherwise as many as fit. */
   readonly columns = input<number | null>(null);
-  readonly message = output<{ item: PublicInventoryItem; opener: EventTarget | null }>();
+  readonly messageAbout = output<{ item: PublicInventoryItem; opener: EventTarget | null }>();
   protected readonly image = (item: PublicInventoryItem) => printingImageUrl(item.printing);
   protected readonly price = (item: PublicInventoryItem) => itemPriceText(item);
 }
@@ -292,7 +307,12 @@ export class BinderCardsComponent {
           <a class="kc__card" [routerLink]="['/cards', card.cardId]">
             @if (!chips()) {
               <span class="kc__art-wrap">
-                <app-card-image class="kc__art" [src]="art(card)" [alt]="card.name" [game]="game()" />
+                <app-card-image
+                  class="kc__art"
+                  [src]="art(card)"
+                  [alt]="card.name"
+                  [game]="game()"
+                />
                 <span class="kc__badge">×{{ card.quantity }}</span>
               </span>
               <span class="kc__name">{{ card.name }}</span>
