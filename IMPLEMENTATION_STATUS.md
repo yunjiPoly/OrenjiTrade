@@ -12464,9 +12464,30 @@ two reads in reverse order (both fail without the counter).
   `messaging.spec.ts`, `launch-safety.spec.ts`, `rating.spec.ts`, `reporting.spec.ts` and the
   acceptance specs follow the chat's words and the drawer.
 
-**Checks** (retries off): CHECKS_PLACEHOLDER
+**Checks** (retries off): `./gradlew spotlessCheck --rerun-tasks` 0; `npm run test:api` 1,300 tests, 0
+failures (4 min 46 s); `./gradlew exportOpenApi` then `npm run generate:api`: no diff (git clean);
+`npm run lint -w apps/web-angular` 0; `npm run format:check -w apps/web-angular` 0; `npm test -w
+apps/web-angular` 168 files / 814 tests (the removed safety notice took one file of 4 tests) and
+`npm run test:web` the same; `npm run build -w apps/web-angular` 0 and `npm run build:prod -w
+apps/web-angular` 0, **initial total 838.81 kB** (WB 833.67 kB; under the 900 kB budget; no budget
+warning; the chat drawer is a 6.5 kB lazy chunk on a 151 kB chunk shared with Messages);
+`npm run test:e2e -- --retries=0` **82 / 82** (1 min 22 s; the WC spec 2 / 2, also alone);
+`npm run typecheck`, `lint` and `format:check -w apps/mobile` 0; `npm run test:mobile` 128 suites /
+1,782 tests; `npx expo export --platform ios`, `android` and `web` 0 (throw-away folders);
+`npm run test:mobile:e2e -- --retries=0` **66 / 66** (`--stack-only`: the harness and a grep of the
+served entry name `localhost:8090` and never `localhost:8080`; then `--reuse-running`, then
+`--stop`); `npm run test:mobile:maestro -- --platform ios` MAESTRO_PLACEHOLDER (design-tokens
+changed; the owner's iPhone 18 Pro under the simulator lock; its appearance (light) and text size
+(large) left as they were); `npm run test:scripts` 153 / 153; `npm run audit:gate` OK. Walks with
+Playwright on the walk stack (API 8580, `orenjitrade_wc_check`, Redis db 6; web 4400) at 1440,
+1024 and 390, dark and light (96 AFTER shots, 48 BEFORE shots, two at 200 % zoom with no
+horizontal scroll), the keyboard path of the inbox, the composer and the dialogs, F6 and Esc of the
+drawer.
 
-**Could not be verified**: CNV_PLACEHOLDER
+**Could not be verified**: the Android run could not be verified (no Android SDK on this Mac; the phone's code is unchanged,
+only its shared tokens file, whose phone copy is identical); a real screen reader (VoiceOver) on
+the new screens (the roles and names are checked by the unit and E2E tests); the boards were
+compared from their markup and a stub of `support.js`, not the original renderer.
 
 ## NEXT TASK
 
