@@ -276,20 +276,28 @@ export class EditBinderDrawerComponent {
   }
 
   async requestClose(): Promise<boolean> {
-    if (this.dirty()) {
-      const discard = await this.confirm({
-        title: 'Discard your changes?',
-        message: 'The changes to this binder are not saved.',
-        confirmLabel: 'Discard',
-        cancelLabel: 'Keep editing',
-        tone: 'danger',
-      });
-      if (!discard) {
-        return false;
-      }
+    if (!(await this.confirmLeave())) {
+      return false;
     }
     this.closed.emit();
     return true;
+  }
+
+  /**
+   * Whether the drawer may show something else (another card, Add cards, a binder): with unsaved
+   * changes it asks "Discard your changes?" first.
+   */
+  async confirmLeave(): Promise<boolean> {
+    if (!this.dirty()) {
+      return true;
+    }
+    return this.confirm({
+      title: 'Discard your changes?',
+      message: 'The changes to this binder are not saved.',
+      confirmLabel: 'Discard',
+      cancelLabel: 'Keep editing',
+      tone: 'danger',
+    });
   }
 
   protected async remove(): Promise<void> {

@@ -385,7 +385,7 @@ export class InventoryPageComponent {
         this.handledAdd = key;
         untracked(() => {
           this.navigate({ add: null, card: null, tab: null }, true);
-          this.openAdd(fresh ? null : (cardId ?? null), fresh ? null : (printingId ?? null));
+          void this.openAdd(fresh ? null : (cardId ?? null), fresh ? null : (printingId ?? null));
         });
       }
     });
@@ -457,13 +457,22 @@ export class InventoryPageComponent {
 
   // --- drawers -------------------------------------------------------------------------------
 
-  protected openEdit(item: InventoryItemResponse): void {
+  protected async openEdit(item: InventoryItemResponse): Promise<void> {
+    if (item.id === this.params().item || !(await this.leaveDrawer())) {
+      return;
+    }
     this.rememberOpener();
     this.drawer.set(null);
     this.navigate({ item: item.id }, !!this.params().item);
   }
 
-  protected openAdd(cardId: string | null = null, printingId: string | null = null): void {
+  protected async openAdd(
+    cardId: string | null = null,
+    printingId: string | null = null,
+  ): Promise<void> {
+    if (!(await this.leaveDrawer())) {
+      return;
+    }
     this.rememberOpener();
     if (this.params().item) {
       this.navigate({ item: null }, true);
@@ -474,14 +483,17 @@ export class InventoryPageComponent {
   protected openQuick(): void {
     if (this.layout.narrow()) {
       // No quick add rows below 960 (spec 16): Add cards instead.
-      this.openAdd();
+      void this.openAdd();
       return;
     }
     this.drawer.set(null);
     this.quickOpen.set(true);
   }
 
-  protected openBinder(binder: BinderResponse, focusCore = false): void {
+  protected async openBinder(binder: BinderResponse, focusCore = false): Promise<void> {
+    if (!(await this.leaveDrawer())) {
+      return;
+    }
     this.rememberOpener();
     if (this.params().item) {
       this.navigate({ item: null }, true);
@@ -563,7 +575,7 @@ export class InventoryPageComponent {
   protected onRowAction(action: RowAction): void {
     switch (action.kind) {
       case 'edit':
-        this.openEdit(action.item);
+        void this.openEdit(action.item);
         return;
       case 'move':
         void this.actions.inline('binder', () =>
@@ -610,7 +622,7 @@ export class InventoryPageComponent {
     if (result) {
       this.store.clearSelection();
       if (result.deckCore) {
-        this.openBinder(result.binder, true);
+        void this.openBinder(result.binder, true);
       }
     }
   }
@@ -624,7 +636,7 @@ export class InventoryPageComponent {
       return;
     }
     if (result.deckCore) {
-      this.openBinder(result.binder, true);
+      void this.openBinder(result.binder, true);
     } else if (this.params().tab === 'cards') {
       this.navigate({ binder: result.binder.id });
     }
@@ -633,7 +645,7 @@ export class InventoryPageComponent {
   protected async onBinderAction(action: BinderPaneAction): Promise<void> {
     switch (action.kind) {
       case 'edit':
-        this.openBinder(action.binder);
+        void this.openBinder(action.binder);
         return;
       case 'visibility':
         await this.binderActions.toggleVisibility(action.binder);
@@ -771,6 +783,16 @@ export class InventoryPageComponent {
         void this.actions.undoLast();
       }
     }
+  }
+
+  /** Unsaved changes in the open drawer ask "Discard your changes?" before it shows something else. */
+  private async leaveDrawer(): Promise<boolean> {
+    const edit = this.editDrawer();
+    if (edit && !(await edit.confirmLeave())) {
+      return false;
+    }
+    const binder = this.binderDrawer();
+    return !binder || (await binder.confirmLeave());
   }
 
   private rememberOpener(): void {

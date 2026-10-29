@@ -11372,7 +11372,10 @@ On the Mac mini (Apple M6, macOS 27, JDK 21), 2026-10-29:
   passed (the deck core token test now expects the shared group; two suites that timed out while
   the web E2E ran beside them passed alone and in the idle run); `npx expo export` for iOS, Android
   and web into throw-away folders: passed.
-- {{MOBILE_E2E}}
+- `npm run test:mobile:e2e` (under the simulator lock): `--stack-only` (the harness's new check
+  logged "The served web export names http://localhost:8090 and never the developer API."; the
+  entry script names `localhost:8090` twice and `localhost:8080` never), then
+  `--reuse-running --retries=0`: **66 passed** in 1 min 5 s; then `--stop`.
 - {{MAESTRO}}
 - The walk (Playwright, Chromium, the walk stack API 8580 + web 4400, database
   `orenjitrade_wb_check`, Redis db 6, all removed afterwards): every screen of the stage at 1440,
