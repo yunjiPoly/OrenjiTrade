@@ -99,13 +99,25 @@ test.describe('card catalog', () => {
     await expect(toggle).toHaveText(/Add to wishlist/);
     await toggle.click();
     await expect(toggle).toHaveText(/On your wishlist/);
-    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    // Once on, it opens Edit wish (a dialog), not a pressed state.
+    await expect(toggle).toHaveAttribute('aria-haspopup', 'dialog');
     await toggle.click();
     const wishDialog = page.getByRole('dialog', { name: 'Edit wish' });
     await expect(wishDialog.getByTestId('wish-card')).toContainText('Azure-Eyes Sky Dragon');
-    await expect(wishDialog.getByRole('radio', { name: /^Any printing/ })).toBeChecked();
+    await expect(wishDialog.getByRole('combobox', { name: 'Which copy' })).toContainText(
+      'Any printing',
+    );
+    await expect(wishDialog).not.toContainText(/≈|\d+\.\d\d (CAD|USD)/);
     await wishDialog.getByRole('button', { name: 'Cancel' }).click();
     await expect(wishDialog).toBeHidden();
+    // Edit wish removes it, after "You stop getting alerts for it." (spec 6.6).
+    await toggle.click();
+    await wishDialog.getByRole('button', { name: 'Remove from wishlist' }).click();
+    const confirmRemove = page.getByRole('dialog', { name: 'Remove Azure-Eyes Sky Dragon?' });
+    await expect(confirmRemove).toContainText('You stop getting alerts for it.');
+    await confirmRemove.getByRole('button', { name: 'Remove from wishlist' }).click();
+    await expect(wishDialog).toBeHidden();
+    await expect(toggle).toHaveText(/Add to wishlist/);
 
     // A wishlist alert for "any printing in a rarity" links with `?rarity=`: the pill says so.
     const cardPath = new URL(page.url()).pathname;

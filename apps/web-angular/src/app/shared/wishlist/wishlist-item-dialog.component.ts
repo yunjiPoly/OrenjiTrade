@@ -18,7 +18,9 @@ import {
   MatDialogModule,
   MatDialogRef,
 } from '@angular/material/dialog';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
+import { MatSelectModule } from '@angular/material/select';
 import { ReactiveFormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { hasModifierKey } from '@angular/cdk/keycodes';
@@ -34,18 +36,25 @@ import { ApiError, toApiError } from '../../core/http/api-error';
 import { friendlyError, friendlyMessage } from '../../core/http/api-error-messages';
 import { silentErrors } from '../../core/http/http-context';
 import { limitReachedInfo } from '../../core/limits/limit-reached';
-import { CardImageComponent } from '../ui/card-image/card-image.component';
-import { PrintingPickerComponent } from '../catalog/printing-picker/printing-picker.component';
+import { ToastService } from '../../core/feedback/toast.service';
+import { ShellIconComponent } from '../../core/layout/shell-icon/shell-icon.component';
 import {
   type PrintingSelection,
   printingsWithCode,
 } from '../catalog/printing-picker/printing-selection';
+import { gameInfo } from '../domain/games';
+import { printingCode } from '../inventory/inventory-labels';
+import { CardImageComponent } from '../ui/card-image/card-image.component';
+import {
+  ConfirmDialogComponent,
+  ConfirmDialogData,
+} from '../ui/confirm-dialog/confirm-dialog.component';
 import { ErrorStateComponent } from '../ui/error-state/error-state.component';
-import { GameChipComponent } from '../ui/game-chip/game-chip.component';
 import { SkeletonComponent } from '../ui/skeleton/skeleton.component';
 import { PriceTermsStore } from './price-terms.store';
 import { PickedCard, WishCardPickerComponent } from './wish-card-picker.component';
 import { WishFieldsComponent } from './wish-fields.component';
+import { specialEdition, specialFinish } from './wishlist-labels';
 import {
   WISH_ITEMS_LIMIT_KEY,
   WishForm,
@@ -68,9 +77,9 @@ export type WishlistDialogData =
   | { mode: 'edit'; item: WishlistItemResponse };
 
 /**
- * Opens the dialog; it closes with the saved wish, or `undefined` when cancelled. `returnFocus` is
- * the element focus goes back to on close (the trigger, which may have lost focus while the dialog
- * chunk loaded); by default the element focused when the dialog opens.
+ * Opens the dialog (520, spec 6.6); it closes with the saved wish, or `undefined` when cancelled
+ * or removed. `returnFocus` is the element focus goes back to on close (the trigger, which may
+ * have lost focus while the dialog chunk loaded); by default the element focused when it opens.
  */
 export function openWishlistDialog(
   injector: Injector,
@@ -84,7 +93,7 @@ export function openWishlistDialog(
       {
         data,
         injector,
-        panelClass: 'app-dialog--lg',
+        panelClass: 'app-dialog--form',
         autoFocus: 'first-tabbable',
         restoreFocus: returnFocus ?? true,
         maxHeight: '92dvh',
@@ -92,15 +101,37 @@ export function openWishlistDialog(
     );
 }
 
+/** A value of the "Which copy" select: any printing, any printing of one rarity, or one printing. */
+const ANY_COPY = 'any';
+const RARITY_COPY = 'rarity:';
+
+/** The select's value of a selection. */
+export function copyValue(selection: PrintingSelection): string {
+  return selection.printingId ?? (selection.rarity ? RARITY_COPY + selection.rarity : ANY_COPY);
+}
+
+/** The selection of a select value. */
+export function copySelection(value: string): PrintingSelection {
+  if (value.startsWith(RARITY_COPY)) {
+    return { printingId: null, rarity: value.slice(RARITY_COPY.length) || null };
+  }
+  return value === ANY_COPY
+    ? { printingId: null, rarity: null }
+    : { printingId: value, rarity: null };
+}
+
 /**
- * The add/edit wish dialog (stage S2): card autocomplete (`GET /cards/suggest`), then the public
- * note, "Near Mint only", one optional price term (`GET /wishlist/price-terms`) and which copy
- * (the shared printing picker: any printing by default, any printing of one rarity, or one
- * printing). Wishlist alerts come from collectors of the same platform region (ADR 0017). Saves
- * with `POST /wishlist` or `PATCH /wishlist/{id}`; the same selection twice (409) and usage limits
- * (429, the limit dialog opens too) are explained next to the buttons, outside the scrolling
- * content, so the message is in view whatever the scroll position; an invalid field also gets the
- * focus. Once a card is chosen, focus moves to its name (the autocomplete it came from is gone).
+ * The add/edit wish dialog of spec 6.6 (board W6, 520): first the card ("Find the card you want",
+ * `GET /cards/suggest`), then the card with "{n} printings in the catalog" and Change, "Which
+ * copy" (Any printing, any printing of one rarity, or one printing; an edition other than
+ * Unlimited is named, two printings of one code differ by it), "Near Mint only", the price chips
+ * (`GET /wishlist/price-terms`, never an amount) and the public note 0 / 280. Edit wish adds
+ * "Remove from wishlist", confirmed by "You stop getting alerts for it." Wishlist alerts come from
+ * collectors of the same platform region (ADR 0017). Saves with `POST /wishlist` or `PATCH
+ * /wishlist/{id}`; the same selection twice (409) and usage limits (429, the limit dialog opens
+ * too) are explained next to the buttons, outside the scrolling content, so the message is in
+ * view whatever the scroll position; an invalid field also gets the focus. Once a card is chosen,
+ * focus moves to its name (the autocomplete it came from is gone).
  */
 @Component({
   selector: 'app-wishlist-item-dialog',
@@ -108,17 +139,23 @@ export function openWishlistDialog(
     ReactiveFormsModule,
     MatButtonModule,
     MatDialogModule,
+    MatFormFieldModule,
     MatIconModule,
+    MatSelectModule,
     CardImageComponent,
     ErrorStateComponent,
-    GameChipComponent,
     SkeletonComponent,
-    PrintingPickerComponent,
+    ShellIconComponent,
     WishCardPickerComponent,
     WishFieldsComponent,
   ],
   template: `
-    <h2 mat-dialog-title>{{ editing ? 'Edit wish' : 'Add to wishlist' }}</h2>
+    <div class="wd__head">
+      <h2 mat-dialog-title class="wd__title">{{ editing ? 'Edit wish' : 'Add a wish' }}</h2>
+      <button type="button" class="wd__close" aria-label="Close" mat-dialog-close>
+        <app-shell-icon name="close" [size]="20" />
+      </button>
+    </div>
     <mat-dialog-content class="wd__content">
       @if (cardError(); as error) {
         <app-error-state
@@ -131,47 +168,69 @@ export function openWishlistDialog(
         <div class="wd__card" data-testid="wish-card">
           <app-card-image
             class="wd__card-img"
+            size="xs"
             [src]="cardImage()"
-            [alt]="card.name ?? ''"
+            [alt]="''"
             [game]="card.game ?? ''"
           />
           <div class="wd__card-text">
-            <app-game-chip [slug]="card.game ?? ''" />
+            <span class="wd__game">{{ gameLabel() }}</span>
             <h3 #cardHeading class="wd__card-name" tabindex="-1">{{ card.name }}</h3>
-            <p class="wd__muted">
+            <span class="wd__muted">
               {{ printings().length }} {{ printings().length === 1 ? 'printing' : 'printings' }}
               in the catalog
-            </p>
+            </span>
           </div>
           @if (!editing) {
-            <button matButton type="button" class="wd__change" (click)="changeCard()">
-              <mat-icon aria-hidden="true">swap_horiz</mat-icon>
-              Change card
-            </button>
+            <button type="button" class="wd__change" (click)="changeCard()">Change</button>
           }
         </div>
         @if (form(); as form) {
           <form id="wish-form" [formGroup]="form" (ngSubmit)="save()" novalidate class="wd__form">
+            <div class="wd__copy">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="wd__select">
+                <mat-label>Which copy</mat-label>
+                <mat-select
+                  data-testid="wish-copy"
+                  panelClass="wd__copy-panel"
+                  [value]="copy()"
+                  (valueChange)="chooseCopy($event)"
+                >
+                  <mat-option value="any" data-testid="printing-option-any"
+                    >Any printing</mat-option
+                  >
+                  @for (rarity of rarities(); track rarity) {
+                    <mat-option
+                      [value]="'rarity:' + rarity"
+                      [attr.data-testid]="'printing-option-rarity-' + rarity"
+                      >Any printing · {{ rarity }}</mat-option
+                    >
+                  }
+                  @for (printing of orderedPrintings(); track printing.id) {
+                    <mat-option
+                      [value]="printing.id"
+                      [attr.data-testid]="'printing-option-' + printing.id"
+                      ><span class="mono">{{ code(printing) }}</span
+                      >{{ copyRest(printing) }}</mat-option
+                    >
+                  }
+                </mat-select>
+              </mat-form-field>
+              @if (copyHint(); as hint) {
+                <p class="wd__hint" data-testid="wish-copy-hint">{{ hint }}</p>
+              }
+              @if (selectionError(); as message) {
+                <p class="wd__field-error" role="alert" data-testid="wish-selection-error">
+                  {{ message }}
+                </p>
+              }
+            </div>
             <app-wish-fields
               [form]="form"
               [terms]="priceTerms.terms()"
               [termsError]="priceTerms.status() === 'error'"
-              [marketPrice]="selectedPrinting()?.marketPrice ?? null"
-              [onePrinting]="!!selection().printingId"
               (retryTerms)="priceTerms.load()"
             />
-            <app-printing-picker
-              [printings]="printings()"
-              [value]="selection()"
-              [game]="card.game ?? ''"
-              [codeFilter]="sharedCode()"
-              (valueChange)="choose($event)"
-            />
-            @if (selectionError(); as message) {
-              <p class="wd__field-error" role="alert" data-testid="wish-selection-error">
-                {{ message }}
-              </p>
-            }
           </form>
         }
       } @else if (loadingCard()) {
@@ -180,9 +239,6 @@ export function openWishlistDialog(
           <app-skeleton variant="list" lines="3" />
         </div>
       } @else {
-        <p class="wd__lead">
-          Which card are you looking for? We'll tell you when a collector of your region lists it.
-        </p>
         <app-wish-card-picker (picked)="pick($event)" />
       }
     </mat-dialog-content>
@@ -192,75 +248,160 @@ export function openWishlistDialog(
         {{ error }}
       </p>
     }
-    <mat-dialog-actions align="end">
-      <button matButton type="button" mat-dialog-close>Cancel</button>
+    <mat-dialog-actions class="wd__actions">
+      @if (editing) {
+        <button
+          type="button"
+          class="wd__remove"
+          data-testid="wish-remove"
+          [disabled]="removing() || saving()"
+          (click)="remove()"
+        >
+          Remove from wishlist
+        </button>
+      }
+      <span class="wd__spacer"></span>
+      <button matButton="outlined" type="button" mat-dialog-close>Cancel</button>
       <!-- Still focusable while saving: a refused save leaves the focus here, in the dialog. -->
       <button
         #submitButton
         matButton="filled"
+        class="wd__submit"
         type="submit"
         form="wish-form"
         [disabled]="!form() || saving()"
         [disabledInteractive]="saving()"
       >
-        <mat-icon aria-hidden="true">{{ editing ? 'save' : 'favorite' }}</mat-icon>
         {{ saveLabel() }}
       </button>
     </mat-dialog-actions>
   `,
   styles: `
+    .wd__head {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-2);
+      padding-right: 16px;
+    }
+    .wd__title {
+      flex: 1;
+      min-width: 0;
+    }
+    .wd__close {
+      display: grid;
+      flex: 0 0 auto;
+      place-items: center;
+      width: 40px;
+      height: 40px;
+      border: 0;
+      border-radius: 50%;
+      background: transparent;
+      color: var(--color-text-muted);
+      cursor: pointer;
+    }
+    .wd__close:hover {
+      background: var(--color-surface-variant);
+    }
     .wd__content {
-      min-height: 240px;
+      min-height: 200px;
     }
     .wd__form {
       display: flex;
       flex-direction: column;
       gap: var(--spacing-4);
     }
+    .wd__copy {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-1);
+    }
+    .wd__select {
+      width: 100%;
+    }
+    .wd__hint {
+      margin: 0;
+      color: var(--color-text-muted);
+      font-size: var(--font-size-meta);
+      line-height: 18px;
+    }
     .wd__field-error {
       margin: 0;
       color: var(--color-danger);
       font-size: var(--font-size-sm);
     }
-    .wd__lead {
-      margin: 0 0 var(--spacing-4);
-      color: var(--color-text-muted);
-    }
     .wd__card {
       display: flex;
       align-items: center;
-      gap: var(--spacing-4);
-      margin-bottom: var(--spacing-5);
-      padding: var(--spacing-3);
+      gap: var(--spacing-3);
+      margin-bottom: var(--spacing-4);
+      padding: 12px;
       border: 1px solid var(--color-border);
-      border-radius: var(--radius-lg);
+      border-radius: var(--radius-row);
       background: var(--color-surface-variant);
     }
     .wd__card-img {
-      flex: 0 0 64px;
-      width: 64px;
+      flex: 0 0 42px;
+      width: 42px;
     }
     .wd__card-text {
       display: flex;
       flex: 1 1 auto;
       flex-direction: column;
-      align-items: flex-start;
-      gap: 4px;
+      gap: 2px;
       min-width: 0;
     }
+    .wd__game {
+      color: var(--color-text-muted);
+      font-size: var(--font-size-tag);
+      font-weight: var(--font-weight-semibold);
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+    }
     .wd__card-name {
-      font-size: var(--font-size-lg);
+      margin: 0;
+      font-size: var(--font-size-md);
+      font-weight: var(--font-weight-semibold);
     }
     .wd__card-name:focus:not(:focus-visible) {
       outline: none;
     }
     .wd__muted {
-      margin: 0;
       color: var(--color-text-muted);
-      font-size: var(--font-size-sm);
+      font-size: var(--font-size-meta);
     }
     .wd__change {
       flex: 0 0 auto;
+      min-height: 36px;
+      padding: 0 12px;
+      border: 0;
+      border-radius: var(--radius-pill);
+      background: transparent;
+      color: var(--color-accent);
+      font: inherit;
+      font-weight: var(--font-weight-semibold);
+      cursor: pointer;
+    }
+    .wd__actions {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-2);
+    }
+    .wd__spacer {
+      flex: 1;
+    }
+    .wd__remove {
+      min-height: 40px;
+      padding: 0 8px;
+      border: 0;
+      background: transparent;
+      color: var(--color-danger);
+      font: inherit;
+      font-weight: var(--font-weight-semibold);
+      cursor: pointer;
+    }
+    .wd__remove:disabled {
+      opacity: 0.5;
+      cursor: default;
     }
     .wd__error mat-icon {
       flex: 0 0 auto;
@@ -278,7 +419,7 @@ export function openWishlistDialog(
       font-size: var(--font-size-sm);
     }
     @media (max-width: 599px) {
-      .wd__card {
+      .wd__actions {
         flex-wrap: wrap;
       }
     }
@@ -294,6 +435,8 @@ export class WishlistItemDialogComponent {
   private readonly injector = inject(Injector);
   private readonly document = inject(DOCUMENT);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly dialog = inject(MatDialog);
+  private readonly toasts = inject(ToastService);
   protected readonly priceTerms = inject(PriceTermsStore);
   private readonly cardHeading = viewChild<ElementRef<HTMLElement>>('cardHeading');
   private readonly submitButton = viewChild('submitButton', { read: ElementRef });
@@ -305,6 +448,7 @@ export class WishlistItemDialogComponent {
   protected readonly cardError = signal<string | null>(null);
   protected readonly form = signal<WishForm | null>(null);
   protected readonly saving = signal(false);
+  protected readonly removing = signal(false);
   protected readonly error = signal<string | null>(null);
 
   protected readonly printings = computed<PrintingSummary[]>(() => this.card()?.printings ?? []);
@@ -313,6 +457,50 @@ export class WishlistItemDialogComponent {
   protected readonly selectedPrinting = computed(
     () => this.printings().find((printing) => printing.id === this.selection().printingId) ?? null,
   );
+  protected readonly copy = computed(() => copyValue(this.selection()));
+  protected readonly gameLabel = computed(() => gameInfo(this.card()?.game ?? '').label);
+  /** "Any printing · Ultra Rare" rows: the card's rarities when it has several (or the wish's). */
+  protected readonly rarities = computed(() => {
+    const rarities = [
+      ...new Set(
+        this.printings()
+          .map((printing) => printing.rarity)
+          .filter(Boolean) as string[],
+      ),
+    ];
+    const own = this.selection().rarity;
+    if (own && !rarities.includes(own)) {
+      rarities.push(own);
+    }
+    return rarities.length > 1 || own ? rarities : [];
+  });
+  /** The printings, those of a typed code several printings share first. */
+  protected readonly orderedPrintings = computed(() => {
+    const code = this.sharedCode();
+    const printings = this.printings();
+    if (!code) {
+      return printings;
+    }
+    const sharing = printingsWithCode(printings, code);
+    return [...sharing, ...printings.filter((printing) => !sharing.includes(printing))];
+  });
+  protected readonly copyHint = computed(() => {
+    const selection = this.selection();
+    const printing = this.selectedPrinting();
+    if (printing) {
+      return `Only ${this.code(printing)}${this.copyRest(printing)}.`;
+    }
+    const any = selection.rarity
+      ? `Any printing in ${selection.rarity}`
+      : 'Any printing of the card';
+    const code = this.sharedCode();
+    const sharing = code ? printingsWithCode(this.printings(), code) : [];
+    if (code && sharing.length > 1) {
+      // A typed code several printings share never picks one of them: say so.
+      return `${any}. ${sharing.length} printings share the code ${code}: choose one in Which copy for that copy only.`;
+    }
+    return null;
+  });
   /** A server error about which copy (the picker has no inline error of its own). */
   protected readonly selectionError = signal<string | null>(null);
   protected readonly cardImage = computed(() => this.card()?.primaryImageUrl ?? null);
@@ -365,7 +553,32 @@ export class WishlistItemDialogComponent {
     }
   }
 
-  /** The picker chose another copy. */
+  protected code(printing: PrintingSummary): string {
+    return printingCode(printing);
+  }
+
+  /** " · Azure Dawn · Ultra Rare · 1st Edition" after the mono code (no price, no count). */
+  protected copyRest(printing: PrintingSummary): string {
+    const rest = [
+      printing.setName,
+      printing.rarity,
+      specialEdition(printing.edition) ?? (this.sharesCode(printing) ? 'Unlimited' : null),
+      specialFinish(printing.finish),
+    ].filter(Boolean);
+    return rest.length ? ` · ${rest.join(' · ')}` : '';
+  }
+
+  /** Two printings of one code differ only by edition or finish: both are then named. */
+  private sharesCode(printing: PrintingSummary): boolean {
+    const code = printingCode(printing);
+    return !!code && this.printings().filter((other) => printingCode(other) === code).length > 1;
+  }
+
+  protected chooseCopy(value: string): void {
+    this.choose(copySelection(value));
+  }
+
+  /** "Which copy" chose another copy. */
   protected choose(selection: PrintingSelection): void {
     const form = this.form();
     if (!form) {
@@ -411,6 +624,51 @@ export class WishlistItemDialogComponent {
     this.cardError.set(null);
     this.error.set(null);
     this.cardRequest = null;
+  }
+
+  /**
+   * "Remove from wishlist" (Edit wish, spec 6.6): confirmed by "You stop getting alerts for it.",
+   * then `DELETE /wishlist/{id}`; the dialog closes without a wish (the callers read it again).
+   */
+  protected async remove(): Promise<void> {
+    if (this.data.mode !== 'edit' || this.removing()) {
+      return;
+    }
+    const item = this.data.item;
+    const confirmed = await firstValueFrom(
+      this.dialog
+        .open<ConfirmDialogComponent, ConfirmDialogData, boolean>(ConfirmDialogComponent, {
+          data: {
+            title: `Remove ${item.card?.name ?? 'this wish'}?`,
+            message: 'You stop getting alerts for it.',
+            confirmLabel: 'Remove from wishlist',
+            cancelLabel: 'Keep it',
+            tone: 'danger',
+          },
+          autoFocus: 'first-tabbable',
+          restoreFocus: true,
+        })
+        .afterClosed(),
+    );
+    if (!confirmed) {
+      return;
+    }
+    this.removing.set(true);
+    this.error.set(null);
+    try {
+      await firstValueFrom(
+        this.wishlistApi.deleteWishlistItem({ id: item.id }, 'body', false, {
+          context: silentErrors(),
+        }),
+      );
+      this.toasts.show({ title: 'Removed from your wishlist', sub: item.card?.name ?? undefined });
+      this.dialogRef.close();
+    } catch (error) {
+      this.error.set(`This wish could not be removed. ${friendlyMessage(toApiError(error))}`);
+      this.keepFocusInDialog();
+    } finally {
+      this.removing.set(false);
+    }
   }
 
   protected reloadCard(): void {

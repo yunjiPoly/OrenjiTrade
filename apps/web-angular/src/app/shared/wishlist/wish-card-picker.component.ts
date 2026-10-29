@@ -67,7 +67,7 @@ type PickerStatus = 'idle' | 'loading' | 'results' | 'empty' | 'error';
   ],
   template: `
     <mat-form-field appearance="outline" subscriptSizing="dynamic" class="wcp__field">
-      <mat-label>Card name or printing code</mat-label>
+      <mat-label>Find the card you want</mat-label>
       <mat-icon matPrefix aria-hidden="true">search</mat-icon>
       <input
         matInput
@@ -76,13 +76,12 @@ type PickerStatus = 'idle' | 'loading' | 'results' | 'empty' | 'error';
         [attr.maxlength]="maxLength"
         autocomplete="off"
         spellcheck="false"
+        placeholder="Card name or code, like LAVD-EN008"
         cdkFocusInitial
       />
     </mat-form-field>
     <span class="visually-hidden" aria-live="polite">{{ announcement() }}</span>
-    <p class="wcp__hint">
-      Type at least two letters of the name, or a printing code like AZR-EN001.
-    </p>
+    <p class="wcp__hint">Start with the card. You choose the printing next.</p>
 
     <mat-autocomplete
       #panel="matAutocomplete"

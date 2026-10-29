@@ -174,8 +174,8 @@ test.describe('wishlist and notifications', () => {
 
       // Add the wish: autocomplete, then note, Near Mint only, a price term and one printing.
       await page.getByTestId('add-wish').click();
-      const dialog = page.getByRole('dialog', { name: 'Add to wishlist' });
-      await dialog.getByRole('combobox', { name: 'Card name or printing code' }).fill('Emberfang');
+      const dialog = page.getByRole('dialog', { name: 'Add a wish' });
+      await dialog.getByRole('combobox', { name: 'Find the card you want' }).fill('Emberfang');
       await page.getByRole('option', { name: new RegExp(`^${WISHED_CARD} Pokémon`) }).click();
       await expect(dialog.getByTestId('wish-card')).toContainText(WISHED_CARD);
       // The autocomplete is gone: the chosen card's name has the focus, not the page.
@@ -186,19 +186,24 @@ test.describe('wishlist and notifications', () => {
       await expect(dialog).not.toContainText(
         /Maximum price|I want to|Private notes|Minimum condition/,
       );
-      await expect(dialog.getByRole('radio', { name: /^Any printing/ })).toBeChecked();
+      // The 520 dialog of spec 6.6: "Which copy: Any printing", the price chips "No price" first.
+      const copy = dialog.getByRole('combobox', { name: 'Which copy' });
+      await expect(copy).toContainText('Any printing');
+      await expect(dialog.getByRole('radio', { name: 'No price' })).toBeChecked();
+      expect((await dialog.boundingBox())!.width).toBeLessThanOrEqual(520);
       await dialog
         .getByRole('textbox', { name: 'Public note (optional)' })
         .fill('Fictional E2E wish.');
       await dialog.getByRole('checkbox', { name: 'Near Mint only' }).check();
-      // With "Any printing" a term shows no amount; with one printing it does.
-      await expect(dialog.getByTestId('wish-term-85% TCG')).not.toContainText('≈');
-      await dialog.getByTestId(`printing-option-${printingId}`).getByRole('radio').check();
-      await expect(dialog.getByTestId('wish-term-85% TCG')).toContainText(/≈ 0\.\d\d CAD/);
-      await dialog.getByTestId('wish-term-85% TCG').getByRole('checkbox').check();
-      await dialog.getByTestId('wish-term-90% TCG').getByRole('checkbox').check();
-      await expect(dialog.getByTestId('wish-term-85% TCG').getByRole('checkbox')).not.toBeChecked();
-      await dialog.getByTestId('wish-term-85% TCG').getByRole('checkbox').check();
+      // One printing; never an amount or a market price (decision 10).
+      await copy.click();
+      await page.getByTestId(`printing-option-${printingId}`).click();
+      await expect(copy).toContainText(WISHED_PRINTING);
+      await expect(dialog).not.toContainText(/≈|\d+\.\d\d (CAD|USD)/);
+      await dialog.getByRole('radio', { name: '85% TCG' }).check();
+      await dialog.getByRole('radio', { name: '90% TCG' }).check();
+      await expect(dialog.getByRole('radio', { name: '85% TCG' })).not.toBeChecked();
+      await dialog.getByRole('radio', { name: '85% TCG' }).check();
       await dialog.getByRole('button', { name: 'Add to wishlist' }).click();
       await expect(dialog).toBeHidden();
       await expect(page.getByText(`${WISHED_CARD} is on your wishlist`)).toBeVisible();
@@ -228,7 +233,7 @@ test.describe('wishlist and notifications', () => {
       await page.goto('/search?tab=wishlist&game=yugioh');
       await expect(page.getByTestId('wish-row')).toHaveCount(1);
       await page.getByTestId('add-wish').click();
-      await dialog.getByRole('combobox', { name: 'Card name or printing code' }).fill(OTHER_CARD);
+      await dialog.getByRole('combobox', { name: 'Find the card you want' }).fill(OTHER_CARD);
       await page
         .getByRole('option', { name: new RegExp(`^${OTHER_CARD}`) })
         .first()
@@ -381,8 +386,8 @@ test.describe('wishlist and notifications', () => {
       // A typed code that two printings share: one suggestion for the code, and the wish starts
       // on "Any printing" with the picker pointing at the code. Neither printing is picked.
       await page.getByTestId('add-wish').click();
-      const dialog = page.getByRole('dialog', { name: 'Add to wishlist' });
-      const search = dialog.getByRole('combobox', { name: 'Card name or printing code' });
+      const dialog = page.getByRole('dialog', { name: 'Add a wish' });
+      const search = dialog.getByRole('combobox', { name: 'Find the card you want' });
       await search.fill(SHARED_CODE);
       const codeOption = page.getByRole('option', {
         name: new RegExp(`^${SHARED_CODE_CARD} .*${SHARED_CODE}`),
@@ -391,17 +396,19 @@ test.describe('wishlist and notifications', () => {
       await expect(codeOption).toContainText('Printing code');
       await codeOption.click();
       await expect(dialog.getByTestId('wish-card')).toContainText(SHARED_CODE_CARD);
-      await expect(dialog.getByRole('radio', { name: /^Any printing/ })).toBeChecked();
-      await expect(dialog.getByRole('radio', { checked: true })).toHaveCount(1);
-      await expect(dialog.getByTestId(`printing-option-${firstEdition.id}`)).toContainText(
+      const copy = dialog.getByRole('combobox', { name: 'Which copy' });
+      await expect(copy).toContainText('Any printing');
+      await expect(dialog).toContainText(
+        `Any printing of the card. 2 printings share the code ${SHARED_CODE}: choose one in Which copy for that copy only.`,
+      );
+      // "Which copy" names the edition of the two printings of the code.
+      await copy.click();
+      await expect(page.getByTestId(`printing-option-${firstEdition.id}`)).toContainText(
         '1st Edition',
       );
-      await expect(dialog.getByTestId(`printing-option-${unlimited.id}`)).toContainText(
-        'Unlimited',
-      );
-      await expect(dialog).toContainText(
-        `Any printing of the card. 2 printings share the code ${SHARED_CODE}: choose one below for that copy only.`,
-      );
+      await expect(page.getByTestId(`printing-option-${unlimited.id}`)).toContainText('Unlimited');
+      await page.keyboard.press('Escape');
+      await expect(copy).toContainText('Any printing');
       await dialog.getByRole('button', { name: 'Add to wishlist' }).click();
       await expect(dialog).toBeHidden();
       const wish = page.getByTestId('wish-row').filter({ hasText: SHARED_CODE_CARD });
@@ -414,9 +421,7 @@ test.describe('wishlist and notifications', () => {
         .getByRole('option', { name: new RegExp(`^${SINGLE_CODE_CARD} .*${SINGLE_CODE}`) })
         .click();
       await expect(dialog.getByTestId('wish-card')).toContainText(SINGLE_CODE_CARD);
-      await expect(
-        dialog.getByTestId(`printing-option-${singlePrintingId}`).getByRole('radio'),
-      ).toBeChecked();
+      await expect(dialog.getByRole('combobox', { name: 'Which copy' })).toContainText(SINGLE_CODE);
       // A click outside the dialog does not discard a typed note; Cancel still closes.
       await dialog.getByRole('textbox', { name: 'Public note (optional)' }).fill('Typed, unsaved.');
       await page.mouse.click(8, 8);
@@ -547,8 +552,8 @@ test.describe('wishlist and notifications', () => {
     await expect(page.getByRole('radio')).toHaveCount(0);
 
     await page.getByTestId('add-wish').click();
-    const dialog = page.getByRole('dialog', { name: 'Add to wishlist' });
-    await dialog.getByRole('combobox', { name: 'Card name or printing code' }).fill('Emberfang');
+    const dialog = page.getByRole('dialog', { name: 'Add a wish' });
+    await dialog.getByRole('combobox', { name: 'Find the card you want' }).fill('Emberfang');
     await page.getByRole('option', { name: new RegExp(`^${WISHED_CARD} Pokémon`) }).click();
     await expect(dialog.getByTestId('wish-card')).toContainText(WISHED_CARD);
     await dialog.getByRole('button', { name: 'Add to wishlist' }).click();

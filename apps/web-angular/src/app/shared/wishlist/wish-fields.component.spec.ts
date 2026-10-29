@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { MarketPriceSourceEnum as Source, WishPriceTerm } from '@orenji/api-client';
-import { WishFieldsComponent, inSentence, withCurrentTerm } from './wish-fields.component';
+import { WishPriceTerm } from '@orenji/api-client';
+import { WishFieldsComponent, withCurrentTerm } from './wish-fields.component';
 import { WishForm, createWishForm, newWishDefaults } from './wishlist-form';
 
 const TERMS: WishPriceTerm[] = [
@@ -9,131 +9,81 @@ const TERMS: WishPriceTerm[] = [
   { label: '100% TCG+', percent: 100, orMore: true },
 ];
 
-describe('WishFieldsComponent', () => {
+describe('WishFieldsComponent (spec 6.6, board W6)', () => {
   let fixture: ComponentFixture<WishFieldsComponent>;
   let element: HTMLElement;
   let form: WishForm;
 
-  async function render(withPrice: boolean): Promise<void> {
+  async function render(): Promise<void> {
     fixture.componentRef.setInput('form', form);
     fixture.componentRef.setInput('terms', TERMS);
-    fixture.componentRef.setInput(
-      'marketPrice',
-      withPrice
-        ? {
-            amount: 25,
-            currency: 'USD',
-            source: Source.Ygoprodeck,
-            updatedAt: '2026-10-01T00:00:00Z',
-          }
-        : null,
-    );
     await fixture.whenStable();
   }
 
-  function termBoxes(): HTMLInputElement[] {
+  function chips(): HTMLInputElement[] {
     return Array.from(
-      element.querySelectorAll<HTMLInputElement>(
-        '[data-testid^="wish-term-"] input[type="checkbox"]',
-      ),
+      element.querySelectorAll<HTMLInputElement>('[data-testid^="wish-term-"] input[type="radio"]'),
     );
   }
 
-  beforeEach(async () => {
-    await TestBed.configureTestingModule({
-      imports: [WishFieldsComponent],
-    }).compileComponents();
+  beforeEach(() => {
+    form = createWishForm(newWishDefaults());
     fixture = TestBed.createComponent(WishFieldsComponent);
     element = fixture.nativeElement as HTMLElement;
-    form = createWishForm(newWishDefaults());
   });
 
-  it('puts the public note first, then Near Mint only and the price terms', async () => {
-    await render(false);
+  it('shows Near Mint only, the price chips "No price" first, then the note 0 / 280', async () => {
+    await render();
     const fields = Array.from(
-      element.querySelectorAll('textarea, input[type="checkbox"]'),
+      element.querySelectorAll('textarea, input'),
       (node) =>
         node.closest('[data-testid]')?.getAttribute('data-testid') ??
         node.getAttribute('data-testid'),
     );
-    expect(fields[0]).toBe('wish-note');
-    expect(fields[1]).toBe('wish-near-mint');
-    expect(fields.slice(2)).toEqual([
+    expect(fields).toEqual([
+      'wish-near-mint',
+      'wish-term-none',
       'wish-term-80% TCG',
       'wish-term-85% TCG',
       'wish-term-100% TCG+',
+      'wish-note',
     ]);
+    expect(element.textContent).toContain('Price you would pay (optional)');
     expect(element.textContent).toContain('Public note (optional)');
     expect(element.textContent).toContain('0 / 280');
-    // Nothing of the old form.
+    expect(chips()[0].checked).toBe(true);
+    // Never an amount, and nothing of the old form.
+    expect(element.textContent).not.toMatch(/≈|USD|CAD/);
     expect(element.textContent).not.toMatch(
-      /Maximum price|Currency|I want to|Distance|Private|Language|condition/i,
+      /Maximum price|Currency|I want to|Distance|Private|Language|Minimum condition/i,
     );
   });
 
-  it('keeps at most one price term', async () => {
-    await render(false);
-    termBoxes()[0].click();
+  it('keeps at most one price term (radio chips), "No price" clearing it', async () => {
+    await render();
+    chips()[1].click();
     await fixture.whenStable();
     expect(form.controls.priceTerm.value).toBe('80% TCG');
-    termBoxes()[2].click();
+    chips()[3].click();
     await fixture.whenStable();
     expect(form.controls.priceTerm.value).toBe('100% TCG+');
-    expect(termBoxes().filter((box) => box.checked)).toHaveLength(1);
-    termBoxes()[2].click();
+    expect(chips().filter((chip) => chip.checked)).toHaveLength(1);
+    chips()[0].click();
     await fixture.whenStable();
     expect(form.controls.priceTerm.value).toBe('');
   });
 
-  it('keeps one box checked when two terms are clicked within one change detection', async () => {
-    await render(false);
-    // No change detection between the clicks (an automated or very quick double choice).
-    termBoxes()[0].click();
-    termBoxes()[1].click();
-    await fixture.whenStable();
-    expect(form.controls.priceTerm.value).toBe('85% TCG');
-    expect(termBoxes().map((box) => box.checked)).toEqual([false, true, false]);
-  });
-
-  it('says how to see the amounts: one printing, or none without a market price', async () => {
-    await render(false);
-    expect(element.textContent).toContain(
-      'Choose one printing under “Which copy” to see approximate amounts.',
-    );
-    fixture.componentRef.setInput('onePrinting', true);
-    await fixture.whenStable();
-    expect(element.textContent).toContain('This printing has no market price yet.');
-  });
-
-  it('shows the approximate amounts and the price source for one printing only', async () => {
-    await render(false);
-    expect(element.textContent).not.toContain('≈');
-    await render(true);
-    expect(element.textContent).toContain('85% TCG');
-    expect(element.textContent).toContain('≈ 21.25 USD');
-    // "100% TCG+" means 100 % or more: the amount is a floor, not an estimate.
-    expect(element.textContent).toContain('≥ 25.00 USD');
-    expect(element.textContent).not.toContain('≈ 25.00 USD');
-    // The product name keeps its capitals inside the sentence.
-    expect(element.textContent).toContain(
-      'Terms relative to the TCG market price of this printing.',
-    );
-    expect(element.querySelector('.wf__source')?.textContent).toContain(
-      'TCG market price: YGOPRODeck set price (TCGplayer-based, USD)',
-    );
-  });
-
   it('keeps the count in view once the note is over the limit', async () => {
-    await render(false);
-    expect(element.querySelector('[data-testid="wish-note-over"]')).toBeNull();
-    form.controls.note.setValue('x'.repeat(281));
+    await render();
+    const note = element.querySelector<HTMLTextAreaElement>('textarea')!;
+    note.value = 'x'.repeat(281);
+    note.dispatchEvent(new Event('input'));
     form.controls.note.markAsTouched();
+    fixture.detectChanges();
     await fixture.whenStable();
-    expect(element.textContent).toContain('The note is limited to 280 characters.');
-    // The error replaces the counter hint: the count is repeated next to it, on one line.
-    const over = element.querySelector('[data-testid="wish-note-over"]');
-    expect(over?.textContent?.trim()).toBe('281 / 280');
-    expect(over?.classList.contains('wf__count')).toBe(true);
+    expect(element.querySelector('[data-testid="wish-note-over"]')?.textContent).toContain(
+      '281 / 280',
+    );
   });
 
   it('offers to load the price terms again when they failed', async () => {
@@ -143,9 +93,7 @@ describe('WishFieldsComponent', () => {
     await fixture.whenStable();
     let retried = 0;
     fixture.componentInstance.retryTerms.subscribe(() => retried++);
-    const error = element.querySelector('[data-testid="wish-terms-error"]');
-    expect(error?.textContent).toContain('The price terms could not load.');
-    error?.querySelector('button')?.click();
+    element.querySelector<HTMLButtonElement>('[data-testid="wish-terms-error"] button')!.click();
     expect(retried).toBe(1);
   });
 
@@ -173,7 +121,7 @@ describe('WishFieldsComponent', () => {
     expect(withCurrentTerm(TERMS, '120% TCG+').at(-1)?.label).toBe('120% TCG+');
     expect(withCurrentTerm(TERMS, 'cheap')).toBe(TERMS);
     form = createWishForm({ ...newWishDefaults(), priceTerm: '75% TCG' });
-    await render(false);
+    await render();
     const kept = element.querySelector(
       '[data-testid="wish-term-75% TCG"] input',
     ) as HTMLInputElement;
@@ -196,14 +144,8 @@ describe('WishFieldsComponent', () => {
     expect(element.querySelector('[data-testid="wish-terms-error"]')).toBeNull();
   });
 
-  it('words a market price label inside a sentence', () => {
-    expect(inSentence('TCG market price')).toBe('TCG market price');
-    expect(inSentence('Sample market price')).toBe('sample market price');
-    expect(inSentence('Market price')).toBe('market price');
-  });
-
   it('binds Near Mint only and counts the note', async () => {
-    await render(false);
+    await render();
     element.querySelector<HTMLInputElement>('[data-testid="wish-near-mint"] input')!.click();
     const note = element.querySelector<HTMLTextAreaElement>('textarea')!;
     note.value = 'Sleeved copies welcome';

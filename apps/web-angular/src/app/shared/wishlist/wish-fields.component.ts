@@ -1,25 +1,19 @@
 import {
   ChangeDetectionStrategy,
-  ChangeDetectorRef,
   Component,
   computed,
   effect,
-  inject,
   input,
   linkedSignal,
   output,
 } from '@angular/core';
 import { ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { MatCheckboxChange, MatCheckboxModule } from '@angular/material/checkbox';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
-import { MatTooltipModule } from '@angular/material/tooltip';
-import type { MarketPrice, WishPriceTerm } from '@orenji/api-client';
-import { marketPriceInfo } from '../catalog/catalog-labels';
+import type { WishPriceTerm } from '@orenji/api-client';
 import { WISH_NOTE_MAX, WishForm, noteError, noteLength } from './wishlist-form';
-import { approximateAmount } from './wishlist-labels';
 
 /**
  * The terms to offer: the admin list, plus `current` when the list no longer has it (a wish keeps
@@ -43,19 +37,15 @@ export function withCurrentTerm(
   return after < 0 ? [...terms, kept] : [...terms.slice(0, after), kept, ...terms.slice(after)];
 }
 
-/** A label inside a sentence: lower-case first letter, except an acronym ("TCG market price"). */
-export function inSentence(label: string): string {
-  return /^[A-Z]{2,}/.test(label) ? label : label.charAt(0).toLowerCase() + label.slice(1);
-}
+let nextId = 0;
 
 /**
- * The public part of a wish (add/edit dialog): the public note first (plain text, at most 280
- * characters, shown wherever the wish is visible), then the optional "Near Mint only" and price
- * term checkboxes. At most one price term: checking one clears the others (the boxes are rendered
- * from the form value on each change, so quick successive clicks never leave two checked). With one
- * printing chosen and a market price known, each term shows its approximate amount ("85% TCG ≈
- * 21.25 USD") and the price's source and date; with "Any printing" only the term and a hint that
- * the amounts follow the choice of one printing.
+ * The public part of a wish (the 520 dialog of spec 6.6, board W6), under "Which copy":
+ * - "Near Mint only", with "Sellers see it; listings in other conditions still show.";
+ * - "Price you would pay (optional)": the chips "No price", then the admin list of terms ("80%
+ *   TCG", "85% TCG", …; one at most, radio chips: the arrows move). Never an amount and never a
+ *   market price (decision 10, "Never build: market prices");
+ * - the public note (plain text, 0 / 280, "Everyone who can see your wishlist sees it.").
  */
 @Component({
   selector: 'app-wish-fields',
@@ -64,25 +54,78 @@ export function inSentence(label: string): string {
     MatButtonModule,
     MatCheckboxModule,
     MatFormFieldModule,
-    MatIconModule,
     MatInputModule,
-    MatTooltipModule,
   ],
   template: `
     @let f = form();
     <div class="wf" [formGroup]="f">
-      <!-- Dynamic subscript: an error of two lines on a phone grows the field instead of
-           running into "Near Mint only". -->
+      <div class="wf__nm">
+        <mat-checkbox
+          formControlName="nearMintOnly"
+          data-testid="wish-near-mint"
+          [aria-describedby]="ids.nm"
+        >
+          Near Mint only
+        </mat-checkbox>
+        <span class="wf__help wf__help--nm" [id]="ids.nm"
+          >Sellers see it; listings in other conditions still show.</span
+        >
+      </div>
+
+      <fieldset class="wf__terms" [attr.aria-describedby]="ids.terms">
+        <legend class="wf__legend">Price you would pay (optional)</legend>
+        <div class="wf__chips">
+          <label class="wf__chip" data-testid="wish-term-none">
+            <input
+              type="radio"
+              class="wf__radio"
+              [name]="ids.name"
+              value=""
+              [checked]="selectedTerm() === ''"
+              (change)="pickTerm('')"
+            />
+            No price
+          </label>
+          @for (term of shownTerms(); track term.label) {
+            <label class="wf__chip" [attr.data-testid]="'wish-term-' + term.label">
+              <input
+                type="radio"
+                class="wf__radio"
+                [name]="ids.name"
+                [value]="term.label"
+                [checked]="selectedTerm() === term.label"
+                (change)="pickTerm(term.label)"
+              />
+              {{ term.label }}
+            </label>
+          }
+        </div>
+        <p class="wf__help" [id]="ids.terms">
+          Compared with the TCGplayer market price. Sellers see it; it never hides a listing.
+        </p>
+        @if (termsError() && !terms().length) {
+          <p class="wf__help" role="alert" data-testid="wish-terms-error">
+            The price terms could not load.
+            <button matButton type="button" (click)="retryTerms.emit()">Retry</button>
+          </p>
+        }
+        @if (f.controls.priceTerm.errors?.['server']; as message) {
+          <p class="wf__error" role="alert">{{ message }}</p>
+        }
+      </fieldset>
+
+      <!-- Dynamic subscript: an error of two lines grows the field instead of overlapping. -->
       <mat-form-field appearance="outline" subscriptSizing="dynamic" class="wf__note">
         <mat-label>Public note (optional)</mat-label>
         <textarea
           matInput
-          rows="2"
+          rows="3"
           formControlName="note"
           data-testid="wish-note"
+          placeholder="Like “English only”"
           [attr.maxlength]="noteMax * 2"
         ></textarea>
-        <mat-hint>Everyone who can see your wishlist sees this note.</mat-hint>
+        <mat-hint>Everyone who can see your wishlist sees it.</mat-hint>
         <mat-hint align="end" class="wf__count">{{ length() }} / {{ noteMax }}</mat-hint>
         @if (f.controls.note.invalid) {
           <mat-error>
@@ -96,49 +139,6 @@ export function inSentence(label: string): string {
           </mat-error>
         }
       </mat-form-field>
-
-      <mat-checkbox formControlName="nearMintOnly" data-testid="wish-near-mint">
-        Near Mint only
-      </mat-checkbox>
-
-      <fieldset class="wf__terms" aria-describedby="wish-terms-hint">
-        <legend class="wf__legend">Price (optional, at most one)</legend>
-        <p class="wf__hint" id="wish-terms-hint">
-          {{ termsHint() }}
-          @if (priceInfo(); as info) {
-            <span class="wf__source" [matTooltip]="info.detail" tabindex="0">
-              <mat-icon aria-hidden="true">info</mat-icon>
-              <span class="visually-hidden">{{ info.label }}: {{ info.detail }}</span>
-            </span>
-          }
-        </p>
-        @if (shownTerms().length) {
-          <div class="wf__term-list">
-            @for (term of shownTerms(); track term.label) {
-              <mat-checkbox
-                [value]="term.label"
-                [checked]="selectedTerm() === term.label"
-                (change)="toggleTerm($event)"
-                [attr.data-testid]="'wish-term-' + term.label"
-              >
-                {{ term.label }}
-                @if (amount(term); as approx) {
-                  <span class="wf__amount">{{ approx }}</span>
-                }
-              </mat-checkbox>
-            }
-          </div>
-        }
-        @if (termsError() && !terms().length) {
-          <p class="wf__hint" role="alert" data-testid="wish-terms-error">
-            The price terms could not load.
-            <button matButton type="button" (click)="retryTerms.emit()">Retry</button>
-          </p>
-        }
-        @if (f.controls.priceTerm.errors?.['server']; as message) {
-          <p class="wf__error" role="alert">{{ message }}</p>
-        }
-      </fieldset>
     </div>
   `,
   styles: `
@@ -148,7 +148,74 @@ export function inSentence(label: string): string {
     .wf {
       display: flex;
       flex-direction: column;
+      gap: var(--spacing-4);
+    }
+    .wf__nm {
+      display: flex;
+      flex-direction: column;
+    }
+    .wf__help {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--spacing-1);
+      margin: 0;
+      color: var(--color-text-muted);
+      font-size: var(--font-size-meta);
+      line-height: 18px;
+    }
+    .wf__help--nm {
+      padding-left: 40px;
+    }
+    .wf__terms {
+      display: flex;
+      flex-direction: column;
       gap: var(--spacing-2);
+      min-width: 0;
+      margin: 0;
+      padding: 0;
+      border: 0;
+    }
+    .wf__legend {
+      margin-bottom: var(--spacing-2);
+      padding: 0;
+      font-size: var(--font-size-meta);
+      font-weight: var(--font-weight-semibold);
+    }
+    .wf__chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .wf__chip {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      min-height: 36px;
+      padding: 0 14px;
+      border: 1px solid var(--color-border-input);
+      border-radius: var(--radius-pill);
+      color: var(--color-ink);
+      font-size: var(--font-size-sm);
+      cursor: pointer;
+    }
+    .wf__chip:has(.wf__radio:checked) {
+      border-color: var(--color-accent);
+      background: var(--color-accent-tint);
+      font-weight: var(--font-weight-semibold);
+    }
+    .wf__chip:has(.wf__radio:focus-visible) {
+      outline: 2px solid var(--color-focus-ring);
+      outline-offset: 2px;
+    }
+    .wf__radio {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      opacity: 0;
+      cursor: pointer;
     }
     .wf__note {
       width: 100%;
@@ -157,45 +224,8 @@ export function inSentence(label: string): string {
     .wf__count {
       white-space: nowrap;
     }
-    .wf__terms {
-      min-width: 0;
-      margin: var(--spacing-2) 0 0;
-      padding: 0;
-      border: 0;
-    }
-    .wf__legend {
-      padding: 0;
-      font-size: var(--font-size-sm);
-      font-weight: var(--font-weight-semibold);
-    }
-    .wf__hint {
-      display: flex;
-      align-items: center;
-      gap: var(--spacing-1);
-      margin: var(--spacing-1) 0;
-      color: var(--color-text-muted);
-      font-size: var(--font-size-sm);
-    }
-    .wf__source {
-      display: inline-flex;
-      cursor: help;
-    }
-    .wf__source mat-icon {
-      width: 18px;
-      height: 18px;
-      font-size: 18px;
-    }
-    .wf__term-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0 var(--spacing-3);
-    }
-    .wf__amount {
-      margin-left: 4px;
-      color: var(--color-text-muted);
-    }
     .wf__error {
-      margin: var(--spacing-1) 0 0;
+      margin: 0;
       color: var(--color-danger);
       font-size: var(--font-size-sm);
     }
@@ -207,15 +237,16 @@ export class WishFieldsComponent {
   /** The admin list of price terms. */
   readonly terms = input<readonly WishPriceTerm[]>([]);
   readonly termsError = input(false);
-  /** Market price of the chosen printing; `null` for "any printing" or without a price. */
-  readonly marketPrice = input<MarketPrice | null | undefined>(null);
-  /** One printing is chosen (else any printing, where no amount can be shown). */
-  readonly onePrinting = input(false);
   /** The collector asks to load the price terms again (after `termsError`). */
   readonly retryTerms = output<void>();
 
   protected readonly noteMax = WISH_NOTE_MAX;
-  private readonly changeDetector = inject(ChangeDetectorRef);
+  private readonly uid = nextId++;
+  protected readonly ids = {
+    nm: `wish-nm-help-${this.uid}`,
+    terms: `wish-terms-help-${this.uid}`,
+    name: `wish-term-${this.uid}`,
+  };
 
   /** The form's current value as a signal. */
   private readonly value = linkedSignal(() => this.form().getRawValue());
@@ -225,18 +256,6 @@ export class WishFieldsComponent {
   protected readonly shownTerms = computed(() =>
     withCurrentTerm(this.terms(), this.selectedTerm()),
   );
-  protected readonly priceInfo = computed(() => marketPriceInfo(this.marketPrice()));
-  protected readonly termsHint = computed(() => {
-    const info = this.priceInfo();
-    if (info) {
-      return `Terms relative to the ${inSentence(info.label)} of this printing. Sellers see them; they never filter anything.`;
-    }
-    const base =
-      'Terms relative to the TCG market price of the copy you get. Sellers see them; they never filter anything.';
-    return this.onePrinting()
-      ? `${base} This printing has no market price yet.`
-      : `${base} Choose one printing under “Which copy” to see approximate amounts.`;
-  });
 
   constructor() {
     effect((onCleanup) => {
@@ -247,21 +266,13 @@ export class WishFieldsComponent {
     });
   }
 
-  protected amount(term: WishPriceTerm): string | null {
-    return approximateAmount(term, this.marketPrice());
-  }
-
   protected error(): string | null {
     return noteError(this.form().controls.note.errors);
   }
 
-  protected toggleTerm(event: MatCheckboxChange): void {
-    const label = event.source.value;
+  protected pickTerm(label: string): void {
     const control = this.form().controls.priceTerm;
-    control.setValue(event.checked ? label : control.value === label ? '' : control.value);
+    control.setValue(label);
     control.markAsDirty();
-    // Render the boxes now: with the one-way [checked] binding, a box checked and replaced within
-    // one change detection (two quick clicks) would keep its native check mark.
-    this.changeDetector.detectChanges();
   }
 }
