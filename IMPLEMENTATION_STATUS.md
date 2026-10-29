@@ -12799,7 +12799,9 @@ the chat drawer; no token, `api-client`, `shared-types` or phone change.
 period moved back, `POST /internal/jobs/account-deletion`): the deleted account's address is the
 last message of one chat, whose preview goes back to the other collector's question; a chat whose
 last message is the other collector's keeps it; a chat where every message was the deleted
-account's has no last message left (all `last_message_*` `NULL`); no conversation row and no API
+account's has no last message left (all `last_message_*` `NULL`: it stays in its creator's inbox
+with no last message, and when the deleted account created it, it leaves the other collector's inbox,
+as an empty conversation always has, `docs/database/schema.md`); no conversation row and no API
 answer holds the address or the email. It failed before the fix (the preview was still "Ship to 12
 Fictional Lane …"). `chat-drawer.component.spec.ts` (+1, 7 in all): a search field with text keeps
 its Esc for the browser's clear, an engine that leaves the text closes the drawer after a task, an
@@ -12821,6 +12823,18 @@ deletion through the job): before, collector1's inbox showed the address; after,
 collector1's own question, the inbox and the chat answers hold no address, no `conversation`,
 `message`, `notification`, `event_publication` or `audit_log` row holds it, and the emulator user
 of that account (only that one) is gone. AFTER shots in the scratch folder (not committed).
+
+**Left open by the verifier of fix 3** (approved; no blocker or major):
+- *Minor, older than WC*: after an account deletion, the other collectors' notifications keep the
+  deleted collector's display name ("New message from {name}") while the chat shows "Deleted
+  collector": the deletion's notifications step purges only the deleted account's own rows. No
+  message text is involved. Carried into stage WE (notifications), or the owner's call.
+- *Nit*: at md, Esc in a Material autocomplete field (Search's query box) is always taken by the
+  field, so it never closes the overlaying drawer; the drawer's own Esc, its Close, F6 or Tab out of
+  the field still close it.
+- *Owner's call*: the SYSTEM messages of sales, offers and trades keep the handles they were written
+  with (stage R4's decision that the other collector keeps the chat's message), so after a deletion
+  the other collector's history can still show the old handle.
 
 **Could not be verified**: the Android run could not be verified (no Android SDK on this Mac; the
 phone is unchanged); Firefox's handling of Esc in a search field (the walk used Chromium; the code
