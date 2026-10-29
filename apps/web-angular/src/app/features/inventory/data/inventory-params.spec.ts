@@ -1,98 +1,95 @@
 import {
-  DEFAULT_INVENTORY_PAGE_SIZE,
+  CLEARED_FILTERS,
+  DEFAULT_DIRECTION,
+  INVENTORY_PAGE_SIZE,
   UNFILED,
-  activeFilterCount,
+  hasActiveFilters,
+  listKey,
   parseInventoryParams,
   toListRequest,
 } from './inventory-params';
 
-const BINDER = '00000000-0000-4000-8b00-000000000101';
-
-describe('inventory params', () => {
-  it('defaults to every card, recently updated, as a grid', () => {
-    expect(parseInventoryParams({})).toEqual({
+describe('inventory params (web redesign spec 9.3, 4.11)', () => {
+  it('defaults to Cards, every card, Recently added newest first, the remembered view', () => {
+    const params = parseInventoryParams({});
+    expect(params).toEqual({
+      tab: 'cards',
       binder: null,
       q: '',
       game: null,
       visibility: null,
-      availability: null,
-      condition: null,
       freshness: null,
-      sort: 'updated',
-      view: 'grid',
-      page: 0,
-      size: DEFAULT_INVENTORY_PAGE_SIZE,
+      sort: 'created',
+      dir: 'desc',
+      view: null,
+      item: null,
     });
+    expect(hasActiveFilters(params)).toBe(false);
   });
 
-  it('keeps valid values and drops unknown ones', () => {
-    const params = parseInventoryParams({
-      binder: BINDER.toUpperCase(),
-      q: '  azure  ',
-      game: 'YuGiOh',
-      visibility: 'TEMPORARILY_PUBLIC',
-      availability: 'TRADE',
-      condition: 'near_mint',
-      freshness: 'stale',
-      sort: 'price-asc',
-      view: 'table',
-      page: '2',
-      size: '48',
-    });
-    expect(params).toEqual({
-      binder: BINDER,
-      q: 'azure',
-      game: 'yugioh',
-      visibility: 'TEMPORARILY_PUBLIC',
-      availability: 'TRADE',
-      condition: 'NEAR_MINT',
-      freshness: 'STALE',
-      sort: 'price-asc',
-      view: 'table',
-      page: 2,
-      size: 48,
-    });
+  it('reads the tab, a binder, unfiled, the card in the drawer and the view', () => {
+    const id = '11111111-2222-4333-8444-555555555555';
+    const params = parseInventoryParams({ tab: 'binders', binder: id.toUpperCase(), item: id, view: 'grid' });
+    expect(params.tab).toBe('binders');
+    expect(params.binder).toBe(id);
+    expect(params.item).toBe(id);
+    expect(params.view).toBe('grid');
+    expect(parseInventoryParams({ binder: UNFILED }).binder).toBe(UNFILED);
+  });
 
-    const junk = parseInventoryParams({
-      binder: '../admin',
-      visibility: 'SECRET',
-      availability: 'GIFT',
-      condition: 'mint<script>',
-      freshness: 'ROTTEN',
-      sort: 'random',
-      view: 'cards',
-      page: '-1',
-      size: '1000',
-    });
+  it('drops junk and keeps old links working (sort=updated, price-asc, TEMPORARILY_PUBLIC)', () => {
+    const junk = parseInventoryParams({ binder: 'x', game: 'NOT A SLUG!', item: '1', sort: 'random', dir: 'up', tab: 'x' });
     expect(junk.binder).toBeNull();
-    expect(junk.visibility).toBeNull();
-    expect(junk.availability).toBeNull();
-    expect(junk.condition).toBeNull();
-    expect(junk.freshness).toBeNull();
-    expect(junk.sort).toBe('updated');
-    expect(junk.view).toBe('grid');
-    expect(junk.page).toBe(0);
-    expect(junk.size).toBe(DEFAULT_INVENTORY_PAGE_SIZE);
+    expect(junk.game).toBeNull();
+    expect(junk.item).toBeNull();
+    expect(junk.sort).toBe('created');
+    expect(junk.dir).toBe('desc');
+    expect(junk.tab).toBe('cards');
+    expect(parseInventoryParams({ sort: 'updated' }).sort).toBe('created');
+    const cheapest = parseInventoryParams({ sort: 'price-asc' });
+    expect([cheapest.sort, cheapest.dir]).toEqual(['price', 'asc']);
+    expect(parseInventoryParams({ visibility: 'TEMPORARILY_PUBLIC' }).visibility).toBe('PUBLIC');
   });
 
-  it('builds the list request for a binder, unfiled cards and price sorting', () => {
-    const inBinder = toListRequest(parseInventoryParams({ binder: BINDER, q: 'fox' }));
-    expect(inBinder).toMatchObject({ binderId: BINDER, query: 'fox', sort: 'updated', page: 0 });
-    expect(inBinder.unfiled).toBeUndefined();
-    expect(inBinder.direction).toBeUndefined();
-
-    const unfiled = toListRequest(parseInventoryParams({ binder: UNFILED, sort: 'price-asc' }));
-    expect(unfiled).toMatchObject({ unfiled: true, sort: 'price', direction: 'asc' });
-    expect(unfiled.binderId).toBeUndefined();
-    expect(unfiled.query).toBeUndefined();
+  it('starts each sort in its own direction', () => {
+    expect(DEFAULT_DIRECTION).toEqual({ created: 'desc', name: 'asc', price: 'desc' });
+    expect(parseInventoryParams({ sort: 'name' }).dir).toBe('asc');
+    expect(parseInventoryParams({ sort: 'price', dir: 'asc' }).dir).toBe('asc');
   });
 
-  it('counts the active filters', () => {
-    expect(activeFilterCount(parseInventoryParams({ q: 'x', binder: UNFILED }))).toBe(0);
-    expect(
-      activeFilterCount(
-        parseInventoryParams({ game: 'mtg', visibility: 'PUBLIC', freshness: 'STALE' }),
-      ),
-    ).toBe(3);
+  it('asks the API for 100 rows a load, Public as every card set to public', () => {
+    const request = toListRequest(
+      parseInventoryParams({ q: ' blue ', game: 'yugioh', visibility: 'PUBLIC', sort: 'name' }),
+      2,
+    );
+    expect(request).toEqual(
+      expect.objectContaining({
+        query: 'blue',
+        game: 'yugioh',
+        markedPublic: true,
+        sort: 'name',
+        direction: 'asc',
+        page: 2,
+        size: INVENTORY_PAGE_SIZE,
+      }),
+    );
+    expect(request.visibility).toBeUndefined();
+    expect(toListRequest(parseInventoryParams({ visibility: 'PRIVATE' })).visibility).toBe('PRIVATE');
+    expect(toListRequest(parseInventoryParams({ binder: UNFILED })).unfiled).toBe(true);
+  });
+
+  it('knows a new list (filters, binder, sort) from a new view or drawer', () => {
+    const base = parseInventoryParams({});
+    expect(listKey({ ...base, view: 'grid', item: 'x' })).toBe(listKey(base));
+    expect(listKey({ ...base, q: 'a' })).not.toBe(listKey(base));
+    expect(listKey({ ...base, binder: UNFILED })).not.toBe(listKey(base));
+  });
+
+  it('shows "Clear filters" for a search, a game, a visibility, a freshness or another sort', () => {
+    const base = parseInventoryParams({});
+    for (const change of [{ q: 'x' }, { game: 'yugioh' }, { visibility: 'PRIVATE' as const }, { sort: 'name' as const, dir: 'asc' as const }]) {
+      expect(hasActiveFilters({ ...base, ...change }), JSON.stringify(change)).toBe(true);
+    }
+    expect(Object.keys(CLEARED_FILTERS)).toEqual(['q', 'game', 'visibility', 'freshness', 'sort', 'dir']);
   });
 });
