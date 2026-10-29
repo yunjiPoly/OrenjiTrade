@@ -23,9 +23,7 @@ import { ShellLayout } from '../../../core/layout/shell-layout.service';
           @if (level() === 2) {
             <h2 class="page-header__title">{{ title() }}</h2>
           } @else {
-            <h1 class="page-header__title" [class.visually-hidden]="titleInBar()">
-              {{ title() }}
-            </h1>
+            <h1 class="page-header__title" [class.visually-hidden]="titleInBar()">{{ title() }}</h1>
           }
           @if (subtitle()) {
             <p class="page-header__subtitle">{{ subtitle() }}</p>

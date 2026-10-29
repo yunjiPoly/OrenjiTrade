@@ -18,7 +18,7 @@ describe('the routes of the web redesign (spec 4.11)', () => {
   });
 
   it('puts the five areas, their pills and their layouts in the routes', () => {
-    expect(shell('')).toEqual({ area: 'home', pills: 'both', layout: 'workspace' });
+    expect(shell('')).toEqual({ area: 'home', pills: 'both', layout: 'workspace', tabBar: true });
     expect(shell('search')).toMatchObject({
       area: 'search',
       pills: 'both',
