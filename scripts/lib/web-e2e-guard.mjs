@@ -327,6 +327,10 @@ export function e2eApiEnv(base, { apiPort, webPort, workDir }) {
     // Mock catalog only: no card image downloads, no card provider call (ADR 0015, ADR 0021).
     CARD_IMAGE_ON_DEMAND_ENABLED: 'false',
     ...NO_CARD_PROVIDERS,
+    // Web stage WB imports a deck file (.ydk) end to end: its passcodes are the three fictional
+    // ones of ImportFixtureSeedContributor (910000001 to 910000003), as in the phone's isolated
+    // database. The contributor refuses to run while the real provider is enabled.
+    SEED_IMPORT_FIXTURES: 'true',
     CORS_ALLOWED_ORIGINS: `http://localhost:${webPort}`,
     FIREBASE_PROJECT_ID: 'orenjitrade-local',
     FIREBASE_AUTH_EMULATOR_HOST: valueOf(base, 'FIREBASE_AUTH_EMULATOR_HOST') ?? 'localhost:9099',
@@ -341,6 +345,10 @@ export function e2eApiEnv(base, { apiPort, webPort, workDir }) {
     // The same for the short window of signed-out discovery reads (stage R15): every signed-out
     // spec searches, opens card holders and binders from the one address.
     RATE_LIMIT_GUEST_DISCOVERY_PER_10S: '1000',
+    // And for a signed-in collector (default 120 a minute): a spec file's collector serves every
+    // test one worker runs (beforeAll), and each page load makes 10 to 40 calls. With CI's two
+    // workers one collector of shell.spec.ts passed 120 within a minute and its search got 429.
+    RATE_LIMIT_DEFAULT_PER_MINUTE: '1200',
   };
 }
 

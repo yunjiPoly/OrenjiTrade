@@ -1,3 +1,4 @@
+import { DOCUMENT } from '@angular/common';
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { ToastHostComponent } from '../../feedback/toast-host.component';
@@ -31,9 +32,21 @@ import { UnreadChatsProbeComponent } from '../unread-chats/unread-chats-probe.co
   ],
   template: `
     <div class="skip-links">
-      <a class="skip-link" href="#main-content" data-testid="skip-content">Skip to content</a>
+      <a
+        class="skip-link"
+        href="#main-content"
+        data-testid="skip-content"
+        (click)="skipTo($event, 'main-content')"
+        >Skip to content</a
+      >
       @if (layout.skipMapTarget(); as target) {
-        <a class="skip-link" [attr.href]="'#' + target" data-testid="skip-map">Skip the map</a>
+        <a
+          class="skip-link"
+          [attr.href]="'#' + target"
+          data-testid="skip-map"
+          (click)="skipTo($event, target)"
+          >Skip the map</a
+        >
       }
     </div>
     <app-top-bar />
@@ -126,8 +139,26 @@ import { UnreadChatsProbeComponent } from '../unread-chats/unread-chats-probe.co
 })
 export class AppShellComponent {
   protected readonly layout = inject(ShellLayout);
+  private readonly document = inject(DOCUMENT);
 
   constructor() {
     inject(KeyboardShortcuts).start();
+  }
+
+  /**
+   * A skip link moves the focus itself: its "#main-content" resolves against `<base href="/">`, so
+   * the browser would load Home from any other page (WB review A10).
+   */
+  protected skipTo(event: Event, id: string): void {
+    const target = this.document.getElementById(id);
+    if (!target) {
+      return;
+    }
+    event.preventDefault();
+    if (!target.hasAttribute('tabindex')) {
+      target.setAttribute('tabindex', '-1');
+    }
+    target.focus();
+    target.scrollIntoView({ block: 'start' });
   }
 }

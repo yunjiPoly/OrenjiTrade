@@ -1,4 +1,4 @@
-import { Page, expect, test } from '@playwright/test';
+import { Locator, Page, expect, test } from '@playwright/test';
 import {
   apiCreateBinder,
   apiCreateItem,
@@ -9,6 +9,8 @@ import {
   watchCoordinates,
 } from './support/inventory';
 import {
+  API_URL,
+  authHeader,
   createOnboardedCollector,
   requireStack,
   signInThroughUi,
@@ -16,234 +18,390 @@ import {
 } from './support/stack';
 
 /**
- * Inventory, binders and public binders (Phase 3) against the real local stack: the add-card
- * flow, binders, moving and editing cards, publishing, bulk actions with a temporary
- * publication, a second collector viewing a public binder, and the `binders.max` usage limit.
- * Every collector is fresh (unique emails); items and binders come from the seed catalog.
+ * Inventory (web redesign stage WB, spec 9, boards W10 to W15) against the real local stack: the
+ * Add cards drawer and its loop, Edit card with Previous, Next and the leave guard, a delete with
+ * Undo, inline price and copies, quick add rows, a bulk move refused for another game, a drag to a
+ * binder, a bulk delete with Undo, the Binders tab, New binder, Edit binder with the deck core
+ * fields and the game lock; a second collector viewing a public binder. Every collector is fresh;
+ * the cards come from the fictional seed catalog.
  */
 
-/** A 1×1 PNG (fictional photo of an owned copy). */
-const TINY_PNG =
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
-
-function card(page: Page, name: string) {
+/** A card of a public binder page. */
+function card(page: Page, name: string): Locator {
   return page.getByRole('article', { name, exact: true });
 }
 
-function binderNav(page: Page) {
+/** A row of the table by its card. */
+function row(page: Page, name: string): Locator {
+  return page.locator('[role="row"][data-item-id]', { hasText: name });
+}
+
+function toast(page: Page, title: string | RegExp): Locator {
+  return page.getByTestId('toast').filter({ hasText: title });
+}
+
+function pane(page: Page): Locator {
   return page.getByRole('navigation', { name: 'Binders' });
 }
 
-test.describe('inventory', () => {
+async function items(
+  page: Page,
+  token: string,
+): Promise<
+  {
+    id: string;
+    quantity: number;
+    askingPriceText?: string | null;
+    visibility: string;
+    binder?: { id: string } | null;
+    card: { name: string };
+  }[]
+> {
+  const response = await page.request.get(`${API_URL}/api/v1/inventory/items`, {
+    headers: authHeader(token),
+    params: { size: 100 },
+  });
+  expect(response.ok()).toBeTruthy();
+  return ((await response.json()) as { items: never[] }).items;
+}
+
+test.describe('inventory (web WB)', () => {
   requireStack();
 
   test.beforeEach(async ({ page }) => {
     await stubCardImages(page);
   });
 
-  test('add a card, create a binder, move the card in, make it public and edit it', async ({
+  test('add cards in the drawer and loop, edit with Previous and Next, the leave guard, a delete with Undo', async ({
     page,
     request,
   }) => {
     test.setTimeout(150_000);
-    const collector = await createOnboardedCollector(request, 'inventory');
+    const collector = await createOnboardedCollector(request, 'wbadd');
+    const watcher = watchCoordinates(page);
     await signInThroughUi(page, collector.email, collector.password);
-
-    // Open the inventory from the rail (web redesign WA, spec 4.6).
-    await page
-      .getByRole('navigation', { name: 'Main' })
-      .getByRole('link', { name: 'Inventory' })
-      .click();
-    await expect(page).toHaveURL(/\/inventory$/);
+    await page.goto('/inventory');
     await expect(page.getByRole('heading', { level: 1, name: 'Inventory' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Your inventory is empty' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Your cards, in one place' })).toBeVisible();
 
-    // Add card: catalog autocomplete -> printing -> details (kept private for now).
-    await page.getByRole('button', { name: 'Add card', exact: true }).click();
-    const add = page.getByRole('dialog', { name: 'Add a card' });
-    await add.getByRole('combobox', { name: 'Card name or printing code' }).fill('azure');
-    await page.getByRole('option', { name: /Azure-Eyes Sky Dragon/ }).click();
-    await expect(add.getByRole('heading', { name: 'Azure-Eyes Sky Dragon' })).toBeVisible();
-    await add.getByRole('radio', { name: /AZR-EN001/ }).check();
-    await add.getByRole('button', { name: 'Continue' }).click();
-    await add.getByLabel('Quantity').fill('2');
-    await add.getByLabel('Asking price').fill('45');
-    await expect(add.getByRole('radio', { name: 'Private', exact: true })).toBeChecked();
-    await add.getByRole('button', { name: 'Add to inventory' }).click();
-    await expect(add).toBeHidden();
-    await expect(page.getByText('Azure-Eyes Sky Dragon added to your inventory.')).toBeVisible();
-
-    const dragon = card(page, 'Azure-Eyes Sky Dragon');
-    await expect(dragon).toBeVisible();
-    await expect(dragon.getByTestId('quantity')).toHaveText('2');
-    await expect(dragon).toContainText('$45.00');
-    await expect(dragon).toContainText('AZR-EN001');
-    await expect(dragon.getByRole('img', { name: /^Visibility: Private/ })).toBeVisible();
-    await expect(dragon).toContainText('Updated just now');
-    await expect(page.getByTestId('summary-private')).toContainText('1');
-
-    // Quick edit: the stepper saves the quantity right away.
-    await dragon
-      .getByRole('button', { name: 'Increase quantity of Azure-Eyes Sky Dragon' })
+    // Add cards: a card, then its printing, then the details (the phone's fields).
+    await page.getByTestId('inventory-add').click();
+    const add = page.getByRole('dialog', { name: 'Add cards' });
+    await expect(add.getByText('Add many at once')).toBeVisible();
+    await expect(add).not.toContainText(/scan|camera/i);
+    await add.getByTestId('add-search').fill('azure');
+    await add
+      .getByRole('option', { name: /Azure-Eyes Sky Dragon/ })
+      .first()
       .click();
-    await expect(dragon.getByTestId('quantity')).toHaveText('3');
-    await expect(page.getByTestId('summary-total')).toContainText('3 copies');
+    await expect(add.getByText(/printings?\. Pick the one on your card\./)).toBeVisible();
+    await add.getByRole('button', { name: /AZR-EN001/ }).click();
+    await add.getByRole('button', { name: 'One more' }).click();
+    await add.getByRole('radio', { name: 'Percent of the TCGplayer price' }).click();
+    await add
+      .getByRole('textbox', { name: 'Asking price in percent of the TCGplayer price' })
+      .fill('85');
+    await expect(add.getByRole('radio', { name: 'Private' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    await add.getByTestId('add-submit').click();
+    await expect(toast(page, 'Saved')).toContainText('Azure-Eyes Sky Dragon');
+    // The loop: back to the search, focused; the new row is at the top of the table.
+    await expect(add.getByTestId('add-search')).toBeFocused();
+    await expect(row(page, 'Azure-Eyes Sky Dragon')).toContainText('85% TCG');
+    await expect(row(page, 'Azure-Eyes Sky Dragon')).toContainText('×2');
+    // An exact printing goes straight to the details; "Keep these" keeps the price mode.
+    await add.getByTestId('add-search').fill('AZR-EN011');
+    await add.getByRole('option', { name: /AZR-EN011/ }).click();
+    await expect(add.getByText('Keep these for the next card')).toBeVisible();
+    await add
+      .getByRole('textbox', { name: 'Asking price in percent of the TCGplayer price' })
+      .fill('90');
+    await add.getByTestId('add-submit').click();
+    await expect(row(page, 'Lantern Fox Spirit')).toContainText('90% TCG');
+    await add.getByTestId('add-done').click();
+    await expect(add).toHaveCount(0);
+    await expect(page.getByTestId('inventory-summary')).toHaveText('2 cards · 3 copies · 0 public');
 
-    // Create a binder from the binder list.
-    await binderNav(page).getByRole('button', { name: 'New binder' }).click();
-    const binderForm = page.getByRole('dialog', { name: 'New binder' });
-    await binderForm.getByLabel('Binder name').fill('E2E trades');
-    await binderForm.getByRole('button', { name: 'Create binder' }).click();
-    await expect(binderForm).toBeHidden();
-    await expect(page).toHaveURL(/binder=[0-9a-f-]{36}/);
-    await expect(page.getByRole('heading', { level: 2, name: 'E2E trades' }).first()).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'This binder is empty' })).toBeVisible();
+    // Edit card: a click on the row; Next saves first.
+    await row(page, 'Lantern Fox Spirit').locator('.c-card').click();
+    const edit = page.getByRole('dialog', { name: 'Edit card' });
+    await expect(edit).toContainText('1 of 2 in All cards');
+    await expect(edit.getByTestId('edit-save')).toHaveText(/No changes yet/);
+    await expect(edit.getByRole('link', { name: /Check TCGplayer price/ })).toHaveAttribute(
+      'href',
+      /tcgplayer\.com\/search\/yugioh\/product\?q=Lantern/,
+    );
+    await edit.getByRole('button', { name: 'One more' }).click();
+    await edit.getByTestId('edit-next').click();
+    await expect(edit).toContainText('2 of 2 in All cards');
+    await expect(row(page, 'Lantern Fox Spirit')).toContainText('×2');
+    // The leave guard.
+    await edit.getByRole('textbox', { name: 'Public note' }).fill('Sleeved, for trade');
+    await edit.getByRole('button', { name: 'Close' }).click();
+    const discard = page.getByRole('dialog', { name: 'Discard your changes?' });
+    await discard.getByRole('button', { name: 'Keep editing' }).click();
+    await edit.getByRole('radio', { name: 'Public' }).click();
+    await page.keyboard.press('ControlOrMeta+Enter');
+    await expect(toast(page, 'Saved').first()).toBeVisible();
+    await expect(edit.getByTestId('edit-save')).toHaveText(/No changes yet/);
+    // Previous with Alt+↑.
+    await page.keyboard.press('Alt+ArrowUp');
+    await expect(edit).toContainText('1 of 2 in All cards');
+    await page.keyboard.press('Escape');
+    await expect(edit).toHaveCount(0);
+    const saved = await items(page, collector.idToken);
+    const azure = saved.find((it) => it.card.name === 'Azure-Eyes Sky Dragon')!;
+    expect(azure.visibility).toBe('PUBLIC');
+    expect(azure.askingPriceText).toBe('85% TCG');
 
-    // Back to every card; the edit panel moves the card into the binder, makes it public and
-    // updates its condition.
-    await binderNav(page)
-      .getByRole('link', { name: /All cards/ })
+    // Delete from the row menu, then Undo from the toast.
+    await page.getByTestId(`row-more-${azure.id}`).click();
+    await page.getByRole('menuitem', { name: 'Delete' }).click();
+    await page
+      .getByRole('dialog', { name: 'Delete Azure-Eyes Sky Dragon?' })
+      .getByRole('button', { name: 'Delete' })
       .click();
-    await card(page, 'Azure-Eyes Sky Dragon')
-      .getByRole('button', { name: 'Edit Azure-Eyes Sky Dragon' })
-      .click();
-    const editor = page.getByRole('dialog', { name: 'Azure-Eyes Sky Dragon' });
-    await expect(editor.getByText('Listed as fresh', { exact: true })).toBeVisible();
-    await editor.getByRole('combobox', { name: 'Binder' }).click();
-    await page.getByRole('option', { name: 'E2E trades' }).click();
-    await editor.getByRole('radio', { name: 'Public', exact: true }).click();
-    await editor.getByRole('combobox', { name: 'Condition' }).click();
-    await page.getByRole('option', { name: 'Lightly Played' }).click();
-    await editor.getByLabel('Public notes').fill('Sleeved since the day it was pulled.');
-    // A photo of the owner's copy (re-encoded by the API, metadata stripped).
-    await editor.locator('input[type=file]').setInputFiles({
-      name: 'my-copy.png',
-      mimeType: 'image/png',
-      buffer: Buffer.from(TINY_PNG, 'base64'),
+    await expect(row(page, 'Azure-Eyes Sky Dragon')).toHaveCount(0);
+    await toast(page, 'Card deleted').getByRole('button', { name: 'Undo' }).click();
+    await expect(toast(page, 'Card restored')).toBeVisible();
+    await expect(row(page, 'Azure-Eyes Sky Dragon')).toBeVisible();
+    expect((await items(page, collector.idToken)).length).toBe(2);
+
+    await watcher.settle();
+    expect(coordinateLeaks(watcher.samples)).toEqual([]);
+  });
+
+  test('inline price and copies, quick add rows, a bulk move refused for another game, a drag to a binder, a bulk delete with Undo', async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(150_000);
+    const collector = await createOnboardedCollector(request, 'wbbulk');
+    const ygo = await apiCreateBinder(request, collector.idToken, {
+      name: 'E2E trades',
+      gameId: await gameIdOf(request, collector.idToken, 'yugioh'),
     });
-    await expect(
-      editor.getByRole('list', { name: 'Photos' }).getByRole('img', { name: 'Photo 1' }),
-    ).toBeVisible();
-    await editor.getByRole('button', { name: 'Save changes' }).click();
-    await expect(editor).toBeHidden();
-    await expect(page.getByText('Azure-Eyes Sky Dragon: changes saved.')).toBeVisible();
+    for (const code of ['AZR-EN001', 'AZR-EN011', 'SVX-001']) {
+      await apiCreateItem(request, collector.idToken, {
+        printingId: await printingIdOf(request, collector.idToken, code),
+        visibility: 'PRIVATE',
+        conditionStated: false,
+      });
+    }
+    await signInThroughUi(page, collector.email, collector.password);
+    await page.goto('/inventory');
+    await expect(row(page, 'Emberfang Fox VMAX')).toBeVisible();
 
-    await expect(dragon.getByLabel('Condition: Lightly Played')).toBeVisible();
-    await expect(dragon).toContainText('E2E trades');
-    // Public, but the binder is still private: explained, not silently hidden.
-    await expect(
-      dragon.getByRole('img', { name: /^Visibility: Public · not visible/ }),
-    ).toBeVisible();
-    await expect(binderNav(page).getByRole('link', { name: /E2E trades/ })).toContainText('1');
-
-    // Publish the binder until disabled from its header.
-    await binderNav(page)
-      .getByRole('link', { name: /E2E trades/ })
+    // Inline price: [$ | % TCG] and a number; Enter saves.
+    await row(page, 'Azure-Eyes Sky Dragon')
+      .getByRole('button', { name: /^Asking price/ })
       .click();
-    await expect(card(page, 'Azure-Eyes Sky Dragon')).toBeVisible();
-    await page.getByRole('button', { name: 'Publish E2E trades' }).click();
-    await page.getByRole('menuitem', { name: 'Public until disabled' }).click();
-    await expect(page.getByText('“E2E trades” is public until you make it private.')).toBeVisible();
-    await expect(
-      page.getByTestId('binder-visibility').getByRole('img', { name: /^Visibility: Public/ }),
-    ).toBeVisible();
-    // A new collector is hidden from the map: the page says why nobody sees the binder yet.
-    await expect(page.getByText('Your public cards are not visible yet.')).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Privacy settings' })).toHaveAttribute(
+    const editor = page.getByRole('group', { name: 'Asking price of Azure-Eyes Sky Dragon' });
+    await editor.getByRole('radio', { name: 'Percent of the TCGplayer price' }).click();
+    await editor.getByRole('textbox').fill('85');
+    await page.keyboard.press('Enter');
+    await expect(row(page, 'Azure-Eyes Sky Dragon')).toContainText('85% TCG');
+    // Inline copies: the stepper on hover.
+    await row(page, 'Lantern Fox Spirit').hover();
+    await row(page, 'Lantern Fox Spirit')
+      .getByRole('button', { name: 'One more Lantern Fox Spirit' })
+      .click();
+    await expect(row(page, 'Lantern Fox Spirit').locator('.qty > [aria-hidden="true"]')).toHaveText(
+      '×2',
+    );
+    const afterInline = await items(page, collector.idToken);
+    expect(
+      afterInline.find((it) => it.card.name === 'Azure-Eyes Sky Dragon')?.askingPriceText,
+    ).toBe('85% TCG');
+
+    // Quick add rows (Shift+N): a code adds a row; an unknown code says so in place.
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.keyboard.press('Shift+N');
+    const quick = page.getByRole('region', { name: 'Quick add rows' });
+    await quick.getByTestId('quick-code').fill('GLM-EN042');
+    await expect(quick.getByTestId('quick-printing')).toContainText('GLM-EN042');
+    await page.keyboard.press('Enter');
+    await expect(quick.getByRole('list', { name: 'Added in this session' })).toContainText(
+      "Monarch's Tempest Decree",
+    );
+    await expect(quick.getByTestId('quick-code')).toBeFocused();
+    await expect(row(page, "Monarch's Tempest Decree")).toBeVisible();
+    await quick.getByTestId('quick-code').fill('ZZZ-EN999');
+    await page.keyboard.press('Enter');
+    await expect(quick.getByTestId('quick-error')).toHaveText(
+      'No Yu-Gi-Oh! card has that code. Try the code printed on the card, like LAVD-EN008.',
+    );
+    await page.keyboard.press('Escape');
+    await expect(quick).toHaveCount(0);
+
+    // Select two Yu-Gi-Oh! cards and the Pokémon card; Move to binder refuses the Pokémon card.
+    await row(page, 'Azure-Eyes Sky Dragon').getByRole('checkbox').check();
+    await row(page, 'Lantern Fox Spirit').getByRole('checkbox').check();
+    await row(page, 'Emberfang Fox VMAX').getByRole('checkbox').check();
+    const dock = page.getByRole('group', { name: 'Selected cards' });
+    await expect(dock).toContainText('3 selected');
+    await dock.getByTestId('bulk-move').click();
+    await page.getByRole('menuitem', { name: 'E2E trades' }).click();
+    await expect(toast(page, 'Moved 2 to E2E trades')).toContainText(
+      "1 Pokémon card can't go in a Yu-Gi-Oh! binder.",
+    );
+    await expect(pane(page).getByTestId(`pane-binder-${ygo.id}`)).toContainText('2');
+    // The focus stays in the dock after its action, and Esc on the page clears the selection
+    // (WB review F7, U1): it no longer falls to the page's body.
+    await expect
+      .poll(() => page.evaluate(() => document.activeElement?.closest('app-bulk-dock') !== null))
+      .toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(dock).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => document.activeElement?.tagName)).not.toBe('BODY');
+
+    // A Pokémon card dragged onto the Yu-Gi-Oh! binder is refused before any request (spec 9.7).
+    let bulkCalls = 0;
+    page.on('request', (request) => {
+      if (request.method() === 'POST' && /\/inventory\/items\/bulk$/.test(request.url())) {
+        bulkCalls++;
+      }
+    });
+    const target = pane(page).getByTestId(`pane-binder-${ygo.id}`);
+    {
+      const from = (await row(page, 'Emberfang Fox VMAX').locator('.c-art').boundingBox())!;
+      const to = (await target.boundingBox())!;
+      await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(from.x + 20, from.y + 20, { steps: 4 });
+      await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 12 });
+      await expect(target).not.toContainText('Move 1 card here');
+      await page.mouse.up();
+      await page.waitForTimeout(500);
+      expect(bulkCalls).toBe(0);
+      await expect(target).toContainText('2');
+    }
+
+    // Drag the new card's art onto the binder in the pane (the menu path is above).
+    const source = row(page, "Monarch's Tempest Decree").locator('.c-art');
+    const from = (await source.boundingBox())!;
+    const to = (await target.boundingBox())!;
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(from.x + 20, from.y + 20, { steps: 4 });
+    await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 12 });
+    await expect(target).toContainText('Move 1 card here');
+    await page.mouse.up();
+    await expect(toast(page, 'Moved 1 to E2E trades')).toBeVisible();
+    await expect(target).toContainText('3');
+
+    // Ctrl/Cmd+A in the table, Delete, then Undo brings every card back.
+    await row(page, 'Azure-Eyes Sky Dragon').focus();
+    await page.keyboard.press('ControlOrMeta+a');
+    await expect(dock).toContainText('4 selected');
+    await dock.getByTestId('bulk-delete').click();
+    await page
+      .getByRole('dialog', { name: 'Delete 4 cards?' })
+      .getByRole('button', { name: 'Delete' })
+      .click();
+    await expect(page.getByRole('heading', { name: 'Your cards, in one place' })).toBeVisible();
+    await toast(page, '4 cards deleted').getByRole('button', { name: 'Undo' }).click();
+    await expect(toast(page, '4 cards restored')).toBeVisible();
+    await expect(row(page, 'Emberfang Fox VMAX')).toBeVisible();
+    expect((await items(page, collector.idToken)).length).toBe(4);
+  });
+
+  test("the owner reaches a public binder's page from Inventory; a hidden owner hears why and where to fix it; Skip to content stays on the page", async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(120_000);
+    // Declared a province, hidden from the map (the default): public cards nobody sees yet.
+    const owner = await createOnboardedCollector(request, 'wbpublic', { location: true });
+    const binder = await apiCreateBinder(request, owner.idToken, {
+      name: 'E2E shown binder',
+      gameId: await gameIdOf(request, owner.idToken, 'yugioh'),
+    });
+    await apiCreateItem(request, owner.idToken, {
+      printingId: await printingIdOf(request, owner.idToken, 'AZR-EN001'),
+      binderId: binder.id,
+      visibility: 'PUBLIC',
+      conditionStated: false,
+    });
+    await apiPublishBinder(request, owner.idToken, binder.id, 'UNTIL_DISABLED');
+    await signInThroughUi(page, owner.email, owner.password);
+    await page.goto('/inventory');
+    const banner = page.getByTestId('visibility-banner');
+    await expect(banner).toContainText(
+      'You are hidden from the map and your profile is not public',
+    );
+    await expect(banner.getByRole('link', { name: 'Privacy settings' })).toHaveAttribute(
       'href',
       '/settings/privacy',
     );
 
-    // The state survives a reload (everything is server state + URL).
-    await page.reload();
-    await expect(page.getByRole('heading', { level: 2, name: 'E2E trades' }).first()).toBeVisible();
-    await expect(
-      card(page, 'Azure-Eyes Sky Dragon').getByLabel('Condition: Lightly Played'),
-    ).toBeVisible();
+    // Skip to content moves the focus into the page, never to Home (WB review A10).
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('link', { name: 'Skip to content' })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(/\/inventory$/);
+    await expect(page.locator('#main-content')).toBeFocused();
+
+    // Visible to others once the owner is on the map: "View public page" (WB review F2).
+    await apiUpdatePrivacy(request, owner.idToken, { discoverable: true });
+    await page.goto(`/inventory?binder=${binder.id}`);
+    await expect(banner).toHaveCount(0);
+    const strip = page.getByTestId('binder-strip');
+    await expect(strip.getByRole('link', { name: 'View public page' })).toBeVisible();
+    await page.goto('/inventory?tab=binders');
+    await expect(page.getByTestId(`binder-public-${binder.id}`)).toBeVisible();
+    await page.getByTestId(`binder-public-${binder.id}`).click();
+    await expect(page).toHaveURL(new RegExp(`/binders/${binder.id}$`));
+    await expect(page.getByRole('heading', { level: 1, name: 'E2E shown binder' })).toBeVisible();
   });
 
-  test('bulk visibility with a temporary publication, availability with skipped cards, move to binder', async ({
+  test("the toolbar's Clear filters gives the focus to the list; a dropped photo stays on Inventory", async ({
     page,
     request,
   }) => {
-    test.setTimeout(150_000);
-    const collector = await createOnboardedCollector(request, 'bulk');
-    const token = collector.idToken;
-    const [dragon, fiend, sorceress] = await Promise.all([
-      printingIdOf(request, token, 'AZR-EN001'),
-      printingIdOf(request, token, 'AZR-EN021'),
-      printingIdOf(request, token, 'AZR-EN031'),
-    ]);
-    await apiCreateItem(request, token, { printingId: dragon, availability: 'TRADE' });
-    await apiCreateItem(request, token, { printingId: fiend, availability: 'SALE' });
-    await apiCreateItem(request, token, { printingId: sorceress, availability: 'SALE' });
-    await apiCreateBinder(request, token, { name: 'Bulk binder', kind: 'TRADE' });
-
+    test.setTimeout(90_000);
+    const collector = await createOnboardedCollector(request, 'wbclear');
+    for (const code of ['AZR-EN001', 'SVX-001']) {
+      await apiCreateItem(request, collector.idToken, {
+        printingId: await printingIdOf(request, collector.idToken, code),
+        visibility: 'PRIVATE',
+        conditionStated: false,
+      });
+    }
     await signInThroughUi(page, collector.email, collector.password);
-    await page.goto('/inventory');
-    await expect(page.getByTestId('inventory-count')).toHaveText(/3 cards/);
+    await page.goto('/inventory?q=azure');
+    await expect(row(page, 'Azure-Eyes Sky Dragon')).toBeVisible();
+    await expect(row(page, 'Emberfang Fox VMAX')).toHaveCount(0);
 
-    // Select one card, then the whole page from the bulk bar.
-    await page.getByRole('checkbox', { name: 'Select Azure-Eyes Sky Dragon' }).check();
-    const bulk = page.getByRole('toolbar', { name: 'Bulk actions' });
-    await expect(bulk).toContainText('1 selected');
-    await bulk.getByRole('checkbox', { name: 'Select all cards on this page' }).check();
-    await expect(bulk).toContainText('3 selected');
+    // By keyboard: the link leaves with the filters, the focus lands on a row (WB review R1-1).
+    await page.getByTestId('clear-filters').focus();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(/\/inventory$/);
+    await expect(row(page, 'Emberfang Fox VMAX')).toBeVisible();
+    await expect(page.getByTestId('clear-filters')).toHaveCount(0);
+    await expect
+      .poll(() =>
+        page.evaluate(() => document.activeElement?.closest('[role="row"][data-item-id]') !== null),
+      )
+      .toBe(true);
 
-    // Temporary publication with a duration.
-    await bulk.getByRole('button', { name: 'Visibility' }).click();
-    await page.getByRole('menuitem', { name: 'Temporarily public' }).click();
-    await page.getByRole('menuitem', { name: 'Public for 24 hours' }).click();
-    await expect(page.getByTestId('bulk-result')).toHaveText(
-      '3 cards are now public for 24 hours.',
+    // Only a .ydk or a .csv opens Import (spec 9.7, WB review R1-3): a photo says where it goes.
+    const host = page.locator('app-inventory-page');
+    const photo = await page.evaluateHandle(() => {
+      const data = new DataTransfer();
+      data.items.add(new File(['not a deck'], 'photo.png', { type: 'image/png' }));
+      return data;
+    });
+    await host.dispatchEvent('dragenter', { dataTransfer: photo });
+    await host.dispatchEvent('dragover', { dataTransfer: photo });
+    await host.dispatchEvent('drop', { dataTransfer: photo });
+    await expect(toast(page, 'Drop a .ydk or .csv file to import')).toContainText(
+      'To add photos, open a card and drop them there.',
     );
-    await expect(page.getByTestId('summary-temporary')).toContainText('3');
-    await expect(page.getByTestId('summary-temporary')).toContainText('next ends in');
-    await expect(
-      card(page, 'Gravehollow Fiend').getByRole('img', { name: /^Visibility: Public · ends in/ }),
-    ).toBeVisible();
-
-    // The visibility segmented control tells the three states apart.
-    const visibility = page
-      .getByRole('toolbar', { name: 'Inventory filters' })
-      .getByRole('radiogroup', { name: 'Visibility' });
-    await visibility.getByRole('radio', { name: 'Temporarily public' }).click();
-    await expect(page).toHaveURL(/visibility=TEMPORARILY_PUBLIC/);
-    await expect(page.getByTestId('inventory-count')).toHaveText(/3 cards/);
-    await visibility.getByRole('radio', { name: 'Private' }).click();
-    await expect(page.getByRole('heading', { name: 'No cards match these filters' })).toBeVisible();
-    await visibility.getByRole('radio', { name: 'All', exact: true }).click();
-    await expect(page.getByTestId('inventory-count')).toHaveText(/3 cards/);
-
-    // Availability: the card already for trade is skipped, with the reason.
-    await page.getByRole('checkbox', { name: 'Select Azure-Eyes Sky Dragon' }).check();
-    await bulk.getByRole('checkbox', { name: 'Select all cards on this page' }).check();
-    await expect(bulk).toContainText('3 selected');
-    await bulk.getByRole('button', { name: 'Availability' }).click();
-    await page.getByRole('menuitem', { name: 'Trade', exact: true }).click();
-    await expect(page.getByTestId('bulk-result')).toHaveText(
-      '2 cards set to trade. 1 card skipped: already in that state.',
-    );
-
-    // Move everything to a binder.
-    await bulk.getByRole('button', { name: 'Move to binder' }).click();
-    await page.getByRole('menuitem', { name: 'Bulk binder' }).click();
-    await expect(page.getByTestId('bulk-result')).toHaveText('3 cards moved to “Bulk binder”.');
-    await expect(binderNav(page).getByRole('link', { name: /Bulk binder/ })).toContainText('3');
-    await expect(binderNav(page).getByRole('link', { name: /Unfiled/ })).toContainText('0');
-
-    // Back to private in one go.
-    await bulk.getByRole('button', { name: 'Visibility' }).click();
-    await page.getByRole('menuitem', { name: 'Make private' }).click();
-    await expect(page.getByTestId('bulk-result')).toHaveText('3 cards are now private.');
-    await expect(page.getByTestId('summary-private')).toContainText('3');
-
-    // Delete asks first, then empties the inventory.
-    await bulk.getByRole('button', { name: 'Delete' }).click();
-    const confirm = page.getByRole('dialog', { name: 'Delete 3 cards?' });
-    await confirm.getByRole('button', { name: 'Delete' }).click();
-    await expect(page.getByTestId('bulk-result')).toHaveText('3 cards deleted.');
-    await expect(page.getByRole('heading', { name: 'Your inventory is empty' })).toBeVisible();
+    await expect(page).toHaveURL(/\/inventory$/);
+    await expect(row(page, 'Emberfang Fox VMAX')).toBeVisible();
   });
 
   test('a second collector opens a published binder with the owner state and country only', async ({
@@ -325,61 +483,105 @@ test.describe('inventory', () => {
     expect(coordinateLeaks(watcher.samples)).toEqual([]);
   });
 
-  test('the binders.max limit opens the limit-reached dialog; binders reorder from the keyboard', async ({
+  test('binders: the Binders tab, New binder with its game tiles and the limit, Edit binder with the deck core fields, Move up, the game lock', async ({
     page,
     request,
   }) => {
-    test.setTimeout(120_000);
-    const collector = await createOnboardedCollector(request, 'binderlimit');
-    for (let i = 1; i <= 5; i++) {
-      await apiCreateBinder(request, collector.idToken, { name: `Limit binder ${i}` });
+    test.setTimeout(150_000);
+    const collector = await createOnboardedCollector(request, 'wbbinders');
+    const yugioh = await gameIdOf(request, collector.idToken, 'yugioh');
+    for (let i = 1; i <= 4; i++) {
+      await apiCreateBinder(request, collector.idToken, {
+        name: `Limit binder ${i}`,
+        gameId: yugioh,
+      });
     }
     await signInThroughUi(page, collector.email, collector.password);
-    await page.goto('/inventory');
-    await expect(binderNav(page).getByRole('link', { name: /Limit binder 5/ })).toBeVisible();
+    await page.goto('/inventory?tab=binders');
+    await expect(page.getByTestId('binders-summary')).toHaveText('4 binders');
+    await expect(page.getByRole('heading', { name: /Yu-Gi-Oh!/ })).toBeVisible();
+    await expect(page.getByText('Selling a whole deck?')).toBeVisible();
 
-    await binderNav(page).getByRole('button', { name: 'New binder' }).click();
-    const binderForm = page.getByRole('dialog', { name: 'New binder' });
-    await binderForm.getByLabel('Binder name').fill('One binder too many');
-    await binderForm.getByRole('button', { name: 'Create binder' }).click();
-
-    const limit = page.getByRole('alertdialog', { name: 'You reached a limit' });
-    await expect(limit).toBeVisible();
-    await expect(limit.getByTestId('limit-summary')).toContainText('5 of 5');
-    await limit.getByRole('button', { name: 'OK' }).click();
-    await expect(limit).toBeHidden();
-    await expect(binderForm.getByRole('alert')).toHaveText(
-      'You reached the number of binders you can have.',
+    // New binder: the five game tiles, a deck core opens Edit binder on its fields.
+    await page.getByTestId('binders-new').click();
+    const create = page.getByRole('dialog', { name: 'New binder' });
+    await expect(create.getByRole('radio', { name: /One Piece/ })).toHaveAttribute(
+      'aria-disabled',
+      'true',
     );
-    await binderForm.getByRole('button', { name: 'Cancel' }).click();
+    await create.getByTestId('new-binder-name').fill('Snake-Eye core');
+    await create.getByRole('switch', { name: 'Sell as a deck core' }).click();
+    await create.getByTestId('new-binder-create').click();
+    const edit = page.getByRole('dialog', { name: 'Edit binder' });
+    await expect(edit.getByTestId('binder-price')).toBeVisible();
+    await edit.getByTestId('binder-price').fill('$180');
+    await edit.getByRole('radio', { name: 'Private' }).click();
+    await expect(
+      edit.getByText('Buyers can only find a deck core when it is public.'),
+    ).toBeVisible();
+    await edit.getByRole('radio', { name: 'Public' }).click();
+    await edit.getByTestId('binder-save').click();
+    await expect(toast(page, 'Saved')).toBeVisible();
+    await expect(page.getByTestId('binders-summary')).toHaveText('5 binders · 1 deck core');
+    await expect(page.getByText('Deck core · $180').first()).toBeVisible();
 
-    // The binder manager reorders from the keyboard; focus stays on the moved binder's arrow.
-    await page.getByRole('button', { name: 'Manage binders', exact: true }).click();
-    const manager = page.getByRole('dialog', { name: 'Manage binders' });
-    const moveUp = manager.getByRole('button', { name: 'Move Limit binder 3 up' });
-    // Wait for the dialog's own initial focus (after its opening animation) before moving it.
-    await expect
-      .poll(() => page.evaluate(() => !!document.activeElement?.closest('mat-dialog-container')))
-      .toBe(true);
-    await moveUp.focus();
-    await page.keyboard.press('Enter');
-    await expect(manager.getByTestId('binder-row').nth(1)).toContainText('Limit binder 3');
-    await expect(moveUp).toBeFocused();
-    await page.keyboard.press('Enter');
-    await expect(manager.getByTestId('binder-row').first()).toContainText('Limit binder 3');
-    // Delete a binder from the manager (after a confirmation).
-    await manager.getByRole('button', { name: 'Delete Limit binder 5' }).click();
-    await page
-      .getByRole('dialog', { name: 'Delete “Limit binder 5”?' })
-      .getByRole('button', { name: 'Delete binder' })
-      .click();
-    await expect(manager.getByTestId('binder-row')).toHaveCount(4);
-    await manager.getByRole('button', { name: 'Done' }).click();
+    // The sixth binder: the limit, in plain words, nothing to buy.
+    await edit.getByRole('button', { name: 'Close' }).click();
+    await page.getByTestId('binders-new').click();
+    await create.getByTestId('new-binder-name').fill('One binder too many');
+    await create.getByTestId('new-binder-create').click();
+    const limit = page.getByRole('alertdialog', { name: 'You reached a limit' });
+    await expect(limit.getByTestId('limit-note')).toHaveText(
+      'Every collector has the same limits.',
+    );
+    await limit.getByRole('button', { name: 'OK' }).click();
+    await expect(create.getByTestId('new-binder-error')).toHaveText(
+      'You have 5 binders, the most each collector can have. Every collector has the same limits.',
+    );
+    await expect(create).not.toContainText(/premium|upgrade|plan/i);
+    await create.getByRole('button', { name: 'Cancel' }).click();
 
-    const order = page.getByRole('list', { name: 'Your binders' }).getByRole('listitem');
-    await expect(order.first()).toContainText('Limit binder 3');
+    // Move up from the card's menu (the drag's menu path); the order is saved.
+    await page.getByRole('button', { name: 'More for Limit binder 3' }).click();
+    await page.getByRole('menuitem', { name: 'Move up' }).click();
+    const yugiohBinders = page.getByRole('region', { name: /Yu-Gi-Oh!/ }).getByRole('listitem');
+    await expect(yugiohBinders.nth(1)).toContainText('Limit binder 3');
     await page.reload();
-    await expect(order.first()).toContainText('Limit binder 3');
-    await expect(order.nth(1)).toContainText('Limit binder 1');
+    await expect(yugiohBinders.nth(1)).toContainText('Limit binder 3');
+
+    // The game lock: an empty binder may change game, until a card lands in it (409).
+    await page.getByRole('button', { name: 'More for Limit binder 4' }).click();
+    await page.getByRole('menuitem', { name: 'Edit binder' }).click();
+    await edit.getByRole('combobox', { name: 'Game' }).click();
+    await page.getByRole('option', { name: /Pokémon/ }).click();
+    const binders = await (
+      await request.get(`${API_URL}/api/v1/binders`, { headers: authHeader(collector.idToken) })
+    ).json();
+    const four = (binders as { id: string; name: string }[]).find(
+      (b) => b.name === 'Limit binder 4',
+    )!;
+    await apiCreateItem(request, collector.idToken, {
+      printingId: await printingIdOf(request, collector.idToken, 'AZR-EN001'),
+      binderId: four.id,
+    });
+    await edit.getByTestId('binder-save').click();
+    await expect(edit.getByRole('alert')).toHaveText(
+      "This binder already has Yu-Gi-Oh! cards, so its game can't change.",
+    );
   });
 });
+
+/** The id of a game (`GET /games`). */
+async function gameIdOf(
+  request: import('@playwright/test').APIRequestContext,
+  token: string,
+  slug: string,
+): Promise<string> {
+  const response = await request.get(`${API_URL}/api/v1/games`, { headers: authHeader(token) });
+  expect(response.ok()).toBeTruthy();
+  const game = ((await response.json()) as { id: string; slug: string }[]).find(
+    (g) => g.slug === slug,
+  );
+  expect(game, `game ${slug}`).toBeTruthy();
+  return game!.id;
+}

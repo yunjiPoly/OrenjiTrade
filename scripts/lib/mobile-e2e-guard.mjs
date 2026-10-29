@@ -306,3 +306,51 @@ export async function deleteRunAccounts({ emulatorUrl, projectId, runId, fetchIm
   });
   return deleted.length;
 }
+
+// ------------------------------------------------------------- the served web export (web WB)
+
+/** The developer API's address, written into a web build (`localhost:8080`, `127.0.0.1:8080`). */
+export const DEVELOPER_API_IN_BUNDLE = new RegExp(`(?:localhost|127\\.0\\.0\\.1|\\[::1\\]):${DEV_API_PORT}\\b`);
+
+/**
+ * The scripts an exported Expo web page loads (`<script src="…">`), as paths of the server that
+ * serves it; scripts of other hosts are not the app's and are left out.
+ */
+export function bundleScriptPaths(html) {
+  const paths = [];
+  for (const match of String(html ?? '').matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi)) {
+    const src = match[1];
+    if (/^https?:\/\//i.test(src) || src.startsWith('//')) {
+      continue;
+    }
+    paths.push(src.startsWith('/') ? src : `/${src}`);
+  }
+  return [...new Set(paths)];
+}
+
+/**
+ * Whether the web export the mobile E2E specs would load talks to the isolated API (web stage WB,
+ * after stage WA's run served a stale export without `EXPO_PUBLIC_API_BASE_URL`, whose browser
+ * then read the developer API on :8080 for twenty minutes): its scripts must name `apiUrl` and
+ * never the developer API. `scripts` are `{ name, text }`. Returns null when the export may be
+ * used, else the reason.
+ */
+export function webBundleRefusal(scripts, apiUrl) {
+  if (!Array.isArray(scripts) || scripts.length === 0) {
+    return 'The served web export loads no JavaScript bundle; it is not the mobile E2E build.';
+  }
+  const developer = scripts.find((script) => DEVELOPER_API_IN_BUNDLE.test(script.text ?? ''));
+  if (developer) {
+    return (
+      `The served web export names the developer API (port ${DEV_API_PORT}) in ${developer.name}; ` +
+      `the mobile suites never send a request there. Rebuild it: npm run test:mobile:e2e -- --stop, then run again without --skip-build.`
+    );
+  }
+  if (!scripts.some((script) => (script.text ?? '').includes(apiUrl))) {
+    return (
+      `The served web export does not name the isolated API ${apiUrl} (a build made without EXPO_PUBLIC_API_BASE_URL ` +
+      `falls back to the developer API on :${DEV_API_PORT}). Rebuild it: npm run test:mobile:e2e -- --stop, then run again without --skip-build.`
+    );
+  }
+  return null;
+}

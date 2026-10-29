@@ -42,7 +42,8 @@ export function isEditableTarget(target: EventTarget | null): boolean {
 /**
  * The app's keyboard shortcuts (spec 4.9, decision 24): `/` focuses the page's own search, or the
  * top bar's; Ctrl/Cmd+K always the top bar's (on Search, the pane's field); `g` then h, s, i, m or
- * p goes to an area; `n` opens Add cards in Inventory; `?` shows the shortcuts. Single-key
+ * p goes to an area; `n` opens Add cards in Inventory, Shift+N its quick add rows; `?` shows the
+ * shortcuts. Single-key
  * shortcuts never fire inside a field, nor while a dialog or a menu is open, and Settings ›
  * Appearance turns them off.
  */
@@ -117,6 +118,14 @@ export class KeyboardShortcuts {
         event.preventDefault();
         void this.router.navigate(['/inventory'], { queryParams: { add: 'new' } });
         return true;
+      case 'N':
+        // Shift+N: quick add rows (spec 4.9 and 9.10), in Inventory's Cards tab.
+        event.preventDefault();
+        void this.router.navigate(['/inventory'], {
+          queryParams: { quick: '1', tab: null },
+          queryParamsHandling: this.onInventory() ? 'merge' : '',
+        });
+        return true;
       default:
         return false;
     }
@@ -174,14 +183,22 @@ export class KeyboardShortcuts {
     }
   }
 
+  private onInventory(): boolean {
+    return this.router.url.split(/[?#]/)[0] === '/inventory';
+  }
+
   private onSearch(): boolean {
     const path = this.router.url.split(/[?#]/)[0];
     return path === '/search' || path.startsWith('/search/');
   }
 
+  /**
+   * A dialog, a menu or a list lies on top, or an in-page drawer is open (`data-shortcuts-off`,
+   * Inventory's drawers, WB review A6): single keys then belong to it.
+   */
   private overlayOpen(): boolean {
     return !!this.document.querySelector(
-      '.cdk-overlay-container [role="dialog"], .cdk-overlay-container .mat-mdc-menu-panel, .cdk-overlay-container [role="listbox"]',
+      '.cdk-overlay-container [role="dialog"], .cdk-overlay-container .mat-mdc-menu-panel, .cdk-overlay-container [role="listbox"], [data-shortcuts-off]',
     );
   }
 

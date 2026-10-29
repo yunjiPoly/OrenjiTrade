@@ -237,13 +237,13 @@ test.describe('card pictures', () => {
 
     await signInThroughUi(page, owner.email, owner.password);
 
-    // Inventory grid: one picture per item, named after the card.
+    // Inventory's table (web WB): one picture per row, decorative beside the card's name.
     await page.goto('/inventory');
-    await expect(page.getByTestId('inventory-count')).toHaveText(/2 cards/);
-    await expectPictures(page.getByRole('main'), 2, 2);
-    await expect(
-      page.getByTestId('inventory-item').first().locator('app-card-image img'),
-    ).toHaveAttribute('alt', /\S/);
+    await expect(page.getByTestId('inventory-summary')).toContainText('2 cards');
+    await expectPictures(page.getByRole('grid', { name: 'Your cards' }), 2, 2);
+    const firstRow = page.locator('[role="row"][data-item-id]').first();
+    await expect(firstRow.locator('app-card-image img')).toHaveAttribute('alt', '');
+    await expect(firstRow).toContainText(/\S/);
     await expectNoProviderSources(page);
 
     // The public binder page.

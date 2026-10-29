@@ -11,6 +11,8 @@ export interface UnderlineTab {
   /** A small orange dot after the label (Chats with unread chats). */
   dot?: boolean;
   dotLabel?: string;
+  /** Your own count after the label, muted ("Cards 20", Inventory, web WB). */
+  count?: number | null;
 }
 
 /**
@@ -33,6 +35,9 @@ export interface UnderlineTab {
           [attr.data-testid]="'tab-link-' + tab.id"
         >
           {{ tab.label }}
+          @if (tab.count !== undefined && tab.count !== null) {
+            <span class="tabs__count">{{ tab.count }}</span>
+          }
           @if (tab.dot) {
             <span class="tabs__dot" aria-hidden="true"></span>
             @if (tab.dotLabel) {
@@ -85,6 +90,11 @@ export interface UnderlineTab {
         background: Highlight;
         forced-color-adjust: none;
       }
+    }
+    .tabs__count {
+      color: var(--color-text-muted);
+      font-weight: var(--font-weight-medium);
+      font-variant-numeric: tabular-nums;
     }
     .tabs__dot {
       width: 8px;

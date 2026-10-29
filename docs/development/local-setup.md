@@ -165,7 +165,7 @@ curl -s -X POST "http://localhost:9099/identitytoolkit.googleapis.com/v1/account
 | `npm run test:mobile:e2e` | Playwright (`apps/mobile/e2e`) against the Expo **web** build and an isolated stack | see [Mobile app](#mobile-app-expo); never touches the developer database, files or ports 8080/4200 |
 | `npm run test:mobile:maestro` | Maestro flows (`apps/mobile/.maestro`) in Expo Go on a running Android emulator or on the iOS simulator (`-- --platform android\|ios`), same isolated stack | needs the Maestro CLI (`MAESTRO_BIN`) and either a booted Android emulator or a Mac with Xcode (the harness creates and boots its own simulator); not part of `test:all` or CI |
 | `npm run test:e2e` | the whole Playwright suite (`apps/web-angular/e2e`) on its **own isolated stack**, next to a running `npm run dev` | runs the isolation guard tests, checks the shared containers (healthy ones are never touched or restarted; `docker compose up` only when they are down), **drops and recreates `orenjitrade_e2e`** (Flyway + local seed, mock catalog only, never YGOPRODeck), builds the API jar (`gradlew bootJar`) and starts it on :8180 (Redis db 2, own realtime channels, media and card image cache under `.local-dev/e2e/`, `CARD_IMAGE_ON_DEMAND_ENABLED=false`, YGOPRODeck disabled), `ng serve --configuration e2e` on :4300, installs Chromium if missing, runs every spec with one retry (CI uses two; a spec that only passes on retry is listed as *flaky*), deletes the run's Auth emulator accounts, then stops what it started. The developer database, Redis db 0, files and ports 8080/4200 are never used. Options: see [E2E test data](#e2e-test-data-and-the-purge). Extra args go to Playwright: `npm run test:e2e -- e2e/map.spec.ts --headed`, `-- --retries=0`. The `launch-config` project (`e2e/launch-config.spec.ts`, every money flag off) runs alone after the `chromium` project; `-- e2e/launch-config.spec.ts --no-deps` runs it by itself |
-| `npm run test:scripts` | `node --test scripts/lib/*.test.mjs` | unit tests of the E2E isolation guards and the purge rules (also run at the start of every `test:e2e`) |
+| `npm run test:scripts` | `node --test scripts/lib/*.test.mjs` | unit tests of the E2E isolation guards (also run at the start of every `test:e2e`), the purge rules and the parity of the web E2E CI job's API environment with the harness's |
 | `npm run test:all` | scripts, api, web, mobile, e2e, mobile:e2e in sequence, then a summary with durations | exits non-zero when any suite fails (all suites still run) |
 | `npm run test:ml` | `pytest` in `apps/ml` with `apps/ml/.venv` when present | optional; Phase 11 is on hold, this only runs the existing skeleton tests |
 | `npm run infra:validate` | Terraform format + validate | optional; needs Terraform |
@@ -218,6 +218,16 @@ left hundreds of discoverable test collectors on the developer's map. Now:
   equals the developer one) and run before every `test:e2e`. Playwright's global setup refuses any
   API without the `orenjiWebE2e` identity block, so a bare `npx playwright test` can no longer hit
   the developer API.
+- **The same API in CI.** The E2E job of `.github/workflows/e2e.yml` starts its API by hand; it
+  must give it every variable `e2eApiEnv` (`scripts/lib/web-e2e-guard.mjs`) gives the local one,
+  with the same value: the mock catalog, `SEED_IMPORT_FIXTURES=true` (the deck import's fictional
+  passcodes), `STORAGE_PUBLIC_BASE_URL` empty, and the suite's budgets
+  (`RATE_LIMIT_ANONYMOUS_PER_MINUTE=600`, `RATE_LIMIT_GUEST_DISCOVERY_PER_10S=1000`,
+  `RATE_LIMIT_DEFAULT_PER_MINUTE=1200`: the workers call from one address, and a spec file's
+  collector serves every test one worker runs). Only the paths under the work directory differ
+  (`$RUNNER_TEMP/e2e` there). `scripts/lib/web-e2e-ci-parity.test.mjs` (`npm run test:scripts`,
+  run by both E2E CI jobs) fails on a variable missing from either side or a different value;
+  `E2E_WORKFLOW_FILE=<copy> node --test scripts/lib/web-e2e-ci-parity.test.mjs` checks a copy.
 - **Options.** `npm run test:e2e -- --keep-running` leaves the E2E API and web server running after
   the run (state in `.local-dev/e2e/state.json`); `-- --stack-only` starts them without running
   Playwright; `-- --reuse-running [specs]` reuses **only** such a kept E2E stack (same instance id

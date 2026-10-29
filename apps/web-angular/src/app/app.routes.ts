@@ -76,8 +76,8 @@ export const routes: Routes = [
     title: 'Inventory',
     data: { shell: INVENTORY },
     canActivate: [onboardingGuard],
-    loadComponent: () =>
-      import('./features/inventory/inventory-page.component').then((m) => m.InventoryPageComponent),
+    loadChildren: () =>
+      import('./features/inventory/inventory.routes').then((m) => m.INVENTORY_ROUTES),
   },
   {
     path: 'binders/:id',

@@ -234,7 +234,11 @@ describe('E2E API database, Redis, ports and providers', () => {
     assert.equal(env.CORS_ALLOWED_ORIGINS, 'http://localhost:4300');
     // One address for every worker: the anonymous budgets of a single visitor are not enough.
     assert.equal(env.RATE_LIMIT_ANONYMOUS_PER_MINUTE, '600');
+    // The deck import of web WB: the fictional passcodes, never a provider.
+    assert.equal(env.SEED_IMPORT_FIXTURES, 'true');
     assert.equal(env.RATE_LIMIT_GUEST_DISCOVERY_PER_10S, '1000');
+    // A spec file's collector serves every test of one worker: the per-user budget is raised too.
+    assert.equal(env.RATE_LIMIT_DEFAULT_PER_MINUTE, '1200');
   });
 });
 

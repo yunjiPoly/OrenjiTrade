@@ -1,0 +1,248 @@
+@if (signedIn() === false) {
+  <div class="imp">
+    <h1 class="imp__title" appShellTabTitle>Import cards</h1>
+    <app-empty-state
+      icon="upload_file"
+      title="Sign in to import your cards"
+      description="Import a deck file or a Collectr export into your inventory. Everything starts private."
+    >
+      <a
+        actions
+        matButton="filled"
+        routerLink="/auth/sign-in"
+        [queryParams]="{ returnUrl: '/inventory/import' }"
+        >Sign in</a
+      >
+    </app-empty-state>
+  </div>
+} @else {
+  <div class="imp" [class.imp--done]="phase() === 'done'">
+    <header class="imp__head">
+      <a class="imp__back" routerLink="/inventory">
+        <mat-icon aria-hidden="true">chevron_left</mat-icon> Inventory
+      </a>
+      <div class="imp__head-row">
+        <h1 class="imp__title" appShellTabTitle>Import cards</h1>
+        <ol class="imp__steps" aria-label="Steps">
+          <li
+            [class.on]="phase() === 'source' || phase() === 'uploading'"
+            [class.past]="phase() !== 'source' && phase() !== 'uploading'"
+            [attr.aria-current]="phase() === 'source' || phase() === 'uploading' ? 'step' : null"
+          >
+            <span class="n">
+              @if (phase() !== 'source' && phase() !== 'uploading') {
+                <mat-icon aria-hidden="true">check</mat-icon>
+              } @else {
+                1
+              }
+            </span>
+            Source
+          </li>
+          <li class="line" aria-hidden="true"></li>
+          <li
+            [class.on]="phase() === 'check' || phase() === 'committing'"
+            [class.past]="phase() === 'done'"
+            [attr.aria-current]="phase() === 'check' || phase() === 'committing' ? 'step' : null"
+          >
+            <span class="n">
+              @if (phase() === 'done') {
+                <mat-icon aria-hidden="true">check</mat-icon>
+              } @else {
+                2
+              }
+            </span>
+            Check
+          </li>
+          <li class="line" aria-hidden="true"></li>
+          <li
+            [class.on]="phase() === 'done'"
+            [attr.aria-current]="phase() === 'done' ? 'step' : null"
+          >
+            <span class="n">3</span> Done
+          </li>
+        </ol>
+      </div>
+    </header>
+
+    @if (phase() === 'done' && done(); as d) {
+      <app-import-done
+        [done]="d"
+        [unmatched]="unmatchedDone()"
+        (go)="goToInventory()"
+        (another)="reset()"
+      />
+    } @else {
+      <div class="imp__cols">
+        <app-import-source
+          [choice]="choice()"
+          [csvGame]="csvGame()"
+          [games]="games.games() ?? []"
+          [fileName]="fileName()"
+          [fileMeta]="fileMeta()"
+          [limitsText]="limitsText()"
+          [limitsError]="limitsError()"
+          [keptText]="keptText()"
+          [busy]="phase() === 'uploading' || phase() === 'committing'"
+          (chooseSource)="chooseSource($event)"
+          (csvGameChange)="csvGame.set($event)"
+          (file)="upload($event)"
+          (pasteText)="uploadPasted($event)"
+          (retryLimits)="loadLimits()"
+        />
+
+        <section class="chk" aria-labelledby="chk-title">
+          <h2 id="chk-title" class="chk__title">Check the cards</h2>
+          <p class="muted">
+            We match every card of the file. You see them all and choose what goes in before
+            anything is added.
+          </p>
+
+          @if (problem(); as p) {
+            <div class="problem" role="alert" data-testid="import-problem">
+              <mat-icon aria-hidden="true">error</mat-icon>
+              <div>
+                <strong>{{ p.title }}</strong>
+                <p>{{ p.message }}</p>
+              </div>
+            </div>
+          }
+
+          @if (phase() === 'uploading') {
+            <p class="muted" role="status">Reading your file…</p>
+          } @else if (!preview()) {
+            <div class="chk__empty">
+              <mat-icon aria-hidden="true">fact_check</mat-icon>
+              <p>Your file's cards show here before anything is added.</p>
+            </div>
+          } @else if (preview(); as pv) {
+            <p class="chk__file">
+              <app-game-monogram game="yugioh" size="20" />
+              <strong>{{ fileName() ?? info[choice()].label }}</strong>
+              <span class="muted"
+                >{{ info[choice()].label }}
+                @if (sections(); as s) {
+                  · {{ s }}
+                }
+              </span>
+            </p>
+            <div class="chips" role="group" aria-label="Show">
+              <button
+                type="button"
+                class="chip"
+                [attr.aria-pressed]="filter() === 'all'"
+                (click)="setFilter('all')"
+              >
+                All {{ pv.summary.rows }}
+              </button>
+              <button
+                type="button"
+                class="chip chip--amber"
+                [attr.aria-pressed]="filter() === 'choose'"
+                (click)="setFilter('choose')"
+              >
+                <span class="dot" aria-hidden="true"></span> Which copy? {{ pv.summary.toChoose }}
+              </button>
+              <button
+                type="button"
+                class="chip"
+                [attr.aria-pressed]="filter() === 'unmatched'"
+                (click)="setFilter('unmatched')"
+              >
+                <span class="dot dot--grey" aria-hidden="true"></span> Not recognised
+                {{ pv.summary.unmatched }}
+              </button>
+            </div>
+            @if (pv.summary.toChoose > 0) {
+              <div class="amber" role="status" data-testid="import-choose-bar">
+                <mat-icon aria-hidden="true">warning</mat-icon>
+                <span
+                  >{{ pv.summary.toChoose }}
+                  {{ pv.summary.toChoose === 1 ? 'card needs' : 'cards need' }} a printing. Pick one
+                  on each, or use the newest for all.</span
+                >
+                <button
+                  type="button"
+                  class="amber__btn"
+                  [attr.aria-disabled]="working() || null"
+                  (click)="useNewest()"
+                  data-testid="import-newest"
+                >
+                  Use the newest
+                </button>
+              </div>
+            }
+
+            <app-import-rows
+              [preview]="pv"
+              [rows]="rows()"
+              [busyRows]="busyRows()"
+              [printings]="printings()"
+              [working]="held()"
+              [rowsError]="rowsError()"
+              (printing)="setPrinting($event.row, $event.printing)"
+              (step)="step($event.row, $event.direction)"
+              (include)="include($event.row, $event.included)"
+              (includeSection)="includeSection($event.key, $event.include)"
+              (loadPrintings)="loadPrintings($event)"
+              (retry)="loadRows(true)"
+            />
+            @if (rows().length < rowsTotal()) {
+              <div class="more">
+                <button
+                  matButton="outlined"
+                  type="button"
+                  [disabled]="rowsLoading()"
+                  (click)="loadRows(false)"
+                >
+                  {{ rowsLoading() ? 'Loading…' : 'Show more lines' }}
+                </button>
+                <span class="muted small">{{ rows().length }} of {{ rowsTotal() }}</span>
+              </div>
+            }
+          }
+        </section>
+      </div>
+
+      @if (preview() && (phase() === 'check' || phase() === 'committing')) {
+        <footer class="foot">
+          <p class="foot__text">
+            @if (footer(); as f) {
+              <span
+                ><strong>{{ f.strong }}</strong
+                >{{ f.rest }}</span
+              >
+            }
+            @if (blocked()) {
+              <span class="foot__hint" id="foot-hint"
+                >Choose the copy of the marked cards, or use the newest.</span
+              >
+            }
+          </p>
+          <button
+            matButton="outlined"
+            type="button"
+            (click)="discard()"
+            [disabled]="phase() === 'committing'"
+            data-testid="import-discard"
+          >
+            <mat-icon aria-hidden="true">delete</mat-icon> Discard
+          </button>
+          <button
+            matButton="filled"
+            type="button"
+            class="foot__add"
+            [disabled]="
+              blocked() || empty() || phase() === 'committing' || working() || busyRows().size > 0
+            "
+            [attr.aria-describedby]="blocked() ? 'foot-hint' : null"
+            (click)="commit()"
+            data-testid="import-commit"
+          >
+            <mat-icon aria-hidden="true">add</mat-icon>
+            {{ phase() === 'committing' ? 'Adding…' : addText() }}
+          </button>
+        </footer>
+      }
+    }
+  </div>
+}

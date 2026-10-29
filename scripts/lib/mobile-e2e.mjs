@@ -67,12 +67,14 @@ import {
   assertFlushableRedis,
   assertIsolated,
   assertRecreatable,
+  bundleScriptPaths,
   deleteRunAccounts,
   developerDirs,
   identityArgs,
   mobileE2eApiEnv as isolatedApiEnv,
   newRunId,
   reuseRefusal,
+  webBundleRefusal,
 } from './mobile-e2e-guard.mjs';
 
 export { MOBILE_E2E_DB };
@@ -400,6 +402,35 @@ async function webReuseRefusal() {
   return null;
 }
 
+/**
+ * Reads the web export actually served on :19006 (its page and the scripts it loads) and says why
+ * it may not be used, or null: it must name the isolated API and never the developer API (web WB).
+ */
+export async function servedBundleRefusal(fetchImpl = fetch) {
+  let html;
+  try {
+    const page = await fetchImpl(`${WEB_URL}/`);
+    html = page.ok ? await page.text() : null;
+  } catch {
+    html = null;
+  }
+  if (html === null) {
+    return `Could not read the web export served on ${WEB_URL}.`;
+  }
+  const scripts = [];
+  for (const scriptPath of bundleScriptPaths(html)) {
+    try {
+      const response = await fetchImpl(`${WEB_URL}${scriptPath}`);
+      if (response.ok) {
+        scripts.push({ name: scriptPath, text: await response.text() });
+      }
+    } catch {
+      // A script that cannot be read is simply not checked; the API must still be named.
+    }
+  }
+  return webBundleRefusal(scripts, API_URL);
+}
+
 async function startWeb({ skipBuild }) {
   const webEnv = mobileE2eWebEnv(childEnv());
   const instance = randomUUID();
@@ -553,6 +584,14 @@ export async function testMobileE2e(argv) {
       }
       started.push(web);
     }
+
+    // Never let a spec (or a --stack-only run) load a build that talks to another API.
+    const bundleRefusal = await servedBundleRefusal();
+    if (bundleRefusal) {
+      log.error(`Refusing to run: ${bundleRefusal}`);
+      return 1;
+    }
+    log.ok(`The served web export names ${API_URL} and never the developer API.`);
 
     if (keep) {
       const state = readState();

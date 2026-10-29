@@ -70,6 +70,16 @@ job exists and no-ops without strikes).
 
 ## Web `/inventory` page (Phase 3 UI)
 
+> **Replaced by web redesign stage WB (2026-10-28)**: the web's Inventory now uses the phone's card
+> model (no condition, availability, offers or "Temporarily public" controls; the stored values are
+> kept), a binder pane by game, a 72 px table and a grid, the bulk dock (SET_VISIBILITY,
+> MOVE_TO_BINDER, CONFIRM, DELETE with Undo through `POST /items/{id}/restore`), inline price and
+> copies (`PATCH` with `confirm: true`), quick add rows (one `POST /inventory/items` each), the Edit
+> card and Add cards drawers, the Binders tab and the import at `/inventory/import`. No endpoint
+> changed. See `apps/web-angular/README.md`, "Inventory, binders and public binders", and
+> IMPLEMENTATION_STATUS.md, "Web redesign WB: Inventory and Import". The paragraph below is the
+> Phase 3 page, kept for history.
+
 Left: binder list (All cards, Unfiled, then binders with visibility icon + counts, "New binder").
 Top: search, game filter, visibility segmented control (All / Private / Public / Temporarily
 public), availability + condition + freshness filters, sort, view toggle (grid/table).

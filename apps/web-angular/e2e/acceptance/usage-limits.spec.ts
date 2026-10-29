@@ -21,10 +21,10 @@ test.describe('acceptance: usage limits', () => {
     await page.goto('/inventory');
     const binders = page.getByRole('navigation', { name: 'Binders' });
     await expect(binders.getByRole('link', { name: /Limit binder 5/ })).toBeVisible();
-    await binders.getByRole('button', { name: 'New binder' }).click();
+    await binders.getByTestId('pane-new').click();
     const form = await dialogReady(page.getByRole('dialog', { name: 'New binder' }));
-    await form.getByLabel('Binder name').fill('Binder number six');
-    await form.getByRole('button', { name: 'Create binder' }).click();
+    await form.getByTestId('new-binder-name').fill('Binder number six');
+    await form.getByTestId('new-binder-create').click();
 
     // --- A plain explanation ------------------------------------------------------------------------
     const limit = page.getByRole('alertdialog', { name: 'You reached a limit' });

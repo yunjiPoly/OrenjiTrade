@@ -1,0 +1,244 @@
+@let b = binder();
+@let f = form();
+<app-drawer-frame
+  titleId="edit-binder-title"
+  [modal]="modal()"
+  (closeRequest)="requestClose()"
+  (keydown)="onKey($event)"
+>
+  <div drawerHead class="hd">
+    <div class="hd__bar">
+      <h2 id="edit-binder-title" class="hd__title">Edit binder</h2>
+      @if (dirty()) {
+        <span class="hd__dirty"
+          ><span class="hd__dot" aria-hidden="true"></span>Unsaved changes</span
+        >
+      }
+      <span class="hd__spacer"></span>
+      <button matIconButton type="button" aria-label="Close" (click)="requestClose()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+    <p class="hd__sub">
+      {{ countLine() }} ·
+      <button type="button" class="link" (click)="seeCards.emit(b)">See its cards →</button>
+      @if (b.effectivePublic) {
+        ·
+        <a class="link" [routerLink]="['/binders', b.id]" data-testid="edit-binder-public"
+          >View public page</a
+        >
+      }
+    </p>
+  </div>
+
+  <div class="row">
+    <label class="field field--grow">
+      <span class="label">Name</span>
+      <input
+        class="input"
+        maxlength="80"
+        placeholder="Trade binder"
+        [value]="f.name"
+        [attr.aria-invalid]="!!errors().name"
+        (input)="change({ name: text($event) })"
+        data-testid="binder-name"
+      />
+      @if (errors().name; as error) {
+        <span class="error" role="alert">{{ error }}</span>
+      }
+    </label>
+    <div class="field">
+      <span class="label" id="eb-game-label">Game</span>
+      @if (b.gameLocked) {
+        <span class="locked" role="img" [attr.aria-label]="copy.gameLocked(gameLabel())">
+          <app-game-monogram [game]="f.game" size="22" />
+          {{ gameLabel() }}
+          <mat-icon aria-hidden="true">lock</mat-icon>
+        </span>
+      } @else {
+        <mat-select
+          class="select"
+          aria-labelledby="eb-game-label"
+          [value]="f.game"
+          (valueChange)="change({ game: $event })"
+        >
+          @for (g of gameChoices(); track g.slug) {
+            <mat-option [value]="g.slug">{{ g.name }}</mat-option>
+          }
+        </mat-select>
+      }
+    </div>
+  </div>
+  <p class="hint">
+    @if (b.gameLocked) {
+      <mat-icon aria-hidden="true">lock</mat-icon> {{ copy.gameLockedLine }}
+    } @else {
+      {{ copy.gameHint }}
+    }
+  </p>
+
+  <div class="field">
+    <span class="label">Who can see it</span>
+    <app-segmented
+      block
+      size="lg"
+      label="Who can see it"
+      [options]="visibilities"
+      [value]="f.visibility"
+      (valueChange)="change({ visibility: $event })"
+    />
+    <p class="hint">{{ visibilityHint() }}</p>
+  </div>
+
+  <section
+    id="eb-core"
+    class="core"
+    [class.core--on]="f.sellsAsCore"
+    aria-labelledby="eb-core-title"
+  >
+    <div class="core__head">
+      <span class="core__icon" aria-hidden="true"><mat-icon>layers</mat-icon></span>
+      <span class="core__titles">
+        <span id="eb-core-title" class="core__title">{{ copy.coreTitle }}</span>
+        <span class="core__hint">{{ copy.coreHint }}</span>
+      </span>
+      <mat-slide-toggle
+        class="core__switch"
+        aria-labelledby="eb-core-title"
+        [checked]="f.sellsAsCore"
+        (change)="setCore($event.checked)"
+        data-testid="binder-core-switch"
+      />
+    </div>
+    @if (f.sellsAsCore) {
+      <div class="core__body">
+        <app-photo-slots
+          labelId="eb-photos"
+          coverLabel
+          hint="Drop images here, or click a slot. The first photo is the cover. Location data is removed."
+          [photos]="photos()"
+          [busy]="photoBusy()"
+          [error]="photoError()"
+          (upload)="upload($event)"
+          (remove)="removePhoto($event)"
+        />
+        <label class="field">
+          <span class="label">Asking price</span>
+          <input
+            class="input"
+            [placeholder]="copy.pricePlaceholder"
+            [value]="f.price"
+            [attr.aria-invalid]="!!errors().price"
+            (input)="change({ price: text($event) })"
+            data-testid="binder-price"
+          />
+          <span class="hint" [class.error]="!!errors().price">{{
+            errors().price ?? copy.priceHint
+          }}</span>
+        </label>
+        <label class="field">
+          <span class="label label--row"
+            >Public note <span class="muted">{{ f.note.length }} / {{ noteMax }}</span></span
+          >
+          <textarea
+            class="input input--area"
+            rows="3"
+            [placeholder]="copy.notePlaceholder"
+            [value]="f.note"
+            [attr.aria-invalid]="!!errors().note"
+            (input)="change({ note: text($event) })"
+          ></textarea>
+          @if (errors().note; as error) {
+            <span class="error" role="alert">{{ error }}</span>
+          }
+        </label>
+        @if (f.visibility === 'PRIVATE') {
+          <p class="amber" role="note">
+            <mat-icon aria-hidden="true">warning</mat-icon> {{ copy.privateCoreHint }}
+          </p>
+        }
+        <div class="field">
+          <span class="label">{{ copy.keyCards }} <span class="muted">· optional</span></span>
+          <ul class="chips" aria-label="Key cards">
+            @for (card of keyCards(); track card.item.id) {
+              <li
+                class="chip"
+                [class.chip--add]="card.pending === 'add'"
+                [class.chip--out]="card.pending === 'remove'"
+              >
+                {{ card.item.card.name }} ×{{ card.item.quantity }}
+                <button
+                  type="button"
+                  class="chip__x"
+                  [attr.aria-label]="
+                    (card.pending === 'remove' ? 'Keep ' : 'Remove ') + card.item.card.name
+                  "
+                  (click)="toggleKeyCard(card)"
+                >
+                  <mat-icon aria-hidden="true">{{
+                    card.pending === 'remove' ? 'undo' : 'close'
+                  }}</mat-icon>
+                </button>
+              </li>
+            }
+          </ul>
+          <span class="typeahead">
+            <!-- A search field and a list of buttons (Tab reaches them), not a combobox (A13). -->
+            <input
+              class="input"
+              type="search"
+              aria-label="Add a key card from your cards"
+              aria-describedby="eb-key-count"
+              placeholder="Add a card you own, like Yubel"
+              [value]="keyQuery()"
+              (input)="searchKeyCards(text($event))"
+            />
+            <span id="eb-key-count" class="visually-hidden" aria-live="polite">{{
+              keyQuery().trim()
+                ? keyOptions().length +
+                  (keyOptions().length === 1 ? ' card' : ' cards') +
+                  ' found. Tab to them.'
+                : ''
+            }}</span>
+            @if (keyOptions().length) {
+              <ul class="options" aria-label="Your cards">
+                @for (item of keyOptions(); track item.id) {
+                  <li>
+                    <button type="button" class="option" (click)="addKeyCard(item)">
+                      {{ item.card.name }} <span class="muted">×{{ item.quantity }}</span>
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
+          </span>
+          <p class="hint">
+            {{ copy.keyCardsHint }} Cards in another binder move here when you save.
+          </p>
+        </div>
+      </div>
+    }
+  </section>
+
+  @if (saveError(); as error) {
+    <p class="error error--save" role="alert">{{ error }}</p>
+  }
+
+  <ng-container drawerFoot>
+    <button type="button" class="delete" (click)="remove()" [disabled]="saving()">
+      Delete binder
+    </button>
+    <span class="hd__spacer"></span>
+    <kbd aria-hidden="true">Ctrl+Enter</kbd>
+    <button
+      matButton="filled"
+      type="button"
+      class="save"
+      [disabled]="!dirty() || saving()"
+      (click)="save()"
+      data-testid="binder-save"
+    >
+      {{ saving() ? 'Saving…' : dirty() ? 'Save changes' : 'No changes yet' }}
+    </button>
+  </ng-container>
+</app-drawer-frame>

@@ -265,3 +265,85 @@
   border-radius: 10px;
   font-weight: var(--font-weight-medium);
 }
+
+// Menus of Inventory and Import (web WB): a game's head, a binder with its hint, "Newest".
+.mat-mdc-menu-panel {
+  .menu-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px 4px;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-tag);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .menu-binder {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.3;
+  }
+
+  .menu-hint {
+    margin: 0;
+    padding: 0;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-meta);
+  }
+
+  // A focused or hovered item lays its state layer under the hint: textMuted falls to 4.15:1 in
+  // dark there, textSecondary keeps AA (WB review R1-2). A menu opens with its first item focused.
+  .mat-mdc-menu-item:is(
+      :hover,
+      :focus,
+      .cdk-focused,
+      .cdk-keyboard-focused,
+      .cdk-program-focused,
+      .mat-mdc-menu-item-highlighted
+    )
+    .menu-hint {
+    color: light-dark(var(--color-text-muted), var(--color-text-secondary));
+  }
+
+  .menu-variant {
+    color: var(--color-ink);
+    font-size: var(--font-size-meta);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  > .mat-mdc-menu-content > .menu-hint {
+    padding: 6px 16px;
+  }
+
+  .menu-new {
+    margin-left: 6px;
+    padding: 1px 6px;
+    border-radius: 5px;
+    background: color-mix(in srgb, var(--color-accent) 14%, var(--color-surface));
+    color: light-dark(
+      color-mix(in srgb, var(--color-accent) 85%, var(--color-ink)),
+      var(--color-accent)
+    );
+    font-size: var(--font-size-tag);
+    font-weight: var(--font-weight-semibold);
+  }
+}
+
+.import-print-menu.mat-mdc-menu-panel {
+  max-width: 420px;
+}
+
+// Import's sticky footer (72; above the tab bar below 960) never hides the focused control: the
+// page scrolls it clear (WCAG 2.4.11, WB review A8).
+html:has(.imp .foot) {
+  scroll-padding-bottom: 96px;
+}
+
+// Below 960 the footer wraps (up to 160 at 360) above the 64 tab bar.
+@media (max-width: 959.98px) {
+  html:has(.imp .foot) {
+    scroll-padding-bottom: calc(240px + env(safe-area-inset-bottom));
+  }
+}

@@ -27,9 +27,8 @@ const K = (text: string): KeyPart => ({ text });
 const W = (text: string): KeyPart => ({ text, word: true });
 
 /**
- * The shortcuts that work on the web today (spec 4.9, board W3's wording). The list, table and
- * drawer shortcuts of spec 4.9 (Shift+N, j and k, Space or x, Ctrl/Cmd+A, Ctrl/Cmd+Z, Alt+↑↓,
- * Ctrl/Cmd+Enter) join this list with Inventory and Messages (web stages WB and WC).
+ * The shortcuts that work on the web today (spec 4.9, board W3's wording). Inventory's list, table
+ * and drawer shortcuts joined in web stage WB; the composer's come with Messages (WC).
  */
 export function keyGroups(mod: string): KeyGroup[] {
   return [
@@ -52,6 +51,7 @@ export function keyGroups(mod: string): KeyGroup[] {
           action: 'Add cards (outside Inventory, it takes you there first)',
           single: true,
         },
+        { parts: [K('Shift'), K('N')], action: 'Quick add rows in Inventory', single: true },
         { parts: [K('?')], action: 'Show these shortcuts', single: true },
       ],
     },
@@ -63,7 +63,24 @@ export function keyGroups(mod: string): KeyGroup[] {
           action: 'Move up and down the search results, a menu or a picker',
         },
         { parts: [K('Enter')], action: 'Open the row you are on' },
-        { parts: [K('Esc')], action: 'Close what is on top' },
+        { parts: [K('Esc')], action: 'Close what is on top, or clear the selection' },
+      ],
+    },
+    {
+      title: 'Inventory',
+      rows: [
+        { parts: [K('j'), K('k')], action: 'Move down and up the cards', single: true },
+        { parts: [K('Space'), W('or'), K('x')], action: 'Select the card you are on' },
+        { parts: [K(mod), K('A')], action: 'Select the loaded cards (the table focused)' },
+        {
+          parts: [K('Alt'), K('↑'), K('↓')],
+          action: 'In Edit card: save, then the previous or next card',
+        },
+        { parts: [K(mod), K('Enter')], action: 'Save the drawer' },
+        {
+          parts: [K(mod), K('Z')],
+          action: 'Undo the last delete (outside a text field, within 10 minutes)',
+        },
       ],
     },
     {
