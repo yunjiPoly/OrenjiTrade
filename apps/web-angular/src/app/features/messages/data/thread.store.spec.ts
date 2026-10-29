@@ -216,6 +216,24 @@ describe('ThreadStore', () => {
     expect(store.retryDraft()).toBeNull();
   });
 
+  it('counts the other collector’s sale notes that arrive live, for "Rate" (WC review U5)', () => {
+    api['getConversation'] = vi.fn(() => of(conversation));
+    const note = (id: string, sellerId: string): MessageResponse =>
+      ({
+        ...message(id, '', '2026-09-30T10:06:00Z'),
+        senderId: undefined,
+        kind: Kind.System,
+        payload: { sale: { saleId: `sale-${id}`, sellerId, undone: false } },
+      }) as unknown as MessageResponse;
+    // A sale note is a SYSTEM message without a sender.
+    realtime.messages$.next(note('n1', 'other'));
+    expect(store.liveSales()).toBe(1);
+    // The same note again (the page re-read) and one's own sale do not count.
+    realtime.messages$.next(note('n1', 'other'));
+    realtime.messages$.next(note('n2', 'me'));
+    expect(store.liveSales()).toBe(1);
+  });
+
   it('shows read receipts of the other participant', () => {
     realtime.receipts$.next({
       conversationId: 'c1',

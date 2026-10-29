@@ -423,7 +423,9 @@ export class ThreadStore {
     if (message.payload?.sale) {
       // A sale or its undo: the pinned card's "Sold" and copies change (stage R4).
       void this.refreshConversation();
-      if (!known && message.senderId && message.senderId !== this.selfId()) {
+      // A sale note is a SYSTEM message (no sender): it is the other collector's when they sold.
+      const sale = message.payload.sale;
+      if (!known && !sale.undone && sale.sellerId && sale.sellerId !== this.selfId()) {
         this.liveSalesState.update((count) => count + 1);
       }
     }
