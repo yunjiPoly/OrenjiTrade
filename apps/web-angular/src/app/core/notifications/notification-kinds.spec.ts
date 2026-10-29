@@ -5,6 +5,7 @@ import {
   notificationCard,
   notificationKind,
   notificationLink,
+  notificationText,
   safeAppPath,
 } from './notification-kinds';
 
@@ -180,6 +181,42 @@ describe('notification kinds', () => {
     expect(isHistoryNotification({ type: Type.TradeUpdate })).toBe(true);
     expect(isHistoryNotification({ type: Type.Message })).toBe(false);
     expect(isHistoryNotification({ type: Type.System })).toBe(false);
+  });
+
+  it('heads an old notice as history, never with the server’s live words (decision 2)', () => {
+    const notice = (type: string, data: Record<string, unknown>) => ({
+      type: type as Type,
+      title: 'New offer on Azure-Eyes Sky Dragon',
+      body: 'Devon Okafor offered 20.00 CAD for Azure-Eyes Sky Dragon.',
+      data,
+    });
+    const card = { cardName: 'Azure-Eyes Sky Dragon' };
+    const offersGone = 'Offers are no longer available. Deals happen in the chat.';
+    const paymentsGone =
+      "Payments and disputes aren't part of OrenjiTrade. Deals happen in the chat, and the buyer pays by e-Transfer outside the app.";
+    expect(notificationText(notice(Type.OfferReceived, card))).toEqual({
+      title: 'Past offer on Azure-Eyes Sky Dragon',
+      body: offersGone,
+    });
+    expect(notificationText(notice(Type.OfferAccepted, {})).title).toBe('A past offer');
+    expect(notificationText(notice(Type.TradeUpdate, card))).toEqual({
+      title: 'Past trade of Azure-Eyes Sky Dragon',
+      body: offersGone,
+    });
+    expect(notificationText(notice(Type.ShipmentStatus, {})).title).toBe('A past trade');
+    expect(notificationText(notice(Type.PaymentUpdate, card))).toEqual({
+      title: 'Past payment for Azure-Eyes Sky Dragon',
+      body: paymentsGone,
+    });
+    expect(notificationText(notice(Type.DisputeUpdate, { cardName: '  ' }))).toEqual({
+      title: 'A past dispute',
+      body: paymentsGone,
+    });
+    // Every other notice keeps the server's words.
+    expect(notificationText(notice(Type.Message, card))).toEqual({
+      title: 'New offer on Azure-Eyes Sky Dragon',
+      body: 'Devon Okafor offered 20.00 CAD for Azure-Eyes Sky Dragon.',
+    });
   });
 
   it('shows the card a payload carries, only with an API picture URL', () => {

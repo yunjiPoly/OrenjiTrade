@@ -1,4 +1,5 @@
 import type { NotificationResponse } from '@orenji/api-client';
+import { OFFERS_GONE_TOAST, PAYMENTS_NOTICE } from '../routing/legacy-redirects';
 
 /**
  * Display vocabulary of the notification centre (Phase 6 contract): an icon, a tone and a short
@@ -165,6 +166,41 @@ const HISTORY_TYPES: ReadonlySet<string> = new Set([
 /** True for an old offer, trade, payment or dispute notice: the list shows it without a link. */
 export function isHistoryNotification(notification: Pick<NotificationResponse, 'type'>): boolean {
   return HISTORY_TYPES.has(notification.type);
+}
+
+/** The words of an old notice: its headline with and without a card, and its sentence. */
+const HISTORY_WORDS: Record<string, { on: string; none: string; body: string }> = {
+  offer: { on: 'Past offer on', none: 'A past offer', body: OFFERS_GONE_TOAST },
+  trade: { on: 'Past trade of', none: 'A past trade', body: OFFERS_GONE_TOAST },
+  payment: { on: 'Past payment for', none: 'A past payment', body: PAYMENTS_NOTICE },
+  dispute: { on: 'Past dispute about', none: 'A past dispute', body: PAYMENTS_NOTICE },
+};
+
+function historyFamily(type: string): string {
+  if (type.startsWith('OFFER_')) {
+    return 'offer';
+  }
+  if (type === 'PAYMENT_UPDATE') {
+    return 'payment';
+  }
+  return type === 'DISPUTE_UPDATE' ? 'dispute' : 'trade';
+}
+
+/**
+ * The headline and the sentence a notification shows. The server's own words of an old offer,
+ * trade, payment or dispute notice still speak of a live offer ("New offer on …", "Arrange the
+ * exchange on the trade page"), so the web reads those as history (decision 2): "Past offer on
+ * {card}" and the sentence of the old links' toast or notice. Every other notice keeps its words.
+ */
+export function notificationText(
+  notification: Pick<NotificationResponse, 'type' | 'title' | 'body' | 'data'>,
+): { title: string; body: string } {
+  if (!isHistoryNotification(notification)) {
+    return { title: notification.title, body: notification.body };
+  }
+  const words = HISTORY_WORDS[historyFamily(notification.type)];
+  const card = textOf(notification.data, 'cardName');
+  return { title: card ? `${words.on} ${card}` : words.none, body: words.body };
 }
 
 /** True while the notification has not been read. */

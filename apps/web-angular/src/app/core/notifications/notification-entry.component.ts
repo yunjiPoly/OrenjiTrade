@@ -8,7 +8,12 @@ import {
 import { MatIconModule } from '@angular/material/icon';
 import type { NotificationResponse } from '@orenji/api-client';
 import { RelativeTimePipe } from '../../shared/pipes/relative-time.pipe';
-import { isUnread, notificationCard, notificationKind } from './notification-kinds';
+import {
+  isUnread,
+  notificationCard,
+  notificationKind,
+  notificationText,
+} from './notification-kinds';
 import { CardImageComponent } from '../../shared/ui/card-image/card-image.component';
 
 /**
@@ -38,12 +43,12 @@ import { CardImageComponent } from '../../shared/ui/card-image/card-image.compon
         <span aria-hidden="true">·</span>
         <time [attr.datetime]="n.createdAt">{{ n.createdAt | relativeTime }}</time>
       </span>
-      <span class="ne__title">{{ n.title }}</span>
+      <span class="ne__title">{{ text().title }}</span>
       <!-- A wishlist alert is one sentence that ends with the place ("... was just listed by
            @handle in Quebec, Canada."): it is never cut, or the menu would hide where the card
            is. -->
       <span class="ne__body" [class.ne__body--clamp]="compact() && n.type !== 'WISHLIST_ALERT'">{{
-        n.body
+        text().body
       }}</span>
     </span>
     @if (unread()) {
@@ -177,5 +182,7 @@ export class NotificationEntryComponent {
   protected readonly kind = computed(() => notificationKind(this.notification()));
   /** The card the payload carries (wishlist alerts, offers), shown instead of the icon. */
   protected readonly card = computed(() => notificationCard(this.notification()));
+  /** The server's words, or the history's for an old offer, trade, payment or dispute. */
+  protected readonly text = computed(() => notificationText(this.notification()));
   protected readonly unread = computed(() => isUnread(this.notification()));
 }

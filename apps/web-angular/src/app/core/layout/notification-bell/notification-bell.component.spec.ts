@@ -93,6 +93,17 @@ describe('NotificationBellComponent', () => {
     expect(element.querySelector('[aria-live="polite"]')?.textContent).toContain(
       'New notification: Wishlist alert: Card z',
     );
+    // An old offer notice is announced as history, never as a new offer (decision 2).
+    lastPush.set({
+      ...notification('o'),
+      type: Type.OfferReceived,
+      title: 'New offer on Card o',
+      data: { offerId: 'o-1', cardName: 'Card o' },
+    });
+    await fixture.whenStable();
+    expect(element.querySelector('[aria-live="polite"]')?.textContent).toContain(
+      'New notification: Past offer on Card o',
+    );
   });
 
   it('hides the count while signed out', async () => {

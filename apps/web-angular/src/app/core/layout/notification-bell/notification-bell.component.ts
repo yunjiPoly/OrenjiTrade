@@ -22,7 +22,7 @@ import { friendlyMessage } from '../../http/api-error-messages';
 import { NotificationCenter } from '../../notifications/notification-center.service';
 import { NotificationEntryComponent } from '../../notifications/notification-entry.component';
 import { ShellIconComponent } from '../shell-icon/shell-icon.component';
-import { notificationLink } from '../../notifications/notification-kinds';
+import { notificationLink, notificationText } from '../../notifications/notification-kinds';
 import { RealtimeService } from '../../realtime/realtime.service';
 
 /** How long the badge "bumps" after a new notification arrives. */
@@ -249,7 +249,7 @@ export class NotificationBellComponent {
   });
   protected readonly announcement = computed(() => {
     const last = this.center.lastPush();
-    return last ? `New notification: ${last.title}` : '';
+    return last ? `New notification: ${notificationText(last).title}` : '';
   });
   protected readonly bump = signal(false);
   protected readonly marking = signal(false);

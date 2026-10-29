@@ -23,6 +23,7 @@ import { NotificationEntryComponent } from '../../core/notifications/notificatio
 import {
   isHistoryNotification,
   notificationLink,
+  notificationText,
 } from '../../core/notifications/notification-kinds';
 import { EmptyStateComponent } from '../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../shared/ui/error-state/error-state.component';
@@ -127,7 +128,7 @@ import { NotificationFeedStore } from './data/notification-feed.store';
                           matIconButton
                           type="button"
                           class="feed__read"
-                          [attr.aria-label]="'Mark as read: ' + notification.title"
+                          [attr.aria-label]="'Mark as read: ' + textOf(notification).title"
                           matTooltip="Mark as read"
                           (click)="store.markRead(notification)"
                         >
@@ -318,6 +319,7 @@ export class NotificationsPageComponent {
   }
 
   protected readonly isHistory = isHistoryNotification;
+  protected readonly textOf = notificationText;
 
   /** The page a notification opens, parsed once (deep links may carry a query string). */
   protected linkOf(notification: NotificationResponse): UrlTree {
