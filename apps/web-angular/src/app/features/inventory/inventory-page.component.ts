@@ -484,8 +484,14 @@ export class InventoryPageComponent {
     this.refocusAfterAction(400);
   }
 
-  /** The toolbar's Clear filters leaves with the filters: the focus goes to the list (A1, R1-1). */
+  /**
+   * The toolbar's Clear filters leaves with the filters (A1, R1-1): a row shown takes the focus at
+   * once (rows are kept by id through the reload), else the first row once the list is back.
+   */
   protected onFiltersCleared(): void {
+    if (this.store.items().length > 0 && (this.table() || this.grid())) {
+      this.focusList(null);
+    }
     this.refocusAfterAction(400);
   }
 
