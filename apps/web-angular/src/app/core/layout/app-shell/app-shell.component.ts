@@ -1,6 +1,8 @@
 import { DOCUMENT } from '@angular/common';
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { ChatDrawerComponent } from '../../../features/messages/drawer/chat-drawer.component';
+import { ChatDrawer } from '../../../shared/messaging/chat-drawer.service';
 import { ToastHostComponent } from '../../feedback/toast-host.component';
 import { KeyboardShortcuts } from '../../keyboard/keyboard-shortcuts.service';
 import { FooterComponent } from '../footer/footer.component';
@@ -15,7 +17,7 @@ import { UnreadChatsProbeComponent } from '../unread-chats/unread-chats-probe.co
  * The application frame of the web redesign (spec 4, boards W1, W28 and W29): the skip links
  * ("Skip to content", and "Skip the map" while a page shows the map), the top bar (64), the
  * session banner, the rail (72) beside the routed content at 960 px and wider, the footer of
- * reading pages, the bottom tab bar below 960 px, and the toasts. It replaces the old toolbar,
+ * reading pages, the bottom tab bar below 960 px, the toasts and the chat drawer (web stage WC). It replaces the old toolbar,
  * the top-bar search box, the map page's side panel and the bottom navigation (spec 2.7).
  */
 @Component({
@@ -29,6 +31,7 @@ import { UnreadChatsProbeComponent } from '../unread-chats/unread-chats-probe.co
     FooterComponent,
     ToastHostComponent,
     UnreadChatsProbeComponent,
+    ChatDrawerComponent,
   ],
   template: `
     <div class="skip-links">
@@ -71,6 +74,12 @@ import { UnreadChatsProbeComponent } from '../unread-chats/unread-chats-probe.co
     <app-toast-host />
     @defer (on idle) {
       <app-unread-chats-probe />
+    }
+    <!-- The chat drawer (spec 10.6): a lazy chunk shared with Messages, one chat at a time. -->
+    @if (chatDrawer.state(); as drawer) {
+      @defer (on immediate) {
+        <app-chat-drawer [conversation]="drawer.conversation" />
+      }
     }
   `,
   styles: `
@@ -139,6 +148,7 @@ import { UnreadChatsProbeComponent } from '../unread-chats/unread-chats-probe.co
 })
 export class AppShellComponent {
   protected readonly layout = inject(ShellLayout);
+  protected readonly chatDrawer = inject(ChatDrawer);
   private readonly document = inject(DOCUMENT);
 
   constructor() {

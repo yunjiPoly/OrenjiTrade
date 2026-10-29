@@ -6,11 +6,18 @@ import { toApiError } from '../../core/http/api-error';
 import { friendlyError } from '../../core/http/api-error-messages';
 import { silentErrors } from '../../core/http/http-context';
 
+/** What a chat is about when it starts from a listing (stage R4: the latest pin wins). */
+export interface ChatSubjectRequest {
+  subjectItemId?: string;
+  subjectBinderId?: string;
+}
+
 /**
- * "Message" buttons (collector profile, offers, trades): opens the conversation with a collector,
- * creating it when needed (`POST /conversations` is idempotent: 200 existing, 201 new). Refusals
- * (403 MESSAGING_BLOCKED: a block, or the collector's messaging permission) are explained in a
- * snack bar and resolve `null`.
+ * "Message" buttons (a collector profile, the card's holders, a binder, Home): opens the
+ * conversation with a collector, creating it when needed (`POST /conversations` is idempotent: 200
+ * existing, 201 new), with the card or deck core it is about. Refusals (403 MESSAGING_BLOCKED,
+ * worded the same for every reason so a block is never told apart) are explained in a toast and
+ * resolve `null`.
  */
 @Injectable({ providedIn: 'root' })
 export class ConversationStarterService {
@@ -21,13 +28,19 @@ export class ConversationStarterService {
   /** Recipient id of the conversation being opened (to show progress on the button). */
   readonly starting = this.startingState.asReadonly();
 
-  async start(recipientId: string): Promise<ConversationSummary | null> {
+  async start(
+    recipientId: string,
+    subject: ChatSubjectRequest = {},
+  ): Promise<ConversationSummary | null> {
     this.startingState.set(recipientId);
     try {
       return await firstValueFrom(
-        this.api.startConversation({ startConversationRequest: { recipientId } }, 'body', false, {
-          context: silentErrors(),
-        }),
+        this.api.startConversation(
+          { startConversationRequest: { recipientId, ...subject } },
+          'body',
+          false,
+          { context: silentErrors() },
+        ),
       );
     } catch (error) {
       const friendly = friendlyError(toApiError(error));

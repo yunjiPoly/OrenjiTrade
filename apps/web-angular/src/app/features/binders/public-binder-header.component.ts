@@ -24,7 +24,7 @@ import { GameChipComponent } from '../../shared/ui/game-chip/game-chip.component
 /**
  * Hero of a public binder: cover, name, kind, description, freshness and games, and the owner
  * card (avatar, name, handle, state/province and country, never a city or a distance) with
- * View profile and, for signed-in visitors, Report.
+ * View profile and, for signed-in visitors, Message (the chat drawer, web stage WC) and Report.
  */
 @Component({
   selector: 'app-public-binder-header',
@@ -106,6 +106,18 @@ import { GameChipComponent } from '../../shared/ui/game-chip/game-chip.component
               Manage in inventory
             </a>
           } @else {
+            @if (signedIn() && b.owner.id) {
+              <button
+                matButton="filled"
+                type="button"
+                data-testid="binder-message"
+                [attr.aria-label]="'Message ' + b.owner.handle + ' about ' + b.name"
+                (click)="messageRequested.emit($event.currentTarget)"
+              >
+                <mat-icon aria-hidden="true">chat</mat-icon>
+                Message
+              </button>
+            }
             <a matButton="outlined" [routerLink]="['/collectors', b.owner.handle]">
               <mat-icon aria-hidden="true">person</mat-icon>
               View profile
@@ -295,6 +307,8 @@ export class PublicBinderHeaderComponent {
   readonly signedIn = input(false, { transform: booleanAttribute });
   /** "Report" pressed on the owner card. */
   readonly reportRequested = output<void>();
+  /** "Message" pressed (web stage WC): the chat drawer opens about this binder's deck core. */
+  readonly messageRequested = output<EventTarget | null>();
 
   protected readonly kind = computed(
     () => BINDER_KIND_INFO[this.binder().kind as BinderKind] ?? BINDER_KIND_INFO.CUSTOM,

@@ -67,20 +67,25 @@ describe('ReportCollectorDialogComponent', () => {
     );
   });
 
-  it('asks why, lists the reasons in server order and keeps Confirm disabled until one is chosen', async () => {
+  it('asks why, lists the reasons in server order and keeps Send report disabled until one is chosen', async () => {
     await create();
-    expect(element.querySelector('h2')?.textContent).toContain('Report collector');
-    expect(element.textContent).toContain('Why are you reporting this user?');
+    // Spec 10.5 (web WC): "Report {handle}", "Choose a reason first." beside a disabled Send.
+    expect(element.querySelector('h2')?.textContent).toMatch(/^Report \S+/);
+    expect(element.textContent).toContain('Why are you reporting them?');
+    expect(element.querySelector('[data-testid="report-choose-first"]')?.textContent).toContain(
+      'Choose a reason first.',
+    );
     expect(element.textContent).toContain('Tess Trader');
     const labels = [...element.querySelectorAll('mat-radio-button')].map((node) =>
       node.textContent?.trim(),
     );
     expect(labels).toEqual(['Scam or fraud', 'Spam', 'Something else']);
     expect(confirmButton().disabled).toBe(true);
-    expect(confirmButton().textContent).toContain('Confirm');
+    expect(confirmButton().textContent).toContain('Send report');
     expect(element.textContent).toContain('Cancel');
     await choose('SPAM');
     expect(confirmButton().disabled).toBe(false);
+    expect(element.querySelector('[data-testid="report-choose-first"]')).toBeNull();
   });
 
   it('sends the reason, trimmed details and context with an idempotency key, then confirms', async () => {
@@ -101,6 +106,8 @@ describe('ReportCollectorDialogComponent', () => {
     expect(request.idempotencyKey).toMatch(/^[0-9a-f-]{36}$/);
     expect(element.querySelector('h2')?.textContent).toContain('Report sent');
     expect(element.textContent).toContain('Our moderation team will review your report');
+    expect(element.textContent).toContain('Follow it in My reports');
+    expect(element.textContent).toContain('Done');
   });
 
   it('explains an already open report inline and blocks another attempt', async () => {
@@ -120,7 +127,7 @@ describe('ReportCollectorDialogComponent', () => {
       'You already reported Tess Trader',
     );
     expect(confirmButton().disabled).toBe(true);
-    expect(element.querySelector('h2')?.textContent).toContain('Report collector');
+    expect(element.querySelector('h2')?.textContent).toMatch(/^Report \S+/);
   });
 
   it('offers a retry when the reasons cannot load', async () => {

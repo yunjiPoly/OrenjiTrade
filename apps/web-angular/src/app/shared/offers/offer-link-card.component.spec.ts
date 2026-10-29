@@ -31,8 +31,9 @@ describe('offer cards in the conversation', () => {
 
   it('shows the SYSTEM line with the offer as history: no link (decision 2, web WA)', async () => {
     const element = await render(message({}));
+    // Spec 10.3 (web WC): an old offer reads "Offer (no longer available)".
     expect(element.querySelector('[data-testid="system-message"]')?.textContent).toContain(
-      'Ben made an offer',
+      'Offer (no longer available) · Ben made an offer',
     );
     const card = element.querySelector<HTMLElement>('[data-testid="offer-link-card"]');
     expect(card?.tagName).toBe('DIV');
@@ -55,6 +56,7 @@ describe('offer cards in the conversation', () => {
       '42.00 CAD for Lantern Fox Spirit',
     );
     expect(element.textContent).toContain('Here is my offer.');
+    expect(element.textContent).toContain('Offer (no longer available)');
   });
 
   it('shows the offered card picture the API sent, with an offer badge', async () => {

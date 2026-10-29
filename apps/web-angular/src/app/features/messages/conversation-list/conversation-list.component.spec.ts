@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import {
   ConversationParticipantOnlineStatusEnum as Online,
   ConversationSummary,
@@ -51,6 +52,7 @@ describe('ConversationListComponent', () => {
   }
 
   beforeEach(() => {
+    TestBed.configureTestingModule({ providers: [provideRouter([])] });
     fixture = TestBed.createComponent(ConversationListComponent);
     selected = [];
     fixture.componentInstance.selected.subscribe((id) => selected.push(id));
@@ -60,12 +62,11 @@ describe('ConversationListComponent', () => {
     await render({ conversations: [], status: 'loading' });
     expect(element.querySelector('[aria-busy=true]')).not.toBeNull();
     await render({ status: 'ready' });
-    expect(element.textContent).toContain('No conversations yet');
-    // ADR 0017: collectors are found through search and their profile, never on the map.
-    expect(element.textContent).toContain(
-      "Find a card or a binder in search, open the collector's profile and press Message",
-    );
-    expect(element.textContent).not.toMatch(/map|preview|near/i);
+    // Spec 10.2: "No chats yet" with [Search cards] (ADR 0017: never the map).
+    expect(element.textContent).toContain('No chats yet');
+    expect(element.textContent).toContain('Find a card and message who has it.');
+    expect(element.querySelector('a[href="/search"]')?.textContent).toContain('Search cards');
+    expect(element.textContent).not.toMatch(/map|near/i);
   });
 
   it('lists conversations with unread badges, online dots and own previews', async () => {
@@ -87,9 +88,10 @@ describe('ConversationListComponent', () => {
     });
     const [a, b, c] = rows();
     expect(a.querySelector('[data-testid=unread-badge]')?.textContent?.trim()).toBe('3');
-    expect(a.getAttribute('aria-label')).toBe(
-      'Conversation with Collector a, online, 3 unread messages, Last of a',
+    expect(a.getAttribute('aria-label')).toMatch(
+      /^Conversation with a, online, 3 unread messages, .+, Last of a$/,
     );
+    expect(a.querySelector('.row__name')?.textContent?.trim()).toBe('a');
     expect(a.querySelector('.row__online')).not.toBeNull();
     expect(b.getAttribute('aria-current')).toBe('true');
     expect(b.textContent).toContain('You: Deal');
@@ -125,5 +127,54 @@ describe('ConversationListComponent', () => {
     );
     retry?.click();
     expect(retries).toBe(1);
+  });
+
+  it('moves with j and k too, and filters by Unread and by the search field', async () => {
+    await render({
+      status: 'ready',
+      conversations: [
+        conversation('a', { unreadCount: 1 }),
+        conversation('b', {
+          subject: {
+            kind: 'CARD',
+            id: 'item-1',
+            ownerId: 'u-b',
+            name: 'Lantern Fox Spirit',
+            sold: false,
+            listed: true,
+          } as ConversationSummary['subject'],
+        }),
+      ],
+    });
+    const [a, b] = rows();
+    a.focus();
+    a.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', bubbles: true }));
+    expect(document.activeElement).toBe(b);
+    b.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', bubbles: true }));
+    expect(document.activeElement).toBe(a);
+    // The chat's card is a 28×40 thumbnail and in the row's name.
+    expect(b.querySelector('.row__thumb')).not.toBeNull();
+    expect(b.getAttribute('aria-label')).toContain('about Lantern Fox Spirit');
+
+    element.querySelector<HTMLButtonElement>('[role=radio][data-value=unread]')!.click();
+    await fixture.whenStable();
+    expect(rows().map((row) => row.dataset['conversation'])).toEqual(['a']);
+
+    element.querySelector<HTMLButtonElement>('[role=radio][data-value=all]')!.click();
+    const search = element.querySelector<HTMLInputElement>('input[type=search]')!;
+    search.value = 'lantern';
+    search.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    expect(rows().map((row) => row.dataset['conversation'])).toEqual(['b']);
+
+    search.value = 'zzz';
+    search.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    expect(element.textContent).toContain('No chats match “zzz”');
+    [...element.querySelectorAll('button')]
+      .find((node) => node.textContent?.includes('Show all chats'))!
+      .click();
+    await fixture.whenStable();
+    expect(rows()).toHaveLength(2);
   });
 });

@@ -61,6 +61,7 @@ describe('ThreadStore', () => {
     receipts$: Subject<ReadReceiptNotice>;
     typing$: Subject<TypingNotice>;
     resync$: Subject<void>;
+    conversations$: Subject<{ conversationId: string }>;
     sendTyping: ReturnType<typeof vi.fn>;
   };
 
@@ -91,6 +92,7 @@ describe('ThreadStore', () => {
       receipts$: new Subject(),
       typing$: new Subject(),
       resync$: new Subject(),
+      conversations$: new Subject(),
       sendTyping: vi.fn(),
     };
     TestBed.configureTestingModule({
@@ -177,7 +179,7 @@ describe('ThreadStore', () => {
     api['sendMessage'].mockReturnValueOnce(throwError(() => apiError('MESSAGING_BLOCKED', 403)));
     expect(await store.send({ text: 'Hello?', attachment: null })).toBe(false);
     expect(store.messagingBlocked()).toBe(true);
-    expect(store.sendError()).toContain('You cannot message this collector');
+    expect(store.sendError()).toBe('This collector cannot receive messages right now.');
 
     expect(await store.send({ text: '  ', attachment: null })).toBe(false);
     expect(store.sendError()).toBe('Write a message or attach something.');

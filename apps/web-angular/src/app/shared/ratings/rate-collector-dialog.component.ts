@@ -25,6 +25,7 @@ import {
   RATING_EDIT_DAYS,
   RatingCriterion,
   interactionKindLabel,
+  interactionLine,
   ratingProblem,
 } from './rating-labels';
 import { StarRatingInputComponent } from './star-rating-input.component';
@@ -90,7 +91,7 @@ type ScoreControl = FormControl<number | null>;
             {{ rating.editableUntil | date: 'mediumDate' }}
           </p>
         } @else if (interactions.length > 1) {
-          <p class="label" [id]="ids.interaction">Which interaction are you rating?</p>
+          <p class="label" [id]="ids.interaction">Which deal are you rating?</p>
           <mat-radio-group
             class="interactions"
             formControlName="interactionId"
@@ -98,16 +99,14 @@ type ScoreControl = FormControl<number | null>;
           >
             @for (interaction of interactions; track interaction.id) {
               <mat-radio-button [value]="interaction.id">
-                {{ kindLabel(interaction.kind) }} ·
-                {{ interaction.occurredAt | date: 'mediumDate' }}
+                {{ line(interaction) }}
               </mat-radio-button>
             }
           </mat-radio-group>
         } @else if (interactions[0]; as interaction) {
-          <p class="interaction">
+          <p class="interaction" data-testid="rating-deal">
             <mat-icon aria-hidden="true">{{ icons[interaction.kind] ?? 'star' }}</mat-icon>
-            {{ kindLabel(interaction.kind) }} ·
-            {{ interaction.occurredAt | date: 'mediumDate' }}
+            {{ line(interaction) }}
           </p>
         }
 
@@ -156,8 +155,8 @@ type ScoreControl = FormControl<number | null>;
 
         <p class="note">
           <mat-icon aria-hidden="true">public</mat-icon>
-          Ratings appear on {{ who.displayName }}'s profile with your name. You can change yours
-          during {{ editDays }} days.
+          Your rating appears on {{ who.displayName }}'s profile with your name. You can change it
+          for {{ editDays }} days.
         </p>
 
         @if (problem(); as problem) {
@@ -168,14 +167,23 @@ type ScoreControl = FormControl<number | null>;
         }
       </mat-dialog-content>
       <mat-dialog-actions align="end">
-        <button matButton type="button" mat-dialog-close>Cancel</button>
+        @if (!editing) {
+          <button matButton type="button" class="to-reference" (click)="instead()">
+            Write a reference instead
+          </button>
+        }
+        <button matButton="outlined" type="button" mat-dialog-close>Cancel</button>
         <button matButton="filled" type="submit" [disabled]="saving()">
-          {{ saving() ? 'Saving…' : editing ? 'Save changes' : 'Submit rating' }}
+          {{ saving() ? 'Saving…' : editing ? 'Save changes' : 'Publish rating' }}
         </button>
       </mat-dialog-actions>
     </form>
   `,
   styles: `
+    .to-reference {
+      margin-right: auto;
+      color: var(--color-accent);
+    }
     .who {
       display: flex;
       align-items: center;
@@ -297,7 +305,7 @@ type ScoreControl = FormControl<number | null>;
 export class RateCollectorDialogComponent {
   private readonly api = inject(RatingsService);
   private readonly ref =
-    inject<MatDialogRef<RateCollectorDialogComponent, RatingResponse>>(MatDialogRef);
+    inject<MatDialogRef<RateCollectorDialogComponent, RatingResponse | 'reference'>>(MatDialogRef);
   protected readonly data = inject<RateDialogData>(MAT_DIALOG_DATA);
 
   protected readonly editing = !!this.data.rating;
@@ -307,6 +315,7 @@ export class RateCollectorDialogComponent {
   protected readonly maxComment = RATING_COMMENT_MAX;
   protected readonly editDays = RATING_EDIT_DAYS;
   protected readonly kindLabel = interactionKindLabel;
+  protected readonly line = interactionLine;
   protected readonly ids = { interaction: `rate-i-${Math.random().toString(36).slice(2, 8)}` };
 
   protected readonly form = new FormGroup({
@@ -337,6 +346,11 @@ export class RateCollectorDialogComponent {
   );
   protected readonly saving = signal(false);
   protected readonly problem = signal<string | null>(null);
+
+  /** "Write a reference instead" (spec 10.5): this dialog closes and the reference opens. */
+  protected instead(): void {
+    this.ref.close('reference');
+  }
 
   private score(key: RatingCriterion): ScoreControl {
     return new FormControl<number | null>(this.data.rating?.breakdown?.[key] ?? null);

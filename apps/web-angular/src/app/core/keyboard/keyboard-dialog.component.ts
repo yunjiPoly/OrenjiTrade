@@ -28,7 +28,8 @@ const W = (text: string): KeyPart => ({ text, word: true });
 
 /**
  * The shortcuts that work on the web today (spec 4.9, board W3's wording). Inventory's list, table
- * and drawer shortcuts joined in web stage WB; the composer's come with Messages (WC).
+ * and drawer shortcuts joined in web stage WB; the inbox's, the composer's and the chat drawer's
+ * in web stage WC (spec 10.2, 10.3 and 10.6).
  */
 export function keyGroups(mod: string): KeyGroup[] {
   return [
@@ -86,8 +87,12 @@ export function keyGroups(mod: string): KeyGroup[] {
     {
       title: 'Chats',
       rows: [
+        { parts: [K('j'), K('k')], action: 'Move down and up the chats', single: true },
         { parts: [K('Enter')], action: 'In a chat: send' },
+        { parts: [K(mod), K('Enter')], action: 'In a chat: or send' },
         { parts: [K('Shift'), K('Enter')], action: 'In a chat: new line' },
+        { parts: [K('Esc')], action: 'From a chat back to the list, or close the chat drawer' },
+        { parts: [K('F6')], action: 'Between the page and the chat drawer' },
       ],
     },
   ];

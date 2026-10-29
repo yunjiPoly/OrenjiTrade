@@ -27,6 +27,7 @@ import {
 } from '@orenji/api-client';
 import { Subscription, debounceTime, distinctUntilChanged, filter, map } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
+import { ChatDrawer } from '../../shared/messaging/chat-drawer.service';
 import { ReportActionsService } from '../../shared/reports/report-actions.service';
 import { SessionService } from '../../core/auth/session.service';
 import { ApiError, toApiError } from '../../core/http/api-error';
@@ -134,6 +135,7 @@ type BinderState =
               [isOwn]="isOwn()"
               [signedIn]="signedIn()"
               (reportRequested)="reportOwner(binder)"
+              (messageRequested)="messageOwner(binder, $event)"
             />
 
             <section class="pbp__items" aria-labelledby="pbp-items-title">
@@ -343,6 +345,7 @@ export class PublicBinderPageComponent {
   private readonly auth = inject(AuthService);
   private readonly session = inject(SessionService);
   private readonly reports = inject(ReportActionsService);
+  private readonly chatDrawer = inject(ChatDrawer);
   protected readonly signedIn = this.auth.isAuthenticated;
   private readonly router = inject(Router);
   private readonly title = inject(Title);
@@ -505,6 +508,17 @@ export class PublicBinderPageComponent {
   }
 
   /** "Report" on the owner card: the Report collector modal with the BINDER context. */
+  /** "Message": the chat drawer, about the deck core when this binder sells as one (stage R4). */
+  protected messageOwner(binder: PublicBinderResponse, opener: EventTarget | null): void {
+    void this.chatDrawer.message(
+      {
+        recipientId: binder.owner.id,
+        ...(binder.sellsAsCore ? { subjectBinderId: binder.id } : {}),
+      },
+      opener,
+    );
+  }
+
   protected async reportOwner(binder: PublicBinderResponse): Promise<void> {
     await this.reports.report(
       {

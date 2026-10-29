@@ -42,27 +42,47 @@ export const REFERENCE_MAX = 400;
 export const RATING_EDIT_DAYS = 14;
 
 export const INTERACTION_KIND_LABELS: Record<string, string> = {
+  SALE: 'Sale',
   TRADE: 'Completed trade',
   OFFER_ACCEPTED: 'Accepted offer',
   CONVERSATION_QUALIFIED: 'Conversation',
 };
 
 export const INTERACTION_KIND_ICONS: Record<string, string> = {
+  SALE: 'sell',
   TRADE: 'handshake',
   OFFER_ACCEPTED: 'local_offer',
   CONVERSATION_QUALIFIED: 'forum',
 };
 
+/**
+ * The line that names what is rated (stage R14): a sale "{card} · sold Oct 20" or "{card} · sold
+ * to you Oct 20"; another interaction its kind and date.
+ */
+export function interactionLine(
+  interaction: Pick<RatingEligibilityInteraction, 'kind' | 'occurredAt' | 'dealName' | 'soldToYou'>,
+  locale = 'en',
+): string {
+  const at = new Date(interaction.occurredAt);
+  const date = Number.isNaN(at.getTime())
+    ? ''
+    : new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }).format(at);
+  if (interaction.kind === 'SALE' && interaction.dealName) {
+    return `${interaction.dealName} · ${interaction.soldToYou ? 'sold to you' : 'sold'} ${date}`.trim();
+  }
+  return `${interactionKindLabel(interaction.kind)} · ${date}`;
+}
+
 export function interactionKindLabel(kind: string | null | undefined): string {
   return kind ? (INTERACTION_KIND_LABELS[kind] ?? kind) : '';
 }
 
-/** Word for a whole-star score, used by the star input ("4 stars, Great"). */
+/** Word for a whole-star score, the phone's (spec 10.5): "4 stars, Good". */
 export const SCORE_WORDS: Record<number, string> = {
   1: 'Poor',
-  2: 'Fair',
-  3: 'Good',
-  4: 'Great',
+  2: 'Not great',
+  3: 'Okay',
+  4: 'Good',
   5: 'Excellent',
 };
 

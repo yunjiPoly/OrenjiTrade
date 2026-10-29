@@ -63,7 +63,7 @@ import { OFFER_UNAVAILABLE_TEXT, isOfferMessage } from '../data/message-text';
       </div>
     } @else if (m.kind === 'SYSTEM') {
       <div class="system" data-testid="system-message">
-        <p class="system__text">{{ offer() ? offerText : m.body }}</p>
+        <p class="system__text">{{ offer() ? offerText + ' · ' + m.body : m.body }}</p>
         @if (m.payload.offer; as offer) {
           <app-offer-link-card class="system__offer" [offer]="offer" />
         }
@@ -121,7 +121,7 @@ import { OFFER_UNAVAILABLE_TEXT, isOfferMessage } from '../data/message-text';
               }
             }
           }
-          @if (m.body && m.kind !== 'OFFER_LINK') {
+          @if (m.body) {
             <p class="bubble__text">{{ m.body }}</p>
           }
         }
