@@ -108,7 +108,9 @@ export function ThreadHeader({
           ) : null}
         </View>
         <View style={styles.grow}>
-          <HandleText style={[styles.handle, { color: palette.ink }]}>{other.handle}</HandleText>
+          <HandleText testID="conversation-handle" style={[styles.handle, { color: palette.ink }]}>
+            {other.handle}
+          </HandleText>
           {status ? (
             <Text
               testID="conversation-status"

@@ -56,6 +56,13 @@ export const SNACKBAR_MAX_WINDOW_SHARE = 0.25;
 /** The text size at which the action goes under the words instead of beside them. */
 export const SNACKBAR_STACKED_FONT_SCALE = 1.3;
 
+/**
+ * The lines a toast's title ("Saved", "Card deleted") takes, as `toastLayout` counts them: one,
+ * shrunk to fit rather than cut when a title is longer (review fix 1 of the owner decisions of
+ * 2026-10-28, F8: two allowed lines pushed a toast past its quarter of the window).
+ */
+export const SNACKBAR_TITLE_LINES = 1;
+
 /** Where a toast's words are laid out: their capped scale, whether stacked, and their lines. */
 export interface ToastLayout {
   stacked: boolean;
@@ -66,7 +73,7 @@ export interface ToastLayout {
 /**
  * The layout of a toast at a window height and text size: the action under the words above
  * `SNACKBAR_STACKED_FONT_SCALE`, and as many lines of words as keep the whole toast (its padding,
- * the title's line, the action's 44 pt row) within a quarter of the window, never fewer than two.
+ * the title's lines, the action's 44 pt row) within a quarter of the window, never fewer than two.
  * With a title beside its action the words keep one line, stacked at most three. The full words
  * are always in the screen reader's label.
  */
@@ -84,7 +91,7 @@ export function toastLayout(
     spacing[1] * 2 +
     2 +
     spacing[2] * 2 +
-    (title ? titleLine + 2 : 0) +
+    (title ? SNACKBAR_TITLE_LINES * titleLine + 2 : 0) +
     (action && stacked ? 44 : 0);
   const fits = Math.floor((windowHeight * SNACKBAR_MAX_WINDOW_SHARE - chrome) / line);
   const bound = Math.max(2, fits);
@@ -331,7 +338,9 @@ function SnackbarView({
           <View style={styles.texts}>
             {message.title ? (
               <Text
-                numberOfLines={2}
+                numberOfLines={SNACKBAR_TITLE_LINES}
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
                 maxFontSizeMultiplier={SNACKBAR_MAX_FONT_SCALE}
                 testID="snackbar-title"
                 style={[textStyle('md'), styles.title, { color: ink }]}

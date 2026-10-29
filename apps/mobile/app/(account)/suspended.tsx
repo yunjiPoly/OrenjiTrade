@@ -21,7 +21,7 @@ import {
 import { exportMyData } from '@/src/features/account/exportData';
 import { StatusPage, StatusText } from '@/src/features/account/StatusPage';
 import { formatLongDate } from '@/src/lib/dates';
-import { fontWeight, useTheme } from '@/src/theme';
+import { PINNED_MAX_FONT_SCALE, fontWeight, useTheme } from '@/src/theme';
 
 /** The flow lock's name while "Deletion cancelled" shows in place of the deletion. */
 export const DELETION_CANCELLED_FLOW = 'deletion-cancelled';
@@ -107,6 +107,7 @@ export default function SuspendedScreen() {
     <PillButton
       label={SUSPENDED_COPY.signOut}
       variant="quiet"
+      maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
       disabled={working !== null}
       onPress={() => void session.signOut()}
       testID="suspended-sign-out"
@@ -120,9 +121,11 @@ export default function SuspendedScreen() {
         tone="accent"
         title={DELETION_COPY.cancelledTitle}
         testID="screen-suspended"
+        pinActions
         actions={
           <PillButton
             label={DELETION_COPY.continue}
+            maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
             onPress={() => void proceed()}
             testID="deletion-cancelled-continue"
           />
@@ -140,11 +143,13 @@ export default function SuspendedScreen() {
         tone="warning"
         title={DELETION_COPY.title}
         testID="screen-suspended"
+        pinActions
         actions={
           requests.isPending ? null : (
             <>
               <PillButton
                 label={DELETION_COPY.cancel}
+                maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
                 loading={working === 'cancel'}
                 loadingLabel={DELETION_COPY.cancelling}
                 disabled={!request || working === 'export'}
@@ -153,6 +158,7 @@ export default function SuspendedScreen() {
               />
               <PillButton
                 label={DELETION_COPY.download}
+                maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
                 variant="outline"
                 icon="download"
                 loading={working === 'export'}
@@ -203,10 +209,12 @@ export default function SuspendedScreen() {
       tone="danger"
       title={account.status === 'suspended' ? SUSPENDED_COPY.title : SUSPENDED_COPY.activeTitle}
       testID="screen-suspended"
+      pinActions
       actions={
         <>
           <PillButton
             label={SUSPENDED_COPY.guidelines}
+            maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
             variant="outline"
             onPress={() =>
               router.push({ pathname: '/legal/[key]', params: { key: 'community-guidelines' } })

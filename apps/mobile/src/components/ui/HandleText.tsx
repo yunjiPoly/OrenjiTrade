@@ -21,6 +21,15 @@ export const HANDLE_TEXT_PROPS = {
 } as const satisfies TextProps;
 
 /**
+ * What a label that names a collector by handle takes ("Message {handle}", "Report {handle}",
+ * "Block {handle}?", "Rate {handle}"; review fix 1 of the owner decisions of 2026-10-28, U1 and
+ * U3): `HANDLE_TEXT_PROPS`, so the whole label stays on one line, capped and shrunk to fit its
+ * button or row (a label left free broke the handle anywhere, one capped only broke the widest
+ * one), and the style that lets it shrink inside a row beside an icon.
+ */
+export const HANDLE_LABEL_STYLE = { flexShrink: 1 } as const;
+
+/**
  * The app's `Text` for a collector's handle, with `HANDLE_TEXT_PROPS`; a prop passed here wins
  * (a line that may take two lines passes `numberOfLines={2}`).
  */

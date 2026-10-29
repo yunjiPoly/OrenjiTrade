@@ -2,15 +2,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ComponentProps, ReactNode } from 'react';
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
+import { HANDLE_TEXT_PROPS } from '@/src/components/ui/HandleText';
 import { Text } from '@/src/components/ui/Text';
-import {
-  HANDLE_MAX_FONT_SCALE,
-  fontWeight,
-  radius,
-  spacing,
-  textStyle,
-  useTheme,
-} from '@/src/theme';
+import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -60,8 +54,8 @@ export interface ListRowProps {
   kind?: 'link' | 'button';
   tone?: 'default' | 'danger';
   /**
-   * The label names a collector by handle ("Block {handle}"): it follows the text size only up to
-   * the handle cap, so the handle never breaks (owner decision of 2026-10-28).
+   * The label names a collector by handle ("Block {handle}"): one line, capped and shrunk to fit
+   * the row (`HANDLE_TEXT_PROPS`), so the handle never breaks (owner decision of 2026-10-28).
    */
   handleInLabel?: boolean;
   testID?: string;
@@ -99,7 +93,7 @@ export function ListRow({
       ) : null}
       <View style={styles.grow}>
         <Text
-          maxFontSizeMultiplier={handleInLabel ? HANDLE_MAX_FONT_SCALE : undefined}
+          {...(handleInLabel ? HANDLE_TEXT_PROPS : {})}
           style={[textStyle('md'), styles.rowLabel, { color }]}
         >
           {label}

@@ -2,8 +2,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { SaleNotice } from '@/src/api/types';
+import { HANDLE_LABEL_STYLE, HANDLE_TEXT_PROPS } from '@/src/components/ui/HandleText';
 import { Text } from '@/src/components/ui/Text';
-import { HANDLE_MAX_FONT_SCALE, fontFamily, fontWeight, useTheme } from '@/src/theme';
+import { fontFamily, fontWeight, useTheme } from '@/src/theme';
 
 import { SALE_MESSAGE_COPY } from './chatCopy';
 import { saleSentence } from './dealRules';
@@ -81,8 +82,9 @@ export function SaleMessage({
       >
         <MaterialCommunityIcons name="star" size={15} color={palette.chat.saleAction} />
         <Text
-          maxFontSizeMultiplier={HANDLE_MAX_FONT_SCALE}
-          style={[styles.rateLabel, { color: palette.chat.saleAction }]}
+          {...HANDLE_TEXT_PROPS}
+          testID="sale-message-rate-label"
+          style={[styles.rateLabel, { color: palette.chat.saleAction }, HANDLE_LABEL_STYLE]}
         >
           {SALE_MESSAGE_COPY.rate(otherHandle)}
         </Text>
@@ -118,6 +120,7 @@ const styles = StyleSheet.create({
   trackingLabel: { fontSize: 12, lineHeight: 16 },
   trackingNumber: { fontFamily: fontFamily.mono, fontSize: 13, lineHeight: 18 },
   rate: {
+    maxWidth: '100%',
     minHeight: 34,
     paddingHorizontal: 14,
     borderRadius: 17,

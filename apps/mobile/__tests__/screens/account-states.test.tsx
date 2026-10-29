@@ -1,4 +1,5 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { Dimensions } from 'react-native';
 
 import ConsentScreen from '@/app/(account)/consent';
 import SuspendedScreen from '@/app/(account)/suspended';
@@ -6,6 +7,7 @@ import AccountUnavailableScreen from '@/app/(account)/unavailable';
 import VerifyEmailScreen from '@/app/(account)/verify-email';
 import { useFlowLock } from '@/src/account/flowLock';
 import { AGE_CONFIRMATION_LABEL_EN } from '@/src/features/legal/ageConfirmation';
+import { PINNED_MAX_FONT_SCALE } from '@/src/theme';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import { LEGAL_DOCUMENTS, NOT_ONBOARDED, deletionFixture, meFixture } from '../support/fixtures';
@@ -300,6 +302,47 @@ describe('Account status screen', () => {
       /^The suspension ends on November 2, 2026\.$/
     );
     expect(screen.queryByTestId('suspension-message')).toBeNull();
+  });
+
+  it('keeps Sign out and the guidelines pinned under the lines at the largest size', async () => {
+    // Review fix 1 (U5): at the largest text sizes the page was four screens tall and Sign out,
+    // the one thing a suspended collector can do, came last.
+    const window = Dimensions.get('window');
+    act(() => {
+      Dimensions.set({
+        window: { ...window, width: 402, height: 874, fontScale: 3.1 },
+        screen: { ...window, width: 402, height: 874, fontScale: 3.1 },
+      });
+    });
+    try {
+      mockApi({
+        'GET /api/v1/me': problem(403, 'ACCOUNT_SUSPENDED', 'This account is suspended', {
+          suspendedUntil: '2026-11-02T17:00:00Z',
+        }),
+      });
+      renderWithProviders(<SuspendedScreen />, { port: new FakeAuthPort(testUser()) });
+      expect(await screen.findByTestId('suspension-until')).toBeOnTheScreen();
+      const scroll = screen.getByTestId('screen-suspended-scroll');
+      const actions = screen.getByTestId('screen-suspended-actions');
+      expect(within(scroll).getByTestId('suspension-until')).toBeOnTheScreen();
+      expect(within(scroll).queryByTestId('suspended-sign-out')).toBeNull();
+      for (const id of ['suspended-guidelines', 'suspended-sign-out']) {
+        const button = within(actions).getByTestId(id);
+        expect(button.props.accessibilityShowsLargeContentViewer).toBe(true);
+      }
+      expect(within(actions).getByText('Sign out')).toHaveProp(
+        'maxFontSizeMultiplier',
+        PINNED_MAX_FONT_SCALE
+      );
+      expect(within(actions).getByText('Community guidelines')).toHaveProp(
+        'maxFontSizeMultiplier',
+        PINNED_MAX_FONT_SCALE
+      );
+    } finally {
+      act(() => {
+        Dimensions.set({ window, screen: window });
+      });
+    }
   });
 
   it('explains a temporary suspension from a 403 answer', async () => {

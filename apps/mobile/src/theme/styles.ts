@@ -84,7 +84,9 @@ export const PINNED_MAX_FONT_SCALE = 1.35;
  * letters and digits fits one line of a row beside an avatar on a 402 pt wide phone; a wider one,
  * or a narrower row, shrinks to fit (`HANDLE_MIN_FONT_SCALE`). Every place that draws a handle uses `HandleText` or
  * `HANDLE_TEXT_PROPS` (src/components/ui/HandleText.tsx). Paragraphs that name a collector keep
- * growing.
+ * growing. Not `TITLE_MAX_FONT_SCALE`: at 2 a handle of 24 characters is wider than such a row
+ * (about 430 pt for 314), and a line that leads with a handle and may take two lines ("@{handle}
+ * · Quebec") would break it again, since a text of two lines shrinks only once it overflows them.
  */
 export const HANDLE_MAX_FONT_SCALE = PINNED_MAX_FONT_SCALE;
 

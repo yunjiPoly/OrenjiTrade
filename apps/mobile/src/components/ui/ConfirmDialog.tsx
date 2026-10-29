@@ -1,13 +1,15 @@
 import { Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 
+import { HANDLE_TEXT_PROPS } from '@/src/components/ui/HandleText';
 import { Text } from '@/src/components/ui/Text';
 import {
-  HANDLE_MAX_FONT_SCALE,
+  PINNED_MAX_FONT_SCALE,
   elevation,
   fontWeight,
   radius,
   spacing,
   textStyle,
+  useStackedRows,
   useTheme,
 } from '@/src/theme';
 
@@ -23,8 +25,8 @@ export interface ConfirmDialogProps {
   tone?: 'default' | 'danger';
   busy?: boolean;
   /**
-   * The title names a collector by handle ("Block {handle}?"): it follows the text size only up
-   * to the handle cap, so the handle never breaks (owner decision of 2026-10-28).
+   * The title names a collector by handle ("Block {handle}?"): one line, capped and shrunk to fit
+   * the dialog (`HANDLE_TEXT_PROPS`), so the handle never breaks (owner decision of 2026-10-28).
    */
   handleInTitle?: boolean;
   onConfirm: () => void;
@@ -36,7 +38,9 @@ export interface ConfirmDialogProps {
  * A modal confirmation (works on web too, where React Native's `Alert` is a no-op). The backdrop
  * and the system back button cancel. The title and the message scroll inside the window and the
  * buttons stay under them: at the largest text sizes the message (a paragraph, uncapped) made the
- * dialog taller than the screen and its buttons out of reach.
+ * dialog taller than the screen and its buttons out of reach. The buttons follow the text size as
+ * little as other pinned controls (`PINNED_MAX_FONT_SCALE`) and, at large sizes, stack (the
+ * confirmation on top) instead of sitting side by side, where "Cancel" ran out of the dialog.
  */
 export function ConfirmDialog({
   visible,
@@ -53,6 +57,7 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   const { palette } = useTheme();
   const { height } = useWindowDimensions();
+  const stacked = useStackedRows();
   // iOS: asked for from a sheet row, the dialog waits until the sheet has left (modalTurns.tsx).
   const present = useModalTurn(visible);
   useModalOnScreen(present);
@@ -87,19 +92,23 @@ export function ConfirmDialog({
           >
             <Text
               accessibilityRole="header"
-              maxFontSizeMultiplier={handleInTitle ? HANDLE_MAX_FONT_SCALE : undefined}
+              {...(handleInTitle ? HANDLE_TEXT_PROPS : {})}
               style={[textStyle('lg', 'heading'), styles.title, { color: palette.ink }]}
             >
               {title}
             </Text>
             <Text style={[textStyle('md'), { color: palette.textMuted }]}>{message}</Text>
           </ScrollView>
-          <View style={styles.actions}>
+          <View
+            testID={`${testID}-actions`}
+            style={[styles.actions, stacked && styles.actionsStacked]}
+          >
             <Button
               label={cancelLabel}
               variant="ghost"
               onPress={onCancel}
               disabled={busy}
+              maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
               testID={`${testID}-cancel`}
             />
             <Button
@@ -107,6 +116,7 @@ export function ConfirmDialog({
               variant={tone === 'danger' ? 'danger' : 'primary'}
               onPress={onConfirm}
               loading={busy}
+              maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
               testID={`${testID}-confirm`}
             />
           </View>
@@ -137,4 +147,6 @@ const styles = StyleSheet.create({
     gap: spacing[2],
     marginTop: spacing[2],
   },
+  // The confirmation on top, each button the dialog's width; Cancel stays first for VoiceOver.
+  actionsStacked: { flexDirection: 'column-reverse', alignItems: 'stretch' },
 });
