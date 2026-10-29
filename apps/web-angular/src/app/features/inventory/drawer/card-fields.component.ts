@@ -139,6 +139,14 @@ const VISIBILITIES: readonly SegmentOption<CardVisibility>[] = [
           [value]="v.binderId"
           (valueChange)="patch({ binderId: $event })"
         >
+          <mat-select-trigger>
+            <span class="cf__trigger">
+              <span>{{ binderName() }}</span>
+              @if (binderNote(); as note) {
+                <span class="cf__opt-note">{{ note }}</span>
+              }
+            </span>
+          </mat-select-trigger>
           <mat-option [value]="null">{{ copy.noBinder }}</mat-option>
           @for (binder of gameBinders(); track binder.id) {
             <mat-option [value]="binder.id">
@@ -200,6 +208,16 @@ export class CardFieldsComponent {
     }),
   );
   protected readonly noteLength = computed(() => this.value().publicNote.length);
+  private readonly chosenBinder = computed(() =>
+    this.binders().find((binder) => binder.id === this.value().binderId),
+  );
+  protected readonly binderName = computed(
+    () => this.chosenBinder()?.name ?? CARD_FORM_COPY.noBinder,
+  );
+  protected readonly binderNote = computed(() => {
+    const binder = this.chosenBinder();
+    return binder ? (binder.visibility === 'PRIVATE' ? 'Private' : 'Public') : null;
+  });
   protected readonly priceLabel = computed(() => PRICE_COPY.inputLabel[this.value().priceMode]);
   protected readonly priceHolder = computed(() => PRICE_COPY.placeholder[this.value().priceMode]);
   protected readonly priceHint = computed(() => PRICE_COPY.hint[this.value().priceMode]);

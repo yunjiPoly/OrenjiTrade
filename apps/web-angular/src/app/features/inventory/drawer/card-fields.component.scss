@@ -140,6 +140,12 @@
   border-color: var(--color-accent);
 }
 
+.cf__trigger {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .cf__opt-note {
   margin-left: 8px;
   color: var(--color-text-muted);

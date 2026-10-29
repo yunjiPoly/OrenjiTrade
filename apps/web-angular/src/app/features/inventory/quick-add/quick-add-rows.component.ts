@@ -211,9 +211,9 @@ export class QuickAddRowsComponent {
         }
         this.suggestions.set(result.items);
         this.active.set(0);
-        if (looksLikeCode(result.q)) {
-          const printing = printingForCode(result.items, result.q);
-          this.chosen.set(printing);
+        const exact = looksLikeCode(result.q) ? printingForCode(result.items, result.q) : null;
+        if (exact) {
+          this.chosen.set(exact);
           this.listOpen.set(false);
         } else {
           this.listOpen.set(result.items.length > 0);

@@ -118,6 +118,10 @@ import { binderGame } from '../data/binder-games';
     :host(.bc--card) [data-cards='2'] .bc__art:nth-child(2) {
       transform: translateY(8px) rotate(12deg);
     }
+    :host(.bc--card) [data-cards='1'] .bc__art {
+      margin: 0;
+      transform: rotate(-3deg);
+    }
     :host(.bc--card) [data-cards='2'] .bc__art:nth-child(1) {
       transform: translateY(6px) rotate(-8deg);
     }

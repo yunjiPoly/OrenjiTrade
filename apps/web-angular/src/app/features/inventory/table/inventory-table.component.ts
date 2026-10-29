@@ -117,6 +117,7 @@ export interface RowDrag {
             [class.tbl__row--busy]="row.busy"
             [class.tbl__row--new]="row.highlighted"
             [class.tbl__row--active]="activeId() === it.id"
+            [class.tbl__row--current]="currentId() === it.id"
             [attr.aria-rowindex]="i + 2"
             [attr.aria-selected]="row.selected"
             [attr.data-item-id]="it.id"
@@ -348,6 +349,8 @@ export class InventoryTableComponent {
   readonly dragCount = input(1);
   readonly dragArts = input<readonly (string | null)[]>([]);
   readonly totalRows = input<number | null>(null);
+  /** The card open in the Edit drawer. */
+  readonly currentId = input<string | null>(null);
 
   readonly open = output<InventoryItemResponse>();
   readonly selectedChange = output<SelectionChange>();

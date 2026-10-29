@@ -269,6 +269,7 @@
               [dragCount]="dragCount()"
               [dragArts]="dragArts()"
               [totalRows]="store.total()"
+              [currentId]="editItem()?.id ?? null"
               (open)="openEdit($event)"
               (selectedChange)="onSelection($event)"
               (toggleAll)="store.toggleAll()"

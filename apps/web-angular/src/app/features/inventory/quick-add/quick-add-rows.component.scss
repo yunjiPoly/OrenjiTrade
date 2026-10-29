@@ -143,11 +143,15 @@ kbd {
   color: var(--color-text-muted);
 }
 
+.qa__code:focus-within {
+  border-color: var(--color-accent);
+}
+
 .qa__code input {
   flex: 1 1 auto;
   min-width: 0;
   border: 0;
-  outline: none;
+  outline: none !important;
   background: transparent;
   color: var(--color-ink);
   font: inherit;
@@ -258,7 +262,8 @@ kbd {
 }
 
 .qa__entry button:focus-visible,
-.qa__entry input:focus-visible,
+.qa__qty input:focus-visible,
+.qa__price input:focus-visible,
 .qa__close:focus-visible,
 .qa__undo:focus-visible {
   outline: var(--focus-width) solid var(--color-focus-ring);

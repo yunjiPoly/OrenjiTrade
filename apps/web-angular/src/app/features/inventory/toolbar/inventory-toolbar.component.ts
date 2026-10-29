@@ -198,10 +198,11 @@ const VIEW_OPTIONS: readonly SegmentOption<InventoryView>[] = [
   styles: `
     :host {
       display: block;
+      container-type: inline-size;
     }
     .tb {
       display: flex;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
       align-items: center;
       gap: 8px 12px;
       min-height: 56px;
@@ -227,7 +228,7 @@ const VIEW_OPTIONS: readonly SegmentOption<InventoryView>[] = [
       flex: 1 1 auto;
       min-width: 0;
       border: 0;
-      outline: none;
+      outline: none !important;
       background: transparent;
       color: var(--color-ink);
       font: inherit;
@@ -304,6 +305,11 @@ const VIEW_OPTIONS: readonly SegmentOption<InventoryView>[] = [
     }
     .tb__spacer {
       flex: 1 1 auto;
+    }
+    @container (max-width: 940px) {
+      .tb {
+        flex-wrap: wrap;
+      }
     }
     .tb button:focus-visible,
     .tb__search:has(input:focus-visible) {

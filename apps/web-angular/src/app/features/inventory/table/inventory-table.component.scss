@@ -55,6 +55,11 @@
   box-shadow: inset 3px 0 0 var(--app-primary-text);
 }
 
+.tbl__row--current {
+  background: var(--color-surface-variant);
+  box-shadow: inset 3px 0 0 var(--app-primary-text);
+}
+
 .tbl__row--new {
   background: var(--color-primary-tint);
   transition: background 1.5s var(--motion-easing-standard);
@@ -431,6 +436,16 @@
     display: inline-flex;
   }
 
+  .tbl__row:hover .stepper,
+  .c-copies:focus-within .stepper {
+    display: none;
+  }
+
+  .tbl__row:hover .qty,
+  .c-copies:focus-within .qty {
+    display: inline;
+  }
+
   .rarity {
     display: none;
   }
@@ -453,7 +468,12 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tbl__row--new {
+  .tbl__row--current {
+  background: var(--color-surface-variant);
+  box-shadow: inset 3px 0 0 var(--app-primary-text);
+}
+
+.tbl__row--new {
     transition: none;
   }
 }
