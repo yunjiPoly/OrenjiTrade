@@ -122,6 +122,7 @@ export interface RowDrag {
             [class.tbl__row--current]="currentId() === it.id"
             [attr.aria-rowindex]="i + 2"
             [attr.aria-selected]="row.selected"
+            [attr.aria-label]="rowLabel(row)"
             [attr.data-item-id]="it.id"
             [attr.data-testid]="'inventory-row-' + it.id"
             [tabindex]="isActive(it.id, i) ? 0 : -1"
@@ -418,6 +419,22 @@ export class InventoryTableComponent {
 
   protected code(item: InventoryItemResponse): string {
     return printingCode(item.printing);
+  }
+
+  /** What a screen reader says for a row: the card, its code, price, copies and who sees it. */
+  protected rowLabel(row: InventoryRow): string {
+    const it = row.item;
+    const copies = `${it.quantity} ${it.quantity === 1 ? 'copy' : 'copies'}`;
+    return [
+      it.card.name,
+      this.code(it),
+      row.price ?? 'no price',
+      copies,
+      row.tag.label,
+      row.binderName ?? 'Unfiled',
+    ]
+      .filter(Boolean)
+      .join(', ');
   }
 
   protected spoken(age: string): string {
