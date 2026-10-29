@@ -71,7 +71,7 @@ Spec sections 6 to 8 (boards W3 to W9), contract `docs/api/contracts/wd-web-sear
   beside the map (`map/search-map`, Leaflet in the Search chunk: the map steps, the viewer's
   province in a teal dashed outline, a hovered row's province in ink, "Show my province", + and −,
   the legend, "Made with Natural Earth"); `?tab=cards|binders|wishlist&q&state=<code>|all&kind=
-  binders|deckcores&open=<binderId>&wish=<id>` (`data/search-url.ts`).
+binders|deckcores&open=<binderId>&wish=<id>` (`data/search-url.ts`).
   - **Cards** (`panes/cards-pane`): the field focused on arrival, the recent searches of this
     browser, then the top bar's results at full height (the browsed game's cards, a member's 3
     collectors, "Search binders and deck cores for …"); Enter opens the active or first card.
