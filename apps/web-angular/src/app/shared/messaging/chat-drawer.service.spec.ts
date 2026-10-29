@@ -23,7 +23,7 @@ describe('ChatDrawer (web WC, spec 10.6)', () => {
     TestBed.configureTestingModule({
       providers: [
         provideRouter([{ path: '**', children: [] }]),
-        { provide: ConversationStarterService, useValue: { start, starting: signal(null) } },
+        { provide: ConversationStarterService, useValue: { start } },
         { provide: ShellLayout, useValue: { narrow } },
         { provide: AuthService, useValue: { isAuthenticated: signedIn } },
       ],

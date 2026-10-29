@@ -1,11 +1,11 @@
 import { DOCUMENT } from '@angular/common';
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, Injector, inject, signal } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
 import type { ConversationSummary } from '@orenji/api-client';
 import { filter } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { ShellLayout } from '../../core/layout/shell-layout.service';
-import { ChatSubjectRequest, ConversationStarterService } from './conversation-starter.service';
+import type { ChatSubjectRequest } from './conversation-starter.service';
 
 /** Who to message from a "Message" button, and what about. */
 export interface ChatRequest extends ChatSubjectRequest {
@@ -27,7 +27,7 @@ interface DrawerState {
  */
 @Injectable({ providedIn: 'root' })
 export class ChatDrawer {
-  private readonly starter = inject(ConversationStarterService);
+  private readonly injector = inject(Injector);
   private readonly router = inject(Router);
   private readonly layout = inject(ShellLayout);
   private readonly auth = inject(AuthService);
@@ -35,8 +35,9 @@ export class ChatDrawer {
 
   private readonly stateSignal = signal<DrawerState | null>(null);
   readonly state = this.stateSignal.asReadonly();
+  private readonly startingState = signal<string | null>(null);
   /** The recipient being opened (the button shows its progress). */
-  readonly starting = this.starter.starting;
+  readonly starting = this.startingState.asReadonly();
 
   constructor() {
     this.router.events
@@ -58,7 +59,17 @@ export class ChatDrawer {
       return;
     }
     const { recipientId, ...subject } = request;
-    const conversation = await this.starter.start(recipientId, subject);
+    this.startingState.set(recipientId);
+    let conversation: ConversationSummary | null;
+    try {
+      // Loaded on the first "Message": the messaging client stays out of the initial bundle.
+      const { ConversationStarterService } = await import('./conversation-starter.service');
+      conversation = await this.injector
+        .get(ConversationStarterService)
+        .start(recipientId, subject);
+    } finally {
+      this.startingState.set(null);
+    }
     if (!conversation) {
       return;
     }

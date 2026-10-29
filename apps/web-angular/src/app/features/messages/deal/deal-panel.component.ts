@@ -247,7 +247,7 @@ type Load<T> = { state: 'idle' | 'loading' | 'error' } | { state: 'ready'; value
         <div class="deal__row">
           <h2 class="deal__label" id="deal-with">{{ copy.with }}</h2>
           <a
-            class="teal teal--sm"
+            class="teal"
             [routerLink]="['/collectors', c.other.handle]"
             [attr.aria-label]="copy.viewProfileOf(c.other.handle)"
             >{{ copy.viewProfile }}</a
@@ -319,7 +319,7 @@ type Load<T> = { state: 'idle' | 'loading' | 'error' } | { state: 'ready'; value
                     {{ copy.moreFrom(c.other.handle) }}
                   </h2>
                   <a
-                    class="teal teal--sm"
+                    class="teal"
                     [routerLink]="['/collectors', c.other.handle]"
                     [attr.aria-label]="copy.seeAllLabel(c.other.handle)"
                     >{{ copy.seeAll }}</a
