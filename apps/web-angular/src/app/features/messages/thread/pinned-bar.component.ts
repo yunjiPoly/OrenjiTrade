@@ -19,12 +19,8 @@ import { DealSide, pinnedEnd, pinnedLine, subjectPrice } from '../data/deal-rule
   template: `
     @let s = subject();
     <div class="pin" data-testid="pinned-bar">
-      <a
-        class="pin__open"
-        [routerLink]="link()"
-        [queryParams]="query()"
-        [attr.aria-label]="openLabel()"
-      >
+      <!-- Its name is the visible name and line (WCAG 2.5.3); the art is decorative. -->
+      <a class="pin__open" [routerLink]="link()" [queryParams]="query()">
         @if (s.kind === 'DECK_CORE' && !s.imageUrl) {
           <span class="pin__core" aria-hidden="true"><mat-icon>style</mat-icon></span>
         } @else {
@@ -78,7 +74,8 @@ import { DealSide, pinnedEnd, pinnedLine, subjectPrice } from '../data/deal-rule
       align-items: center;
       gap: var(--spacing-3);
       min-height: 60px;
-      padding: 8px var(--spacing-5);
+      /* The content centred at max 720 with the thread (spec 10.1, WC review U12). */
+      padding: 8px max(var(--spacing-5), calc((100% - 720px) / 2));
       border-bottom: 1px solid var(--color-border);
       background: var(--color-chat-pinned-bar);
     }
@@ -230,9 +227,5 @@ export class PinnedBarComponent {
   protected readonly query = computed(() => {
     const s = this.subject();
     return s.kind === 'CARD' && s.printingId ? { printing: s.printingId } : null;
-  });
-  protected readonly openLabel = computed(() => {
-    const s = this.subject();
-    return s.kind === 'DECK_CORE' ? this.copy.aboutDeckCore(s.name) : this.copy.aboutCard(s.name);
   });
 }

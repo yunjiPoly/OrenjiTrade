@@ -26,6 +26,9 @@ export const TYPING_VISIBLE_MS = 5_000;
 /** At most one typing notice per this interval while the caller types. */
 export const TYPING_THROTTLE_MS = 3_000;
 
+/** A send while another is on its way (the first one's error, if any, stays). */
+const STILL_SENDING = 'Wait for the last message to be sent.';
+
 /** Wording of send failures shown under the composer. */
 export function sendErrorMessage(error: ApiError): string {
   switch (error.errorCode) {
@@ -73,10 +76,12 @@ export class ThreadStore {
   private readonly loadingOlderState = signal(false);
   private readonly sendingState = signal(false);
   private readonly sendErrorState = signal<string | null>(null);
+  private readonly retryDraftState = signal<MessageDraft | null>(null);
   private readonly blockedState = signal(false);
   private readonly typingState = signal(false);
   private readonly visibleState = signal(true);
   private readonly refreshedState = signal<ConversationSummary | null>(null);
+  private readonly liveSalesState = signal(0);
 
   readonly conversation = this.conversationState.asReadonly();
   readonly messages = this.messagesState.asReadonly();
@@ -87,6 +92,11 @@ export class ThreadStore {
   readonly sending = this.sendingState.asReadonly();
   /** Why the last send failed (shown under the composer). */
   readonly sendError = this.sendErrorState.asReadonly();
+  /**
+   * The quick reply whose failure {@link sendError} shows: "Try again" sends it again, not the
+   * composer's own text (WC review F6, U10). `null` when the error is the composer's draft's.
+   */
+  readonly retryDraft = this.retryDraftState.asReadonly();
   /** The server refused messages in this conversation (403 MESSAGING_BLOCKED). */
   readonly messagingBlocked = this.blockedState.asReadonly();
   /** The other participant is typing. */
@@ -94,6 +104,11 @@ export class ThreadStore {
   readonly selfId = computed(() => this.session.me()?.id ?? null);
   /** The conversation as last read again ({@link refreshConversation}), for the inbox to follow. */
   readonly refreshed = this.refreshedState.asReadonly();
+  /**
+   * Counts the sale notes of the other collector that arrived live in this chat (the buyer reads
+   * "Rate {seller}" without a reload: the chat asks for its rating eligibility again; WC review U5).
+   */
+  readonly liveSales = this.liveSalesState.asReadonly();
 
   private olderCursor: string | null = null;
   private loadSubscription: Subscription | null = null;
@@ -121,6 +136,8 @@ export class ThreadStore {
     this.olderCursor = null;
     this.hasOlderState.set(false);
     this.sendErrorState.set(null);
+    this.retryDraftState.set(null);
+    this.liveSalesState.set(0);
     this.blockedState.set(false);
     this.typingState.set(false);
     this.lastMarked = null;
@@ -196,6 +213,10 @@ export class ThreadStore {
   /** Sends a draft; resolves `true` when the message was accepted (the composer clears). */
   async send(draft: MessageDraft): Promise<boolean> {
     const problem = await this.deliver(draft, true);
+    if (problem !== STILL_SENDING) {
+      // The composer's draft: its own failure (or none) replaces a failed quick reply's.
+      this.retryDraftState.set(null);
+    }
     return problem === null;
   }
 
@@ -204,8 +225,18 @@ export class ThreadStore {
    * email typed in their dialog, a card or binder chosen in a picker): resolves the reason it was
    * not sent, or `null`. With `showError`, the reason also shows under the composer.
    */
-  sendDirect(draft: MessageDraft, showError = false): Promise<string | null> {
-    return this.deliver(draft, showError);
+  async sendDirect(draft: MessageDraft, showError = false): Promise<string | null> {
+    const problem = await this.deliver(draft, showError);
+    if (showError && problem !== STILL_SENDING) {
+      this.retryDraftState.set(problem === null ? null : draft);
+    }
+    return problem;
+  }
+
+  /** "Try again" of a failed quick reply: sends that reply again ({@link retryDraft}). */
+  retry(): Promise<string | null> {
+    const draft = this.retryDraftState();
+    return draft ? this.sendDirect(draft, true) : Promise.resolve(null);
   }
 
   private async deliver(draft: MessageDraft, showError: boolean): Promise<string | null> {
@@ -215,7 +246,7 @@ export class ThreadStore {
       return 'This conversation is not open.';
     }
     if (this.sendingState()) {
-      return 'Wait for the last message to be sent.';
+      return STILL_SENDING;
     }
     if (problem) {
       if (showError) {
@@ -331,6 +362,7 @@ export class ThreadStore {
 
   dismissSendError(): void {
     this.sendErrorState.set(null);
+    this.retryDraftState.set(null);
   }
 
   /** The caller is typing: at most one `/app/typing` notice every few seconds. */
@@ -386,10 +418,14 @@ export class ThreadStore {
     if (message.conversationId !== this.conversationState()?.id) {
       return;
     }
+    const known = this.messagesState().some((existing) => existing.id === message.id);
     this.messagesState.update((messages) => mergeMessages(messages, [message]));
     if (message.payload?.sale) {
       // A sale or its undo: the pinned card's "Sold" and copies change (stage R4).
       void this.refreshConversation();
+      if (!known && message.senderId && message.senderId !== this.selfId()) {
+        this.liveSalesState.update((count) => count + 1);
+      }
     }
     if (message.senderId && message.senderId !== this.selfId()) {
       this.typingState.set(false);

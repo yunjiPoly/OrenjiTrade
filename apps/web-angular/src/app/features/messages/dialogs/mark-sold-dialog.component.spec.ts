@@ -61,6 +61,12 @@ describe('MarkSoldDialogComponent (web WC, spec 10.5, board W19)', () => {
     await fixture.whenStable();
   }
 
+  it('names its X close button "Close" (WCAG 4.1.2; WC review A2)', async () => {
+    await open();
+    const x = element.querySelector<HTMLButtonElement>('.ms__close')!;
+    expect(x.getAttribute('aria-label')).toBe('Close');
+  });
+
   it('sells the chosen copies with the tracking number and the subject shown', async () => {
     await open();
     expect(element.textContent).toContain('Mark as sold?');
@@ -71,7 +77,7 @@ describe('MarkSoldDialogComponent (web WC, spec 10.5, board W19)', () => {
     await fixture.whenStable();
     expect(sentence()).toContain('It was your last copy');
     // Up to the copies held.
-    expect(button('Increase quantity').disabled).toBe(true);
+    expect(button('Increase quantity').getAttribute('aria-disabled')).toBe('true');
 
     await track('  1Z999AA1  0123456784 ');
     button('Mark as sold').click();

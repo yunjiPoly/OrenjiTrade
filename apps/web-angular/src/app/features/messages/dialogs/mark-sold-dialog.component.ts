@@ -44,7 +44,7 @@ export type MarkSoldResult = { sale: SaleResponse } | { changed: true; message: 
     <div class="ms">
       <header class="ms__head">
         <h2 class="ms__title" mat-dialog-title>{{ copy.title }}</h2>
-        <button type="button" class="ms__close" [attr.aria-label]="copy.close" mat-dialog-close>
+        <button type="button" class="ms__close" [aria-label]="copy.close" mat-dialog-close>
           <mat-icon aria-hidden="true">close</mat-icon>
         </button>
       </header>

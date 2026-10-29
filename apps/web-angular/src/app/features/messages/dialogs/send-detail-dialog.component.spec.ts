@@ -11,7 +11,11 @@ describe('SendDetailDialogComponent (web WC, spec 10.3, decision 9)', () => {
   let close: ReturnType<typeof vi.fn>;
   let storageWrites: string[];
 
-  async function open(kind: SendDetailData['kind'], answer: string | null = null): Promise<void> {
+  async function open(
+    kind: SendDetailData['kind'],
+    answer: string | null = null,
+    side: SendDetailData['side'] = 'buying',
+  ): Promise<void> {
     send = vi.fn<(text: string) => Promise<string | null>>(() => Promise.resolve(answer));
     close = vi.fn();
     const ref = { close, beforeClosed: () => new Subject<void>() };
@@ -24,6 +28,7 @@ describe('SendDetailDialogComponent (web WC, spec 10.3, decision 9)', () => {
             kind,
             other: 'theo.duels',
             subject: 'Yubel core',
+            side,
             send,
           } satisfies SendDetailData,
         },
@@ -60,6 +65,12 @@ describe('SendDetailDialogComponent (web WC, spec 10.3, decision 9)', () => {
     field().dispatchEvent(new Event('input'));
     await fixture.whenStable();
   }
+
+  it('never tells the seller that the buyer ships their own card (WC review F3)', async () => {
+    await open('address', null, 'selling');
+    expect(element.textContent).toContain('Share your address in this chat if theo.duels needs it.');
+    expect(element.textContent).not.toContain('ships');
+  });
 
   it('sends the typed address once, says nothing is kept, and stores nothing anywhere', async () => {
     await open('address');

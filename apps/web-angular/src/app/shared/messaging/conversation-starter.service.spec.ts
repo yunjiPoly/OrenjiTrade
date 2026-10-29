@@ -66,7 +66,12 @@ describe('ConversationStarterService', () => {
       ),
     );
     expect(await service.start('u1')).toBeNull();
-    expect(open.mock.calls[0][0]).toContain('Messaging unavailable');
+    // The toast of Message on a profile, a holder row, a binder or Home never tells a block
+    // apart (owner decision 4 of 2026-10-28; WC review F2).
+    expect(open.mock.calls[0][0]).toBe(
+      'Messaging unavailable. This collector cannot receive messages right now.',
+    );
+    expect(open.mock.calls[0][0]).not.toMatch(/block/i);
     expect(service.starting()).toBeNull();
   });
 });

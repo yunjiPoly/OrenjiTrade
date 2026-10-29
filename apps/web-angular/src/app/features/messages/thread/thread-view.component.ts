@@ -28,7 +28,7 @@ import { toApiError } from '../../../core/http/api-error';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
 import { silentErrors } from '../../../core/http/http-context';
 import { ShellLayout } from '../../../core/layout/shell-layout.service';
-import { ToastService } from '../../../core/feedback/toast.service';
+import { ToastRef, ToastService } from '../../../core/feedback/toast.service';
 import { BlockActionsService } from '../../../shared/messaging/block-actions.service';
 import { RatingActionsService } from '../../../shared/ratings/rating-actions.service';
 import { rateableInteractions } from '../../../shared/ratings/rating-labels';
@@ -133,6 +133,7 @@ export class ThreadViewComponent {
   private readonly layout = inject(ShellLayout);
   private readonly doc = inject(DOCUMENT);
   private readonly composer = viewChild(MessageComposerComponent);
+  private readonly header = viewChild(ThreadHeaderComponent);
 
   readonly conversation = input.required<ConversationSummary>();
   /** The thread is on screen (the page tab may be hidden). */
@@ -216,6 +217,15 @@ export class ThreadViewComponent {
       const visible = this.visible() && this.pageVisible();
       untracked(() => this.store.setVisible(visible));
     });
+    // The other collector marked a sale while the chat is open: "Rate {seller}" without a reload.
+    effect(() => {
+      if (this.store.liveSales() > 0) {
+        untracked(() => {
+          this.eligibilityFor = null;
+          void this.loadEligibility(this.c().other.id);
+        });
+      }
+    });
     effect(() => {
       const fresh = this.store.refreshed();
       if (fresh) {
@@ -248,8 +258,20 @@ export class ThreadViewComponent {
     }
   }
 
-  protected onQuickReply(text: string): void {
-    void this.store.sendDirect({ text, attachment: null }, true);
+  protected async onQuickReply(text: string): Promise<void> {
+    await this.store.sendDirect({ text, attachment: null }, true);
+    // A sent reply leaves the chips: its focus goes to the field, not the page (WC review A1).
+    this.keepFocus();
+  }
+
+  /** After an action whose control left the page, the composer takes the focus (WCAG 2.4.3). */
+  private keepFocus(fallback: () => void = () => this.composer()?.focus()): void {
+    setTimeout(() => {
+      const active = this.doc.activeElement;
+      if (!active || active === this.doc.body || !active.isConnected) {
+        fallback();
+      }
+    });
   }
 
   protected onComposerAction(action: ComposerAction): void {
@@ -303,6 +325,7 @@ export class ThreadViewComponent {
       kind,
       other: c.other.handle,
       subject: c.subject?.name ?? null,
+      side: this.side(),
       send: (text) => this.store.sendDirect({ text, attachment: null }),
     };
     const ref = this.dialog.open<SendDetailDialogComponent, SendDetailData, boolean>(
@@ -336,11 +359,9 @@ export class ThreadViewComponent {
       this.composer()?.focus();
       return;
     }
-    const problem = await this.store.sendDirect({ text: '', attachment: choice });
-    if (problem) {
-      this.toasts.show({ title: problem, tone: 'error' });
-    }
-    this.composer()?.focus();
+    // Into the message box as an attachment, as on the phone: a text can go with it, and it can
+    // be removed before Send (a card becomes the chat's subject once sent; WC review U6).
+    this.composer()?.attach(choice);
   }
 
   // --- deal ----------------------------------------------------------------------------------
@@ -403,15 +424,26 @@ export class ThreadViewComponent {
       void this.store.refreshConversation();
       return;
     }
+    // Mark as sold gives way to the "Sold" tag: the focus goes to the field (WC review A1).
+    setTimeout(() => this.composer()?.focus());
     void this.store.refreshConversation();
     this.eligibilityFor = null;
     void this.loadEligibility(c.other.id);
     this.offerUndo(result.sale);
   }
 
+  /** The toast "Marked as sold" [Undo] of the last sale, closed once that sale is undone. */
+  private undoToast: { saleId: string; ref: ToastRef } | null = null;
+
   private offerUndo(sale: SaleResponse): void {
     const ref = this.toasts.show({ title: MARK_SOLD_COPY.toast, action: MARK_SOLD_COPY.undo });
+    this.undoToast = { saleId: sale.id, ref };
     ref.onAction().subscribe(() => void this.undoSale(sale.id));
+    ref.afterDismissed().subscribe(() => {
+      if (this.undoToast?.ref === ref) {
+        this.undoToast = null;
+      }
+    });
   }
 
   protected async undoSale(saleId: string): Promise<void> {
@@ -421,7 +453,14 @@ export class ThreadViewComponent {
         this.deals.undoSale({ id: saleId }, 'body', false, { context: silentErrors() }),
       );
       this.store.dropSale(saleId);
+      // Undone from the note: the toast's Undo goes too (it would only repeat; WC review U4).
+      if (this.undoToast?.saleId === saleId) {
+        this.undoToast.ref.dismiss();
+        this.undoToast = null;
+      }
       this.toasts.show({ title: MARK_SOLD_COPY.undone });
+      // The note (or the toast) that held Undo is gone: the field takes the focus (WC review A1).
+      this.keepFocus();
       void this.store.refreshConversation();
       this.eligibilityFor = null;
       void this.loadEligibility(this.c().other.id);
@@ -467,6 +506,7 @@ export class ThreadViewComponent {
           this.store.setMessagingBlocked(true);
           this.conversations?.remove(conversation.id, true);
         }
+        this.afterMenuDialog();
         break;
       case 'unblock':
         if (await this.blocks.unblock(target)) {
@@ -475,6 +515,7 @@ export class ThreadViewComponent {
           this.conversations?.upsert(conversation);
           this.store.load();
         }
+        this.afterMenuDialog();
         break;
       case 'report':
         // The dialog is titled with the handle and shows the name beside it (spec 10.5).
@@ -485,11 +526,28 @@ export class ThreadViewComponent {
             conversationId: conversation.id,
           },
         );
+        this.afterMenuDialog();
         break;
       case 'rate':
         await this.rate();
+        this.afterMenuDialog();
         break;
     }
+  }
+
+  /**
+   * After a dialog opened from "⋯" (or the block banner) closed: the focus goes back to "⋯", as
+   * the menu row that opened it is gone (WCAG 2.4.3, WC review A1).
+   */
+  private afterMenuDialog(): void {
+    this.keepFocus(() => {
+      const header = this.header();
+      if (header) {
+        header.focusMore();
+      } else {
+        this.composer()?.focus();
+      }
+    });
   }
 
   protected async rate(): Promise<void> {

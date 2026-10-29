@@ -122,11 +122,13 @@
       [busy]="store.sending()"
       [disabled]="cannotSend()"
       [error]="store.sendError()"
+      [retryReply]="!!store.retryDraft()"
       [placeholder]="placeholder()"
       [draftKey]="conv.id"
       [replies]="replies()"
       (send)="onSend($event)"
       (quickReply)="onQuickReply($event)"
+      (retry)="store.retry()"
       (action)="onComposerAction($event)"
       (typing)="store.userTyping()"
     />

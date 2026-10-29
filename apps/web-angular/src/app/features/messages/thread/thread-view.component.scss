@@ -20,6 +20,12 @@
   background: var(--color-background);
 }
 
+/* The bars above and below the thread keep their height (WC review F4). */
+app-pinned-bar,
+app-message-composer {
+  flex-shrink: 0;
+}
+
 .thread__body {
   position: relative;
   display: flex;
@@ -69,14 +75,19 @@
   pointer-events: none;
 }
 
-/* The shield tip (36, muted; spec 10.3). */
+/*
+ * The shield tip (36, muted; spec 10.3). It never shrinks: a tip that wraps (the 440 drawer, 390)
+ * keeps both lines inside its padding (WC review F4). Its content is centred at max 720 with the
+ * thread (spec 10.1, WC review U12).
+ */
 .tip {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: var(--spacing-2);
   min-height: 36px;
   margin: 0;
-  padding: 6px var(--spacing-5);
+  padding: 6px max(var(--spacing-5), calc((100% - 720px) / 2));
   border-bottom: 1px solid var(--color-border);
   background: var(--color-background);
   color: var(--color-text-muted);
@@ -93,6 +104,7 @@
 
 .banner {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: var(--spacing-2);
   padding: var(--spacing-2) var(--spacing-5);

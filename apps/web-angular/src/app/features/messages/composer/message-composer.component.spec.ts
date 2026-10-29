@@ -118,6 +118,24 @@ describe('MessageComposerComponent', () => {
     expect(drafts).toEqual([{ text: 'Still there?', attachment: null }]);
   });
 
+  it('retries a failed quick reply, not the text in the field (WC review F6, U10)', async () => {
+    let retries = 0;
+    fixture.componentInstance.retry.subscribe(() => retries++);
+    // An empty field still offers "Try again" for the reply.
+    fixture.componentRef.setInput('error', 'Please try again in a moment.');
+    fixture.componentRef.setInput('retryReply', true);
+    await fixture.whenStable();
+    const tryAgain = () =>
+      [...element.querySelectorAll<HTMLButtonElement>('button')].find(
+        (b) => b.textContent?.trim() === 'Try again',
+      );
+    expect(tryAgain()).toBeDefined();
+    await type('Something else entirely');
+    tryAgain()!.click();
+    expect(retries).toBe(1);
+    expect(drafts).toEqual([]);
+  });
+
   it('sends with Ctrl/Cmd+Enter too, even with Shift (spec 4.9)', async () => {
     await type('Hello');
     expect(press('Enter', true, true).defaultPrevented).toBe(true);
@@ -136,6 +154,15 @@ describe('MessageComposerComponent', () => {
     expect(chips[0].getAttribute('aria-label')).toBe('Send “e-Transfer sent!”');
     chips[0].click();
     expect(replies).toEqual(['e-Transfer sent!']);
+    // While a message is on its way the chips stay focusable but do nothing (WC review A1).
+    fixture.componentRef.setInput('busy', true);
+    await fixture.whenStable();
+    expect(chips[1].disabled).toBe(false);
+    expect(chips[1].getAttribute('aria-disabled')).toBe('true');
+    chips[1].click();
+    expect(replies).toEqual(['e-Transfer sent!']);
+    fixture.componentRef.setInput('busy', false);
+    await fixture.whenStable();
 
     element.querySelector<HTMLButtonElement>('[data-testid=composer-plus]')!.click();
     await fixture.whenStable();
@@ -156,6 +183,27 @@ describe('MessageComposerComponent', () => {
     fixture.componentRef.setInput('disabled', true);
     await fixture.whenStable();
     expect(element.querySelectorAll('.quick__chip')).toHaveLength(0);
+  });
+
+  it('holds a card or binder chosen in the picker as an attachment, sent with the text (WC review U6)', async () => {
+    fixture.componentInstance.attach({ kind: 'item', itemId: 'item-9', name: 'Lantern Fox Spirit' });
+    await fixture.whenStable();
+    expect(element.querySelector('[data-testid=composer-attachment]')?.textContent).toContain(
+      'Lantern Fox Spirit',
+    );
+    expect(drafts).toEqual([]);
+    await type('Would you trade for this one?');
+    press('Enter');
+    expect(drafts).toEqual([
+      {
+        text: 'Would you trade for this one?',
+        attachment: { kind: 'item', itemId: 'item-9', name: 'Lantern Fox Spirit' },
+      },
+    ]);
+    // It can be removed before Send.
+    element.querySelector<HTMLButtonElement>('[aria-label="Remove attachment"]')!.click();
+    await fixture.whenStable();
+    expect(element.querySelector('[data-testid=composer-attachment]')).toBeNull();
   });
 
   it('keeps a draft per chat in memory, never in the browser storage', async () => {

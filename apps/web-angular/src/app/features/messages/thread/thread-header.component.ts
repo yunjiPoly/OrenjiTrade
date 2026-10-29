@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  computed,
+  input,
+  output,
+  viewChild,
+} from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { RouterLink } from '@angular/router';
@@ -33,11 +41,8 @@ export type ThreadMenuAction =
           <mat-icon aria-hidden="true">arrow_back</mat-icon>
         </button>
       }
-      <a
-        class="head__who"
-        [routerLink]="['/collectors', c.other.handle]"
-        [attr.aria-label]="copy.profile(c.other.handle)"
-      >
+      <!-- Named by its visible words: the handle, "Online · Quebec" or "typing…" (WCAG 2.5.3). -->
+      <a class="head__who" [routerLink]="['/collectors', c.other.handle]">
         <span class="head__avatar">
           <app-avatar
             size="sm"
@@ -61,7 +66,7 @@ export type ThreadMenuAction =
           type="button"
           class="head__deal"
           data-testid="deal-toggle"
-          aria-controls="deal-panel"
+          [attr.aria-controls]="dealOpen() ? 'deal-panel' : null"
           [attr.aria-pressed]="dealOpen()"
           (click)="dealToggle.emit()"
         >
@@ -72,8 +77,10 @@ export type ThreadMenuAction =
         </button>
       }
       <button
+        #more
         type="button"
         class="head__icon"
+        data-testid="chat-more"
         [attr.aria-label]="copy.more(c.other.handle)"
         [matMenuTriggerFor]="menu"
       >
@@ -260,4 +267,10 @@ export class ThreadHeaderComponent {
   protected readonly status = computed(() =>
     chatStatusLine(this.conversation(), this.typing(), this.blocked()),
   );
+  private readonly more = viewChild<ElementRef<HTMLButtonElement>>('more');
+
+  /** The focus back on "⋯" (after a dialog opened from its menu, whose row is gone; WC A1). */
+  focusMore(): void {
+    this.more()?.nativeElement.focus();
+  }
 }

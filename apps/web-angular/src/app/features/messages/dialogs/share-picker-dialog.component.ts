@@ -110,7 +110,7 @@ const CARDS_PAGE = 30;
                       type="button"
                       class="sp__row"
                       [attr.data-row]="i"
-                      [attr.aria-label]="copy.share(row.name) + (row.line ? ', ' + row.line : '')"
+                      [attr.aria-label]="rowLabel(row)"
                       (click)="pick(row)"
                       (keydown)="onRowKey($event, i)"
                     >
@@ -454,5 +454,13 @@ export class SharePickerDialogComponent {
         this.focusRow(index - 1, event);
       }
     }
+  }
+
+  /**
+   * The row's visible words in their order, the price included (WCAG 2.5.3; the list is named by
+   * the picker's title, "Share a card from your inventory"; WC review A7).
+   */
+  protected rowLabel(row: Pick<Row, 'name' | 'line' | 'price'>): string {
+    return [row.name, row.line, row.price].filter(Boolean).join(', ');
   }
 }

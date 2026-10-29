@@ -176,8 +176,12 @@ test.describe('private messaging', () => {
     const picker = pageB.getByRole('dialog', { name: 'Share a card from your inventory' });
     await expect(picker).toBeVisible();
     await picker.getByRole('searchbox').fill('Azure');
-    await picker.getByRole('button', { name: /^Share Azure-Eyes Sky Dragon/ }).click();
+    await picker.getByRole('button', { name: /^Azure-Eyes Sky Dragon/ }).click();
     await expect(picker).toBeHidden();
+    // It waits in the message box as an attachment (removable, a text can go with it; WC U6).
+    await expect(threadB.getByTestId('composer-attachment')).toContainText('Azure-Eyes Sky Dragon');
+    await threadB.getByRole('button', { name: 'Send message' }).click();
+    await expect(threadB.getByTestId('composer-attachment')).toHaveCount(0);
     await expect(
       logB.getByRole('link', { name: /^Card: Azure-Eyes Sky Dragon, AZR-EN001/ }),
     ).toHaveAttribute('href', /\/cards\/[0-9a-f-]{36}\?printing=[0-9a-f-]{36}$/);

@@ -38,7 +38,7 @@ describe('PinnedBarComponent (web WC, spec 10.3)', () => {
     expect(element.textContent).toContain('RA01-EN008 · Secret Rare · your card');
     expect(element.querySelector('[data-testid="pinned-price"]')?.textContent).toContain('$32');
     const sell = element.querySelector<HTMLButtonElement>('[data-testid="mark-as-sold"]')!;
-    expect(sell.getAttribute('aria-label')).toBe('Mark Ash Blossom & Joyous Spring as sold');
+    expect(sell.getAttribute('aria-label')).toBe('Mark as sold: Ash Blossom & Joyous Spring');
     let asked = 0;
     fixture.componentInstance.markSold.subscribe(() => asked++);
     sell.click();

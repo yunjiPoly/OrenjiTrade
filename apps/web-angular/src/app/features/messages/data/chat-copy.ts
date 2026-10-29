@@ -41,7 +41,6 @@ export const CHAT_COPY = {
   dealHidden: 'Deal panel hidden',
   closeDeal: 'Close the deal panel',
   more: (handle: string) => `More for ${handle}`,
-  profile: (handle: string) => `Open the profile of ${handle}`,
   rate: (handle: string) => `Rate ${handle}`,
   mute: 'Mute',
   unmute: 'Unmute',
@@ -69,9 +68,8 @@ export const PINNED_COPY = {
   markAsSold: 'Mark as sold',
   sold: 'Sold',
   noLongerListed: 'No longer listed',
-  aboutCard: (name: string) => `${name}, open the card`,
-  aboutDeckCore: (name: string) => `${name}, open the deck core`,
-  markAsSoldLabel: (name: string) => `Mark ${name} as sold`,
+  /** Starts with the visible words (WCAG 2.5.3, WC review A7). */
+  markAsSoldLabel: (name: string) => `Mark as sold: ${name}`,
 } as const;
 
 /** The quick replies above the composer (the phone's, spec 10.3). */
@@ -110,10 +108,16 @@ export const COMPOSER_COPY = {
 /** "Send my address" and "Send my e-Transfer email" (440, typed each time; decision 9). */
 export const SEND_DETAIL_COPY = {
   addressTitle: 'Send my address',
-  addressBody: (other: string, subject: string | null) =>
-    subject
-      ? `${other} ships the ${subject} there, with tracking.`
-      : `${other} ships your cards there, with tracking.`,
+  /**
+   * The lead, worded for the reader's side: the buyer's seller ships there; a seller (or a chat
+   * without a card) only shares it when the other collector needs it (WC review F3).
+   */
+  addressBody: (other: string, subject: string | null, side: 'buying' | 'selling' | 'none') =>
+    side !== 'buying'
+      ? `Share your address in this chat if ${other} needs it.`
+      : subject
+        ? `${other} ships the ${subject} there, with tracking.`
+        : `${other} ships your cards there, with tracking.`,
   addressLabel: 'Name and mailing address',
   addressPlaceholder: 'Name, street, city, province and postal code',
   etransferTitle: 'Send my e-Transfer email',
@@ -152,7 +156,6 @@ export const SHARE_COPY = {
   loadError: 'Your cards could not load',
   binderLoadError: 'Your binders could not load',
   cancel: 'Cancel',
-  share: (name: string) => `Share ${name}`,
   deckCore: 'Deck core',
   binder: 'Binder',
   private: 'Private',
@@ -234,7 +237,8 @@ export const DEAL_COPY = {
   tradingSafely: 'Trading safely',
   with: 'With',
   viewProfile: 'View profile',
-  viewProfileOf: (handle: string) => `View ${handle}’s profile`,
+  /** Starts with the visible words (WCAG 2.5.3, WC review A7). */
+  viewProfileOf: (handle: string) => `View profile of ${handle}`,
   rating: (average: string, count: number) => `★${average} · ${plural(count, 'rating', 'ratings')}`,
   ratingLabel: (average: string, count: number) =>
     `Rated ${average} out of 5 from ${plural(count, 'rating', 'ratings')}`,

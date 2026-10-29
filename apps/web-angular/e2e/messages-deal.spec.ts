@@ -239,7 +239,7 @@ test.describe('Messages: the deal beside the chat (web WC)', () => {
     await expect(dealS).toContainText('×2');
     await expect(chatS.getByRole('log')).toContainText('Ship to:');
 
-    await chatS.getByRole('button', { name: `Mark ${cardName} as sold` }).click();
+    await chatS.getByRole('button', { name: `Mark as sold: ${cardName}` }).click();
     const sold = sellerPage.getByRole('dialog', { name: 'Mark as sold?' });
     await expect(sold.getByTestId('mark-sold-sentence')).toContainText(
       `Sold to ${buyer.handle}. You keep 1 copy in your inventory. You can rate each other next.`,
@@ -267,11 +267,11 @@ test.describe('Messages: the deal beside the chat (web WC)', () => {
     await noteS.getByTestId('sale-undo').click();
     await expect(sellerPage.getByText('Sale undone. It is back in your inventory.')).toBeVisible();
     await expect(chatS.getByTestId('sale-note')).toHaveCount(0);
-    await expect(chatS.getByRole('button', { name: `Mark ${cardName} as sold` })).toBeVisible();
+    await expect(chatS.getByRole('button', { name: `Mark as sold: ${cardName}` })).toBeVisible();
     await expect(chatB.getByTestId('sale-note')).toHaveCount(0, { timeout: 15_000 });
 
     // --- Sold again, then the seller rates the buyer from the note ------------------------------
-    await chatS.getByRole('button', { name: `Mark ${cardName} as sold` }).click();
+    await chatS.getByRole('button', { name: `Mark as sold: ${cardName}` }).click();
     await sold.getByRole('button', { name: 'Mark as sold', exact: true }).click();
     await expect(chatS.getByTestId('sale-note')).toBeVisible();
     await chatS

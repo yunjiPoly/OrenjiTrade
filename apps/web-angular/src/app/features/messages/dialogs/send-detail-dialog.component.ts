@@ -3,7 +3,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { SEND_DETAIL_COPY } from '../data/chat-copy';
-import { ADDRESS_MAX, EMAIL_MAX, isEmail } from '../data/deal-rules';
+import { ADDRESS_MAX, DealSide, EMAIL_MAX, isEmail } from '../data/deal-rules';
 
 export type SendDetailKind = 'address' | 'etransfer';
 
@@ -13,6 +13,8 @@ export interface SendDetailData {
   other: string;
   /** The chat's card or deck core ("theo.duels ships the Yubel core there"), if any. */
   subject: string | null;
+  /** The reader's side of the chat: only the buyer's seller ships to the address. */
+  side: DealSide;
   /** Sends the message in the chat; resolves the reason it failed, or `null` once it is sent. */
   send: (text: string) => Promise<string | null>;
 }
@@ -233,7 +235,7 @@ export class SendDetailDialogComponent {
   protected readonly isAddress = this.data.kind === 'address';
   protected readonly title = this.isAddress ? this.copy.addressTitle : this.copy.etransferTitle;
   protected readonly lead = this.isAddress
-    ? this.copy.addressBody(this.data.other, this.data.subject)
+    ? this.copy.addressBody(this.data.other, this.data.subject, this.data.side)
     : this.copy.etransferBody;
   protected readonly addressMax = ADDRESS_MAX;
   protected readonly emailMax = EMAIL_MAX;

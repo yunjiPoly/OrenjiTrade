@@ -190,6 +190,32 @@ describe('ThreadStore', () => {
     expect(sendErrorMessage(apiError('PAYLOAD_TOO_LARGE', 413))).toContain('8 MB');
   });
 
+  it('keeps a failed quick reply for "Try again", which sends that reply (WC review F6, U10)', async () => {
+    api['sendMessage'].mockReturnValueOnce(throwError(() => apiError('SERVICE_UNAVAILABLE', 503)));
+    expect(await store.sendDirect({ text: 'Got your e-Transfer', attachment: null }, true)).not.toBe(
+      null,
+    );
+    expect(store.sendError()).not.toBeNull();
+    expect(store.retryDraft()).toEqual({ text: 'Got your e-Transfer', attachment: null });
+
+    expect(await store.retry()).toBeNull();
+    expect(api['sendMessage'].mock.calls[1][0].sendMessageRequest.body).toBe('Got your e-Transfer');
+    expect(store.sendError()).toBeNull();
+    expect(store.retryDraft()).toBeNull();
+
+    // A dialog's send (no error under the composer) never becomes the composer's retry.
+    api['sendMessage'].mockReturnValueOnce(throwError(() => apiError('SERVICE_UNAVAILABLE', 503)));
+    await store.sendDirect({ text: 'Ship to: 1 Fictional Road', attachment: null });
+    expect(store.retryDraft()).toBeNull();
+
+    // The composer's own failure replaces a failed reply's.
+    api['sendMessage'].mockReturnValueOnce(throwError(() => apiError('SERVICE_UNAVAILABLE', 503)));
+    await store.sendDirect({ text: 'Thanks!', attachment: null }, true);
+    api['sendMessage'].mockReturnValueOnce(throwError(() => apiError('SERVICE_UNAVAILABLE', 503)));
+    await store.send({ text: 'My own words', attachment: null });
+    expect(store.retryDraft()).toBeNull();
+  });
+
   it('shows read receipts of the other participant', () => {
     realtime.receipts$.next({
       conversationId: 'c1',

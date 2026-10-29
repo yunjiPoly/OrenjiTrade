@@ -51,8 +51,8 @@ const LINE_PX = 21;
               type="button"
               class="quick__chip"
               [attr.aria-label]="quick.send(reply)"
-              [disabled]="busy()"
-              (click)="quickReply.emit(reply)"
+              [attr.aria-disabled]="busy() ? 'true' : null"
+              (click)="onQuick(reply)"
             >
               {{ reply }}
             </button>
@@ -117,8 +117,8 @@ const LINE_PX = 21;
           <span
             ><strong>{{ copy.notSent }}</strong> · {{ error() }}</span
           >
-          @if (canSend()) {
-            <button type="button" class="composer__retry" (click)="submit()">
+          @if (canRetry()) {
+            <button type="button" class="composer__retry" (click)="tryAgain()">
               {{ copy.tryAgain }}
             </button>
           }
@@ -238,6 +238,11 @@ export class MessageComposerComponent {
   readonly disabled = input(false);
   /** Why the last send failed (from the chat). */
   readonly error = input<string | null>(null);
+  /**
+   * The error is a quick reply's, not the field's draft: "Try again" asks the chat to send that
+   * reply again ({@link retry}) instead of the field's text (WC review F6, U10).
+   */
+  readonly retryReply = input(false);
   readonly placeholder = input<string>(COMPOSER_COPY.placeholder);
   /** The chat whose draft this composer edits (kept per chat in memory). */
   readonly draftKey = input<string | null>(null);
@@ -246,6 +251,8 @@ export class MessageComposerComponent {
   readonly send = output<MessageDraft>();
   /** A quick reply was chosen: the chat sends it as it is. */
   readonly quickReply = output<string>();
+  /** "Try again" of a failed quick reply. */
+  readonly retry = output<void>();
   /** A "+" row the chat answers with its dialog. */
   readonly action = output<ComposerAction>();
   /** The caller typed (throttled by the thread before it reaches the server). */
@@ -272,6 +279,10 @@ export class MessageComposerComponent {
       !this.disabled() &&
       (this.hasText() || !!this.attachment()) &&
       this.length() <= MESSAGE_MAX_LENGTH,
+  );
+
+  protected readonly canRetry = computed(() =>
+    this.retryReply() ? !this.busy() && !this.disabled() : this.canSend(),
   );
 
   constructor() {
@@ -310,6 +321,16 @@ export class MessageComposerComponent {
       element.focus();
       element.setSelectionRange(text.length, text.length);
     }
+  }
+
+  /**
+   * Attaches a card or binder chosen in the "+" menu's picker: it waits in the message box with
+   * its preview and "Remove attachment", and goes with Send (with any text typed).
+   */
+  attach(attachment: Exclude<DraftAttachment, { kind: 'image' }>): void {
+    this.fileError.set(null);
+    this.setAttachment(attachment);
+    this.focus();
   }
 
   /** Opens the file chooser ("Send a photo"). */
@@ -379,6 +400,21 @@ export class MessageComposerComponent {
       return;
     }
     this.send.emit({ text: this.text.value, attachment: this.attachment() });
+  }
+
+  /** A chip stays focusable while a message is on its way (`aria-disabled`; WC review A1). */
+  protected onQuick(reply: string): void {
+    if (!this.busy()) {
+      this.quickReply.emit(reply);
+    }
+  }
+
+  protected tryAgain(): void {
+    if (this.retryReply()) {
+      this.retry.emit();
+    } else {
+      this.submit();
+    }
   }
 
   protected size(bytes: number): string {
