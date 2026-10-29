@@ -103,7 +103,7 @@ const LINE_PX = 21;
             type="button"
             class="attachment__remove"
             [attr.aria-label]="copy.removeAttachment"
-            (click)="clearAttachment()"
+            (click)="removeAttachment()"
           >
             <mat-icon>close</mat-icon>
           </button>
@@ -371,6 +371,15 @@ export class MessageComposerComponent {
     if (file) {
       this.attachFile(file);
     }
+  }
+
+  /**
+   * "Remove attachment": the attachment goes and the focus moves to the field, never to the page
+   * (the button leaves with it; WC review R1-2).
+   */
+  protected removeAttachment(): void {
+    this.clearAttachment();
+    this.focus();
   }
 
   protected clearAttachment(): void {

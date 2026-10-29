@@ -210,6 +210,37 @@ describe('MessageComposerComponent', () => {
     expect(element.querySelector('[data-testid=composer-attachment]')).toBeNull();
   });
 
+  it('gives the focus to the field after Remove attachment, but not when another chat clears it (WC review R1-2)', async () => {
+    fixture.componentInstance.attach({
+      kind: 'item',
+      itemId: 'item-9',
+      name: 'Lantern Fox Spirit',
+    });
+    await fixture.whenStable();
+    const remove = element.querySelector<HTMLButtonElement>('[aria-label="Remove attachment"]')!;
+    remove.focus();
+    remove.click();
+    await fixture.whenStable();
+    expect(element.querySelector('[data-testid=composer-attachment]')).toBeNull();
+    expect(document.activeElement).toBe(textarea());
+
+    // Another chat drops the attachment without taking the focus from where it is.
+    fixture.componentInstance.attach({
+      kind: 'item',
+      itemId: 'item-9',
+      name: 'Lantern Fox Spirit',
+    });
+    await fixture.whenStable();
+    const elsewhere = document.createElement('button');
+    document.body.append(elsewhere);
+    elsewhere.focus();
+    fixture.componentRef.setInput('draftKey', 'chat-b');
+    await fixture.whenStable();
+    expect(element.querySelector('[data-testid=composer-attachment]')).toBeNull();
+    expect(document.activeElement).toBe(elsewhere);
+    elsewhere.remove();
+  });
+
   it('keeps a draft per chat in memory, never in the browser storage', async () => {
     const setItem = vi.spyOn(Storage.prototype, 'setItem');
     fixture.componentRef.setInput('draftKey', 'chat-a');
