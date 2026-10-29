@@ -149,7 +149,7 @@
         [attr.aria-modal]="dm === 'pane' ? null : 'true'"
         [cdkTrapFocus]="dm !== 'pane'"
         [cdkTrapFocusAutoCapture]="dm !== 'pane'"
-        (keydown.escape)="dm !== 'pane' && closeDeal()"
+        (keydown.escape)="onDealEscape($event, dm)"
       >
         <app-deal-panel
           [conversation]="conv"

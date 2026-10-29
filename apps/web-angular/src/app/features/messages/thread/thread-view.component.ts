@@ -345,6 +345,16 @@ export class ThreadViewComponent {
 
   // --- deal ----------------------------------------------------------------------------------
 
+  /** Esc closes the deal drawer or sheet (and goes no further: the inbox keeps its place). */
+  protected onDealEscape(event: Event, mode: 'pane' | 'drawer' | 'sheet'): void {
+    if (mode === 'pane') {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    this.closeDeal();
+  }
+
   protected onHostClick(event: MouseEvent): void {
     if ((event.target as HTMLElement | null)?.hasAttribute('data-deal-scrim')) {
       this.closeDeal();
