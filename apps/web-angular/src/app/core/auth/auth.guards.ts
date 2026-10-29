@@ -15,7 +15,7 @@ export const ADMIN_AREA = 'adminArea';
 export type AdminArea = 'admin' | 'moderation';
 
 /** Only same-app absolute paths are accepted as return URLs (no open redirects). */
-export function safeReturnUrl(value: unknown, fallback = '/map'): string {
+export function safeReturnUrl(value: unknown, fallback = '/'): string {
   if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//')) {
     return fallback;
   }
@@ -136,7 +136,7 @@ export const adminGuard: CanActivateFn = async (route, state) => {
     'OK',
     { duration: 5000 },
   );
-  return router.createUrlTree([session.isModerator() ? '/admin' : '/map']);
+  return router.createUrlTree([session.isModerator() ? '/admin' : '/']);
 };
 
 /** Sign-in / sign-up pages: signed-in collectors go straight to where they were heading. */

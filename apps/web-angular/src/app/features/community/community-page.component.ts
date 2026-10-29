@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  booleanAttribute,
   computed,
   effect,
   inject,
@@ -61,8 +62,12 @@ export class CommunityPageComponent {
   private readonly snackBar = inject(MatSnackBar);
   private readonly composer = viewChild(PostComposerComponent);
 
-  /** `:slug` route parameter (withComponentInputBinding). */
+  /** `:slug` route parameter (withComponentInputBinding), or the room Messages passes. */
   readonly slug = input<string | undefined>();
+  /** Inside Messages › Community (web WA): its title is a section of the Messages page. */
+  readonly embedded = input(false, { transform: booleanAttribute });
+  /** Where channels open (web WA: `/community` links redirect to Messages › Community). */
+  readonly basePath = input('/messages/community');
 
   protected readonly postError = signal<string | null>(null);
   /** Narrow screens: the channel list replaces the feed while open. */
@@ -122,7 +127,7 @@ export class CommunityPageComponent {
     }
     if (!slug) {
       if (fallback) {
-        void this.router.navigate(['/community', fallback], { replaceUrl: true });
+        void this.router.navigate([this.basePath(), fallback], { replaceUrl: true });
       }
       return;
     }

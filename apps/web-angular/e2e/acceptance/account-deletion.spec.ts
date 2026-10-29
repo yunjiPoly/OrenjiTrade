@@ -56,7 +56,7 @@ test.describe('acceptance: account deletion', () => {
     await pageV.getByLabel('Email').fill(viewer.email);
     await pageV.getByLabel('Password', { exact: true }).fill(viewer.password);
     await pageV.getByRole('button', { name: 'Sign in', exact: true }).click();
-    await expect(pageV).toHaveURL(/\/map(\?region=[a-z-]+)?$/, { timeout: 20_000 });
+    await expect(pageV).toHaveURL(/:\d+\/(\?region=[a-z-]+)?$/, { timeout: 20_000 });
     const before = await openState(pageV, place);
     await expect(stateBinder(before, binder.name)).toBeVisible();
     await pageV.goto(`/binders/${binder.id}`);

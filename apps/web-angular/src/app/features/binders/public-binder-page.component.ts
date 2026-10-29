@@ -40,7 +40,6 @@ import {
   isInventoryAvailability,
 } from '../../shared/inventory/inventory-labels';
 import { PublicItemCardComponent } from '../../shared/inventory/public-item-card/public-item-card.component';
-import { OfferSeller } from '../../shared/offers/offer-target';
 import { AVAILABILITIES } from '../../shared/ui/availability-chip/availability';
 import { EmptyStateComponent } from '../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../shared/ui/error-state/error-state.component';
@@ -69,7 +68,7 @@ type BinderState =
  * `/binders/:id`: a public binder (`GET /public/binders/{id}` + its public items), open to
  * everyone. Game and availability filters and the search live in the URL. Only what the owner
  * made public is shown: never private notes, never a city (the owner block carries the
- * state/province and country, ADR 0017). Cards that accept offers carry "Make an offer".
+ * state/province and country, ADR 0017). Deals happen in the chat (offers left the web).
  */
 @Component({
   selector: 'app-public-binder-page',
@@ -217,7 +216,7 @@ type BinderState =
                   <ul class="pbp__grid" [class.pbp__dim]="itemsLoading()" aria-label="Public cards">
                     @for (item of page.items; track item.id) {
                       <li class="pbp__cell">
-                        <app-public-item-card [item]="item" [seller]="seller()" />
+                        <app-public-item-card [item]="item" />
                       </li>
                     }
                   </ul>
@@ -370,19 +369,6 @@ export class PublicBinderPageComponent {
   protected readonly binder = computed(() => {
     const state = this.state();
     return state.kind === 'ready' ? state.binder : null;
-  });
-  /** The owner as the offer dialog shows them ("Make an offer" on each card). */
-  protected readonly seller = computed<OfferSeller | null>(() => {
-    const owner = this.binder()?.owner;
-    return owner
-      ? {
-          id: owner.id,
-          displayName: owner.displayName,
-          handle: owner.handle,
-          avatarUrl: owner.avatarUrl ?? null,
-          placeLabel: owner.place?.label ?? null,
-        }
-      : null;
   });
   protected readonly isOwn = computed(() => {
     const me = this.session.me();

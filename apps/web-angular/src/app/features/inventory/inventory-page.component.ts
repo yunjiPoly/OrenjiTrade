@@ -231,11 +231,17 @@ export class InventoryPageComponent {
       const printingId = this.add();
       const cardId = this.card();
       const key = `${cardId}|${printingId}`;
-      if (this.signedIn() && cardId && this.addHandled !== key) {
+      // `?add=new` (the "n" shortcut, web WA): Add cards without a card chosen yet.
+      const fresh = printingId === 'new' && !cardId;
+      if (!printingId && !cardId) {
+        // The URL was cleaned: the next "n" opens Add cards again.
+        this.addHandled = null;
+      }
+      if (this.signedIn() && (cardId || fresh) && this.addHandled !== key) {
         this.addHandled = key;
         untracked(() => {
           this.navigate({ add: null, card: null }, true);
-          void this.openAddCard({ printingId, cardId });
+          void this.openAddCard(fresh ? {} : { printingId, cardId });
         });
       }
     });

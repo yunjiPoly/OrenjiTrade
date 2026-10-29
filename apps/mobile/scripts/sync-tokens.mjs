@@ -64,7 +64,7 @@ const FALLBACK_TOKENS = {
   color: {
     light: {
       primary: '#F4761A',
-      onPrimary: '#FFFFFF',
+      onPrimary: '#1C1917',
       primaryContainer: '#FFE1CB',
       onPrimaryContainer: '#4A1F00',
       accent: '#0F766E',

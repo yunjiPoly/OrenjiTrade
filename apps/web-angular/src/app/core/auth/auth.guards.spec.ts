@@ -133,7 +133,7 @@ describe('auth guards', () => {
 
   it('adminGuard turns collectors away', async () => {
     setup({ authenticated: true, status: 'ready' });
-    await expect(run(adminGuard, '/admin')).resolves.toBe('/map');
+    await expect(run(adminGuard, '/admin')).resolves.toBe('/');
   });
 
   it('guestGuard sends signed-in collectors to their (safe) return URL', async () => {
@@ -143,18 +143,18 @@ describe('auth guards', () => {
     );
     await expect(
       run(guestGuard, '/auth/sign-in', {}, { returnUrl: 'https://evil.example' }),
-    ).resolves.toBe('/map');
+    ).resolves.toBe('/');
   });
 });
 
 describe('safeReturnUrl', () => {
   it('accepts in-app paths only', () => {
     expect(safeReturnUrl('/collectors/maika')).toBe('/collectors/maika');
-    expect(safeReturnUrl('//evil.example')).toBe('/map');
-    expect(safeReturnUrl('https://evil.example')).toBe('/map');
-    expect(safeReturnUrl(undefined)).toBe('/map');
-    expect(safeReturnUrl('/auth/sign-in')).toBe('/map');
-    expect(safeReturnUrl('/onboarding?returnUrl=%2Fmap')).toBe('/map');
+    expect(safeReturnUrl('//evil.example')).toBe('/');
+    expect(safeReturnUrl('https://evil.example')).toBe('/');
+    expect(safeReturnUrl(undefined)).toBe('/');
+    expect(safeReturnUrl('/auth/sign-in')).toBe('/');
+    expect(safeReturnUrl('/onboarding?returnUrl=%2Fmap')).toBe('/');
     expect(safeReturnUrl(null, '/settings')).toBe('/settings');
   });
 });

@@ -361,6 +361,10 @@ export class RateCollectorDialogComponent {
         body[criterion.key] = score;
       }
     }
+    // Never asked any more (no meetups, ADR 0018), but an old rating's score is not lost on edit.
+    if (value.meetupReliability !== null) {
+      body.meetupReliability = value.meetupReliability;
+    }
     const comment = value.comment.trim();
     if (comment) {
       body.comment = comment;

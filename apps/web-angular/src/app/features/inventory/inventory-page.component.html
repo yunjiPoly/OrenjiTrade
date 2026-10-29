@@ -1,5 +1,9 @@
 <div class="page inv">
-  <app-page-header title="Inventory" subtitle="Your binders and cards. Private by default.">
+  <app-page-header
+    title="Inventory"
+    subtitle="Your binders and cards. Private by default."
+    tabTitle
+  >
     @if (signedIn()) {
       <button actions matButton="outlined" type="button" (click)="openBinderManager()">
         <mat-icon aria-hidden="true">menu_book</mat-icon>

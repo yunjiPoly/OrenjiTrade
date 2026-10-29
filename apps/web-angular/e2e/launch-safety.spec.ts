@@ -68,7 +68,7 @@ test.describe('launch readiness: trading safety and French legal pages', () => {
     await chooseOption(page, 'State or province', 'Quebec');
     await page.getByRole('switch', { name: 'Show me on the map' }).click();
     await page.getByRole('button', { name: 'Finish' }).click();
-    await expect(page).toHaveURL(/\/map(\?region=[a-z-]+)?$/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/:\d+\/(\?region=[a-z-]+)?$/, { timeout: 20_000 });
     await expect(page.getByText('Welcome to OrenjiTrade! Your profile is ready.')).toBeVisible();
 
     // The API confirms the account is discoverable (the age gate let the switch through) and
@@ -103,7 +103,9 @@ test.describe('launch readiness: trading safety and French legal pages', () => {
     await expect(notice).toBeVisible();
     await expect(notice).toHaveAttribute('role', 'note');
     await expect(notice).toContainText('Trade safely');
-    await expect(notice).toContainText('never share your home address');
+    // The phone's chat tip (ADR 0018: shipped by mail, e-Transfer outside the app; no meetups).
+    await expect(notice).toContainText('Check ratings before you send an e-Transfer.');
+    await expect(notice).not.toContainText(/meet|public place/i);
     await expect(notice.getByTestId('safety-guide')).toHaveAttribute(
       'href',
       '/legal/trading-safely',

@@ -106,7 +106,7 @@ test.describe('authentication and onboarding', () => {
     await page.getByRole('switch', { name: 'Show me on the map' }).click();
     await page.getByRole('button', { name: 'Finish' }).click();
 
-    await expect(page).toHaveURL(/\/map(\?region=[a-z-]+)?$/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/:\d+\/(\?region=[a-z-]+)?$/, { timeout: 20_000 });
     await expect(page.getByText('Welcome to OrenjiTrade! Your profile is ready.')).toBeVisible();
 
     // --- Account menu shows the new identity; sign out ---------------------------------------
@@ -116,10 +116,9 @@ test.describe('authentication and onboarding', () => {
     await page.getByRole('menuitem', { name: 'Sign out' }).click();
     await expect(page.getByText('You are signed out. See you soon!')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Account', exact: true }).click();
-    await expect(page.getByRole('menuitem', { name: 'Sign in' })).toBeVisible();
-    await expect(page.getByRole('menuitem', { name: 'Create account' })).toBeVisible();
-    await page.keyboard.press('Escape');
+    // Signed out, the top bar has "Sign in" instead of the bell and the avatar (spec 4.3).
+    await expect(page.getByTestId('top-bar-sign-in')).toHaveAttribute('href', '/auth/sign-in');
+    await expect(page.getByTestId('account-menu-trigger')).toHaveCount(0);
 
     // --- Sign in again as the seed collector: an existing account confirms its age first ------
     await signInThroughUi(page, 'collector1@orenjitrade.test', SEED_PASSWORD);
@@ -128,12 +127,12 @@ test.describe('authentication and onboarding', () => {
     await expect(page.getByLabel('Handle')).not.toBeVisible();
     await page.getByRole('checkbox', { name: /I confirm I am 18 years of age or older/ }).check();
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
-    await expect(page).toHaveURL(/\/map(\?region=[a-z-]+)?$/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/:\d+\/(\?region=[a-z-]+)?$/, { timeout: 20_000 });
     await expect(page.getByText('Thanks for confirming. Welcome back!')).toBeVisible();
     await openAccountMenu(page);
     await expect(page.getByTestId('account-menu-name')).toHaveText('Maïka Tremblay');
     await expect(page.getByTestId('account-menu-handle')).toHaveText('@collector1');
-    await expect(page.getByRole('menuitem', { name: 'Admin' })).toHaveCount(0);
+    await expect(page.getByRole('menuitem', { name: 'Admin console' })).toHaveCount(0);
   });
 
   test('wrong credentials show a friendly error', async ({ page }) => {

@@ -6,7 +6,6 @@ import type { SearchSuggestion } from '@orenji/api-client';
 import { holdersParams, suggestionPage } from '../../shared/search/suggestions';
 import { UnifiedSearchBoxComponent } from '../../shared/search/unified-search-box/unified-search-box.component';
 import { EmptyStateComponent } from '../../shared/ui/empty-state/empty-state.component';
-import { PageHeaderComponent } from '../../shared/ui/page-header/page-header.component';
 import { CardHoldersComponent } from './card-holders/card-holders.component';
 import {
   HolderFilters,
@@ -15,12 +14,35 @@ import {
   parseSearchParams,
 } from './data/search-params';
 import { UnifiedResultsComponent } from './results/unified-results.component';
+import { MapPageComponent } from '../map/map-page.component';
+import { WishlistPageComponent } from '../wishlist/wishlist-page.component';
+import { ShellTabTitleDirective } from '../../core/layout/shell-tab-title.directive';
+import {
+  UnderlineTab,
+  UnderlineTabsComponent,
+} from '../../shared/ui/underline-tabs/underline-tabs.component';
+
+/** The view of Search (web WA): the card search, the binders' map, or the wishlist. */
+export type SearchView = 'cards' | 'binders' | 'wishlist';
 
 /**
- * `/search` (the mobile Search tab). Three views, all driven by the URL:
+ * Which top tab a URL shows (spec 4.11, web WA): `tab=wishlist` the wishlist; `tab=binders` the
+ * binders, as a map of the region's states without a text and as binder results with `q`;
+ * anything else the cards (and the collectors of today's results).
+ */
+export function searchViewOf(tab: string | undefined): SearchView {
+  const value = (tab ?? '').trim().toLowerCase();
+  return value === 'wishlist' ? 'wishlist' : value === 'binders' ? 'binders' : 'cards';
+}
+
+/**
+ * `/search` (the phone's Search tab), with the tabs Cards | Binders | Wishlist of the web redesign
+ * (spec 6; stage WD rebuilds the views beside the map). All driven by the URL:
  * - `?q=` unified results in tabs (cards, collectors, public binders; a resolved card shows its
  *   holders in the browsed region);
  * - `?card=` / `?printing=` "who in my region has this card" with every filter and sort;
+ * - `?tab=binders` without a text: the binders of the region on its map (`&state=` a state's);
+ * - `?tab=wishlist`: the wishlist;
  * - no query: an invitation to search.
  */
 @Component({
@@ -31,13 +53,29 @@ import { UnifiedResultsComponent } from './results/unified-results.component';
     MatIconModule,
     CardHoldersComponent,
     EmptyStateComponent,
-    PageHeaderComponent,
     UnifiedResultsComponent,
     UnifiedSearchBoxComponent,
+    UnderlineTabsComponent,
+    MapPageComponent,
+    WishlistPageComponent,
+    ShellTabTitleDirective,
   ],
   template: `
-    <div class="page">
-      @if (target(); as target) {
+    <div class="page search-page">
+      <header class="search-page__head">
+        @if (target()) {
+          <!-- The card holders view has its own h1 ("Who has …"): one h1 per page. -->
+          <p class="search-page__title" appShellTabTitle>Search</p>
+        } @else {
+          <h1 class="search-page__title" appShellTabTitle>Search</h1>
+        }
+        <app-underline-tabs label="Search" [tabs]="tabs()" />
+      </header>
+      @if (view() === 'wishlist') {
+        <app-wishlist-page embedded />
+      } @else if (view() === 'binders' && !params().q) {
+        <app-map-page embedded [region]="region()" [state]="state()" />
+      } @else if (target(); as target) {
         <nav class="crumbs" aria-label="Breadcrumb">
           <a routerLink="/search">Search</a>
           <mat-icon aria-hidden="true">chevron_right</mat-icon>
@@ -50,19 +88,18 @@ import { UnifiedResultsComponent } from './results/unified-results.component';
           (filtersChange)="onHolderFilters($event)"
         />
       } @else {
-        <app-page-header
-          title="Search"
-          subtitle="Cards, collectors and public binders of your region, and tags."
-        >
-          <app-unified-search-box
-            class="search__field"
-            label="Search cards, collectors and binders"
-            [value]="params().q"
-            [keepSelection]="true"
-            (picked)="onPicked($event)"
-            (submitted)="onSubmitted($event)"
-          />
-        </app-page-header>
+        <p class="search-page__lead">
+          Cards, collectors and public binders of your region, and tags.
+        </p>
+        <app-unified-search-box
+          class="search__field"
+          data-page-search
+          label="Search cards, collectors and binders"
+          [value]="params().q"
+          [keepSelection]="true"
+          (picked)="onPicked($event)"
+          (submitted)="onSubmitted($event)"
+        />
 
         @if (params().q) {
           <app-unified-results [q]="params().q" [tab]="params().tab" (tabChange)="onTab($event)" />
@@ -72,7 +109,7 @@ import { UnifiedResultsComponent } from './results/unified-results.component';
             title="Who in your region has that card?"
             description="Search a card name or a printing code like AZR-EN001 to see collectors of your region who own, trade or sell it. You can also look for a collector, a binder or a tag."
           >
-            <a actions matButton="filled" routerLink="/map">
+            <a actions matButton="filled" routerLink="/search" [queryParams]="{ tab: 'binders' }">
               <mat-icon aria-hidden="true">map</mat-icon>
               Explore the map
             </a>
@@ -86,8 +123,28 @@ import { UnifiedResultsComponent } from './results/unified-results.component';
     </div>
   `,
   styles: `
+    .search-page__head {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-3);
+      margin-bottom: var(--spacing-5);
+    }
+    .search-page__title {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: var(--font-size-title);
+      font-weight: var(--font-weight-bold);
+      letter-spacing: -0.4px;
+      line-height: 36px;
+    }
+    .search-page__lead {
+      margin: 0 0 var(--spacing-3);
+      color: var(--color-text-muted);
+    }
     .search__field {
+      display: block;
       max-width: 640px;
+      margin-bottom: var(--spacing-6);
     }
     .crumbs {
       display: flex;
@@ -111,6 +168,8 @@ export class SearchPageComponent {
   // Query parameters (withComponentInputBinding).
   readonly q = input<string | undefined>();
   readonly tab = input<string | undefined>();
+  readonly region = input<string | undefined>();
+  readonly state = input<string | undefined>();
   readonly card = input<string | undefined>();
   readonly printing = input<string | undefined>();
   readonly availability = input<string | undefined>();
@@ -142,6 +201,35 @@ export class SearchPageComponent {
       page: this.page(),
     }),
   );
+  protected readonly view = computed(() => searchViewOf(this.tab()));
+  protected readonly tabs = computed<UnderlineTab[]>(() => {
+    const q = this.params().q || null;
+    const view = this.view();
+    return [
+      {
+        id: 'cards',
+        label: 'Cards',
+        commands: ['/search'],
+        queryParams: { tab: 'cards', q },
+        active: view === 'cards',
+      },
+      {
+        id: 'binders',
+        label: 'Binders',
+        commands: ['/search'],
+        queryParams: { tab: 'binders', q },
+        active: view === 'binders',
+      },
+      {
+        id: 'wishlist',
+        label: 'Wishlist',
+        commands: ['/search'],
+        queryParams: { tab: 'wishlist', q: null },
+        active: view === 'wishlist',
+      },
+    ];
+  });
+
   /** Stable object per card/printing so the holders view does not reload for filter changes. */
   protected readonly target = computed(
     () => {
@@ -165,8 +253,8 @@ export class SearchPageComponent {
       return;
     }
     if (suggestion.type === 'TAG') {
-      void this.router.navigate(['/map'], {
-        queryParams: { tags: suggestion.slug ?? suggestion.id, view: 'list' },
+      void this.router.navigate(['/search'], {
+        queryParams: { tab: 'binders', tags: suggestion.slug ?? suggestion.id, view: 'list' },
       });
       return;
     }
@@ -178,7 +266,7 @@ export class SearchPageComponent {
 
   protected onTab(tab: SearchTab): void {
     void this.router.navigate(['/search'], {
-      queryParams: { q: this.params().q, tab: tab === 'cards' ? null : tab },
+      queryParams: { q: this.params().q, tab },
       replaceUrl: true,
     });
   }

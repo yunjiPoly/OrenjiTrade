@@ -204,8 +204,11 @@ export class CardSearchPageComponent {
   private readonly router = inject(Router);
   protected readonly games = inject(GamesStore);
 
-  /** Query parameters (bound by the router). */
-  readonly q = input<string | undefined>();
+  /**
+   * Query parameters (bound by the router). The text is `text`: `/cards?q=` is an old link that
+   * opens Search › Cards (spec 4.11), so the catalogue's own search must survive a reload.
+   */
+  readonly text = input<string | undefined>();
   readonly game = input<string | undefined>();
   readonly set = input<string | undefined>();
   readonly rarity = input<string | undefined>();
@@ -219,7 +222,7 @@ export class CardSearchPageComponent {
   protected readonly defaultSize = DEFAULT_CARD_PAGE_SIZE;
   protected readonly params = computed<CardSearchParams>(() =>
     parseCardSearchParams({
-      q: this.q(),
+      q: this.text(),
       game: this.game(),
       set: this.set(),
       rarity: this.rarity(),
@@ -289,7 +292,7 @@ export class CardSearchPageComponent {
       )
       .subscribe((q) => {
         if (q !== this.params().q) {
-          this.navigate({ q: q || null, page: null }, true);
+          this.navigate({ text: q || null, page: null }, true);
         }
       });
     inject(DestroyRef).onDestroy(() => {
@@ -306,7 +309,7 @@ export class CardSearchPageComponent {
     event.preventDefault();
     const q = this.queryControl.value.trim().slice(0, QUERY_MAX_LENGTH);
     if (q !== this.params().q) {
-      this.navigate({ q: q || null, page: null });
+      this.navigate({ text: q || null, page: null });
     }
   }
 

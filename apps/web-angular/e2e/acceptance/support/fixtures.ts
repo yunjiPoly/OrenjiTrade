@@ -98,7 +98,7 @@ export const test = base.extend<AcceptanceFixtures>({
 
 export { expect };
 
-/** Signs `collector` in through the sign-in page (lands on `/map` or the return URL). */
+/** Signs `collector` in through the sign-in page (lands on Home or the return URL). */
 export async function signIn(page: Page, collector: Pick<Collector, 'email' | 'password'>) {
   await signInThroughUi(page, collector.email, collector.password);
 }
@@ -133,11 +133,11 @@ export function escapeRegExp(text: string): string {
 }
 
 /**
- * Opens the region map on a state or province (`/map?region=&subdivision=`) and returns its binder
- * panel, once its heading ("Arkansas, United States") is shown.
+ * Opens the region map on a state or province (Home, `/?region=&state=`, since web WA) and returns
+ * its binder panel, once its heading ("Arkansas, United States") is shown.
  */
 export async function openState(page: Page, place: Place): Promise<Locator> {
-  await page.goto(`/map?region=${place.regionCode}&subdivision=${place.subdivisionCode}`);
+  await page.goto(`/?region=${place.regionCode}&state=${place.subdivisionCode}`);
   const panel = page.getByTestId('subdivision-panel');
   await expect(panel.getByRole('heading', { name: place.label })).toBeVisible({ timeout: 20_000 });
   return panel;

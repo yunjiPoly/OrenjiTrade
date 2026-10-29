@@ -40,7 +40,7 @@ import { ApiError, toApiError } from '../../../core/http/api-error';
 import { friendlyError, friendlyMessage } from '../../../core/http/api-error-messages';
 import { silentErrors } from '../../../core/http/http-context';
 import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
-import { uniqueSuggestions } from '../../../shared/catalog/card-search-box/card-search-box.component';
+import { uniqueSuggestions } from '../../../shared/catalog/card-suggestions';
 import {
   QUERY_MAX_LENGTH,
   SUGGEST_DEBOUNCE_MS,

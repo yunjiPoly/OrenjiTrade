@@ -54,8 +54,23 @@ const c = colorsFor('dark');
 A group marked `"$platforms": ["mobile"]` (or `["web"]`) reaches only that platform: `build.mjs`
 leaves a mobile-only group out of `tokens.css`, and the phone's `npm run sync:tokens` leaves a
 web-only group out of `src/theme/tokens.ts`. `dist/tokens.ts` keeps every group. `$`-prefixed
-keys are metadata and never become tokens. Today only `color.*.deckCore` is mobile-only (the deck
-core tag and switch of the phone redesign; the paused web has no deck cores).
+keys are metadata and never become tokens. The phone redesign's screen groups (`color.*.deckCore`,
+`chat`, `profile`, `home`, `guest`, `notifications`, `settings`) are mobile-only; `deckCore` and
+`chat` reach the web the day it ships deck cores and the deal chat (web redesign WC and WD).
+`color.*.notificationKind` is web-only. `gameTile` (the games' monograms) is shared since web
+stage WA.
+
+## Web redesign additions (stage WA, spec 2026-10-20 section 2.1)
+
+All additive, shared with the phone (owner decision 21):
+
+- colours: `textSecondary`, `textFaint` (disabled only), `borderInput`, `primaryHover`,
+  `primaryTint` / `primaryTintSubtle`, `accentTint`, `dangerFill` (destructive buttons inside
+  confirmations), `photoBackdrop`, `map.step0`–`step4` (the binder map's shades), and the web's
+  `notificationKind.*`;
+- sizes: `fontSize.tag` 11, `meta` 13, `body` 15, `section` 17, `title` 28; `radius.input` 12,
+  `row` 14, `dialog` 22;
+- **light `onPrimary` is ink `#1C1917`** (6.2:1 on `#F4761A`; white was 2.8:1 and failed AA).
 
 ## CSS variable naming
 
@@ -70,6 +85,7 @@ core tag and switch of the phone redesign; the paused web has no deck cores).
 | `fontSize.md`                          | `--font-size-md` (`16px`)                 |
 | `spacing.4`                            | `--spacing-4` (`16px`)                    |
 | `radius.pill`                          | `--radius-pill` (`999px`)                 |
+| `gameTile.yugioh.background`           | `--game-tile-yugioh-background`           |
 | `breakpoint.md`                        | `--breakpoint-md` (`960px`)               |
 | `focus.width`                          | `--focus-width` (`2px`)                   |
 

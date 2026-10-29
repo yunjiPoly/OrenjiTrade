@@ -80,11 +80,7 @@ import { QuantityStepperComponent } from '../../../shared/ui/quantity-stepper/qu
             · {{ it.binder.name }}
           }
         </p>
-        <app-item-chips
-          [condition]="it.condition"
-          [availability]="it.availability"
-          [acceptsOffers]="it.acceptsOffers"
-        />
+        <app-item-chips [condition]="it.condition" [availability]="it.availability" />
         <div class="ic__row">
           <span class="ic__price" [class.ic__price--none]="!price()">{{
             price() ?? 'No price'
@@ -236,5 +232,5 @@ export class InventoryItemCardComponent {
     formatPrice(this.item().askingPrice, this.item().currency),
   );
   protected readonly freshness = computed(() => badgeFreshness(this.item().freshness.state));
-  protected readonly accent = computed(() => `var(${gameInfo(this.item().card.game).colorVar})`);
+  protected readonly accent = computed(() => gameInfo(this.item().card.game).accent);
 }

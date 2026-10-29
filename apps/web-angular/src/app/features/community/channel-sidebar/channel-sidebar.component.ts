@@ -46,7 +46,7 @@ import { channelIcon, groupChannels } from '../data/community-helpers';
                 <a
                   class="channel"
                   [class.channel--active]="channel.slug === selected()"
-                  [routerLink]="['/community', channel.slug]"
+                  [routerLink]="[basePath(), channel.slug]"
                   [attr.aria-current]="channel.slug === selected() ? 'page' : null"
                 >
                   <mat-icon class="channel__icon" aria-hidden="true">{{ icon(channel) }}</mat-icon>
@@ -164,6 +164,8 @@ import { channelIcon, groupChannels } from '../data/community-helpers';
 export class ChannelSidebarComponent {
   readonly channels = input.required<readonly CommunityChannel[]>();
   readonly selected = input<string | null>(null);
+  /** Where a channel opens: `/messages/community/<slug>` since web WA (Messages › Community). */
+  readonly basePath = input('/messages/community');
   /** Chosen game filter (null: every game). */
   protected readonly game = signal<string | null>(null);
 

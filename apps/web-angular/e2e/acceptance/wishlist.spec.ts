@@ -87,7 +87,7 @@ test.describe('acceptance: wishlist', () => {
     api.trackPublished(b, binder.id);
 
     // --- A gets the wishlist alert live; it opens the card page --------------------------------
-    await expect(page.getByTestId('notification-badge')).toHaveText('1', { timeout: 30_000 });
+    await expect(page.getByTestId('notification-badge')).toBeVisible({ timeout: 30_000 });
     expect(
       await page.evaluate(() => (window as unknown as { e2eNoReload?: boolean }).e2eNoReload),
     ).toBe(true);

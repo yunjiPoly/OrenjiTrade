@@ -20,7 +20,11 @@ import { toApiError } from '../../core/http/api-error';
 import { friendlyMessage } from '../../core/http/api-error-messages';
 import { NotificationCenter } from '../../core/notifications/notification-center.service';
 import { NotificationEntryComponent } from '../../core/notifications/notification-entry.component';
-import { notificationLink } from '../../core/notifications/notification-kinds';
+import {
+  isHistoryNotification,
+  notificationLink,
+  notificationText,
+} from '../../core/notifications/notification-kinds';
 import { EmptyStateComponent } from '../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../shared/ui/error-state/error-state.component';
 import { PageHeaderComponent } from '../../shared/ui/page-header/page-header.component';
@@ -105,19 +109,26 @@ import { NotificationFeedStore } from './data/notification-feed.store';
                 <ul class="feed__list" [attr.aria-label]="group.label + ' notifications'">
                   @for (notification of group.items; track notification.id) {
                     <li class="feed__row" [class.feed__row--unread]="!notification.readAt">
-                      <a
-                        class="feed__link"
-                        [routerLink]="linkOf(notification)"
-                        (click)="store.markRead(notification)"
-                      >
-                        <app-notification-entry [notification]="notification" />
-                      </a>
+                      @if (isHistory(notification)) {
+                        <!-- An old offer or trade notice: history, nothing to open (decision 2). -->
+                        <div class="feed__link" data-testid="notification-history">
+                          <app-notification-entry [notification]="notification" />
+                        </div>
+                      } @else {
+                        <a
+                          class="feed__link"
+                          [routerLink]="linkOf(notification)"
+                          (click)="store.markRead(notification)"
+                        >
+                          <app-notification-entry [notification]="notification" />
+                        </a>
+                      }
                       @if (!notification.readAt) {
                         <button
                           matIconButton
                           type="button"
                           class="feed__read"
-                          [attr.aria-label]="'Mark as read: ' + notification.title"
+                          [attr.aria-label]="'Mark as read: ' + textOf(notification).title"
                           matTooltip="Mark as read"
                           (click)="store.markRead(notification)"
                         >
@@ -306,6 +317,9 @@ export class NotificationsPageComponent {
       });
     });
   }
+
+  protected readonly isHistory = isHistoryNotification;
+  protected readonly textOf = notificationText;
 
   /** The page a notification opens, parsed once (deep links may carry a query string). */
   protected linkOf(notification: NotificationResponse): UrlTree {
