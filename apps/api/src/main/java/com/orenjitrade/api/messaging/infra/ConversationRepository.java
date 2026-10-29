@@ -230,6 +230,30 @@ public class ConversationRepository {
                 .update();
     }
 
+    /**
+     * Locks ({@code FOR NO KEY UPDATE}, ascending id) and returns the conversations of {@code
+     * senderId} whose last message they sent: the account deletion erases those messages, so each
+     * conversation needs its last message again (WC review R2-2). A message another collector
+     * stored meanwhile takes the row first and leaves it out.
+     */
+    public List<UUID> lockWithLastMessageFrom(UUID senderId) {
+        return jdbc.sql(
+                        """
+                        SELECT c.id
+                          FROM conversation c
+                         WHERE c.id IN (SELECT cp.conversation_id FROM conversation_participant cp
+                                         WHERE cp.user_id = :sender)
+                           AND (c.last_message_sender_id = :sender
+                                OR c.last_message_id IN (SELECT m.id FROM message m
+                                                          WHERE m.sender_id = :sender))
+                         ORDER BY c.id
+                           FOR NO KEY UPDATE
+                        """)
+                .param("sender", senderId)
+                .query(UUID.class)
+                .list();
+    }
+
     /** Records the last message of a conversation (inside the message transaction). */
     public void updateLastMessage(
             UUID conversationId,

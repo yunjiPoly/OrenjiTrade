@@ -1225,6 +1225,19 @@ public class ConversationService {
         return timeProvider.now().truncatedTo(ChronoUnit.MICROS);
     }
 
+    /**
+     * Account deletion, inside its transaction and after the account's messages were erased: each
+     * conversation whose last message the account sent gets the newest message left as its last
+     * one, or none, so no preview outlives the erased text (WC review R2-2).
+     *
+     * @return how many conversations got their last message again
+     */
+    int refreshLastMessagesErasedFrom(UUID senderId) {
+        List<UUID> refreshed = conversations.lockWithLastMessageFrom(senderId);
+        refreshed.forEach(this::refreshLastMessage);
+        return refreshed.size();
+    }
+
     /** The newest message left becomes the conversation's last message again. */
     private void refreshLastMessage(UUID conversationId) {
         List<MessageRow> newest = messages.page(conversationId, null, 1);
