@@ -9,17 +9,12 @@
   padding: 20px;
 }
 
-/* The drawer's and the sheet's header stays while the panel scrolls (WC review U2). */
+/* Sticky in the drawer and the sheet: styles/_app-extras.scss (this file's budget). */
 .deal__top {
-  position: sticky;
-  top: 0;
-  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: -8px 0 calc(-1 * var(--spacing-2));
-  padding-block: 8px;
-  background: var(--color-surface);
+  margin-bottom: calc(-1 * var(--spacing-2));
 }
 
 .deal__heading {

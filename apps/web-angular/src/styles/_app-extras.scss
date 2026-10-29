@@ -243,6 +243,16 @@
   }
 }
 
+// The deal drawer's and sheet's header stays while the panel scrolls (WC review U2).
+app-deal-panel .deal__top {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin-top: -8px;
+  padding-block: 8px;
+  background: var(--color-surface);
+}
+
 // Below 960 the chat's "+" and "⋯" open as bottom sheets (spec 16; WC review U8): the same menu
 // (its role, arrows and Esc) pinned to the bottom edge at full width, over a dimmed backdrop.
 .cdk-overlay-pane:has(> .mat-mdc-menu-panel.app-menu--sheet) {
