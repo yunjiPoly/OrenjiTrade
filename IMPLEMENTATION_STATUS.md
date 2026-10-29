@@ -11349,11 +11349,51 @@ too. Free for all (ADR 0019), deals ship by mail (ADR 0018), places only (ADR 00
 
 **Checks (retries off, real numbers)**
 
-{{CHECKS}}
+On the Mac mini (Apple M6, macOS 27, JDK 21), 2026-10-29:
+
+- `./gradlew spotlessCheck --rerun-tasks`: passed.
+- `npm run test:api`: passed, **1298 tests** (with `catalogTest`), 0 failures, 4 min 52 s (no API
+  change; the run proves nothing broke around the E2E environment's import fixtures).
+- `./gradlew exportOpenApi` then `npm run generate:api`: no change, git clean.
+- `npm run lint -w apps/web-angular`, `npm run format:check -w apps/web-angular`: passed.
+- `npm test -w apps/web-angular`: **157 files, 737 tests** passed (WA: 139 files, 645 tests);
+  `npm run test:web`: passed.
+- `npm run build -w apps/web-angular`: passed, no budget warning (Import split into its source,
+  lines and Done; the drag ghost and "Add many at once" in their own components).
+- `npm run build:prod -w apps/web-angular`: passed, **initial total 833.67 kB** (budget 900; WA
+  825.13 kB: the deck core tokens and the menus' styles in `styles.css`, the keyboard dialog's
+  Inventory group); lazy chunks `inventory-page-component` 339.89 kB (CDK drag-drop only here),
+  `import-page-component` 68.58 kB.
+- `npm run test:e2e -- --retries=0` (under the web E2E lock): **78 passed** in 1 min 35 s.
+- `npm run test:scripts`: **153 passed** (147 before: the served-bundle guard and the E2E import
+  fixtures); `npm run audit:gate`: OK.
+- Phone: `npm run typecheck -w apps/mobile`, `npm run lint -w apps/mobile`,
+  `npm run format:check -w apps/mobile`: passed; `npm run test:mobile`: **127 suites, 1741 tests**
+  passed (the deck core token test now expects the shared group; two suites that timed out while
+  the web E2E ran beside them passed alone and in the idle run); `npx expo export` for iOS, Android
+  and web into throw-away folders: passed.
+- {{MOBILE_E2E}}
+- {{MAESTRO}}
+- The walk (Playwright, Chromium, the walk stack API 8580 + web 4400, database
+  `orenjitrade_wb_check`, Redis db 6, all removed afterwards): every screen of the stage at 1440,
+  1024 and 390 in dark and light (78 screenshots in
+  `.local-dev/wb-notes/pr-shots/after/`, the BEFORE ones in `pr-shots/before/`), keyboard only (the
+  page search with "/", one tab stop in the table, j, Space, Esc, Enter into Edit card with the focus
+  trapped, Esc back to the row, Shift+N, n, the "?" dialog), 200 % zoom (no horizontal scroll),
+  a quick add 429 (the limit lowered on the walk stack and put back), drag to a binder (in the
+  E2E), a `.ydk` imported to Done.
 
 **Could not be verified**
 
-{{UNVERIFIED}}
+- **Android**: the Android run could not be verified (no Android SDK on this Mac); the phone's
+  code did not change, only its token test and the token file's `deckCore` marker.
+- **A real drag with a mouse by a person**: proven with Playwright's mouse (the E2E) only.
+- **Screen readers**: the names, roles and live regions were checked in the DOM and the
+  accessibility tree, not with VoiceOver.
+- **The 1920 xl layout**: not walked (the grid's 10 columns and the drawer push follow from the
+  same rules as 1440).
+- **The post-import selection** (decision 18) is not built: it needs the commit to return the item
+  ids (an owner call, decision 19).
 
 ## NEXT TASK
 
