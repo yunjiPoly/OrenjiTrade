@@ -201,6 +201,11 @@ const CARDS_PAGE = 30;
       outline: var(--focus-width) solid var(--color-focus-ring);
       outline-offset: -2px;
     }
+    .sp__head,
+    .sp__search,
+    .sp__foot {
+      flex: 0 0 auto;
+    }
     .sp__search {
       display: flex;
       align-items: center;

@@ -28,7 +28,7 @@ export class ReportActionsService {
           ReportCollectorDialogComponent,
           {
             data: { target, context },
-            panelClass: 'app-dialog--md',
+            panelClass: 'app-dialog--form',
             autoFocus: 'dialog',
           },
         )
