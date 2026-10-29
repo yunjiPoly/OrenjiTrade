@@ -256,7 +256,10 @@ the dependents' ranges allow it, otherwise with an npm override in the root `pac
 dependency that pins the affected version exactly). npm does not apply a new override to entries
 already in the lockfile: delete the affected entries (the package and its nested copies) and run
 `npm install --package-lock-only`, then check `npm ls <package> --all`; never `npm dedupe`, which
-moves the whole tree. Each override is removed once its dependents move past the fix by
+moves the whole tree. Example of the first kind (2026-10-28): `re2js` 2.8.6 → 2.8.8 for
+GHSA-gg6h-894w-4m9c (patched in 2.8.7), in the lockfile only, since `@firebase/firestore` asks for
+`^2.8.3`; it reaches the repo through the phone's `firebase`, and neither app imports Firestore, so
+no bundle carries it. Each override is removed once its dependents move past the fix by
 themselves:
 
 | Override | Pinned by | Advisory | Remove when |
