@@ -5,14 +5,14 @@
 
 .pbp {
   width: 100%;
-  // The content is 1200 (1120 for a deck core); the side padding comes on top (spec 8.1, 8.2).
-  max-width: calc(1200px + 48px);
+  // The content is 1200 (1120 for a deck core) plus the side padding (spec 8.1, 8.2).
+  max-width: 1248px;
   margin: 0 auto;
   padding: 28px 24px 48px;
 }
 
 .pbp--core {
-  max-width: calc(1120px + 48px);
+  max-width: 1168px;
 }
 
 .pbp__crumbs {
@@ -58,18 +58,20 @@
   text-transform: uppercase;
 }
 
+.tag--core,
+.tag--public {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .tag--core {
   background: var(--color-deck-core-tag-background);
   color: var(--color-deck-core-tag-text);
-  letter-spacing: 0;
-  text-transform: none;
 }
 
 .tag--public {
   background: var(--color-accent-tint);
   color: var(--color-accent);
-  letter-spacing: 0;
-  text-transform: none;
 }
 
 .pbp__outline {
@@ -182,7 +184,6 @@
 .core__panel {
   position: sticky;
   top: 88px;
-  align-self: start;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -194,19 +195,21 @@
   gap: 8px;
 }
 
-.core__name {
+.core__name,
+.core__price {
   margin: 0;
   font-family: var(--font-display);
-  font-size: var(--font-size-3xl);
   font-weight: var(--font-weight-bold);
+}
+
+.core__name {
+  font-size: var(--font-size-3xl);
   line-height: 36px;
 }
 
 .core__price {
-  margin: -8px 0 0;
-  font-family: var(--font-display);
+  margin-top: -8px;
   font-size: var(--font-size-2xl);
-  font-weight: var(--font-weight-bold);
 }
 
 .core__facts {
@@ -403,17 +406,14 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  // On the phone the name, the price and Message come right after the photos (board W8).
   .core__panel {
     position: static;
+    order: 1;
   }
 
-  // On the phone the name, the price and Message come right after the photos (board W8).
   .core__main {
     display: contents;
-  }
-
-  .core__panel {
-    order: 1;
   }
 
   .core__keys {
