@@ -12476,7 +12476,7 @@ warning; the chat drawer is a 6.5 kB lazy chunk on a 151 kB chunk shared with Me
 1,782 tests; `npx expo export --platform ios`, `android` and `web` 0 (throw-away folders);
 `npm run test:mobile:e2e -- --retries=0` **66 / 66** (`--stack-only`: the harness and a grep of the
 served entry name `localhost:8090` and never `localhost:8080`; then `--reuse-running`, then
-`--stop`); `npm run test:mobile:maestro -- --platform ios` MAESTRO_PLACEHOLDER (design-tokens
+`--stop`); `npm run test:mobile:maestro -- --platform ios` **44 / 44 flows** (1 h 11 min 20 s) (design-tokens
 changed; the owner's iPhone 18 Pro under the simulator lock; its appearance (light) and text size
 (large) left as they were); `npm run test:scripts` 153 / 153; `npm run audit:gate` OK. Walks with
 Playwright on the walk stack (API 8580, `orenjitrade_wc_check`, Redis db 6; web 4400) at 1440,
