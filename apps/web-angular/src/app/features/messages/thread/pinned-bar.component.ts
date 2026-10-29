@@ -208,12 +208,16 @@ import { DealSide, pinnedEnd, pinnedLine, subjectPrice } from '../data/deal-rule
 export class PinnedBarComponent {
   readonly subject = input.required<ConversationSubject>();
   readonly side = input.required<DealSide>();
+  /** The other collector's handle (a buyer reads "{seller}'s deck core"). */
+  readonly otherHandle = input('');
   /** The chat cannot receive messages (Mark as sold waits). */
   readonly disabled = input(false);
   readonly markSold = output<void>();
 
   protected readonly copy = PINNED_COPY;
-  protected readonly line = computed(() => pinnedLine(this.subject(), this.side()));
+  protected readonly line = computed(() =>
+    pinnedLine(this.subject(), this.side(), this.otherHandle()),
+  );
   protected readonly end = computed(() => pinnedEnd(this.subject(), this.side()));
   protected readonly price = computed(() => subjectPrice(this.subject()));
   protected readonly link = computed(() => {

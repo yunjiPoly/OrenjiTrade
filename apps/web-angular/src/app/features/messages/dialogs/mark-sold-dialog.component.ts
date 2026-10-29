@@ -9,12 +9,7 @@ import { silentErrors } from '../../../core/http/http-context';
 import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import { QuantityStepperComponent } from '../../../shared/ui/quantity-stepper/quantity-stepper.component';
 import { MARK_SOLD_COPY } from '../data/chat-copy';
-import {
-  TRACKING_MAX,
-  cleanTracking,
-  markSoldSentence,
-  trackingProblem,
-} from '../data/deal-rules';
+import { TRACKING_MAX, cleanTracking, markSoldSentence, trackingProblem } from '../data/deal-rules';
 import { saleErrorMessage } from '../data/sale-errors';
 
 export interface MarkSoldData {
@@ -37,7 +32,13 @@ export type MarkSoldResult = { sale: SaleResponse } | { changed: true; message: 
  */
 @Component({
   selector: 'app-mark-sold-dialog',
-  imports: [MatButtonModule, MatDialogModule, MatIconModule, CardImageComponent, QuantityStepperComponent],
+  imports: [
+    MatButtonModule,
+    MatDialogModule,
+    MatIconModule,
+    CardImageComponent,
+    QuantityStepperComponent,
+  ],
   template: `
     @let s = data.subject;
     <div class="ms">
@@ -301,7 +302,8 @@ export type MarkSoldResult = { sale: SaleResponse } | { changed: true; message: 
 })
 export class MarkSoldDialogComponent {
   protected readonly data = inject<MarkSoldData>(MAT_DIALOG_DATA);
-  private readonly ref = inject<MatDialogRef<MarkSoldDialogComponent, MarkSoldResult>>(MatDialogRef);
+  private readonly ref =
+    inject<MatDialogRef<MarkSoldDialogComponent, MarkSoldResult>>(MatDialogRef);
   private readonly deals = inject(DealsService);
 
   protected readonly copy = MARK_SOLD_COPY;

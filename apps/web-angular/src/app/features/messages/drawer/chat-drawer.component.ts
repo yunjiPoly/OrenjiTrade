@@ -53,7 +53,12 @@ import { ThreadViewComponent } from '../thread/thread-view.component';
       >
         <header drawerHeader class="cd__head">
           <span class="cd__avatar">
-            <app-avatar size="sm" [src]="c.other.avatarUrl" [name]="c.other.displayName" [decorative]="true" />
+            <app-avatar
+              size="sm"
+              [src]="c.other.avatarUrl"
+              [name]="c.other.displayName"
+              [decorative]="true"
+            />
             @if (c.other.onlineStatus === 'ONLINE') {
               <span class="cd__online" aria-hidden="true"></span>
             }
@@ -206,8 +211,12 @@ export class ChatDrawerComponent {
   constructor() {
     // A new chat: the focus moves into the composer (the opener keeps its place for Esc).
     effect(() => {
-      this.conversation().id;
-      untracked(() => setTimeout(() => this.focusComposer()));
+      const id = this.conversation().id;
+      untracked(() => {
+        if (id) {
+          setTimeout(() => this.focusComposer());
+        }
+      });
     });
     afterNextRender(() => this.focusComposer());
     const onKey = (event: KeyboardEvent) => this.onDocumentKey(event);

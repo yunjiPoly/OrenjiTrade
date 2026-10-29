@@ -289,7 +289,10 @@ export class ThreadStore {
       if (this.conversationState()?.id !== fresh.id) {
         return null;
       }
-      this.conversationState.set({ ...fresh, unreadCount: this.conversationState()?.unreadCount ?? 0 });
+      this.conversationState.set({
+        ...fresh,
+        unreadCount: this.conversationState()?.unreadCount ?? 0,
+      });
       this.refreshedState.set(fresh);
       return fresh;
     } catch {
@@ -453,13 +456,11 @@ export class ThreadStore {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((notice) => this.applyTyping(notice));
     this.realtime.resync$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.resync());
-    this.realtime.conversations$
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((notice) => {
-        if (notice.conversationId === this.conversationState()?.id) {
-          void this.refreshConversation();
-        }
-      });
+    this.realtime.conversations$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((notice) => {
+      if (notice.conversationId === this.conversationState()?.id) {
+        void this.refreshConversation();
+      }
+    });
   }
 
   private clearTypingTimer(): void {

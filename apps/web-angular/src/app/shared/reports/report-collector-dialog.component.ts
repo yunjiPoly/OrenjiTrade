@@ -90,16 +90,11 @@ export interface ReportDialogData {
             <strong>{{ data.target.displayName }}</strong
             >. They are not told who reported them.
           </p>
-          <p class="done__muted">
-            You will get a notification once the review is complete.
-          </p>
+          <p class="done__muted">You will get a notification once the review is complete.</p>
         </div>
       </mat-dialog-content>
       <mat-dialog-actions align="end" class="done__actions">
-        <a
-          class="done__follow"
-          routerLink="/settings/reports"
-          [mat-dialog-close]="confirmation"
+        <a class="done__follow" routerLink="/settings/reports" [mat-dialog-close]="confirmation"
           >Follow it in My reports</a
         >
         <button #done matButton="outlined" type="button" [mat-dialog-close]="confirmation">

@@ -69,7 +69,12 @@ type Load<T> = { state: 'idle' | 'loading' | 'error' } | { state: 'ready'; value
       @if (closable()) {
         <div class="deal__top">
           <span class="deal__heading">{{ copy.label }}</span>
-          <button type="button" class="deal__close" [attr.aria-label]="copy.closeDeal" (click)="closed.emit()">
+          <button
+            type="button"
+            class="deal__close"
+            [attr.aria-label]="copy.closeDeal"
+            (click)="closed.emit()"
+          >
             <mat-icon aria-hidden="true">close</mat-icon>
           </button>
         </div>
@@ -221,7 +226,9 @@ type Load<T> = { state: 'idle' | 'loading' | 'error' } | { state: 'ready'; value
               <mat-icon aria-hidden="true">shield</mat-icon>
               <span
                 >{{ copy.noProtection }}
-                <a class="teal" routerLink="/legal/trading-safely">{{ copy.tradingSafely }}</a></span
+                <a class="teal" routerLink="/legal/trading-safely">{{
+                  copy.tradingSafely
+                }}</a></span
               >
             </p>
           </section>
@@ -248,7 +255,12 @@ type Load<T> = { state: 'idle' | 'loading' | 'error' } | { state: 'ready'; value
         </div>
         <div class="with">
           <span class="with__avatar">
-            <app-avatar size="md" [src]="c.other.avatarUrl" [name]="c.other.displayName" [decorative]="true" />
+            <app-avatar
+              size="md"
+              [src]="c.other.avatarUrl"
+              [name]="c.other.displayName"
+              [decorative]="true"
+            />
             @if (c.other.onlineStatus === 'ONLINE') {
               <span class="with__online" aria-hidden="true"></span>
             }
@@ -477,7 +489,9 @@ export class DealPanelComponent {
     if (item.visibility === 'PRIVATE') {
       return DEAL_COPY.private;
     }
-    return item.visibility === 'TEMPORARILY_PUBLIC' ? DEAL_COPY.temporarilyPublic : DEAL_COPY.public;
+    return item.visibility === 'TEMPORARILY_PUBLIC'
+      ? DEAL_COPY.temporarilyPublic
+      : DEAL_COPY.public;
   }
 
   private loadProfile(handle: string): void {
@@ -487,11 +501,14 @@ export class DealPanelComponent {
     this.profileFor = handle;
     this.profile.set({ state: 'loading' });
     this.requests.push(
-      this.collectors.getCollector({ handle }, 'body', false, { context: silentErrors() }).subscribe({
-        next: (value) => this.profileFor === handle && this.profile.set({ state: 'ready', value }),
-        // Without the profile the block shows the handle and the place only.
-        error: () => this.profileFor === handle && this.profile.set({ state: 'error' }),
-      }),
+      this.collectors
+        .getCollector({ handle }, 'body', false, { context: silentErrors() })
+        .subscribe({
+          next: (value) =>
+            this.profileFor === handle && this.profile.set({ state: 'ready', value }),
+          // Without the profile the block shows the handle and the place only.
+          error: () => this.profileFor === handle && this.profile.set({ state: 'error' }),
+        }),
     );
   }
 
@@ -545,7 +562,9 @@ export class DealPanelComponent {
           error: (error: { status?: number }) => {
             if (this.moreFor === handle) {
               // 404: their cards are not public to the reader (a private profile): no tiles.
-              this.more.set(error?.status === 404 ? { state: 'ready', value: [] } : { state: 'error' });
+              this.more.set(
+                error?.status === 404 ? { state: 'ready', value: [] } : { state: 'error' },
+              );
             }
           },
         }),

@@ -19,7 +19,10 @@ import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
 import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
-import { SegmentOption, SegmentedComponent } from '../../../shared/ui/segmented/segmented.component';
+import {
+  SegmentOption,
+  SegmentedComponent,
+} from '../../../shared/ui/segmented/segmented.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
 import { INBOX_COPY } from '../data/chat-copy';
 import { filterChats, inboxTime } from '../data/deal-rules';

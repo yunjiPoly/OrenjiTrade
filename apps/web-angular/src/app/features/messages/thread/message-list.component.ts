@@ -50,9 +50,7 @@ const LOAD_OLDER_PX = 200;
           <app-skeleton variant="list" lines="2" />
         </div>
       } @else if (!hasOlder() && messages().length > 0) {
-        <p class="start">
-          This is the beginning of your conversation with {{ other().handle }}.
-        </p>
+        <p class="start">This is the beginning of your conversation with {{ other().handle }}.</p>
       }
       @for (item of items(); track item.key) {
         @if (item.kind === 'day') {
@@ -81,11 +79,7 @@ const LOAD_OLDER_PX = 200;
             }
             <span class="visually-hidden"
               >{{
-                item.message.kind === 'SYSTEM'
-                  ? 'OrenjiTrade'
-                  : item.own
-                    ? 'You'
-                    : other().handle
+                item.message.kind === 'SYSTEM' ? 'OrenjiTrade' : item.own ? 'You' : other().handle
               }}:</span
             >
             <app-message-bubble

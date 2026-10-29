@@ -37,7 +37,13 @@ import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
 import { ComposerAction, MessageComposerComponent } from '../composer/message-composer.component';
-import { CHAT_COPY, COMPOSER_COPY, MARK_SOLD_COPY, SEND_DETAIL_COPY, TIP_COPY } from '../data/chat-copy';
+import {
+  CHAT_COPY,
+  COMPOSER_COPY,
+  MARK_SOLD_COPY,
+  SEND_DETAIL_COPY,
+  TIP_COPY,
+} from '../data/chat-copy';
 import { ConversationsStore } from '../data/conversations.store';
 import { canUndoSale, chatSide, quickReplies } from '../data/deal-rules';
 import { MessageDraft } from '../data/message-draft';
@@ -108,6 +114,8 @@ function saveDealPanel(open: boolean): void {
     ThreadHeaderComponent,
   ],
   providers: [ThreadStore],
+  // A click on the scrim closes the deal drawer (Esc and its Close button do too).
+  host: { '(click)': 'onHostClick($event)' },
   templateUrl: './thread-view.component.html',
   styleUrl: './thread-view.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -315,10 +323,13 @@ export class ThreadViewComponent {
   private async openSharePicker(mode: 'card' | 'binder'): Promise<void> {
     const choice = await firstValueFrom(
       this.dialog
-        .open<SharePickerDialogComponent, SharePickerData, ShareChoice>(SharePickerDialogComponent, {
-          data: { mode, other: this.c().other.handle },
-          panelClass: 'app-dialog--form',
-        })
+        .open<SharePickerDialogComponent, SharePickerData, ShareChoice>(
+          SharePickerDialogComponent,
+          {
+            data: { mode, other: this.c().other.handle },
+            panelClass: 'app-dialog--form',
+          },
+        )
         .afterClosed(),
     );
     if (!choice) {
@@ -333,6 +344,12 @@ export class ThreadViewComponent {
   }
 
   // --- deal ----------------------------------------------------------------------------------
+
+  protected onHostClick(event: MouseEvent): void {
+    if ((event.target as HTMLElement | null)?.hasAttribute('data-deal-scrim')) {
+      this.closeDeal();
+    }
+  }
 
   protected toggleDeal(): void {
     if (this.dealMode() === 'pane') {
@@ -351,9 +368,7 @@ export class ThreadViewComponent {
     } else {
       this.dealOverlay.set(false);
     }
-    setTimeout(() =>
-      this.doc.querySelector<HTMLElement>('[data-testid="deal-toggle"]')?.focus(),
-    );
+    setTimeout(() => this.doc.querySelector<HTMLElement>('[data-testid="deal-toggle"]')?.focus());
   }
 
   protected async markSold(): Promise<void> {

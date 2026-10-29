@@ -27,6 +27,10 @@ describe('"Keyboard shortcuts" (the "?" dialog, spec 4.9)', () => {
     expect(actions).toContain('Go to Home, Search, Inventory, Messages or Profile');
     expect(actions).toContain('The search in the top bar, from any page');
     expect(actions).toContain('Show these shortcuts');
+    // Web WC: the inbox, the composer and the chat drawer.
+    expect(actions).toContain('In a chat: or send');
+    expect(actions).toContain('Move down and up the chats');
+    expect(actions).toContain('Between the page and the chat drawer');
     const foot = element.querySelector('.kd__foot');
     expect(foot?.textContent).toContain('never fire while you type in a field');
     expect(foot?.querySelector('a')?.getAttribute('href')).toBe('/settings/appearance');

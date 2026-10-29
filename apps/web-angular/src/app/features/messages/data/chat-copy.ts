@@ -64,6 +64,7 @@ export const TIP_COPY = {
 export const PINNED_COPY = {
   yourCard: 'your card',
   yourDeckCore: 'your deck core',
+  theirDeckCore: (handle: string) => `${handle}’s deck core`,
   deckCore: 'Deck core',
   markAsSold: 'Mark as sold',
   sold: 'Sold',
@@ -116,8 +117,7 @@ export const SEND_DETAIL_COPY = {
   addressLabel: 'Name and mailing address',
   addressPlaceholder: 'Name, street, city, province and postal code',
   etransferTitle: 'Send my e-Transfer email',
-  etransferBody:
-    'The email you use for Interac e-Transfer. The money moves outside OrenjiTrade.',
+  etransferBody: 'The email you use for Interac e-Transfer. The money moves outside OrenjiTrade.',
   etransferLabel: 'Your e-Transfer email',
   etransferPlaceholder: 'name@example.com',
   notKept: (other: string) =>

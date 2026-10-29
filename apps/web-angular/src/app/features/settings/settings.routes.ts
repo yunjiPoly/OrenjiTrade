@@ -38,9 +38,7 @@ export const SETTINGS_ROUTES: Routes = [
         path: 'shipping',
         title: 'Shipping details',
         loadComponent: () =>
-          import('./shipping/shipping-settings.component').then(
-            (m) => m.ShippingSettingsComponent,
-          ),
+          import('./shipping/shipping-settings.component').then((m) => m.ShippingSettingsComponent),
       },
       // Bookmarks and e-mails from before platform regions (ADR 0017).
       { path: 'trading-area', pathMatch: 'full', redirectTo: 'location' },

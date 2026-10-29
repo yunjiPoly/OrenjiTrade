@@ -16,7 +16,6 @@ import {
 import { MessengerComponent } from './messenger/messenger.component';
 import { RealtimeStatusComponent } from './realtime-status/realtime-status.component';
 
-
 /**
  * `/messages` and `/messages/:id` (spec 10, boards W18 to W20): the inbox (340) with the page's
  * header (H1 and Chats | Community), the chat and its deal panel (320) at lg; the inbox (300) and

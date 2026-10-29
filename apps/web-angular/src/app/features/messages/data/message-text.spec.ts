@@ -50,7 +50,9 @@ describe('message text helpers', () => {
     expect(messagePreview({ kind: Kind.Image, body: '  the  page ', payload: {} })).toBe(
       'Photo: the page',
     );
-    expect(messagePreview({ kind: Kind.OfferLink, body: 'x', payload: {} })).toBe('Offer (no longer available)');
+    expect(messagePreview({ kind: Kind.OfferLink, body: 'x', payload: {} })).toBe(
+      'Offer (no longer available)',
+    );
     expect(messagePreview({ kind: Kind.Text, body: 'Hello\n\nthere', payload: {} })).toBe(
       'Hello there',
     );
@@ -99,5 +101,40 @@ describe('message text helpers', () => {
     expect(listPreview(recent, 'me')).toBe('You: Deal');
     expect(listPreview(recent, 'someone-else')).toBe('Deal');
     expect(listPreview(old, 'me')).toBe('No messages yet. Say hello!');
+  });
+
+  it('words a sale for the reader and an old offer as history (web WC)', () => {
+    const sold = conversation('sold', {
+      other: { ...conversation('sold').other, handle: 'theo.duels' },
+      lastMessage: {
+        id: 'm',
+        preview: 'sam marked Ash as sold to theo.duels.',
+        kind: LastMessageKindEnum.System,
+        createdAt: '2026-09-03T10:00:00Z',
+        senderId: null,
+        systemTopic: 'SALE',
+        sale: {
+          saleId: 's1',
+          sellerId: 'me',
+          buyerId: 'u-theo',
+          kind: 'CARD',
+          name: 'Ash',
+          quantity: 1,
+          undone: false,
+        },
+      } as ConversationSummary['lastMessage'],
+    });
+    expect(listPreview(sold, 'me')).toBe('You marked Ash as sold to theo.duels.');
+    expect(listPreview(sold, 'u-theo')).toBe('theo.duels marked Ash as sold to you.');
+    const offer = conversation('offer', {
+      lastMessage: {
+        id: 'o',
+        preview: 'Offer',
+        kind: LastMessageKindEnum.OfferLink,
+        createdAt: '2026-09-03T10:00:00Z',
+        senderId: 'me',
+      },
+    });
+    expect(listPreview(offer, 'me')).toBe('You: Offer (no longer available)');
   });
 });

@@ -65,7 +65,9 @@ export type ThreadMenuAction =
           [attr.aria-pressed]="dealOpen()"
           (click)="dealToggle.emit()"
         >
-          <mat-icon aria-hidden="true">{{ dealOpen() ? 'right_panel_close' : 'right_panel_open' }}</mat-icon>
+          <mat-icon aria-hidden="true">{{
+            dealOpen() ? 'right_panel_close' : 'right_panel_open'
+          }}</mat-icon>
           {{ copy.deal }}
         </button>
       }

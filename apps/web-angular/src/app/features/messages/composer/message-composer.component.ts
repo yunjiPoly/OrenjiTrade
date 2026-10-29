@@ -138,7 +138,12 @@ const LINE_PX = 21;
           <mat-icon aria-hidden="true">add</mat-icon>
         </button>
         <mat-menu #plusMenu="matMenu" class="plus-menu" yPosition="above">
-          <button mat-menu-item type="button" class="plus-menu__item" (click)="action.emit('address')">
+          <button
+            mat-menu-item
+            type="button"
+            class="plus-menu__item"
+            (click)="action.emit('address')"
+          >
             <mat-icon aria-hidden="true">package_2</mat-icon>
             <span class="plus-menu__text">
               <span>{{ copy.address }}</span>

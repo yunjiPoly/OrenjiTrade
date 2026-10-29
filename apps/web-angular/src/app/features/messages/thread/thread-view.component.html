@@ -45,6 +45,7 @@
       <app-pinned-bar
         [subject]="subject"
         [side]="side()"
+        [otherHandle]="conv.other.handle"
         [disabled]="cannotSend()"
         (markSold)="markSold()"
       />
@@ -134,10 +135,11 @@
   @if (dealMode(); as dm) {
     @if (dealOpen()) {
       @if (dm !== 'pane') {
-        <div class="deal-scrim" aria-hidden="true" (click)="closeDeal()"></div>
+        <div class="deal-scrim" aria-hidden="true" data-deal-scrim></div>
       }
       <aside
         id="deal-panel"
+        tabindex="-1"
         class="deal-host"
         [class.deal-host--pane]="dm === 'pane'"
         [class.deal-host--drawer]="dm === 'drawer'"

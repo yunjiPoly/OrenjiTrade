@@ -79,13 +79,15 @@ export function quickReplies(
 
 /**
  * The pinned bar's second line: a card "{code} · {rarity}", for its owner "{code} · {rarity} ·
- * your card"; a deck core "Deck core", "Deck core · your deck core" for its owner. The price sits
- * at the end of the bar.
+ * your card"; a deck core (its tag beside the name) "{seller}'s deck core" for the buyer, "your
+ * deck core" for its owner. The price sits at the end of the bar.
  */
-export function pinnedLine(subject: ConversationSubject, side: DealSide): string {
+export function pinnedLine(subject: ConversationSubject, side: DealSide, otherHandle = ''): string {
   const parts: string[] = [];
   if (subject.kind === 'DECK_CORE') {
-    parts.push(PINNED_COPY.deckCore);
+    if (side === 'buying' && otherHandle) {
+      parts.push(PINNED_COPY.theirDeckCore(otherHandle));
+    }
   } else {
     if (subject.printingCode) {
       parts.push(subject.printingCode);

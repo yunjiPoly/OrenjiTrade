@@ -123,7 +123,11 @@ const CARDS_PAGE = 30;
                           alt=""
                         />
                       } @else {
-                        <span class="sp__binder" [class.sp__binder--core]="row.core" aria-hidden="true">
+                        <span
+                          class="sp__binder"
+                          [class.sp__binder--core]="row.core"
+                          aria-hidden="true"
+                        >
                           <mat-icon>{{ row.core ? 'style' : 'menu_book' }}</mat-icon>
                         </span>
                       }
@@ -311,7 +315,8 @@ const CARDS_PAGE = 30;
 })
 export class SharePickerDialogComponent {
   protected readonly data = inject<SharePickerData>(MAT_DIALOG_DATA);
-  private readonly ref = inject<MatDialogRef<SharePickerDialogComponent, ShareChoice>>(MatDialogRef);
+  private readonly ref =
+    inject<MatDialogRef<SharePickerDialogComponent, ShareChoice>>(MatDialogRef);
   private readonly inventory = inject(InventoryService);
   private readonly binders = inject(BindersService);
   private readonly document = inject(DOCUMENT);
@@ -338,9 +343,7 @@ export class SharePickerDialogComponent {
       return this.cards().map((item) => ({
         id: item.id,
         name: item.card.name,
-        line: [printingCode(item.printing), item.binder?.name ?? '']
-          .filter(Boolean)
-          .join(' · '),
+        line: [printingCode(item.printing), item.binder?.name ?? ''].filter(Boolean).join(' · '),
         price: itemPriceText(item),
         imageUrl: printingImageUrl(item.printing),
         game: item.card.game ?? null,
@@ -360,7 +363,10 @@ export class SharePickerDialogComponent {
         imageUrl: null,
         game: b.game ?? null,
         core: !!b.sellsAsCore,
-        choice: { kind: 'binder', binder: { binderId: b.id, name: b.name, itemCount: b.itemCount } },
+        choice: {
+          kind: 'binder',
+          binder: { binderId: b.id, name: b.name, itemCount: b.itemCount },
+        },
       }));
   });
 
@@ -404,13 +410,15 @@ export class SharePickerDialogComponent {
         });
       return;
     }
-    this.request = this.binders.listMyBinders('body', false, { context: silentErrors() }).subscribe({
-      next: (binders) => {
-        this.allBinders.set(binders);
-        this.status.set('ready');
-      },
-      error: () => this.status.set('error'),
-    });
+    this.request = this.binders
+      .listMyBinders('body', false, { context: silentErrors() })
+      .subscribe({
+        next: (binders) => {
+          this.allBinders.set(binders);
+          this.status.set('ready');
+        },
+        error: () => this.status.set('error'),
+      });
   }
 
   protected onQuery(event: Event): void {

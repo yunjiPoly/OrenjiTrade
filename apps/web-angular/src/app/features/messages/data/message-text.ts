@@ -65,8 +65,7 @@ export function toLastMessage(message: MessageResponse): LastMessage {
     ...(message.kind === 'SYSTEM'
       ? {
           systemTopic: (sale ? 'SALE' : message.payload?.offer ? 'OFFER' : null) as
-            | LastMessage['systemTopic']
-            | null,
+            LastMessage['systemTopic'] | null,
         }
       : {}),
     ...(sale ? { sale } : {}),
