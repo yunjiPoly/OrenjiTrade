@@ -12,6 +12,7 @@ import com.orenjitrade.api.AbstractIntegrationTest;
 import com.orenjitrade.api.cards.domain.CatalogImportService;
 import com.orenjitrade.api.limits.domain.UsageLimitService;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -340,6 +341,93 @@ class PublicBinderIT extends AbstractIntegrationTest {
                                 viewer))
                 .as("the items never spend a binder view")
                 .isEmpty();
+    }
+
+    /**
+     * Web stage WD's review (P2): every order of a public binder's items (name, recent, price)
+     * lists only its listed public items (never a private one), refuses a private binder and a
+     * blocked pair either way with 404, and answers the owner's rating to members only.
+     */
+    @Test
+    void everyOrderListsOnlyPublicItemsAndRefusesBlocksAndPrivateBinders() {
+        String owner = uniqueUid("pub-order");
+        Fixture fixture = publicCollector(owner);
+        String privateBinder =
+                callJson(
+                                HttpMethod.POST,
+                                "/api/v1/binders",
+                                owner,
+                                binder("Kept private", "PRIVATE", gameId(testUsers, "pokemon")),
+                                201)
+                        .path("id")
+                        .asString();
+        Map<String, Object> kept = item(printingId);
+        kept.put("binderId", privateBinder);
+        kept.put("notes", SECRET);
+        callJson(HttpMethod.POST, "/api/v1/inventory/items", owner, kept, 201);
+
+        String viewer = uniqueUid("pub-order-viewer");
+        provisionCompliant(viewer);
+        String items = "/api/v1/public/binders/" + fixture.binderId() + "/items";
+        for (String sort : List.of("", "?sort=name", "?sort=recent", "?sort=price")) {
+            for (String caller : Arrays.asList(null, viewer)) {
+                JsonNode page = callJson(HttpMethod.GET, items + sort, caller, null, 200);
+                assertThat(ids(page)).as("sort %s", sort).containsExactly(fixture.shownId());
+                assertThat(page.toString()).doesNotContain(fixture.hiddenId());
+                assertNoPrivateData(page);
+            }
+            callJson(
+                    HttpMethod.GET,
+                    "/api/v1/public/binders/" + privateBinder + "/items" + sort,
+                    viewer,
+                    null,
+                    404);
+        }
+
+        // The owner's rating: for members only, beside the owner block (no profile read).
+        JsonNode member =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/public/binders/" + fixture.binderId(),
+                        viewer,
+                        null,
+                        200);
+        assertThat(member.path("ownerRating").path("count").asInt()).isZero();
+        assertThat(member.path("ownerRating").has("average")).isTrue();
+        JsonNode guest =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/public/binders/" + fixture.binderId(),
+                        null,
+                        null,
+                        200);
+        assertThat(guest.path("ownerRating").isNull()).isTrue();
+
+        // A block either way: the binder and its items in every order are not found.
+        String blocker = uniqueUid("pub-order-blocker");
+        provisionCompliant(blocker);
+        String ownerId = me(owner).path("id").asString();
+        String blocked = uniqueUid("pub-order-blocked");
+        provisionCompliant(blocked);
+        // The viewer blocks the owner, and the owner blocks another viewer.
+        callJson(HttpMethod.POST, "/api/v1/users/" + ownerId + "/block", blocker, null, 200);
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/users/" + me(blocked).path("id").asString() + "/block",
+                owner,
+                null,
+                200);
+        for (String caller : List.of(blocker, blocked)) {
+            callJson(
+                    HttpMethod.GET,
+                    "/api/v1/public/binders/" + fixture.binderId(),
+                    caller,
+                    null,
+                    404);
+            for (String sort : List.of("", "?sort=name", "?sort=recent", "?sort=price")) {
+                callJson(HttpMethod.GET, items + sort, caller, null, 404);
+            }
+        }
     }
 
     /** No private notes, no private items, no coordinate anywhere in a public document. */

@@ -11,13 +11,21 @@ import {
   updatedLabel,
 } from './binder-view.store';
 
-const BINDER = { id: 'b1', name: 'Hand traps', owner: { handle: 'maya_k' }, games: ['yugioh'] };
+const BINDER = {
+  id: 'b1',
+  name: 'Hand traps',
+  owner: { handle: 'maya_k' },
+  games: ['yugioh'],
+  ownerRating: { average: 4.9, count: 12 },
+};
 
 describe('BinderViewStore (decision 14: a view is spent only on an explicit open)', () => {
   let getPublicBinder: ReturnType<typeof vi.fn>;
   let listItems: ReturnType<typeof vi.fn>;
+  let getCollector: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    getCollector = vi.fn(() => of({ rating: { average: 1, count: 1 } }));
     getPublicBinder = vi.fn(() => of(BINDER));
     listItems = vi.fn(() => of({ items: [{ id: 'i1' }], page: 0, totalPages: 2 }));
     TestBed.configureTestingModule({
@@ -27,10 +35,8 @@ describe('BinderViewStore (decision 14: a view is spent only on an explicit open
           provide: PublicBindersService,
           useValue: { getPublicBinder, listPublicBinderItems: listItems },
         },
-        {
-          provide: CollectorsService,
-          useValue: { getCollector: () => of({ rating: { average: 4.9, count: 12 } }) },
-        },
+        // The rating comes with the binder: no profile read (its city, a counted view).
+        { provide: CollectorsService, useValue: { getCollector } },
         {
           provide: AuthService,
           useValue: { ready: () => Promise.resolve(), isAuthenticated: signal(true) },
@@ -61,6 +67,7 @@ describe('BinderViewStore (decision 14: a view is spent only on an explicit open
     );
     expect(getPublicBinder).toHaveBeenCalledTimes(1);
     expect(store.rating()?.average).toBe(4.9);
+    expect(getCollector).not.toHaveBeenCalled();
   });
 
   it('turns a 429 LIMIT_REACHED into the limit state with its time, and a 404 into not found', async () => {
@@ -110,7 +117,22 @@ describe('binder view words', () => {
         resetsAt: '2026-10-30T00:00:00Z',
         requestId: null,
       }),
-    ).toMatch(/More tomorrow at \d/);
+    ).toMatch(/More (today|tomorrow|on [A-Z][a-z]+\.? \d+) at \d/);
+  });
+
+  it('says "today" or "tomorrow" by the local day of the reset, with one final period', () => {
+    const info = { limitKey: '', limit: 5, used: 5, requestId: null };
+    const at = (hours: number) => new Date(2026, 9, 29, hours, 0).toISOString();
+    const morning = new Date(2026, 9, 29, 9);
+    const today = binderLimitMessage({ ...info, resetsAt: at(20) }, 'en-CA', morning);
+    expect(today).toMatch(/More today at 8:00\sp\.m\.$/);
+    expect(today).not.toContain('..');
+    const tomorrow = binderLimitMessage(
+      { ...info, resetsAt: new Date(2026, 9, 30, 20).toISOString() },
+      'en-US',
+      morning,
+    );
+    expect(tomorrow).toMatch(/More tomorrow at 8:00\sPM\.$/);
   });
 
   it('says when a binder was updated', () => {

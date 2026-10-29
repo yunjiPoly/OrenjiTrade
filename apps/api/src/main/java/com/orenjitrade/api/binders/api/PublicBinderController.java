@@ -6,6 +6,8 @@ import com.orenjitrade.api.binders.api.PublicBinderResponses.PublicBinderSummary
 import com.orenjitrade.api.binders.domain.PublicBinderService;
 import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.profiles.domain.PrivacyPolicyService;
+import com.orenjitrade.api.profiles.domain.RatingSummary;
+import com.orenjitrade.api.profiles.domain.RatingSummaryProvider;
 import com.orenjitrade.api.profiles.domain.ViewerContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -17,6 +19,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,14 +38,17 @@ public class PublicBinderController {
     private final PublicBinderService publicBinderService;
     private final PrivacyPolicyService privacyPolicy;
     private final TimeProvider timeProvider;
+    private final ObjectProvider<RatingSummaryProvider> ratings;
 
     public PublicBinderController(
             PublicBinderService publicBinderService,
             PrivacyPolicyService privacyPolicy,
-            TimeProvider timeProvider) {
+            TimeProvider timeProvider,
+            ObjectProvider<RatingSummaryProvider> ratings) {
         this.publicBinderService = publicBinderService;
         this.privacyPolicy = privacyPolicy;
         this.timeProvider = timeProvider;
+        this.ratings = ratings;
     }
 
     @GetMapping(
@@ -105,10 +111,16 @@ public class PublicBinderController {
                             schema = @Schema(ref = BinderController.PROBLEM_REF)))
     public PublicBinderResponse publicBinder(
             @AuthenticationPrincipal @Nullable AuthenticatedUser principal, @PathVariable UUID id) {
-        return PublicBinderResponse.from(
-                publicBinderService.binder(viewer(principal), id),
-                timeProvider.now(),
-                privacyPolicy.canSeeWho(ViewerContext.of(viewer(principal))));
+        var binder = publicBinderService.binder(viewer(principal), id);
+        boolean showWho = privacyPolicy.canSeeWho(ViewerContext.of(viewer(principal)));
+        // The seller row's rating comes with the binder: no profile read (and no profile view
+        // counted) for it, and never for a guest (WD review P3).
+        @Nullable RatingSummary rating = null;
+        if (showWho) {
+            @Nullable RatingSummaryProvider provider = ratings.getIfAvailable();
+            rating = provider == null ? null : provider.ratingOf(binder.owner().id());
+        }
+        return PublicBinderResponse.from(binder, timeProvider.now(), showWho, rating);
     }
 
     static @Nullable UUID viewer(@Nullable AuthenticatedUser principal) {

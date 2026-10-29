@@ -1,12 +1,12 @@
 import { HttpContext } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { CollectorsService, PublicBindersService } from '@orenji/api-client';
+import { PublicBindersService } from '@orenji/api-client';
 import type {
   CollectorRating,
   PublicBinderResponse,
   PublicInventoryItem,
 } from '@orenji/api-client';
-import { Subscription, firstValueFrom } from 'rxjs';
+import { Subscription } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ApiError, toApiError } from '../../../core/http/api-error';
 import {
@@ -52,9 +52,15 @@ function publicContext(): HttpContext {
 
 /**
  * "You've opened 30 public binders today. Every collector has the same limits. More tomorrow at
- * 8:00 PM." (spec 6.5; the limit and the time come from the server's 429).
+ * 8:00 p.m." (spec 6.5; the limit and the time come from the server's 429). The reset is a UTC
+ * midnight, which in the Americas falls the same evening: "today at", "tomorrow at" or a date,
+ * by the viewer's own calendar (WD review U9), and never a second period after "p.m.".
  */
-export function binderLimitMessage(info: LimitReachedInfo | null, locale = 'en-CA'): string {
+export function binderLimitMessage(
+  info: LimitReachedInfo | null,
+  locale = 'en-CA',
+  now = new Date(),
+): string {
   const count = info?.limit ?? null;
   const opened = count
     ? `You've opened ${count} public binders today.`
@@ -63,10 +69,24 @@ export function binderLimitMessage(info: LimitReachedInfo | null, locale = 'en-C
   if (info?.resetsAt) {
     const date = new Date(info.resetsAt);
     if (!Number.isNaN(date.getTime())) {
-      when = `More tomorrow at ${date.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' })}.`;
+      const time = date.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' });
+      const days = Math.round((startOfDay(date) - startOfDay(now)) / 86_400_000);
+      const day =
+        days <= 0
+          ? 'today'
+          : days === 1
+            ? 'tomorrow'
+            : `on ${date.toLocaleDateString(locale, { month: 'short', day: 'numeric' })}`;
+      const sentence = `More ${day} at ${time}`;
+      when = sentence.endsWith('.') ? sentence : `${sentence}.`;
     }
   }
   return `${opened} Every collector has the same limits. ${when}`;
+}
+
+/** Local midnight of a date, in ms (the viewer's own calendar day). */
+function startOfDay(date: Date): number {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
 }
 
 /** "Updated today", "Updated yesterday", "Updated 3 days ago", "Updated Oct 2". */
@@ -96,12 +116,13 @@ export function updatedLabel(iso: string | null | undefined, now = new Date()): 
  * One public binder or deck core and its cards, for its page (`/binders/:id`) and Search's
  * drill-in (spec 6.5 and 8). `open()` is the only read of the binder itself and spends one public
  * binder view (decision 14: only on an explicit open, never on hover or prefetch); its cards
- * (search, sort, "Load more") and the owner's rating are reads that spend none.
+ * (search, sort, "Load more") are reads that spend none. The owner's rating comes with the
+ * binder (`ownerRating`, members only): no profile read, so the owner's city never reaches the
+ * page and no profile view is counted (WD review F9, P3).
  */
 @Injectable()
 export class BinderViewStore {
   private readonly api = inject(PublicBindersService);
-  private readonly collectors = inject(CollectorsService);
   private readonly auth = inject(AuthService);
 
   private readonly stateSignal = signal<BinderViewState>({ kind: 'loading' });
@@ -150,8 +171,8 @@ export class BinderViewStore {
             return;
           }
           this.stateSignal.set({ kind: 'ready', binder });
+          this.ratingSignal.set(binder.ownerRating ?? null);
           this.loadItems(0);
-          void this.loadRating(binder.owner?.handle ?? null);
         },
         error: (error: unknown) => {
           if (this.openedId !== id) {
@@ -235,21 +256,5 @@ export class BinderViewStore {
           }
         },
       });
-  }
-
-  private async loadRating(handle: string | null): Promise<void> {
-    if (!handle) {
-      return;
-    }
-    try {
-      const profile = await firstValueFrom(
-        this.collectors.getCollector({ handle }, 'body', false, { context: publicContext() }),
-      );
-      if (this.binder()?.owner?.handle === handle) {
-        this.ratingSignal.set(profile.rating ?? null);
-      }
-    } catch {
-      // The rating is a bonus beside the owner: the binder stays without it.
-    }
   }
 }

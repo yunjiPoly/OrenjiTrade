@@ -13,6 +13,8 @@ import com.orenjitrade.api.binders.domain.PublicBinderService.PublicBinderSummar
 import com.orenjitrade.api.binders.domain.PublicOwner;
 import com.orenjitrade.api.delisting.domain.FreshnessInfo;
 import com.orenjitrade.api.location.api.PlaceResponse;
+import com.orenjitrade.api.profiles.api.CollectorProfileResponse.CollectorRating;
+import com.orenjitrade.api.profiles.domain.RatingSummary;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 import java.time.Instant;
@@ -188,14 +190,30 @@ public final class PublicBinderResponses {
                             description =
                                     "The owner's public binders, deck cores included (the seller"
                                             + " row of a deck core page)")
-                    int ownerPublicBinderCount) {
+                    int ownerPublicBinderCount,
+            @Schema(
+                            requiredMode = RequiredMode.NOT_REQUIRED,
+                            nullable = true,
+                            description =
+                                    "The owner's rating summary for the seller row (web stage WD:"
+                                            + " no profile read for it); null for a signed-out"
+                                            + " caller (stage R15)")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable CollectorRating ownerRating) {
 
         static PublicBinderResponse from(PublicBinder publicBinder, Instant now) {
-            return from(publicBinder, now, true);
+            return from(publicBinder, now, true, null);
         }
 
-        /** The binder; its owner block without who they are unless {@code showWho} (R15). */
-        static PublicBinderResponse from(PublicBinder publicBinder, Instant now, boolean showWho) {
+        /**
+         * The binder; its owner block without who they are unless {@code showWho} (R15), and the
+         * owner's rating only then.
+         */
+        static PublicBinderResponse from(
+                PublicBinder publicBinder,
+                Instant now,
+                boolean showWho,
+                @Nullable RatingSummary ownerRating) {
             BinderView binder = publicBinder.binder();
             BinderShowcase showcase = publicBinder.showcase();
             return new PublicBinderResponse(
@@ -214,7 +232,10 @@ public final class PublicBinderResponses {
                     showcase.photos(),
                     showcase.previewImages(),
                     showcase.keyCards(),
-                    publicBinder.ownerPublicBinderCount());
+                    publicBinder.ownerPublicBinderCount(),
+                    showWho && ownerRating != null
+                            ? new CollectorRating(ownerRating.average(), ownerRating.count())
+                            : null);
         }
     }
 

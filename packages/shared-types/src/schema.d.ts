@@ -9040,6 +9040,8 @@ export interface components {
              * @example 2
              */
             ownerPublicBinderCount?: number;
+            /** @description The owner's rating summary for the seller row (web stage WD: no profile read for it); null for a signed-out caller (stage R15) */
+            ownerRating?: components["schemas"]["CollectorRating"];
         };
         /** @description Offset-paginated list */
         PageResponsePublicInventoryItem: {

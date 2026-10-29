@@ -36845,6 +36845,11 @@
             "format": "int32",
             "description": "The owner's public binders, deck cores included (the seller row of a deck core page)",
             "example": 2
+          },
+          "ownerRating": {
+            "type": "null",
+            "$ref": "#/components/schemas/CollectorRating",
+            "description": "The owner's rating summary for the seller row (web stage WD: no profile read for it); null for a signed-out caller (stage R15)"
           }
         },
         "required": [
