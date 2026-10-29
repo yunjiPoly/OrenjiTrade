@@ -12,6 +12,7 @@ import {
   OnboardedCollector,
   authHeader,
   createOnboardedCollector,
+  openAccountMenu,
   requireStack,
   signInThroughUi,
   stubCardImages,
@@ -228,8 +229,16 @@ test.describe('Messages: the deal beside the chat (web WC)', () => {
     // --- The seller: the chat arrives live, the deal panel, Mark as sold -----------------------
     const row = sellerPage.locator(`[data-conversation="${buyer.handle}"]`);
     await expect(row).toBeVisible({ timeout: 20_000 });
-    await row.click();
+    // The first chat opened from /messages by keyboard keeps the focus on its row, and Esc from
+    // the chat comes back to it (spec 10.2; WC review F5, U3, A1).
+    await row.focus();
+    await sellerPage.keyboard.press('Enter');
+    await expect(sellerPage).toHaveURL(/\/messages\/[0-9a-f-]{36}$/);
+    await expect(row).toBeFocused();
     const chatS = sellerPage.getByRole('region', { name: `Chat with ${buyer.handle}` });
+    await chatS.getByRole('textbox', { name: 'Message' }).focus();
+    await sellerPage.keyboard.press('Escape');
+    await expect(row).toBeFocused();
     await expect(chatS.getByTestId('chat-tip')).toContainText(
       'Ship after the e-Transfer arrives, and add the tracking number when you mark it sold.',
     );
@@ -262,10 +271,16 @@ test.describe('Messages: the deal beside the chat (web WC)', () => {
     await expect(noteB.getByTestId('sale-tracking')).toHaveText(TRACKING);
     await expect(noteB.getByTestId('sale-undo')).toHaveCount(0);
     await expect(chatB.getByRole('button', { name: 'Send “Tracking number?”' })).toBeVisible();
+    // The buyer may rate the seller at once, without a reload (spec 10.4; WC review U5).
+    await expect(noteB.getByRole('button', { name: `Rate ${seller.handle}` })).toBeVisible({
+      timeout: 15_000,
+    });
 
     // --- Undo from the note: it leaves both chats --------------------------------------------
     await noteS.getByTestId('sale-undo').click();
     await expect(sellerPage.getByText('Sale undone. It is back in your inventory.')).toBeVisible();
+    // The toast's Undo goes with it (WC review U4).
+    await expect(sellerPage.getByText('Marked as sold', { exact: true })).toHaveCount(0);
     await expect(chatS.getByTestId('sale-note')).toHaveCount(0);
     await expect(chatS.getByRole('button', { name: `Mark as sold: ${cardName}` })).toBeVisible();
     await expect(chatB.getByTestId('sale-note')).toHaveCount(0, { timeout: 15_000 });
@@ -296,6 +311,8 @@ test.describe('Messages: the deal beside the chat (web WC)', () => {
     await expect(report.getByTestId('report-choose-first')).toHaveText('Choose a reason first.');
     await expect(report.getByRole('button', { name: 'Send report' })).toBeDisabled();
     await report.getByRole('button', { name: 'Cancel' }).click();
+    // The focus goes back to "⋯", whose menu row is gone (WC review A1).
+    await expect(chatS.getByRole('button', { name: `More for ${buyer.handle}` })).toBeFocused();
 
     // Tracking numbers never reach the console (spec 10.5, 17).
     for (const lines of [sellerSide.console, buyerSide.console]) {
@@ -322,12 +339,66 @@ test.describe('Messages: the deal beside the chat (web WC)', () => {
     await expect(page.getByTestId('chat-drawer')).toHaveCount(0);
     const chat = page.getByRole('region', { name: `Chat with ${seller.handle}` });
     await expect(chat.getByTestId('pinned-bar')).toContainText(cardName);
+    // A chat opens above the tabs, as on the phone: no per-tab bar, no tab bar (WC review U2).
+    await expect(page.getByTestId('top-bar')).toHaveCount(0);
+    await expect(page.getByTestId('tab-messages')).toHaveCount(0);
     await chat.getByTestId('deal-toggle').click();
     const sheet = page.getByRole('dialog', { name: 'Deal' });
     await expect(sheet).toContainText('How deals work here');
     await page.keyboard.press('Escape');
     await expect(sheet).toBeHidden();
     await expect(chat.getByTestId('deal-toggle')).toBeFocused();
+    // Its Close takes a pointer too: nothing covers the sheet (WC review U2, A4).
+    await chat.getByTestId('deal-toggle').click();
+    await sheet.getByRole('button', { name: 'Close the deal panel' }).click();
+    await expect(sheet).toBeHidden();
+    // Back: the inbox between the bars again, the focus on that chat's row (WC review A1).
+    await chat.getByRole('button', { name: 'Back to conversations' }).click();
+    await expect(page).toHaveURL(/\/messages$/);
+    await expect(page.getByTestId('tab-messages')).toBeVisible();
+    await expect(page.locator(`[data-conversation="${seller.handle}"]`)).toBeFocused();
+    await page.context().close();
+  });
+
+  test('signing out closes the chat drawer and forgets its draft; the next account starts empty (WC review F1, P1)', async ({
+    browser,
+    request,
+  }) => {
+    test.setTimeout(120_000);
+    const { seller, buyer, cardId, cardName } = await createDeal(request);
+    const { page } = await openSignedIn(browser, buyer);
+    await page.goto(`/search?card=${cardId}`);
+    await page.getByRole('button', { name: `Message ${seller.handle} about ${cardName}` }).click();
+    const drawer = page.getByTestId('chat-drawer');
+    await drawer.getByRole('button', { name: 'Send “Is it still available?”' }).click();
+    await expect(drawer.getByRole('log')).toContainText('Is it still available?');
+    const draft = `UNSENT-DRAFT ${suffix()}`;
+    await drawer.getByRole('textbox', { name: 'Message' }).fill(draft);
+    await page.evaluate(
+      () => ((window as unknown as { e2eNoReload?: boolean }).e2eNoReload = true),
+    );
+
+    // Signing out: the chat and its draft leave with the account; the sign-in form is reachable.
+    await openAccountMenu(page);
+    await page.getByRole('menuitem', { name: 'Sign out' }).click();
+    await expect(page.getByTestId('top-bar-sign-in')).toBeVisible();
+    await expect(page.getByTestId('chat-drawer')).toHaveCount(0);
+    await expect(page.getByText('Is it still available?')).toHaveCount(0);
+
+    // The other collector of that chat signs in on the same tab, without a reload.
+    await page.getByTestId('top-bar-sign-in').click();
+    await page.getByLabel('Email').fill(seller.email);
+    await page.getByLabel('Password', { exact: true }).fill(seller.password);
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await expect(page).not.toHaveURL(/\/auth\/sign-in/, { timeout: 20_000 });
+    await page.getByTestId('rail-messages').click();
+    await page.locator(`[data-conversation="${buyer.handle}"]`).click();
+    const chat = page.getByRole('region', { name: `Chat with ${buyer.handle}` });
+    await expect(chat.getByRole('log')).toContainText('Is it still available?');
+    await expect(chat.getByRole('textbox', { name: 'Message' })).toHaveValue('');
+    expect(
+      await page.evaluate(() => (window as unknown as { e2eNoReload?: boolean }).e2eNoReload),
+    ).toBe(true);
     await page.context().close();
   });
 });
