@@ -465,8 +465,11 @@ document; their shapes live in `core/realtime/realtime-events.ts` with runtime g
     non-modal drawer under the top bar (`aria-modal="false"`, no scrim): header (avatar, handle,
     status, "Open in Messages ↗", Close), pinned bar, tip, thread, quick replies, composer. One at a
     time (another replaces it, each draft kept); Esc closes it from inside and the focus goes back
-    to the opener; F6 moves between the page and the drawer; below 960 "Message" goes to
-    `/messages/:id`; going to Messages closes it. One realtime connection for all of it.
+    to the opener; F6 moves between the page and the drawer. At lg and xl it pushes the page; at
+    md it overlays it, and Esc on the page closes it too, the focus staying where it is (a control
+    under the drawer shows again; a menu, a dialog, an open list or a text field's own Esc comes
+    first). Below 960 "Message" goes to `/messages/:id`; going to Messages closes it. One realtime
+    connection for all of it.
   - **Realtime**: `RealtimeService` also subscribes to `/user/queue/conversations` (stage R4: a pin
     of the other collector), so the pinned bar and the inbox follow it.
   - **Refusals** read the same for every reason (owner decision of 2026-10-28): a send refused with
