@@ -26,11 +26,6 @@ import {
  * the cards come from the fictional seed catalog.
  */
 
-/** A card of a public binder page. */
-function card(page: Page, name: string): Locator {
-  return page.getByRole('article', { name, exact: true });
-}
-
 /** A row of the table by its card. */
 function row(page: Page, name: string): Locator {
   return page.locator('[role="row"][data-item-id]', { hasText: name });
@@ -451,32 +446,24 @@ test.describe('inventory (web WB)', () => {
     await expect(page).toHaveURL(new RegExp(`/binders/${binder.id}$`));
     await expect(page.getByRole('heading', { level: 1, name: 'E2E public binder' })).toBeVisible();
     await expect(page).toHaveTitle('E2E public binder · OrenjiTrade');
-    const ownerCard = page.getByRole('region', { name: 'Owner' });
-    await expect(ownerCard).toContainText(owner.displayName);
-    await expect(ownerCard).toContainText(`@${owner.handle}`);
-    await expect(page.getByTestId('owner-public-label')).toContainText('Quebec, Canada');
+    // The binder page (web stage WD, board W9): the owner row with the handle and the province
+    // only, the cards with their price as typed; never a private note or a distance.
+    await expect(page.getByRole('link', { name: owner.handle, exact: true })).toBeVisible();
+    await expect(page.getByTestId('owner-public-label')).toContainText('Quebec');
+    await expect(page.getByTestId('owner-public-label')).not.toContainText('Canada');
     await expect(page.getByTestId('owner-distance')).toHaveCount(0);
-    await expect(ownerCard).not.toContainText(/\bkm\b/);
-    await expect(page.getByTestId('binder-item-count')).toContainText('2 cards');
-
-    const dragon = card(page, 'Azure-Eyes Sky Dragon');
-    await expect(dragon.getByTestId('item-price')).toHaveText('$45.00');
-    await expect(dragon.getByLabel('Condition: Near Mint')).toBeVisible();
-    await expect(dragon).toContainText('Trade or sale');
+    await expect(page.getByRole('main')).not.toContainText(/\bkm\b/);
+    await expect(page.getByText(/^\s*2 cards · Updated/)).toBeVisible();
+    const dragon = page.getByTestId('binder-card').filter({ hasText: 'Azure-Eyes Sky Dragon' });
+    await expect(dragon).toContainText('$45.00');
+    await expect(dragon).toContainText('×1');
     // Offers left the web (decision 2): no "Accepting offers" chip.
-    await expect(dragon).not.toContainText('Accepting offers');
-    await expect(dragon).toContainText('Sleeved since the day it was pulled.');
+    await expect(page.getByRole('main')).not.toContainText('Accepting offers');
     await expect(page.getByText('E2E-private-note-never-public')).toHaveCount(0);
-
-    // Game filter.
-    await page
-      .getByRole('group', { name: 'Game' })
-      .getByRole('button', { name: 'Pokémon' })
-      .click();
-    await expect(page).toHaveURL(/game=pokemon/);
-    await expect(page.getByTestId('public-item-count')).toHaveText(/^\s*1 card\b/);
-    await expect(card(page, 'Emberfang Fox VMAX')).toBeVisible();
-    await expect(card(page, 'Azure-Eyes Sky Dragon')).toHaveCount(0);
+    // A binder made before stage G holds both games: both cards show.
+    await expect(
+      page.getByTestId('binder-card').filter({ hasText: 'Emberfang Fox VMAX' }),
+    ).toBeVisible();
 
     // ADR 0017: no JSON response carried a coordinate.
     await watcher.settle();
