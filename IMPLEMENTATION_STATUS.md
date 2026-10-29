@@ -12573,7 +12573,36 @@ Esc back, the buyer's live Rate, the toast's Undo after the note's, the focus af
 390 chat without bars, the sheet's Close by pointer and Back's focus; `messaging.spec.ts` sends a
 picked card with Send.
 
-**Checks** (retries off): CHECKS_PLACEHOLDER
+**Checks** (retries off): `./gradlew spotlessCheck --rerun-tasks` 0; `npm run test:api` 1,300 tests,
+0 failures (4 min 26 s); `./gradlew exportOpenApi` then `npm run generate:api`: no diff (git
+clean); `npm run lint -w apps/web-angular` 0; `npm run format:check -w apps/web-angular` 0; `npm
+test -w apps/web-angular` 170 files / 837 tests and `npm run test:web` the same; `npm run build -w
+apps/web-angular` 0 and `npm run build:prod -w apps/web-angular` 0, **initial total 841.01 kB**
+(under the 900 kB budget; no budget warning: the deal header's sticky rule went to the global
+overlay styles to keep the deal panel's styles under 6 kB); `npm run test:e2e -- --retries=0`
+**83 / 83** (1.1 min; a first run was 82 / 83: the buyer's live Rate, because a sale note is a
+SYSTEM message without a sender; fixed by counting the sale's `sellerId`, with a store test, then
+the WC and messaging specs alone 5 / 5 and the full suite 83 / 83); `npm run typecheck`, `lint` and
+`format:check -w apps/mobile` 0; `npm run test:mobile` 128 suites / 1,782 tests; `npx expo export
+--platform ios`, `android` and `web` 0 (throw-away folders); `npm run test:mobile:e2e --
+--retries=0` **66 / 66** (`--stack-only`: the harness and a grep of the served entry name
+`localhost:8090` and never `localhost:8080`; then `--reuse-running`, then `--stop`); `npm run
+test:mobile:maestro -- --platform ios` **not run, not needed**: this round changed no shared code
+(`packages/design-tokens`, `packages/api-client`, `packages/shared-types`, `apps/api` and
+`apps/mobile` are untouched); `npm run test:scripts` 153 / 153; `npm run audit:gate` OK. Walks with
+Playwright on the walk stack (API 8580, `orenjitrade_wc_check`, Redis db 6; web 4400): at 1440 no
+page control under the drawer and F6 on a visible opener; a sign-out closes the drawer and the next
+account's composer is empty, without a reload; Enter from `/messages` keeps the row's focus and Esc
+from the field returns to it; at 390 no bars in a chat, the sheet's Close takes a pointer, "+" and
+"⋯" are bottom sheets, the quick replies wrap, Back focuses the row; at 720 × 450 the thread keeps
+160 px with a six-line draft, the counter in view, no page or sideways scroll; at 1920 the composer
+row is 720 wide; WITH and Your copies with failing reads say so with Try again. The AFTER shots in
+`.local-dev/wc-notes/pr-shots/after/` are refreshed (the 96 of the stage, the two 200 % shots and
+16 `fix1-*` shots of the new states).
+
+**Could not be verified**: the Android run could not be verified (no Android SDK on this Mac; the
+phone is unchanged in this round); a real screen reader (VoiceOver) on the changed names and focus
+moves (checked through the DOM, the unit tests and the E2E).
 
 ## NEXT TASK
 
