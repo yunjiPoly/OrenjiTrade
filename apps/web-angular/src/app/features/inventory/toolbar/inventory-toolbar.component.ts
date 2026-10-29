@@ -390,6 +390,8 @@ export class InventoryToolbarComponent {
   readonly showBinderMenu = input(false, { transform: booleanAttribute });
   readonly selectMode = input(false, { transform: booleanAttribute });
   readonly paramsChange = output<InventoryParamChange>();
+  /** Clear filters was used: its link leaves with the filters, the page places the focus (A1). */
+  readonly cleared = output<void>();
   readonly viewChange = output<InventoryView>();
   readonly toggleSelect = output<void>();
 
@@ -485,5 +487,6 @@ export class InventoryToolbarComponent {
   protected clear(): void {
     this.query.setValue('', { emitEvent: false });
     this.emit({ ...CLEARED_FILTERS });
+    this.cleared.emit();
   }
 }

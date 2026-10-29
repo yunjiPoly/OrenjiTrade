@@ -407,6 +407,8 @@ export class ImportPageComponent {
       );
       this.preview.set(response.preview);
       await this.loadRows(true);
+      // The amber bar and its button leave once every card has a printing (A1, R1-1).
+      this.focusIfLost('chk-title');
     } catch (error) {
       this.fail(error);
     } finally {

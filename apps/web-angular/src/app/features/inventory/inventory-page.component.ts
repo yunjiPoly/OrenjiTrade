@@ -484,6 +484,11 @@ export class InventoryPageComponent {
     this.refocusAfterAction(400);
   }
 
+  /** The toolbar's Clear filters leaves with the filters: the focus goes to the list (A1, R1-1). */
+  protected onFiltersCleared(): void {
+    this.refocusAfterAction(400);
+  }
+
   /** Quick add rows closed (Esc or ×): the focus goes back to the list (A1). */
   protected closeQuick(): void {
     this.quickOpen.set(false);
@@ -921,7 +926,7 @@ export class InventoryPageComponent {
    * After a dock action, Esc or a delete the focused control may be gone (the dock leaves with the
    * selection): the focus goes back to the dock, else to the list's active row (A1, F7, U10).
    */
-  private refocusAfterAction(delay = 0): void {
+  private refocusAfterAction(delay = 0, tries = 20): void {
     setTimeout(() => {
       if (!this.focusLost()) {
         return;
@@ -929,6 +934,11 @@ export class InventoryPageComponent {
       const dock = this.document.querySelector<HTMLElement>('app-bulk-dock .dock__count');
       if (dock) {
         dock.focus();
+        return;
+      }
+      if (this.store.itemsLoading() && tries > 0) {
+        // The list is reloading (a filter changed): its rows come first, then the focus.
+        this.refocusAfterAction(150, tries - 1);
         return;
       }
       if (this.store.items().length > 0 && (this.table() || this.grid())) {

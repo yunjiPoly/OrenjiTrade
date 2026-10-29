@@ -112,6 +112,31 @@ describe('Inventory and Import contrast (web WB)', () => {
     }
   });
 
+  it("writes a menu item's hint at AA at rest, hovered and focused (R1-2)", () => {
+    for (const [name, c] of THEMES) {
+      // The menus lie on surfaceElevated; Material's state layer is the ink at 8 % (hover) and
+      // 12 % (focus): Import's printing menu opens with its first item focused.
+      expect(
+        contrast(c.textMuted, c.surfaceElevated),
+        `${name} hint at rest`,
+      ).toBeGreaterThanOrEqual(4.5);
+      const hint = name === 'light' ? c.textMuted : c.textSecondary;
+      for (const [state, share] of [
+        ['hovered', 0.08],
+        ['focused', 0.12],
+      ] as const) {
+        expect(
+          contrast(hint, mix(c.ink, c.surfaceElevated, share)),
+          `${name} hint ${state}`,
+        ).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+    // What failed in round 1: textMuted on the focused item in dark.
+    expect(
+      contrast(darkColors.textMuted, mix(darkColors.ink, darkColors.surfaceElevated, 0.12)),
+    ).toBeLessThan(4.5);
+  });
+
   it('fills the chosen segment with ink and writes it in the canvas colour', () => {
     for (const [name, c] of THEMES) {
       expect(contrast(c.background, c.ink), `${name} chosen segment`).toBeGreaterThanOrEqual(4.5);

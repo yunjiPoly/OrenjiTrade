@@ -201,6 +201,7 @@
             [showBinderMenu]="!wide()"
             [selectMode]="selectMode()"
             (paramsChange)="onParams($event)"
+            (cleared)="onFiltersCleared()"
             (viewChange)="setView($event)"
             (toggleSelect)="selectMode.set(!selectMode())"
           />

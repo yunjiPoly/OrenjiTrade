@@ -293,6 +293,20 @@
     font-size: var(--font-size-meta);
   }
 
+  // A focused or hovered item lays its state layer under the hint: textMuted falls to 4.15:1 in
+  // dark there, textSecondary keeps AA (WB review R1-2). A menu opens with its first item focused.
+  .mat-mdc-menu-item:is(
+      :hover,
+      :focus,
+      .cdk-focused,
+      .cdk-keyboard-focused,
+      .cdk-program-focused,
+      .mat-mdc-menu-item-highlighted
+    )
+    .menu-hint {
+    color: light-dark(var(--color-text-muted), var(--color-text-secondary));
+  }
+
   .menu-variant {
     color: var(--color-ink);
     font-size: var(--font-size-meta);
