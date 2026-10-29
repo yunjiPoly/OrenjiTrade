@@ -11752,6 +11752,30 @@ On the Mac mini (Apple M6, macOS 27, JDK 21), 2026-10-29:
 - **Screen readers**: the held state was read from `aria-disabled`, not heard with VoiceOver or
   NVDA.
 
+### CI fix: the web E2E job's API (2026-10-29)
+
+PR #95's job "Playwright against the local stack" (run 40873331480) failed
+`inventory-import.spec.ts:60` three times ("Which copy? 0 / Not recognised 4": the fictional
+passcodes were not in the catalog) because its step "Start the API" lacked
+`SEED_IMPORT_FIXTURES=true`, which `e2eApiEnv` (`scripts/lib/web-e2e-guard.mjs`) gives the local
+harness's API; it also lacked `STORAGE_PUBLIC_BASE_URL=""` and
+`RATE_LIMIT_GUEST_DISCOVERY_PER_10S=1000`. All three are in `.github/workflows/e2e.yml` now. The
+same run's flaky `shell.spec.ts:180` (top bar search) was the per-user limit, not the guest one:
+its collector, made once per worker, had served three five-area walks and the popovers in the
+same minute, and `GET /cards/suggest` got 429 (`X-RateLimit-Limit: 120`); reproduced locally with
+one worker (six 429s in the search test, eleven in the old links test). Both the harness and CI
+now give the E2E API `RATE_LIMIT_DEFAULT_PER_MINUTE=1200` (the limits are proven by the API's own
+tests). New guard: `scripts/lib/web-e2e-ci-parity.test.mjs` (with a small workflow reader,
+`scripts/lib/ci-workflow.mjs`, no YAML dependency) fails when a harness variable is missing from
+the CI step or differs, when CI sets one alone, or when the CI env breaks the isolation rules;
+the allow-list (the three paths under the work directory) is strict. It failed on the old
+workflow, on a copy without `SEED_IMPORT_FIXTURES`, with a changed constant, a moved path and a
+CI-only key. Checks: `npm run test:scripts` 163 of 163; `e2e.yml` parsed by `yaml` and
+`js-yaml` (already in `node_modules`); under the web E2E lock, `npm run test:e2e --
+e2e/inventory-import.spec.ts e2e/shell.spec.ts --retries=0` 14 of 14 with one worker (no 429 in
+the traces) and 14 of 14 with two. The full suite was not run locally for this fix: CI runs it on
+the next push (no spec counts on a per-user 429: none asserts `RATE_LIMITED`).
+
 ## Owner decisions of 2026-10-28: suspended collectors, large text, quick replies after a sale, blocks
 
 The owner's answers of 2026-10-28 to the open follow-ups of the phone redesign (R8 follow-ups 1, 2
