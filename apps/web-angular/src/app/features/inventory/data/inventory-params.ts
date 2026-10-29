@@ -3,98 +3,119 @@ import { QUERY_MAX_LENGTH } from '../../../shared/catalog/catalog-constants';
 import {
   API_FRESHNESS_STATES,
   ApiFreshnessState,
-  InventoryAvailability,
-  Visibility,
-  isInventoryAvailability,
-  isVisibility,
 } from '../../../shared/inventory/inventory-labels';
 
 /** `?binder=unfiled` lists the items that are in no binder. */
 export const UNFILED = 'unfiled';
 
-export type InventorySort = 'updated' | 'name' | 'price' | 'price-asc';
-export type InventoryView = 'grid' | 'table';
+export type InventoryTab = 'cards' | 'binders';
+export type InventorySort = 'created' | 'name' | 'price';
+export type SortDirection = 'asc' | 'desc';
+export type InventoryView = 'table' | 'grid';
+/** The toolbar's [All | Public | Private] (Public is every card set to public). */
+export type VisibilityFilter = 'PUBLIC' | 'PRIVATE';
 
 export const INVENTORY_SORTS: readonly { value: InventorySort; label: string }[] = [
-  { value: 'updated', label: 'Recently updated' },
-  { value: 'name', label: 'Name (A–Z)' },
-  { value: 'price', label: 'Price (high to low)' },
-  { value: 'price-asc', label: 'Price (low to high)' },
+  { value: 'created', label: 'Recently added' },
+  { value: 'name', label: 'Name' },
+  { value: 'price', label: 'Price' },
 ];
 
-export const INVENTORY_PAGE_SIZES: readonly number[] = [24, 48, 96];
-export const DEFAULT_INVENTORY_PAGE_SIZE = 24;
+/** The direction each sort starts in: newest first, A to Z, highest price first. */
+export const DEFAULT_DIRECTION: Readonly<Record<InventorySort, SortDirection>> = {
+  created: 'desc',
+  name: 'asc',
+  price: 'desc',
+};
+
+/** Rows per load (spec 9.4: 100, then "Load more"; the API's largest page). */
+export const INVENTORY_PAGE_SIZE = 100;
 
 /**
- * State of `/inventory`, mirrored in the URL
- * (`?binder=&q=&game=&visibility=&availability=&condition=&freshness=&sort=&view=&page=&size=`)
- * so a filtered view can be reloaded, bookmarked and navigated with back/forward.
+ * State of `/inventory` (spec 4.11), mirrored in the URL
+ * (`?tab=&binder=&q=&game=&visibility=&freshness=&sort=&dir=&view=&item=`) so a view can be
+ * reloaded, bookmarked and navigated with back and forward. The table and grid choice is also
+ * remembered in this browser (spec 9.3).
  */
 export interface InventoryParams {
+  tab: InventoryTab;
   /** Binder id, {@link UNFILED}, or `null` for every card. */
   binder: string | null;
   q: string;
   game: string | null;
-  visibility: Visibility | null;
-  availability: InventoryAvailability | null;
-  condition: string | null;
+  visibility: VisibilityFilter | null;
+  /** "Show them" of the freshness banner. */
   freshness: ApiFreshnessState | null;
   sort: InventorySort;
-  view: InventoryView;
-  page: number;
-  size: number;
+  dir: SortDirection;
+  /** `null`: the view remembered in this browser (table by default). */
+  view: InventoryView | null;
+  /** The card open in the Edit drawer. */
+  item: string | null;
 }
 
 export type RawInventoryParams = Partial<Record<keyof InventoryParams, string | null | undefined>>;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SLUG = /^[a-z0-9][a-z0-9-]{0,31}$/;
-const CONDITION = /^[A-Z][A-Z_]{0,31}$/;
-
-function nonNegativeInt(value: string | null | undefined, fallback: number): number {
-  const parsed = Number.parseInt(value ?? '', 10);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
-}
 
 /** Parses (and bounds, like the API's validation) the query parameters of `/inventory`. */
 export function parseInventoryParams(raw: RawInventoryParams): InventoryParams {
   const binder = (raw.binder ?? '').trim();
   const game = (raw.game ?? '').trim().toLowerCase();
-  const condition = (raw.condition ?? '').trim().toUpperCase();
   const freshness = (raw.freshness ?? '').trim().toUpperCase();
-  const sort = INVENTORY_SORTS.find((option) => option.value === raw.sort)?.value ?? 'updated';
-  const size = nonNegativeInt(raw.size, DEFAULT_INVENTORY_PAGE_SIZE);
+  const visibility = (raw.visibility ?? '').trim().toUpperCase();
+  // Old links: `sort=updated` (now Recently added) and `sort=price-asc`.
+  const rawSort = raw.sort === 'price-asc' ? 'price' : raw.sort === 'updated' ? 'created' : raw.sort;
+  const sort = INVENTORY_SORTS.find((option) => option.value === rawSort)?.value ?? 'created';
+  const dir: SortDirection =
+    raw.dir === 'asc' || raw.dir === 'desc'
+      ? raw.dir
+      : raw.sort === 'price-asc'
+        ? 'asc'
+        : DEFAULT_DIRECTION[sort];
+  const item = (raw.item ?? '').trim();
   return {
+    tab: raw.tab === 'binders' ? 'binders' : 'cards',
     binder: binder === UNFILED || UUID.test(binder) ? binder.toLowerCase() : null,
     q: (raw.q ?? '').trim().slice(0, QUERY_MAX_LENGTH),
     game: SLUG.test(game) ? game : null,
-    visibility: isVisibility(raw.visibility) ? raw.visibility : null,
-    availability: isInventoryAvailability(raw.availability) ? raw.availability : null,
-    condition: CONDITION.test(condition) ? condition : null,
+    visibility:
+      visibility === 'PRIVATE'
+        ? 'PRIVATE'
+        : visibility === 'PUBLIC' || visibility === 'TEMPORARILY_PUBLIC'
+          ? 'PUBLIC'
+          : null,
     freshness: (API_FRESHNESS_STATES as readonly string[]).includes(freshness)
       ? (freshness as ApiFreshnessState)
       : null,
     sort,
-    view: raw.view === 'table' ? 'table' : 'grid',
-    page: Math.min(nonNegativeInt(raw.page, 0), 10_000),
-    size: INVENTORY_PAGE_SIZES.includes(size) ? size : DEFAULT_INVENTORY_PAGE_SIZE,
+    dir,
+    view: raw.view === 'grid' ? 'grid' : raw.view === 'table' ? 'table' : null,
+    item: UUID.test(item) ? item.toLowerCase() : null,
   };
 }
 
-/** Request of the generated `InventoryService.listInventoryItems`. */
-export function toListRequest(params: InventoryParams): ListInventoryItemsRequestParams {
+/** Request of the generated `InventoryService.listInventoryItems` for one load. */
+export function toListRequest(
+  params: InventoryParams,
+  page = 0,
+  size = INVENTORY_PAGE_SIZE,
+): ListInventoryItemsRequestParams {
   const request: ListInventoryItemsRequestParams = {
     query: params.q || undefined,
     game: params.game ?? undefined,
-    visibility: params.visibility ?? undefined,
-    availability: params.availability ?? undefined,
-    condition: params.condition ?? undefined,
     freshness: params.freshness ?? undefined,
-    sort: params.sort === 'price-asc' ? 'price' : params.sort,
-    direction: params.sort === 'price-asc' ? 'asc' : undefined,
-    page: params.page,
-    size: params.size,
+    sort: params.sort,
+    direction: params.dir,
+    page,
+    size,
   };
+  if (params.visibility === 'PRIVATE') {
+    request.visibility = 'PRIVATE';
+  } else if (params.visibility === 'PUBLIC') {
+    request.markedPublic = true;
+  }
   if (params.binder === UNFILED) {
     request.unfiled = true;
   } else if (params.binder) {
@@ -103,24 +124,49 @@ export function toListRequest(params: InventoryParams): ListInventoryItemsReques
   return request;
 }
 
-/** How many of the filters (not the binder, search, sort or view) are set. */
-export function activeFilterCount(params: InventoryParams): number {
-  return [
-    params.game,
-    params.visibility,
-    params.availability,
-    params.condition,
-    params.freshness,
-  ].filter(Boolean).length;
+/** The part of the params that decides which cards are listed (not the view or the drawer). */
+export function listKey(params: InventoryParams): string {
+  const { binder, q, game, visibility, freshness, sort, dir } = params;
+  return JSON.stringify({ binder, q, game, visibility, freshness, sort, dir });
 }
 
-/** Query parameters that clear every filter and the search (binder, sort and view stay). */
+/** Whether anything differs from the defaults ("Clear filters", spec 9.3). */
+export function hasActiveFilters(params: InventoryParams): boolean {
+  return (
+    !!params.q ||
+    !!params.game ||
+    !!params.visibility ||
+    !!params.freshness ||
+    params.sort !== 'created' ||
+    params.dir !== DEFAULT_DIRECTION.created
+  );
+}
+
+/** Query parameters that clear the search, the filters and the sort (binder and view stay). */
 export const CLEARED_FILTERS: Readonly<Record<string, null>> = {
   q: null,
   game: null,
   visibility: null,
-  availability: null,
-  condition: null,
   freshness: null,
-  page: null,
+  sort: null,
+  dir: null,
 };
+
+const VIEW_KEY = 'orenji.inventory.view';
+
+/** The table or grid choice of this browser (table by default). */
+export function rememberedView(): InventoryView {
+  try {
+    return globalThis.localStorage?.getItem(VIEW_KEY) === 'grid' ? 'grid' : 'table';
+  } catch {
+    return 'table';
+  }
+}
+
+export function rememberView(view: InventoryView): void {
+  try {
+    globalThis.localStorage?.setItem(VIEW_KEY, view);
+  } catch {
+    // Storage blocked: the URL still carries the view.
+  }
+}
