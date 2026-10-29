@@ -335,7 +335,7 @@ export class SetPageComponent {
    * with or without a text (spec 7.5; the phone's set chip, stage R14).
    */
   protected whoHasQuery(): Record<string, string> {
-    return { tab: 'cards', set: this.id(), q: '' };
+    return { tab: 'cards', set: this.id() };
   }
 
   /** A focused stepper or tile under the sticky footer is scrolled above it (SC 2.4.11). */
