@@ -90,9 +90,11 @@ describe('design tokens of the phone redesign (spec 2026-10-14, section 3)', () 
       )
     ) as { color: Record<'light' | 'dark', { deckCore: Record<string, unknown> }> };
     for (const scheme of ['light', 'dark'] as const) {
-      // The metadata key that keeps the group out of the web's CSS never reaches the phone.
-      const { $platforms, ...colours } = json.color[scheme].deckCore;
-      expect($platforms).toEqual(['mobile']);
+      // Shared with the web since web stage WB (decision 21: the mobile-only marker removed when
+      // the web shipped deck cores); the metadata keys never reach the phone.
+      const { $platforms, $description, ...colours } = json.color[scheme].deckCore;
+      expect($platforms).toBeUndefined();
+      expect($description).toEqual(expect.stringContaining('web'));
       expect(tokens.color[scheme].deckCore).toEqual(colours);
     }
   });
