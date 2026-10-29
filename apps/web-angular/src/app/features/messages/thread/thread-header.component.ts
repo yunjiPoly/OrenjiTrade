@@ -3,6 +3,7 @@ import {
   Component,
   ElementRef,
   computed,
+  inject,
   input,
   output,
   viewChild,
@@ -11,6 +12,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { RouterLink } from '@angular/router';
 import type { ConversationSummary } from '@orenji/api-client';
+import { ShellLayout } from '../../../core/layout/shell-layout.service';
 import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
 import { CHAT_COPY } from '../data/chat-copy';
 import { chatStatusLine } from '../data/deal-rules';
@@ -33,6 +35,7 @@ export type ThreadMenuAction =
     <header class="head">
       @if (showBack()) {
         <button
+          #backButton
           type="button"
           class="head__icon"
           aria-label="Back to conversations"
@@ -86,7 +89,14 @@ export type ThreadMenuAction =
       >
         <mat-icon aria-hidden="true">more_horiz</mat-icon>
       </button>
-      <mat-menu #menu="matMenu" xPosition="before">
+      <mat-menu
+        #menu="matMenu"
+        xPosition="before"
+        [class]="layout.narrow() ? 'app-menu--sheet' : ''"
+        [backdropClass]="
+          layout.narrow() ? 'cdk-overlay-dark-backdrop' : 'cdk-overlay-transparent-backdrop'
+        "
+      >
         @if (canRate()) {
           <button mat-menu-item type="button" (click)="action.emit('rate')">
             <mat-icon aria-hidden="true">star</mat-icon>
@@ -264,10 +274,20 @@ export class ThreadHeaderComponent {
   readonly action = output<ThreadMenuAction>();
 
   protected readonly copy = CHAT_COPY;
+  /** Below 960 the "⋯" menu is a bottom sheet (spec 16). */
+  protected readonly layout = inject(ShellLayout);
   protected readonly status = computed(() =>
     chatStatusLine(this.conversation(), this.typing(), this.blocked()),
   );
   private readonly more = viewChild<ElementRef<HTMLButtonElement>>('more');
+  private readonly backButton = viewChild<ElementRef<HTMLButtonElement>>('backButton');
+
+  /** The focus on Back, the chat's first control (a chat opened below 960; WC review A1). */
+  focusBack(): boolean {
+    const back = this.backButton()?.nativeElement;
+    back?.focus();
+    return !!back;
+  }
 
   /** The focus back on "⋯" (after a dialog opened from its menu, whose row is gone; WC A1). */
   focusMore(): void {

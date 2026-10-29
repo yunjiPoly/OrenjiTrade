@@ -3,7 +3,7 @@ import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { PublicBindersService } from '@orenji/api-client';
-import { throwError } from 'rxjs';
+import { Subject, throwError } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { SessionService } from '../../core/auth/session.service';
 import { ReportActionsService } from '../../shared/reports/report-actions.service';
@@ -42,7 +42,12 @@ describe('PublicBinderPageComponent (daily views limit)', () => {
         },
         {
           provide: AuthService,
-          useValue: { ready: () => Promise.resolve(), isAuthenticated: signal(true) },
+          useValue: {
+            ready: () => Promise.resolve(),
+            isAuthenticated: signal(true),
+            user: signal(null),
+            changes$: new Subject(),
+          },
         },
         { provide: SessionService, useValue: { me: signal(null) } },
         { provide: ReportActionsService, useValue: {} },

@@ -250,6 +250,13 @@ export class ThreadViewComponent {
     });
   }
 
+  /** The focus on the chat's first control (Back below 960), else the field. */
+  focusStart(): void {
+    if (!this.header()?.focusBack()) {
+      this.composer()?.focus();
+    }
+  }
+
   // --- composer ------------------------------------------------------------------------------
 
   protected async onSend(draft: MessageDraft): Promise<void> {

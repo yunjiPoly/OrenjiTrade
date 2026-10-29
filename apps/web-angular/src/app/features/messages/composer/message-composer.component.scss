@@ -257,3 +257,18 @@
     padding: var(--spacing-2) var(--spacing-3);
   }
 }
+
+/* A short window: the field grows to 3 lines, so the thread keeps its room (WC review A5). */
+@media (max-height: 560px) {
+  .composer__text {
+    max-height: calc(3 * 21px + 20px);
+  }
+}
+
+/* Below 480 the quick replies wrap: none hides off-screen without a scrollbar (WC review A13). */
+@media (max-width: 479.98px) {
+  .quick {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+}

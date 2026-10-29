@@ -182,8 +182,12 @@
   font-weight: var(--font-weight-bold);
 }
 
+/*
+ * Orange when unread (spec 10.2), but in light orange is a fill or large text only (spec 2.6): the
+ * small time is ink there, beside the orange badge (WCAG 1.4.3; WC review A6).
+ */
 .row--unread .row__time {
-  color: var(--color-primary);
+  color: light-dark(var(--color-ink), var(--color-primary));
   font-weight: var(--font-weight-semibold);
 }
 

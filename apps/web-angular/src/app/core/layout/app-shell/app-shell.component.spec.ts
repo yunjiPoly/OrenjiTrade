@@ -3,7 +3,7 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
-import { NEVER } from 'rxjs';
+import { NEVER, Subject } from 'rxjs';
 import { provideApiClient } from '../../api/provide-api-client';
 import { AuthService } from '../../auth/auth.service';
 import { SessionService, SessionStatus } from '../../auth/session.service';
@@ -89,6 +89,7 @@ function shellProviders(): unknown[] {
         authState,
         user: signal(null),
         ready: async () => undefined,
+        changes$: new Subject(),
       },
     },
     {

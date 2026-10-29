@@ -166,3 +166,24 @@ app-message-composer {
     padding-inline: var(--spacing-3);
   }
 }
+
+/*
+ * A short window (a 200 percent zoom of 1440 × 900 is 720 × 450): the thread keeps at least 160 px
+ * and the chat's column scrolls under its sticky header instead (WCAG 1.4.10; WC review A5).
+ */
+@media (max-height: 560px) {
+  .thread__chat {
+    overflow-y: auto;
+  }
+
+  .thread__chat > app-thread-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+
+  .thread__body {
+    flex-basis: 160px;
+    min-height: 160px;
+  }
+}

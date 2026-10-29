@@ -243,6 +243,30 @@
   }
 }
 
+// Below 960 the chat's "+" and "⋯" open as bottom sheets (spec 16; WC review U8): the same menu
+// (its role, arrows and Esc) pinned to the bottom edge at full width, over a dimmed backdrop.
+.cdk-overlay-pane:has(> .mat-mdc-menu-panel.app-menu--sheet) {
+  position: fixed !important;
+  inset: auto 0 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+  transform: none !important;
+}
+
+.mat-mdc-menu-panel.app-menu--sheet {
+  width: 100%;
+  min-width: 0;
+  max-width: none !important;
+  max-height: 85dvh;
+  padding-bottom: env(safe-area-inset-bottom);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0 !important;
+  transform-origin: bottom center !important;
+
+  .mat-mdc-menu-item {
+    min-height: 48px;
+  }
+}
+
 // Menus (the account menu, "⋯" and "+"; spec 4.8): rows 40 tall, a 20 px icon and 14 text.
 .mat-mdc-menu-panel.account-menu {
   width: 240px;
@@ -388,6 +412,14 @@ html:has(.imp .foot) {
   .plus-menu__text small {
     color: var(--color-text-muted);
     font-size: var(--font-size-xs);
+  }
+
+  /* On the hovered or focused row's state layer the sub-line keeps 4.5:1 (WC review A11). */
+  .mat-mdc-menu-item:hover .plus-menu__text small,
+  .mat-mdc-menu-item:focus .plus-menu__text small,
+  .mat-mdc-menu-item.cdk-keyboard-focused .plus-menu__text small,
+  .mat-mdc-menu-item.cdk-program-focused .plus-menu__text small {
+    color: var(--color-text-secondary);
   }
 
   .plus-menu__divider {

@@ -243,6 +243,7 @@ export const DEAL_COPY = {
   ratingLabel: (average: string, count: number) =>
     `Rated ${average} out of 5 from ${plural(count, 'rating', 'ratings')}`,
   noRatings: 'No ratings yet',
+  ratingUnknown: 'Rating could not load.',
   memberSince: (year: number) => `Member since ${year}`,
   moreFrom: (handle: string) => `More from ${handle}`,
   seeAll: 'See all',

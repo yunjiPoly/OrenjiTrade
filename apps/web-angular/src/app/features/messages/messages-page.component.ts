@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  effect,
+  inject,
+  input,
+} from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { Router, RouterLink } from '@angular/router';
@@ -54,6 +62,7 @@ import { RealtimeStatusComponent } from './realtime-status/realtime-status.compo
       } @else {
         <app-messenger
           class="messages"
+          [class.messages--chat]="layout.inChat()"
           [split]="split()"
           [conversationId]="id() ?? null"
           (openedChange)="onOpened($event)"
@@ -134,11 +143,17 @@ import { RealtimeStatusComponent } from './realtime-status/realtime-status.compo
         padding-inline: var(--spacing-4);
       }
     }
-    /* One pane per route below 960: the phone's bars above and below. */
+    /*
+     * One pane per route below 960: the inbox between the phone's bars; a chat above the tabs, the
+     * whole height (it never makes the page scroll: no min-height beyond the window).
+     */
     @media (max-width: 959.98px) {
       .messages {
         height: calc(100dvh - 64px - 64px - env(safe-area-inset-bottom));
-        min-height: 360px;
+        min-height: 0;
+      }
+      .messages--chat {
+        height: 100dvh;
       }
       .inbox-head {
         padding-top: var(--spacing-2);
@@ -150,7 +165,7 @@ import { RealtimeStatusComponent } from './realtime-status/realtime-status.compo
 export class MessagesPageComponent {
   protected readonly auth = inject(AuthService);
   private readonly router = inject(Router);
-  private readonly layout = inject(ShellLayout);
+  protected readonly layout = inject(ShellLayout);
 
   private readonly flags = inject(FeatureFlagsService);
   private readonly unread = inject(UnreadChats);
@@ -189,6 +204,14 @@ export class MessagesPageComponent {
 
   /** The inbox beside the chat at 960 px and wider; one pane per route below (spec 10.1, 16). */
   protected readonly split = computed(() => !this.layout.narrow());
+
+  constructor() {
+    // A chat below 960 opens above the tabs (no per-tab bar, no tab bar), as on the phone.
+    effect(() =>
+      this.layout.setChatOpen(this.auth.isAuthenticated() && !this.showCommunity() && !!this.id()),
+    );
+    inject(DestroyRef).onDestroy(() => this.layout.setChatOpen(false));
+  }
 
   protected onOpened(id: string | null): void {
     void this.router.navigate(id ? ['/messages', id] : ['/messages']);

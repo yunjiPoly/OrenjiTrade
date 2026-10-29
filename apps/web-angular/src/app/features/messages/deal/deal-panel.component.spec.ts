@@ -71,25 +71,14 @@ describe('DealPanelComponent (web WC, spec 10.4)', () => {
   let element: HTMLElement;
   let listCollectorInventory: ReturnType<typeof vi.fn>;
   let getCollector: ReturnType<typeof vi.fn>;
+  let getInventoryItem: ReturnType<typeof vi.fn>;
 
   async function render(inputs: Record<string, unknown>): Promise<void> {
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
         { provide: CollectorsService, useValue: { getCollector } },
-        {
-          provide: InventoryService,
-          useValue: {
-            getInventoryItem: vi.fn(() =>
-              of({
-                id: 'item-1',
-                visibility: 'PUBLIC',
-                effectivePublic: true,
-                binder: { id: 'b1', name: 'Trade binder' },
-              }),
-            ),
-          },
-        },
+        { provide: InventoryService, useValue: { getInventoryItem } },
         { provide: PublicBindersService, useValue: { listCollectorInventory } },
       ],
     });
@@ -102,6 +91,14 @@ describe('DealPanelComponent (web WC, spec 10.4)', () => {
   }
 
   beforeEach(() => {
+    getInventoryItem = vi.fn(() =>
+      of({
+        id: 'item-1',
+        visibility: 'PUBLIC',
+        effectivePublic: true,
+        binder: { id: 'b1', name: 'Trade binder' },
+      }),
+    );
     getCollector = vi.fn(() =>
       of({
         rating: { average: 4.9, count: 14 },
@@ -159,6 +156,51 @@ describe('DealPanelComponent (web WC, spec 10.4)', () => {
     fixture.componentInstance.ask.subscribe((text) => asked.push(text));
     tiles[0].click();
     expect(asked).toEqual(['Could you add your Infinite Impermanence ($18) to the same package?']);
+  });
+
+  it('keeps only the rating and Member since of the profile, never its location (WC review P2)', async () => {
+    await render({ conversation: chat('duelist.jp', subject()), side: 'buying', selfId: 'buyer' });
+    const kept = (
+      fixture.componentInstance as unknown as { profile: () => { value?: object } }
+    ).profile();
+    expect(Object.keys(kept.value ?? {}).sort()).toEqual(['memberSince', 'rating']);
+    expect(JSON.stringify(kept)).not.toContain('Toronto');
+  });
+
+  it('says the rating could not load, with Try again, instead of "No ratings" (WC review U9)', async () => {
+    getCollector
+      .mockReturnValueOnce(throwError(() => new HttpErrorResponse({ status: 500 })))
+      .mockReturnValueOnce(throwError(() => new HttpErrorResponse({ status: 500 })));
+    await render({ conversation: chat('duelist.jp', subject()), side: 'buying', selfId: 'buyer' });
+    const error = () => element.querySelector('[data-testid="deal-rating-error"]');
+    expect(error()?.textContent).toContain('Rating could not load.');
+    expect(element.textContent).not.toContain('No ratings yet');
+    error()!.querySelector('button')!.click();
+    await fixture.whenStable();
+    expect(getCollector).toHaveBeenCalledTimes(2);
+    expect(error()).not.toBeNull();
+    error()!.querySelector('button')!.click();
+    await fixture.whenStable();
+    expect(getCollector).toHaveBeenCalledTimes(3);
+    expect(error()).toBeNull();
+    expect(element.textContent).toContain('★4.9 · 14 ratings');
+  });
+
+  it('says the seller’s copies could not load, with Try again (WC review U9)', async () => {
+    getInventoryItem.mockReturnValueOnce(throwError(() => new HttpErrorResponse({ status: 500 })));
+    await render({
+      conversation: chat('theo.duels', subject()),
+      side: 'selling',
+      selfId: 'seller',
+    });
+    expect(element.textContent).toContain('Your copies could not load.');
+    const retry = [...element.querySelectorAll<HTMLButtonElement>('.link-btn')].find(
+      (b) => b.textContent?.trim() === 'Try again',
+    );
+    retry!.click();
+    await fixture.whenStable();
+    expect(getInventoryItem).toHaveBeenCalledTimes(2);
+    expect(element.textContent).toContain('Trade binder');
   });
 
   it('shows the seller their copies, visibility and binder, with Open in Inventory, and no More from', async () => {

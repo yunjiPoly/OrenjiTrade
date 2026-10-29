@@ -1,6 +1,10 @@
+import { DOCUMENT } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  Injector,
+  afterNextRender,
+  computed,
   effect,
   inject,
   input,
@@ -142,6 +146,11 @@ import { ThreadViewComponent } from '../thread/thread-view.component';
 export class MessengerComponent {
   protected readonly store = inject(ConversationsStore);
   private readonly list = viewChild(ConversationListComponent);
+  private readonly thread = viewChild(ThreadViewComponent);
+  private readonly injector = inject(Injector);
+  private readonly document = inject(DOCUMENT);
+  /** The chat on screen (`null`: the inbox, `undefined`: nothing yet). */
+  private shown: string | null | undefined = undefined;
 
   /** Two columns (the inbox beside the chat). */
   readonly split = input(false);
@@ -186,7 +195,37 @@ export class MessengerComponent {
       const unread = this.store.totalUnread();
       untracked(() => this.unreadChange.emit(unread));
     });
+    // One pane per route below 960: the pane that held the focus leaves when a chat opens or Back
+    // closes it. The focus goes to the chat's Back, or back to that chat's row (WC review A1).
+    effect(() => {
+      const shown = this.shownChat();
+      const split = this.split();
+      untracked(() => {
+        const previous = this.shown;
+        this.shown = shown;
+        if (split || previous === shown) {
+          return;
+        }
+        afterNextRender(
+          () => {
+            const active = this.document.activeElement;
+            if (active && active !== this.document.body && active.isConnected) {
+              return;
+            }
+            if (shown) {
+              this.thread()?.focusStart();
+            } else if (previous) {
+              this.list()?.focusRow(previous);
+            }
+          },
+          { injector: this.injector },
+        );
+      });
+    });
   }
+
+  /** The chat on screen, or `null` for the inbox. */
+  private readonly shownChat = computed(() => this.active()?.id ?? null);
 
   protected select(id: string | null): void {
     this.store.open(id);

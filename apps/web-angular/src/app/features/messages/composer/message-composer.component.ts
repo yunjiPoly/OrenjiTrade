@@ -16,6 +16,7 @@ import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
+import { ShellLayout } from '../../../core/layout/shell-layout.service';
 import { ChatDrafts } from '../../../shared/messaging/chat-drafts.service';
 import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import { COMPOSER_COPY, QUICK_REPLIES } from '../data/chat-copy';
@@ -137,7 +138,14 @@ const LINE_PX = 21;
         >
           <mat-icon aria-hidden="true">add</mat-icon>
         </button>
-        <mat-menu #plusMenu="matMenu" class="plus-menu" yPosition="above">
+        <mat-menu
+          #plusMenu="matMenu"
+          yPosition="above"
+          [class]="layout.narrow() ? 'plus-menu app-menu--sheet' : 'plus-menu'"
+          [backdropClass]="
+            layout.narrow() ? 'cdk-overlay-dark-backdrop' : 'cdk-overlay-transparent-backdrop'
+          "
+        >
           <button
             mat-menu-item
             type="button"
@@ -231,6 +239,8 @@ export class MessageComposerComponent {
   private readonly textarea = viewChild<ElementRef<HTMLTextAreaElement>>('textarea');
   private readonly fileInput = viewChild<ElementRef<HTMLInputElement>>('fileInput');
   private readonly drafts = inject(ChatDrafts);
+  /** Below 960 the "+" menu is a bottom sheet (spec 16). */
+  protected readonly layout = inject(ShellLayout);
 
   /** Sending in progress. */
   readonly busy = input(false);

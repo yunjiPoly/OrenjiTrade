@@ -118,6 +118,31 @@ describe('ConversationListComponent', () => {
     expect(document.activeElement).toBe(a);
   });
 
+  it('is one Tab stop that follows the focus (a roving tabindex; WC review A8)', async () => {
+    await render({
+      status: 'ready',
+      conversations: [conversation('a'), conversation('b'), conversation('c')],
+      activeId: 'b',
+    });
+    const tabIndexes = () => rows().map((row) => row.getAttribute('tabindex'));
+    // The open chat's row first.
+    expect(tabIndexes()).toEqual(['-1', '0', '-1']);
+    const [, b, c] = rows();
+    b.focus();
+    b.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    await fixture.whenStable();
+    expect(document.activeElement).toBe(c);
+    expect(tabIndexes()).toEqual(['-1', '-1', '0']);
+    // No open chat and no focus yet: the first row.
+    fixture.componentInstance['roving'].set(null);
+    await render({ activeId: null });
+    expect(tabIndexes()).toEqual(['0', '-1', '-1']);
+    // Back from a chat below 960: the focus goes to that chat's row.
+    expect(fixture.componentInstance.focusRow('c')).toBe(true);
+    expect(document.activeElement).toBe(rows()[2]);
+    expect(fixture.componentInstance.focusRow('gone')).toBe(false);
+  });
+
   it('offers a retry when the inbox fails', async () => {
     let retries = 0;
     fixture.componentInstance.retry.subscribe(() => retries++);

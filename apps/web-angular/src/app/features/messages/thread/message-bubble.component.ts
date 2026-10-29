@@ -278,6 +278,10 @@ import { OFFER_UNAVAILABLE_TEXT, isOfferMessage } from '../data/message-text';
       font-size: var(--font-size-xs);
       opacity: 0.75;
     }
+    /* On the orange of one's own bubble the time keeps the full onPrimary: 4.5:1 (WC review A6). */
+    .bubble--own .bubble__time {
+      opacity: 1;
+    }
     @keyframes bubble-in {
       from {
         opacity: 0;

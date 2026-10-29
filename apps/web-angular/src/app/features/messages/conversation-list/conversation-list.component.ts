@@ -125,6 +125,9 @@ type Only = 'all' | 'unread';
                   [attr.aria-current]="c.id === activeId() ? 'true' : null"
                   [attr.aria-label]="rowLabel(c)"
                   [attr.data-conversation]="c.other.handle"
+                  [attr.data-id]="c.id"
+                  [attr.tabindex]="c.id === tabStop() ? 0 : -1"
+                  (focus)="roving.set(c.id)"
                   (click)="selected.emit(c.id)"
                   (keydown)="onKeydown($event)"
                 >
@@ -214,6 +217,22 @@ export class ConversationListComponent {
     this.query().trim() ? INBOX_COPY.noMatchBody : INBOX_COPY.noUnreadBody,
   );
 
+  /** The row that last had the focus (the arrows and j k move it). */
+  protected readonly roving = signal<string | null>(null);
+  /**
+   * The list's one Tab stop (a roving tabindex, WC review A8): the row last focused, else the open
+   * chat's, else the first. The arrows, j k, Home and End move between the rows.
+   */
+  protected readonly tabStop = computed(() => {
+    const shown = this.shown();
+    for (const id of [this.roving(), this.activeId()]) {
+      if (id && shown.some((c) => c.id === id)) {
+        return id;
+      }
+    }
+    return shown[0]?.id ?? null;
+  });
+
   protected readonly errorMessage = computed(() => {
     const error = this.error();
     return error ? friendlyMessage(error) : '';
@@ -223,6 +242,13 @@ export class ConversationListComponent {
   focusActive(): void {
     const rows = this.rows();
     (rows.find((row) => row.getAttribute('aria-current') === 'true') ?? rows[0])?.focus();
+  }
+
+  /** Gives the focus to a chat's row (Back from the chat below 960); `false` when it is not shown. */
+  focusRow(id: string): boolean {
+    const row = this.rows().find((candidate) => candidate.dataset['id'] === id);
+    row?.focus();
+    return !!row;
   }
 
   protected clearFilters(): void {

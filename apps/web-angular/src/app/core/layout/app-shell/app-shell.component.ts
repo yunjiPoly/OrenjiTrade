@@ -1,5 +1,5 @@
 import { DOCUMENT } from '@angular/common';
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { ChatDrawerComponent } from '../../../features/messages/drawer/chat-drawer.component';
 import { ChatDrawer } from '../../../shared/messaging/chat-drawer.service';
@@ -52,8 +52,15 @@ import { UnreadChatsProbeComponent } from '../unread-chats/unread-chats-probe.co
         >
       }
     </div>
-    <app-top-bar />
-    <div class="shell" [class.shell--narrow]="layout.narrow()">
+    @if (!layout.inChat()) {
+      <app-top-bar />
+    }
+    <div
+      class="shell"
+      [class.shell--narrow]="layout.narrow()"
+      [class.shell--drawer]="drawerPushes()"
+      [class.shell--chat]="layout.inChat()"
+    >
       @if (!layout.narrow()) {
         <app-rail class="shell__rail" />
       }
@@ -68,7 +75,7 @@ import { UnreadChatsProbeComponent } from '../unread-chats/unread-chats-probe.co
         }
       </div>
     </div>
-    @if (layout.narrow()) {
+    @if (layout.narrow() && !layout.inChat()) {
       <app-tab-bar />
     }
     <app-toast-host />
@@ -135,6 +142,17 @@ import { UnreadChatsProbeComponent } from '../unread-chats/unread-chats-probe.co
     .shell--narrow .shell__content {
       padding-bottom: calc(64px + env(safe-area-inset-bottom));
     }
+    /* A chat below 960 opens above the tabs, as on the phone: no tab bar under it. */
+    .shell--narrow.shell--chat .shell__content {
+      padding-bottom: 0;
+    }
+    /*
+     * At lg and xl the chat drawer pushes the page (spec 4.8): the content reflows beside its 440,
+     * so nothing focusable sits under it (WCAG 2.4.11; WC review U1, A3). At md it overlays.
+     */
+    .shell--drawer .shell__content {
+      padding-right: 440px;
+    }
     /* sm: the phone's design, centred at 640 (spec 16). */
     @media (min-width: 600px) and (max-width: 959.98px) {
       .shell--narrow .shell__main {
@@ -150,6 +168,10 @@ export class AppShellComponent {
   protected readonly layout = inject(ShellLayout);
   protected readonly chatDrawer = inject(ChatDrawer);
   private readonly document = inject(DOCUMENT);
+  /** The chat drawer is open at lg or xl, where drawers push the content (spec 4.8). */
+  protected readonly drawerPushes = computed(
+    () => !!this.chatDrawer.state() && !this.layout.narrow() && !this.layout.medium(),
+  );
 
   constructor() {
     inject(KeyboardShortcuts).start();

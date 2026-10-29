@@ -13,7 +13,6 @@ import {
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import {
-  CollectorProfileResponse,
   CollectorsService,
   ConversationSummary,
   InventoryItemResponse,
@@ -43,6 +42,16 @@ import {
 const MORE_TILES = 4;
 
 type Load<T> = { state: 'idle' | 'loading' | 'error' } | { state: 'ready'; value: T };
+
+/**
+ * What "WITH" keeps of the other collector's public profile: the rating and "Member since" only.
+ * The profile's location (a city, while its owner shows it) never sits in the chat's state (ADR
+ * 0017: a city only on its owner's profile; WC review P2). The place comes from the participant.
+ */
+export interface WithFacts {
+  rating: { average: number | null; count: number };
+  memberSince: string;
+}
 
 /**
  * The deal panel (320, `surface`, left border, padding 20; spec 10.4, boards W18 to W20), beside
@@ -280,6 +289,13 @@ type Load<T> = { state: 'idle' | 'loading' | 'error' } | { state: 'ready'; value
                   <span class="with__muted">{{ copy.noRatings }}</span>
                 }
               }
+              @case ('error') {
+                <!-- Never read as "no ratings": the buyer checks the rating here (WC review U9). -->
+                <span class="with__muted" data-testid="deal-rating-error">
+                  {{ copy.ratingUnknown }}
+                  <button type="button" class="link-btn" (click)="retryProfile()">Try again</button>
+                </span>
+              }
             }
             @if (place()) {
               <span class="with__muted">{{ place() }}</span>
@@ -375,7 +391,7 @@ export class DealPanelComponent {
   protected readonly copy = { ...DEAL_COPY, closeDeal: 'Close the deal panel' };
   protected readonly saleUndo = 'Undo';
 
-  protected readonly profile = signal<Load<CollectorProfileResponse>>({ state: 'idle' });
+  protected readonly profile = signal<Load<WithFacts>>({ state: 'idle' });
   protected readonly item = signal<Load<InventoryItemResponse>>({ state: 'idle' });
   protected readonly more = signal<Load<PublicInventoryItem[]>>({ state: 'idle' });
   private readonly requests: Subscription[] = [];
@@ -504,12 +520,24 @@ export class DealPanelComponent {
       this.collectors
         .getCollector({ handle }, 'body', false, { context: silentErrors() })
         .subscribe({
-          next: (value) =>
-            this.profileFor === handle && this.profile.set({ state: 'ready', value }),
-          // Without the profile the block shows the handle and the place only.
+          next: ({ rating, memberSince }) =>
+            this.profileFor === handle &&
+            this.profile.set({
+              state: 'ready',
+              value: {
+                rating: { average: rating.average ?? null, count: rating.count },
+                memberSince,
+              },
+            }),
+          // Without the profile: "Rating could not load" with Try again (WC review U9).
           error: () => this.profileFor === handle && this.profile.set({ state: 'error' }),
         }),
     );
+  }
+
+  protected retryProfile(): void {
+    this.profileFor = null;
+    this.loadProfile(this.conversation().other.handle);
   }
 
   /** The seller's own card: its visibility and binder (`GET /inventory/items/{id}`). */

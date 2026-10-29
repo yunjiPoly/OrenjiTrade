@@ -2,7 +2,7 @@ import { Component, input, output, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { MapService, RegionsService } from '@orenji/api-client';
-import { of } from 'rxjs';
+import { of, Subject } from 'rxjs';
 import { provideApiClient } from '../../core/api/provide-api-client';
 import { AuthService } from '../../core/auth/auth.service';
 import { SessionService } from '../../core/auth/session.service';
@@ -78,6 +78,7 @@ describe('MapPageComponent', () => {
             isAuthenticated: signal(false),
             authState: signal('anonymous'),
             user: signal(null),
+            changes$: new Subject(),
           },
         },
         { provide: SessionService, useValue: { status, me } },
