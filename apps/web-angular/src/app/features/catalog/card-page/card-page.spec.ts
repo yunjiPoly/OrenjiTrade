@@ -32,11 +32,15 @@ const printings = [
 describe('the card page (spec 7)', () => {
   it('names the first printing for "Any printing", and the chosen one otherwise', () => {
     expect(printingCaption(null, printings)).toEqual({
-      lead: 'First printed in Maximum Crisis',
+      lead: 'First printed in ',
+      setName: 'Maximum Crisis',
+      setId: null,
       line: 'MACR-EN036 · 2017',
     });
     expect(printingCaption(printings[2], printings)).toEqual({
-      lead: 'Legendary Arc-V Decks',
+      lead: '',
+      setName: 'Legendary Arc-V Decks',
+      setId: null,
       line: 'LAVD-EN008 · 2017',
     });
     expect(printingCaption(null, [])).toBeNull();

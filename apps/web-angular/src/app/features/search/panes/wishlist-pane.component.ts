@@ -24,7 +24,7 @@ import {
   ConfirmDialogData,
 } from '../../../shared/ui/confirm-dialog/confirm-dialog.component';
 import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
-import { WishlistActions } from '../../../shared/wishlist/wishlist-actions.service';
+import { WishlistActions, addedMessage } from '../../../shared/wishlist/wishlist-actions.service';
 import { WishlistStore } from '../../wishlist/data/wishlist.store';
 
 /** "Any printing · 90% TCG", "TN19-EN013 · NM only" (spec 6.6: a wish's terms on one line). */
@@ -121,7 +121,7 @@ export function wishLimitLine(used: number, limit: number | null): string | null
           </div>
         </div>
         @if (store.readiness() === 'no-location') {
-          <p class="wp__prompt" role="note">
+          <p class="wp__prompt" role="note" data-testid="wishlist-location-prompt">
             Choose your state or province in
             <a routerLink="/settings/location">Settings › Location</a> so collectors of your region
             can be found for your wishes.
@@ -131,7 +131,7 @@ export function wishLimitLine(used: number, limit: number | null): string | null
           type="button"
           class="wp__add"
           data-testid="add-wish"
-          [disabled]="actions.opening() || atLimit()"
+          [disabled]="actions.opening()"
           (click)="add()"
         >
           <app-shell-icon name="plus" [size]="18" /> Add a wish
@@ -266,7 +266,6 @@ export class WishlistPaneComponent {
     const usage = this.store.usage();
     return usage ? wishLimitLine(usage.used, usage.limit) : null;
   });
-  protected readonly atLimit = computed(() => !!this.limitLine());
   protected readonly emptyTitle = computed(() =>
     this.store.items().length > 0 ? `No ${this.gameName()} wishes yet` : 'No wishes yet',
   );
@@ -360,8 +359,14 @@ export class WishlistPaneComponent {
   }
 
   protected async toggleVisible(): Promise<void> {
+    const on = !this.store.visible();
     try {
-      await this.store.setVisible(!this.store.visible());
+      await this.store.setVisible(on);
+      this.toasts.show({
+        title: on
+          ? 'Others can now see what you want on your profile.'
+          : 'Your wishlist is hidden from others.',
+      });
     } catch {
       // Explained by the error interceptor; the switch shows the saved state.
     }
@@ -371,7 +376,7 @@ export class WishlistPaneComponent {
     const item = await this.actions.add({}, false);
     if (item) {
       this.store.upsert(item);
-      this.toasts.show({ title: 'Added to your wishlist', sub: item.card?.name ?? null });
+      this.toasts.show({ title: addedMessage(item) });
       if (item.game === this.game()) {
         this.chosen.emit(item);
       }

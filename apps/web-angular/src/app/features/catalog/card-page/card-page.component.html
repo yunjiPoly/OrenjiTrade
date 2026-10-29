@@ -37,7 +37,15 @@
             <h1 class="cp__name">{{ card.name }}</h1>
             @if (caption(); as caption) {
               <p class="cp__caption">
-                {{ caption.lead }}<br /><span class="cp__mono">{{ caption.line }}</span>
+                {{ caption.lead }}
+                @if (caption.setId) {
+                  <a class="cp__set" [routerLink]="['/sets', caption.setId]">{{
+                    caption.setName
+                  }}</a>
+                } @else {
+                  {{ caption.setName }}
+                }
+                <br /><span class="cp__mono">{{ caption.line }}</span>
               </p>
             }
             <a

@@ -71,6 +71,11 @@
   line-height: 22px;
 }
 
+.cp__set {
+  color: var(--color-ink);
+  font-weight: var(--font-weight-semibold);
+}
+
 .cp__mono {
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);

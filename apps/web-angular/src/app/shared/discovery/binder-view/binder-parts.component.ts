@@ -57,12 +57,18 @@ export function ownerLine(
       }
       <span class="own__text">
         <span class="own__line1">
-          <span class="own__handle">{{ o?.handle ?? 'A collector' }}</span>
+          @if (o?.handle && !card()) {
+            <a class="own__handle own__handle--link" [routerLink]="['/collectors', o?.handle]">{{
+              o?.handle
+            }}</a>
+          } @else {
+            <span class="own__handle">{{ o?.handle ?? 'A collector' }}</span>
+          }
           @if (rating()) {
             <span class="own__rating"><span aria-hidden="true">·</span> {{ rating() }}</span>
           }
         </span>
-        <span class="own__line2">{{ line() }}</span>
+        <span class="own__line2" data-testid="owner-public-label">{{ line() }}</span>
       </span>
       @if (o?.handle && card()) {
         <a class="own__profile" [routerLink]="['/collectors', o?.handle]">View profile</a>
@@ -111,6 +117,13 @@ export function ownerLine(
       font-weight: var(--font-weight-semibold);
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+    .own__handle--link {
+      color: var(--color-ink);
+      text-decoration: none;
+    }
+    .own__handle--link:hover {
+      text-decoration: underline;
     }
     .own__rating {
       color: var(--color-text-secondary);

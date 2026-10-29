@@ -48,7 +48,7 @@ type PageState = 'loading' | 'ready' | 'not-found' | 'error';
 export function printingCaption(
   selected: PrintingSummary | null,
   printings: readonly PrintingSummary[],
-): { lead: string; line: string } | null {
+): { lead: string; setName: string; setId: string | null; line: string } | null {
   const oldest = [...printings]
     .filter((printing) => !!printing.setReleaseDate)
     .sort((a, b) => (a.setReleaseDate ?? '').localeCompare(b.setReleaseDate ?? ''))[0];
@@ -58,7 +58,9 @@ export function printingCaption(
   }
   const year = printing.setReleaseDate?.slice(0, 4);
   return {
-    lead: selected ? (printing.setName ?? '') : `First printed in ${printing.setName ?? ''}`,
+    lead: selected ? '' : 'First printed in ',
+    setName: printing.setName ?? '',
+    setId: printing.setId ?? null,
     line: [printingCode(printing), year].filter(Boolean).join(' · '),
   };
 }

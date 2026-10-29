@@ -13,6 +13,7 @@ import { PopoverRef } from '../../../core/layout/popover/popover.service';
 import { ShellIconComponent } from '../../../core/layout/shell-icon/shell-icon.component';
 import { PrintingSelection } from '../../../shared/catalog/printing-picker/printing-selection';
 import { printingCode } from '../../../shared/inventory/inventory-labels';
+import { specialEdition, specialFinish } from '../../../shared/wishlist/wishlist-labels';
 
 /** What the card page hands its printing picker. */
 export interface PrintingPopoverData {
@@ -23,10 +24,21 @@ export interface PrintingPopoverData {
 
 export const PRINTING_POPOVER_DATA = new InjectionToken<PrintingPopoverData>('PrintingPopoverData');
 
-/** "LAVD-EN008 · Legendary Arc-V Decks · 2017 · Ultra Rare" (spec 7.3; no counts). */
+/**
+ * "LAVD-EN008 · Legendary Arc-V Decks · 2017 · Ultra Rare" (spec 7.3; no counts), with "1st
+ * Edition" or a finish when the printing is not the usual one: two printings of one code can
+ * differ only by them.
+ */
 export function printingRowLabel(printing: PrintingSummary): string {
   const year = printing.setReleaseDate ? printing.setReleaseDate.slice(0, 4) : null;
-  return [printingCode(printing), printing.setName, year, printing.rarity]
+  return [
+    printingCode(printing),
+    printing.setName,
+    year,
+    printing.rarity,
+    specialEdition(printing.edition),
+    specialFinish(printing.finish),
+  ]
     .filter(Boolean)
     .join(' · ');
 }

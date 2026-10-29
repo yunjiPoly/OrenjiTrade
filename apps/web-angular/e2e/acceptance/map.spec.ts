@@ -94,7 +94,7 @@ test.describe('acceptance: map', () => {
     await expect(pageB).toHaveURL(new RegExp(`/binders/${binder.id}$`));
     await expect(pageB.getByRole('heading', { level: 1, name: binder.name })).toBeVisible();
     await expect(pageB.getByRole('main')).toContainText('Lantern Fox Spirit');
-    await expect(pageB.getByTestId('owner-public-label')).toContainText(place.label);
+    await expect(pageB.getByTestId('owner-public-label')).toContainText(place.label.split(',')[0]);
     await expect(pageB.getByRole('main')).not.toContainText(city);
 
     await privacy.settle();
