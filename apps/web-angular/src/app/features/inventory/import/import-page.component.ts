@@ -106,6 +106,11 @@ export class ImportPageComponent {
   protected readonly busyRows = signal<ReadonlySet<string>>(new Set());
   protected readonly printings = signal<Record<string, PrintingSummary[]>>({});
   protected readonly working = signal(false);
+  /**
+   * The check works (Use the newest, a section) or its lines reload: no row edit is taken then,
+   * and the rows' controls hold (R2-1), so a reloaded list never overwrites an edit or drops one.
+   */
+  protected readonly held = computed(() => this.working() || this.rowsLoading());
   protected readonly unmatchedDone = signal<InventoryImportRow[]>([]);
 
   protected readonly limitsText = computed(() => limitsLine(this.choice(), this.limits()));
@@ -354,7 +359,7 @@ export class ImportPageComponent {
 
   async includeSection(key: string, include: boolean): Promise<void> {
     const preview = this.preview();
-    if (!preview || this.working()) {
+    if (!preview || this.held()) {
       return;
     }
     const body =
@@ -506,8 +511,9 @@ export class ImportPageComponent {
     patch: { printingId?: string | null; quantity?: number; included?: boolean },
   ): Promise<void> {
     const preview = this.preview();
-    // A row saving (or the whole check) ignores more edits: its controls stay focusable (A1).
-    if (!preview || this.busyRows().has(row.id) || this.working()) {
+    // A row saving (or the whole check, or its lines reloading) ignores more edits: its controls
+    // hold, focusable and aria-disabled (A1, R2-1), and a refused toggle is put back on screen.
+    if (!preview || this.busyRows().has(row.id) || this.held()) {
       return;
     }
     this.busyRows.set(new Set([...this.busyRows(), row.id]));

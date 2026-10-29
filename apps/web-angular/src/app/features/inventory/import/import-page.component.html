@@ -177,7 +177,7 @@
               [rows]="rows()"
               [busyRows]="busyRows()"
               [printings]="printings()"
-              [working]="working()"
+              [working]="held()"
               [rowsError]="rowsError()"
               (printing)="setPrinting($event.row, $event.printing)"
               (step)="step($event.row, $event.direction)"

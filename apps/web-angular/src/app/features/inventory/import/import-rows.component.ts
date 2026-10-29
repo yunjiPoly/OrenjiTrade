@@ -1,6 +1,8 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
+  afterRenderEffect,
   booleanAttribute,
   computed,
   effect,
@@ -9,6 +11,7 @@ import {
   signal,
   untracked,
   viewChild,
+  viewChildren,
 } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenu, MatMenuModule } from '@angular/material/menu';
@@ -36,7 +39,8 @@ type Section = 'main' | 'extra' | 'side';
  * The lines of an import preview (spec 9.11, board W16): by deck section for a deck file, each
  * with include, the art, the name and its line of the file, the printing (a menu of the printings
  * the file allows, the newest marked), the copies and the status ("Ready", "Which copy?", "Not
- * recognised" with its reason, "Left out").
+ * recognised" with its reason, "Left out"). While the check works (Use the newest, a section, its
+ * lines reloading) every row control holds, and a box always ends showing what its row holds.
  */
 @Component({
   selector: 'app-import-rows',
@@ -50,6 +54,7 @@ export class ImportRowsComponent {
   readonly rows = input<readonly InventoryImportRow[]>([]);
   readonly busyRows = input<ReadonlySet<string>>(new Set());
   readonly printings = input<Readonly<Record<string, PrintingSummary[]>>>({});
+  /** The whole check saves or its lines reload: every row control and section box holds (R2-1). */
   readonly working = input(false, { transform: booleanAttribute });
   readonly rowsError = input(false, { transform: booleanAttribute });
   readonly printing = output<{ row: InventoryImportRow; printing: PrintingSummary }>();
@@ -64,6 +69,10 @@ export class ImportRowsComponent {
   private readonly printMenu = viewChild('printMenu', { read: MatMenu });
   /** The row whose printing menu is open while its printings load (A14). */
   private readonly menuRow = signal<InventoryImportRow | null>(null);
+  private readonly rowBoxes = viewChildren<ElementRef<HTMLInputElement>>('rowBox');
+  private readonly sectionBoxes = viewChildren<ElementRef<HTMLInputElement>>('sectionBox');
+  /** Counts the toggles sent, so a toggle the page refused is put back after the next render. */
+  private readonly toggles = signal(0);
 
   constructor() {
     // The menu opened before its printings arrived: the focus moves to the first one once they do.
@@ -77,6 +86,43 @@ export class ImportRowsComponent {
         });
       }
     });
+    // A box shows what its row (or section) holds once nothing saves (R2-1). Angular writes
+    // `checked` only when the bound value changes, so a toggle the page refused, or a save that
+    // failed, would otherwise leave the box unchecked over a row still included.
+    afterRenderEffect({
+      write: () => {
+        this.toggles();
+        const busy = this.busyRows();
+        const rows = new Map(this.rows().map((row) => [row.id, row.included]));
+        for (const { nativeElement: box } of this.rowBoxes()) {
+          const id = box.dataset['row'] ?? '';
+          const included = rows.get(id);
+          if (included !== undefined && !busy.has(id) && box.checked !== included) {
+            box.checked = included;
+          }
+        }
+        if (this.working()) {
+          return;
+        }
+        const sections = new Map(this.groups().map((group) => [group.key, group.include]));
+        for (const { nativeElement: box } of this.sectionBoxes()) {
+          const include = sections.get(box.dataset['section'] ?? '');
+          if (include !== undefined && box.checked !== include) {
+            box.checked = include;
+          }
+        }
+      },
+    });
+  }
+
+  protected toggle(row: InventoryImportRow, event: Event): void {
+    this.toggles.update((count) => count + 1);
+    this.include.emit({ row, included: (event.target as HTMLInputElement).checked });
+  }
+
+  protected toggleSection(key: string, event: Event): void {
+    this.toggles.update((count) => count + 1);
+    this.includeSection.emit({ key, include: (event.target as HTMLInputElement).checked });
   }
 
   protected onMenuOpened(row: InventoryImportRow): void {
@@ -171,8 +217,9 @@ export class ImportRowsComponent {
     }
   }
 
-  protected isBusy(row: InventoryImportRow): boolean {
-    return this.busyRows().has(row.id);
+  /** A row's controls hold while it saves or while the whole check works (R2-1). */
+  protected held(row: InventoryImportRow): boolean {
+    return this.busyRows().has(row.id) || this.working();
   }
 
   protected sectionHidden(key: string): boolean {

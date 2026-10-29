@@ -12,12 +12,14 @@
       <div class="tr tr--section" role="row">
         <span role="cell" class="c-inc">
           <input
+            #sectionBox
             type="checkbox"
             [checked]="group.include"
+            [attr.data-section]="group.key"
             [attr.aria-disabled]="working() || null"
             [attr.aria-label]="'Include the ' + group.title"
             (click)="holdWhile(working(), $event)"
-            (change)="includeSection.emit({ key: group.key, include: $any($event.target).checked })"
+            (change)="toggleSection(group.key, $event)"
           />
         </span>
         <span role="cell" class="section">
@@ -55,12 +57,14 @@
           <span role="cell" class="c-inc">
             @if (st !== 'unmatched') {
               <input
+                #rowBox
                 type="checkbox"
                 [checked]="row.included"
-                [attr.aria-disabled]="isBusy(row) || null"
+                [attr.data-row]="row.id"
+                [attr.aria-disabled]="held(row) || null"
                 [attr.aria-label]="'Include ' + name(row)"
-                (click)="holdWhile(isBusy(row), $event)"
-                (change)="include.emit({ row, included: $any($event.target).checked })"
+                (click)="holdWhile(held(row), $event)"
+                (change)="toggle(row, $event)"
               />
             } @else {
               <span class="dashed" aria-hidden="true"></span>
@@ -93,7 +97,7 @@
                 [matMenuTriggerData]="{ row: row }"
                 (menuOpened)="onMenuOpened(row)"
                 (menuClosed)="onMenuClosed()"
-                [attr.aria-disabled]="isBusy(row) || null"
+                [attr.aria-disabled]="held(row) || null"
                 [attr.aria-label]="
                   row.printing
                     ? 'Printing: ' + code(row.printing) + '. Change it'
@@ -124,7 +128,7 @@
               <span class="stepper" role="group" [attr.aria-label]="'Copies of ' + name(row)">
                 <button
                   type="button"
-                  [attr.aria-disabled]="isBusy(row) || row.quantity <= 1 || null"
+                  [attr.aria-disabled]="held(row) || row.quantity <= 1 || null"
                   [attr.aria-label]="'One less ' + name(row)"
                   (click)="step.emit({ row, direction: -1 })"
                 >
@@ -133,7 +137,7 @@
                 <span>{{ row.quantity }}</span>
                 <button
                   type="button"
-                  [attr.aria-disabled]="isBusy(row) || row.quantity >= 9999 || null"
+                  [attr.aria-disabled]="held(row) || row.quantity >= 9999 || null"
                   [attr.aria-label]="'One more ' + name(row)"
                   (click)="step.emit({ row, direction: 1 })"
                 >
