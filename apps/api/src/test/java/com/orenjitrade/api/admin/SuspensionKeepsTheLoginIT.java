@@ -5,8 +5,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.orenjitrade.api.auth.domain.AccountStatus;
 import com.orenjitrade.api.auth.domain.Role;
 import com.orenjitrade.api.auth.infra.NoopIdentityAdminClient;
+import com.orenjitrade.api.auth.infra.StaticIdentityTokenVerifier;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -14,6 +16,8 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import tools.jackson.databind.JsonNode;
 
@@ -28,7 +32,22 @@ import tools.jackson.databind.JsonNode;
  */
 class SuspensionKeepsTheLoginIT extends AbstractPhase7IT {
 
+    /** The fields of every problem (RFC 9457 plus the platform's own). */
+    private static final List<String> PROBLEM_FIELDS =
+            List.of(
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance",
+                    "errorCode",
+                    "message",
+                    "requestId",
+                    "timestamp");
+
     @Autowired private NoopIdentityAdminClient identity;
+
+    @Autowired private StringRedisTemplate redis;
 
     private static Map<String, Object> suspension(String reason, @Nullable Instant until) {
         Map<String, Object> body = new LinkedHashMap<>();
@@ -47,6 +66,15 @@ class SuspensionKeepsTheLoginIT extends AbstractPhase7IT {
         } else {
             assertThat(me.path("suspendedUntil").asString()).isEqualTo(until.toString());
         }
+        // Screen 44's payload holds nothing else: no e-mail, handle, reason or note (review fix 1,
+        // P4 and F7).
+        List<String> fields = new ArrayList<>(PROBLEM_FIELDS);
+        if (until != null) {
+            fields.add("suspendedUntil");
+        }
+        assertThat(me.properties().stream().map(Map.Entry::getKey).toList())
+                .as("the fields of 403 ACCOUNT_SUSPENDED")
+                .containsExactlyInAnyOrderElementsOf(fields);
         Collector other = member("susp-other");
         List<Object[]> attempts =
                 List.of(
@@ -145,6 +173,50 @@ class SuspensionKeepsTheLoginIT extends AbstractPhase7IT {
                 204);
         assertThat(identity.callsFor(collector.uid())).containsExactly("enable");
         assertThat(me(collector.uid()).path("status").asString()).isEqualTo("ACTIVE");
+    }
+
+    /**
+     * Review fix 1 (P5, F10): the refused requests of a suspended account are no activity, and the
+     * account keeps the e-mail it was suspended with until the suspension ends.
+     */
+    @Test
+    void aSuspendedAccountsRefusedRequestsWriteNothing() {
+        Collector collector = member("susp-quiet");
+        String admin = staff("susp-quiet-admin", Role.ADMIN);
+        String email = me(collector.uid()).path("email").asString();
+        Instant longAgo = Instant.now().minus(10, ChronoUnit.DAYS).truncatedTo(ChronoUnit.MICROS);
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/admin/users/" + collector.id() + "/suspend",
+                admin,
+                suspension("Quiet", Instant.now().plus(2, ChronoUnit.DAYS)),
+                204);
+        testUsers.update(
+                "UPDATE user_account SET last_active_at = ? WHERE id = ?",
+                java.sql.Timestamp.from(longAgo),
+                collector.id());
+        redis.delete("user:last-active:" + collector.id());
+
+        // A new e-mail at the identity provider, then refused requests.
+        String changed = "changed-" + collector.uid() + "@example.test";
+        http.get()
+                .uri("/api/v1/me")
+                .header(
+                        HttpHeaders.AUTHORIZATION,
+                        "Bearer "
+                                + StaticIdentityTokenVerifier.PREFIX
+                                + collector.uid()
+                                + ":"
+                                + changed)
+                .exchange()
+                .expectStatus()
+                .isForbidden();
+        callJson(HttpMethod.GET, "/api/v1/conversations", collector.uid(), null, 403);
+        Map<String, Object> row = testUsers.row(collector.id());
+        assertThat(row.get("email")).as("the e-mail waits for the end").isEqualTo(email);
+        assertThat(((java.sql.Timestamp) row.get("last_active_at")).toInstant())
+                .as("no activity while suspended")
+                .isEqualTo(longAgo);
     }
 
     @Test

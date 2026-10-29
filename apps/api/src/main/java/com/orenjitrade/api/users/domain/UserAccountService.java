@@ -105,13 +105,19 @@ public class UserAccountService {
                                                 + claims.providerUid()));
     }
 
-    /** Persists {@code last_active_at} at most once per {@link LastActiveThrottle#WINDOW}. */
+    /**
+     * Persists {@code last_active_at} at most once per {@link LastActiveThrottle#WINDOW}; never for
+     * an account whose suspension is in force (its refused requests are no activity: the profile
+     * must not say "Active this week" while the phone sits on "Account suspended") nor for a
+     * deleted one.
+     */
     public void touchLastActive(UUID userId) {
         if (!lastActiveThrottle.shouldTouch(userId)) {
             return;
         }
         Instant now = timeProvider.now();
-        transaction.executeWithoutResult(status -> repository.touchLastActive(userId, now));
+        transaction.executeWithoutResult(
+                status -> repository.touchLastActive(userId, now, AccountStatus.SUSPENDED));
     }
 
     private Optional<UserAccountSnapshot> loadAndRefresh(IdentityClaims claims) {
@@ -128,7 +134,6 @@ public class UserAccountService {
                         // Anonymised: a stale token must never write personal data back.
                         return Optional.of(account.toSnapshot());
                     }
-                    account.syncIdentity(claims.email(), claims.emailVerified(), now);
                     if (account.isSuspensionExpiredAt(now)) {
                         account.unsuspend(now);
                         auditService.record(
@@ -139,6 +144,12 @@ public class UserAccountService {
                                 account.getId().toString(),
                                 Map.of());
                         events.publishEvent(new UserUnsuspendedEvent(account.getId(), now));
+                    }
+                    if (!account.isSuspendedAt(now)) {
+                        // A suspension leaves the login on (owner decision of 2026-10-28): the
+                        // account keeps the e-mail it was suspended with until the suspension
+                        // ends; the first request after it syncs the identity again.
+                        account.syncIdentity(claims.email(), claims.emailVerified(), now);
                     }
                     return Optional.of(account.toSnapshot());
                 });
