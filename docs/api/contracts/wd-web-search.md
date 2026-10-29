@@ -3,8 +3,9 @@
 > Owner prompt of 2026-10-28 ([`docs/product/specs/2026-10-28-web-redesign-stages.md`](../../product/specs/2026-10-28-web-redesign-stages.md)),
 > stage WD (boards W3 to W9), spec [`2026-10-20-web-redesign.md`](../../product/specs/2026-10-20-web-redesign.md)
 > sections 6, 7 and 8. Extends [phase3-inventory.md](phase3-inventory.md) (public binder items) and
-> [r3-binders-deck-cores.md](r3-binders-deck-cores.md). One optional query parameter; no new
-> endpoint, field or migration. The phone sends no `sort` and reads the same order as before.
+> [r3-binders-deck-cores.md](r3-binders-deck-cores.md). One optional query parameter and, since
+> the review's fix round 1, one nullable field (`ownerRating`); no new endpoint and no migration.
+> The phone sends no `sort`, reads the same order as before and ignores the new field.
 > Field-level truth: `../openapi.json`.
 
 ## The sort of a public binder's cards
@@ -27,16 +28,25 @@
   owner. The web reads the binder itself only on an explicit open (a click or Enter on a row, the
   binder page), never on hover, focus, listing or prefetch (owner decision 14 of the web spec).
 
-## What the web reads for the stage (no change)
+## The owner's rating with the binder (review fix 1)
+
+`GET /public/binders/{id}` adds `ownerRating` (`CollectorRating`: `average` nullable, `count`), the
+owner's rating summary for the seller row of the binder page and Search's drill-in. It is **null
+for a signed-out caller** (stage R15: a guest never sees who). Before, the web read
+`GET /collectors/{handle}` for it: that answer holds the owner's city while `show_city` is on (the
+city belongs on its owner's profile only) and counted a profile view nobody made
+(`CollectorProfileViewed`). The web no longer calls the profile from a binder.
+
+## What the web reads for the stage
 
 | Screen | Endpoints |
 | --- | --- |
-| Search › Cards | `GET /cards/suggest?q&game`, `GET /search/collectors?q&region&game&limit=3` (members only) |
+| Search › Cards | `GET /cards/suggest?q&game`, `GET /search/collectors?q&region&game&limit=3` (members only); one set's cards (`?set=`, a set page's "Who has cards of this set"): `GET /sets/{id}?size=1`, `GET /cards?set&query&page&size=50` |
 | Search › Binders and the map | `GET /regions/{region}/binder-counts?game`, `GET /regions/{region}/subdivisions/{code}/binders?game&deckCore&q&cursor&limit`, `GET /regions/{region}/binders?game&deckCore&q&cursor&limit` |
-| A binder or deck core (beside the list, its page) | `GET /public/binders/{id}` (spends the view), `GET /public/binders/{id}/items?sort&query&page&size`, `GET /collectors/{handle}` (the owner's rating) |
+| A binder or deck core (beside the list, its page) | `GET /public/binders/{id}` (spends the view; `ownerRating`), `GET /public/binders/{id}/items?sort&query&page&size` |
 | Search › Wishlist | `GET /wishlist`, `GET /wishlist/availability?region&game`, `GET` and `PUT /me/settings/notifications` (`wishlistAlerts`), `PUT /me/settings/privacy` (`wishlistVisible`), `POST`, `PATCH` and `DELETE /wishlist` |
 | Who has this card | `GET /cards/{id}`, `GET /search/card-holders?cardId` (or `printingId`) `&region&sort=province&excludeDeckCoreItems=true&rarity&page&size`, `GET /search/deck-cores?cardId&region&limit=3` |
-| A set page | `GET /sets/{id}?page&size=200`, `GET /cards?set&size`, `GET /binders` (own binders of the set's game), `POST /inventory/items` once per tile ("Add from this set": one create per tile until a batch create is offered on the web, spec 7.5) |
+| A set page | `GET /sets/{id}?page&size=200`, `GET /cards?set&page&size=100` (every page, for the tiles' names), `GET /binders` (own binders of the set's game), `POST /inventory/items` once per tile ("Add from this set": one create per tile until a batch create is offered on the web, spec 7.5) |
 | The game pill | `GET /games` (`hasCards`), `GET /me/profile` (the profile's games, the first browsable one is the default) |
 
 Places stay a state or province and a country (ADR 0017): the web shows the province (and the
@@ -47,6 +57,8 @@ the allowed ones (spec 17).
 ## Tests
 
 `PublicBinderIT.publicBinderItemsSortByNameNewestOrPrice` (the three orders, the default, the 400,
-no binder view spent by the items), `PublicSortTest` (the parse), `PublicOrderTest` (every order
-ends on the item id). The response is the existing `PublicInventoryItem`, which returns no place,
-so `GeoPrivacyContractTest` is unchanged (it already covers the public binder and its owner block).
+no binder view spent by the items), `PublicBinderIT.everyOrderListsOnlyPublicItemsAndRefusesBlocksAndPrivateBinders`
+(for name, recent and price: a private item never lists, a private binder and a block either way
+answer 404; `ownerRating` for members, null for guests), `PublicSortTest` (the parse),
+`PublicOrderTest` (every order ends on the item id). `GeoPrivacyContractTest` reads every seeded
+public binder's items in all three orders and checks `ownerRating` (null for a guest).
