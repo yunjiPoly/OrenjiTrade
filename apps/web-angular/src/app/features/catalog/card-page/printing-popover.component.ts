@@ -8,6 +8,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { CdkTrapFocus } from '@angular/cdk/a11y';
 import type { PrintingSummary } from '@orenji/api-client';
 import { PopoverRef } from '../../../core/layout/popover/popover.service';
 import { ShellIconComponent } from '../../../core/layout/shell-icon/shell-icon.component';
@@ -71,9 +72,9 @@ export function filterPrintings(
  */
 @Component({
   selector: 'app-printing-popover',
-  imports: [ShellIconComponent],
+  imports: [CdkTrapFocus, ShellIconComponent],
   template: `
-    <div class="pp" role="dialog" aria-modal="true" aria-labelledby="pp-title">
+    <div class="pp" role="dialog" aria-modal="true" aria-labelledby="pp-title" cdkTrapFocus>
       <h2 class="pp__title" id="pp-title">Which printing</h2>
       <label class="pp__field">
         <app-shell-icon class="pp__muted" name="search" [size]="18" />
@@ -174,6 +175,7 @@ export function filterPrintings(
     }
     .pp__field:focus-within {
       border-color: var(--color-accent);
+      box-shadow: 0 0 0 2px var(--color-focus-ring);
     }
     .pp__input {
       flex: 1;
@@ -233,9 +235,11 @@ export function filterPrintings(
     .pp__row:hover,
     .pp__row:focus-visible {
       background: var(--color-primary-tint-subtle);
-      outline: none;
     }
     .pp__row:focus-visible {
+      /* The transparent outline is what forced colours paint. */
+      outline: 2px solid transparent;
+      outline-offset: -2px;
       box-shadow: inset 0 0 0 2px var(--color-accent);
     }
     .pp__row-text {

@@ -217,6 +217,16 @@ describe('WhoHasComponent (spec 7.3 and 7.4)', () => {
     expect(navigate).toHaveBeenCalledWith(['/auth/sign-in'], expect.anything());
   });
 
+  it('says "On your wishlist" instead of offering it when the card is wished already', async () => {
+    await render([]);
+    fixture.componentRef.setInput('wished', true);
+    fixture.detectChanges();
+    expect(element.querySelector('[data-testid="who-has-wished"]')?.textContent).toContain(
+      "On your wishlist · We'll tell you when someone lists it.",
+    );
+    expect(element.querySelector('.wh__wish')).toBeNull();
+  });
+
   it('has the empty state with "Add to wishlist", "Load more", and an error with "Try again"', async () => {
     await render([]);
     expect(element.textContent).toContain('Nobody in Americas (North) lists this card yet.');

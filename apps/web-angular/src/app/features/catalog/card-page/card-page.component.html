@@ -65,8 +65,9 @@
                 class="cp__wish"
                 data-testid="card-wish-toggle"
                 [class.cp__wish--on]="!!wish()"
-                [attr.aria-pressed]="!!wish()"
-                [disabled]="wishBusy() || wishes.opening()"
+                [attr.aria-haspopup]="wish() ? 'dialog' : null"
+                [attr.aria-busy]="wishState() === 'loading' ? 'true' : null"
+                [disabled]="wishBusy() || wishes.opening() || wishState() === 'loading'"
                 (click)="toggleWish()"
               >
                 @if (wish()) {
@@ -126,6 +127,8 @@
               [regionName]="regionName()"
               [viewer]="viewer.place()"
               [stickyTop]="64"
+              [wished]="!!wish()"
+              [offerWish]="wishState() !== 'loading'"
               (wishRequested)="toggleWish()"
             />
           } @else {

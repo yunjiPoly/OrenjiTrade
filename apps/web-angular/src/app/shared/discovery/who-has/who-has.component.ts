@@ -75,7 +75,11 @@ type Status = 'loading' | 'ready' | 'error';
     } @else if (rows().length === 0) {
       <div class="wh__state" data-testid="who-has-empty">
         <p class="wh__state-title">Nobody in {{ regionName() }} lists this card yet.</p>
-        @if (offerWish()) {
+        @if (wished()) {
+          <p class="wh__state-line" data-testid="who-has-wished">
+            On your wishlist · We'll tell you when someone lists it.
+          </p>
+        } @else if (offerWish()) {
           <button type="button" class="wh__wish" (click)="wishRequested.emit()">
             <app-shell-icon name="star" [size]="18" />
             Add to wishlist
@@ -247,6 +251,8 @@ export class WhoHasComponent {
   readonly showDeckCores = input(true);
   /** The empty state offers "Add to wishlist". */
   readonly offerWish = input(true);
+  /** The card is already on the viewer's wishlist: the empty state says so instead. */
+  readonly wished = input(false);
   /** Prefix of the group anchors (two lists may share a page). */
   readonly prefix = input('wh');
   /** Where the group headers stick (64 under the top bar on the card page, 0 in a pane). */

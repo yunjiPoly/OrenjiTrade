@@ -9,6 +9,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Title } from '@angular/platform-browser';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
@@ -21,7 +22,7 @@ import { GameContext } from '../../../core/game/game-context.service';
 import { ApiError, toApiError } from '../../../core/http/api-error';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
 import { silentErrors } from '../../../core/http/http-context';
-import { Popovers } from '../../../core/layout/popover/popover.service';
+import { PopoverRef, Popovers } from '../../../core/layout/popover/popover.service';
 import { ShellIconComponent } from '../../../core/layout/shell-icon/shell-icon.component';
 import { RegionContext } from '../../../core/region/region-context.service';
 import { APP_NAME } from '../../../core/routing/orenji-title.strategy';
@@ -95,6 +96,7 @@ export class CardPageComponent {
   private readonly popovers = inject(Popovers);
   private readonly toasts = inject(ToastService);
   private readonly gameContext = inject(GameContext);
+  private readonly announcer = inject(LiveAnnouncer);
   protected readonly auth = inject(AuthService);
   protected readonly regionContext = inject(RegionContext);
   protected readonly regions = inject(RegionsStore);
@@ -111,6 +113,11 @@ export class CardPageComponent {
   protected readonly state = signal<PageState>('loading');
   protected readonly error = signal<ApiError | null>(null);
   protected readonly wish = signal<WishlistItemResponse | null>(null);
+  /**
+   * Whether the wishlist answered: until it did, the toggle is disabled (it could not say "On your
+   * wishlist", and a click could add a second wish); after a failure, a click reads it first.
+   */
+  protected readonly wishState = signal<'loading' | 'known' | 'failed'>('loading');
   protected readonly wishBusy = signal(false);
   /** The Add drawer is open (its chunk loads with the first open, `@defer`). */
   protected readonly adding = signal(false);
@@ -173,6 +180,9 @@ export class CardPageComponent {
 
   private subscription: Subscription | null = null;
   private appliedRegion: string | null = null;
+  /** The open "Any printing ▾" popover: never a second one. */
+  private printingsRef: PopoverRef | null = null;
+  private printingsOpening = false;
 
   constructor() {
     void this.regions.load();
@@ -241,10 +251,14 @@ export class CardPageComponent {
       });
   }
 
-  private async loadWish(cardId: string, signedIn: boolean): Promise<void> {
+  private async loadWish(cardId: string, signedIn: boolean): Promise<boolean> {
     if (!signedIn) {
       this.wish.set(null);
-      return;
+      this.wishState.set('known');
+      return true;
+    }
+    if (!this.wish()) {
+      this.wishState.set('loading');
     }
     try {
       const items = await firstValueFrom(
@@ -252,34 +266,62 @@ export class CardPageComponent {
       );
       if (cardId === this.id()) {
         this.wish.set(items.find((item) => item.card?.id === cardId) ?? null);
+        this.wishState.set('known');
       }
+      return true;
     } catch {
-      this.wish.set(null);
+      if (cardId === this.id()) {
+        this.wish.set(null);
+        this.wishState.set('failed');
+      }
+      return false;
     }
   }
 
-  /** "Any printing ▾": the printing listbox (a popover of 400). */
+  /** "Any printing ▾": the printing listbox (a popover of 400), one at a time. */
   protected openPrintings(event: Event): void {
+    if (this.printingsRef || this.printingsOpening) {
+      return;
+    }
     const anchor = event.currentTarget as HTMLElement;
-    void import('./printing-popover.component').then(({ PrintingPopoverComponent }) =>
-      this.popovers.open(anchor, PrintingPopoverComponent, {
-        width: 400,
-        alignEnd: true,
-        providers: [
-          {
-            provide: PRINTING_POPOVER_DATA,
-            useValue: {
-              printings: this.printings(),
-              selection: this.selection(),
-              pick: (selection: PrintingSelection) => this.pick(selection),
+    this.printingsOpening = true;
+    void import('./printing-popover.component')
+      .then(({ PrintingPopoverComponent }) => {
+        const ref = this.popovers.open(anchor, PrintingPopoverComponent, {
+          width: 400,
+          alignEnd: true,
+          providers: [
+            {
+              provide: PRINTING_POPOVER_DATA,
+              useValue: {
+                printings: this.printings(),
+                selection: this.selection(),
+                pick: (selection: PrintingSelection) => this.pick(selection),
+              },
             },
-          },
-        ],
-      }),
-    );
+          ],
+        });
+        this.printingsRef = ref;
+        ref.closed$.subscribe(() => {
+          if (this.printingsRef === ref) {
+            this.printingsRef = null;
+          }
+        });
+      })
+      .finally(() => (this.printingsOpening = false));
   }
 
   private pick(selection: PrintingSelection): void {
+    const printing = this.printings().find((entry) => entry.id === selection.printingId);
+    // The art and the list change; a screen reader hears which copies it now lists (no count).
+    this.announcer.announce(
+      printing
+        ? `Showing ${printingCode(printing) || printing.setName || 'this printing'} only`
+        : selection.rarity
+          ? `Showing every ${selection.rarity} printing`
+          : 'Showing every printing',
+      'polite',
+    );
     void this.router.navigate([], {
       queryParams: {
         printing: selection.printingId ?? null,
@@ -305,6 +347,14 @@ export class CardPageComponent {
     }
     if (!this.auth.isAuthenticated()) {
       this.signIn();
+      return;
+    }
+    if (this.wishState() === 'loading') {
+      return;
+    }
+    // The wishlist failed to load: read it first, never add a second wish of this card.
+    if (this.wishState() === 'failed' && !(await this.loadWish(card.id, true))) {
+      this.toasts.show({ title: 'Your wishlist could not load. Try again.', tone: 'error' });
       return;
     }
     const wish = this.wish();
