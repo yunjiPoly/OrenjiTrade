@@ -54,6 +54,26 @@ export const SHELL_ICONS = {
     'M4 4h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z',
     'M8 20h8M12 16v4',
   ],
+  // Web stage WD (Search, Who has this card, sets, binders and deck cores).
+  star: ['m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z'],
+  layers: ['m12 3 9 5-9 5-9-5z', 'm3 13 9 5 9-5'],
+  plus: ['M12 5v14M5 12h14'],
+  minus: ['M5 12h14'],
+  arrowLeft: ['M19 12H5M11 6l-6 6 6 6'],
+  external: ['M7 17 17 7', 'M8 7h9v9'],
+  more: ['M5 12h.01M12 12h.01M19 12h.01'],
+  share: ['M12 3v12', 'm7 8 5-5 5 5', 'M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6'],
+  flag: ['M5 21V4', 'M5 4h11l-2 4 2 4H5'],
+  sort: ['M4 7h16M7 12h10M10 17h4'],
+  pencil: ['m4 20 4-1 11-11-3-3L5 16z', 'm14 6 3 3'],
+  mail: ['M4 6h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1z', 'm3 7 9 6 9-6'],
+  expand: ['M14 4h6v6', 'M10 20H4v-6', 'M20 4l-7 7', 'M4 20l7-7'],
+  plusSquare: [
+    'M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z',
+    'M12 8v8M8 12h8',
+  ],
+  bellRing: ['M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9', 'M10.3 21a1.94 1.94 0 0 0 3.4 0'],
+  eye: ['M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z', 'M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z'],
 } as const satisfies Record<string, readonly string[]>;
 
 export type ShellIconName = keyof typeof SHELL_ICONS;

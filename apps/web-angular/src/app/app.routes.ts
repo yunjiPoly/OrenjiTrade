@@ -119,9 +119,7 @@ export const routes: Routes = [
     data: { shell: DISCOVERY_PAGE },
     canActivate: [onboardingGuard],
     loadComponent: () =>
-      import('./features/catalog/set-detail/set-detail-page.component').then(
-        (m) => m.SetDetailPageComponent,
-      ),
+      import('./features/catalog/set-page/set-page.component').then((m) => m.SetPageComponent),
   },
   { path: 'community', children: [{ path: '**', children: [] }], canActivate: [communityRedirect] },
   { path: 'wishlist', children: [{ path: '**', children: [] }], canActivate: [wishlistRedirect] },

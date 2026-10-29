@@ -1,428 +1,171 @@
-import { HttpContext } from '@angular/common/http';
+import { DOCUMENT } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
-  DestroyRef,
   computed,
   effect,
   inject,
   input,
-  signal,
   untracked,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
-import { MatSelectChange, MatSelectModule } from '@angular/material/select';
+import { MatMenuModule } from '@angular/material/menu';
 import { Title } from '@angular/platform-browser';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
-import {
-  PageResponsePublicInventoryItem,
-  PublicBinderResponse,
-  PublicBindersService,
-} from '@orenji/api-client';
-import { Subscription, debounceTime, distinctUntilChanged, filter, map } from 'rxjs';
+import type { PublicBinderResponse, PublicInventoryItem } from '@orenji/api-client';
+import { debounceTime, distinctUntilChanged, filter, map } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
-import { ChatDrawer } from '../../shared/messaging/chat-drawer.service';
-import { ReportActionsService } from '../../shared/reports/report-actions.service';
 import { SessionService } from '../../core/auth/session.service';
-import { ApiError, toApiError } from '../../core/http/api-error';
+import { ToastService } from '../../core/feedback/toast.service';
+import { GameContext } from '../../core/game/game-context.service';
 import { friendlyMessage } from '../../core/http/api-error-messages';
-import { ATTACH_ID_TOKEN, SKIP_ERROR_TOAST } from '../../core/http/http-context';
+import { ShellIconComponent } from '../../core/layout/shell-icon/shell-icon.component';
 import { APP_NAME } from '../../core/routing/orenji-title.strategy';
 import { QUERY_MAX_LENGTH } from '../../shared/catalog/catalog-constants';
-import { gameInfo } from '../../shared/domain/games';
 import {
-  INVENTORY_AVAILABILITIES,
-  isInventoryAvailability,
-} from '../../shared/inventory/inventory-labels';
-import { PublicItemCardComponent } from '../../shared/inventory/public-item-card/public-item-card.component';
-import { AVAILABILITIES } from '../../shared/ui/availability-chip/availability';
-import { EmptyStateComponent } from '../../shared/ui/empty-state/empty-state.component';
-import { ErrorStateComponent } from '../../shared/ui/error-state/error-state.component';
-import { SkeletonComponent } from '../../shared/ui/skeleton/skeleton.component';
-import { PublicBinderHeaderComponent } from './public-binder-header.component';
+  BINDER_SORTS,
+  BinderSort,
+  BinderViewStore,
+  binderLimitMessage,
+  isBinderSort,
+  updatedLabel,
+} from '../../shared/discovery/binder-view/binder-view.store';
+import {
+  BinderCardsComponent,
+  BinderOwnerComponent,
+  KeyCardsComponent,
+  ratingText,
+} from '../../shared/discovery/binder-view/binder-parts.component';
+import { DeckCoreGalleryComponent } from '../../shared/discovery/binder-view/deck-core-gallery.component';
+import { gameInfo } from '../../shared/domain/games';
+import { ChatDrawer } from '../../shared/messaging/chat-drawer.service';
+import { ReportActionsService } from '../../shared/reports/report-actions.service';
+import { GameMonogramComponent } from '../../shared/ui/game-monogram/game-monogram.component';
 
-const PAGE_SIZE = 24;
-const ALL = 'ALL';
-
-/**
- * Public reads carry the collector's token when signed in: the API counts
- * `binder.views.per_day`, applies blocks and keys rate limits by account.
- */
-function publicContext(): HttpContext {
-  return new HttpContext().set(ATTACH_ID_TOKEN, true).set(SKIP_ERROR_TOAST, true);
+/** The game of a public binder (one game since stage G). */
+function binderGame(binder: PublicBinderResponse | null): string | null {
+  return binder?.games?.[0] ?? null;
 }
 
-type BinderState =
-  | { kind: 'loading' }
-  | { kind: 'ready'; binder: PublicBinderResponse }
-  | { kind: 'not-found' }
-  | { kind: 'limit' }
-  | { kind: 'error'; error: ApiError };
-
 /**
- * `/binders/:id`: a public binder (`GET /public/binders/{id}` + its public items), open to
- * everyone. Game and availability filters and the search live in the URL. Only what the owner
- * made public is shown: never private notes, never a city (the owner block carries the
- * state/province and country, ADR 0017). Deals happen in the chat (offers left the web).
+ * `/binders/:id` (spec 8, boards W8 and W9; web stage WD): a public binder or a deck core, open to
+ * everyone. Opening the page spends one public binder view (`GET /public/binders/{id}`, members
+ * only, 30 a day); searching, sorting and "Load more" spend none, and Message never does.
+ *
+ * - A deck core (container 1120): the gallery of its photos (680, thumbnails, ←/→, a lightbox),
+ *   the key cards, and a sticky panel: the tags, the name, the price, "20 cards · Updated today",
+ *   the seller card, [Message …] (orange 52) or [Manage in Inventory] for one's own, the note, the
+ *   shipping and safety lines, and "⋯" (Share, Report).
+ * - A binder (container 1200): the game tile, the name, "Public binder", the owner row, [Message …]
+ *   (tonal) or [Manage in Inventory], "⋯"; "Search this binder" and the sort pill (Recently added,
+ *   Name, Price) in the URL; the cards grid with "Load more".
+ *
+ * Only what the owner made public is shown: never private notes, never a city (the owner block
+ * carries the state or province and country, ADR 0017). A guest sees "A collector" with the
+ * province (R15); Message asks them to sign in.
  */
 @Component({
   selector: 'app-public-binder-page',
   imports: [
     ReactiveFormsModule,
     RouterLink,
-    MatButtonModule,
-    MatFormFieldModule,
-    MatIconModule,
-    MatInputModule,
-    MatPaginatorModule,
-    MatSelectModule,
-    EmptyStateComponent,
-    ErrorStateComponent,
-    PublicBinderHeaderComponent,
-    PublicItemCardComponent,
-    SkeletonComponent,
+    MatMenuModule,
+    BinderCardsComponent,
+    BinderOwnerComponent,
+    DeckCoreGalleryComponent,
+    GameMonogramComponent,
+    KeyCardsComponent,
+    ShellIconComponent,
   ],
-  template: `
-    <div class="page pbp">
-      @switch (state().kind) {
-        @case ('loading') {
-          <div class="pbp__skeleton" aria-busy="true">
-            <span class="visually-hidden">Loading the binder</span>
-            <app-skeleton height="220px" />
-            <div class="pbp__grid">
-              @for (slot of skeletons; track slot) {
-                <app-skeleton variant="card" />
-              }
-            </div>
-          </div>
-        }
-        @case ('not-found') {
-          <app-empty-state
-            icon="menu_book"
-            title="This binder is not available"
-            description="It does not exist, is private, its publication ended, or its owner has to confirm it is still up to date."
-          >
-            <a actions matButton="filled" routerLink="/map">Back to the map</a>
-          </app-empty-state>
-        }
-        @case ('limit') {
-          <app-empty-state
-            icon="speed"
-            title="You reached today's binder views"
-            description="Every collector can open a set number of public binders per day. It resets tomorrow."
-          >
-            <a actions matButton="filled" routerLink="/map">Back to the map</a>
-          </app-empty-state>
-        }
-        @case ('error') {
-          <app-error-state
-            title="This binder could not load"
-            [message]="errorMessage()"
-            [requestId]="errorRequestId()"
-            (retry)="load()"
-          />
-        }
-        @case ('ready') {
-          @if (binder(); as binder) {
-            <app-public-binder-header
-              [binder]="binder"
-              [isOwn]="isOwn()"
-              [signedIn]="signedIn()"
-              (reportRequested)="reportOwner(binder)"
-              (messageRequested)="messageOwner(binder, $event)"
-            />
-
-            <section class="pbp__items" aria-labelledby="pbp-items-title">
-              <div class="pbp__bar">
-                <h2 id="pbp-items-title" class="pbp__title">Cards in this binder</h2>
-                <div class="pbp__filters" role="toolbar" aria-label="Binder filters">
-                  @if (binder.games.length > 1) {
-                    <div class="pbp__pills" role="group" aria-label="Game">
-                      <button
-                        type="button"
-                        class="pbp__pill"
-                        [attr.aria-pressed]="!game()"
-                        (click)="setFilter('game', null)"
-                      >
-                        All games
-                      </button>
-                      @for (slug of binder.games; track slug) {
-                        <button
-                          type="button"
-                          class="pbp__pill"
-                          [attr.aria-pressed]="game() === slug"
-                          (click)="setFilter('game', slug)"
-                        >
-                          {{ gameLabel(slug) }}
-                        </button>
-                      }
-                    </div>
-                  }
-                  <mat-form-field
-                    appearance="outline"
-                    subscriptSizing="dynamic"
-                    class="pbp__search"
-                  >
-                    <mat-label>Search this binder</mat-label>
-                    <mat-icon matPrefix aria-hidden="true">search</mat-icon>
-                    <input
-                      matInput
-                      type="search"
-                      [formControl]="query"
-                      [attr.maxlength]="maxLength"
-                    />
-                  </mat-form-field>
-                  <mat-form-field
-                    appearance="outline"
-                    subscriptSizing="dynamic"
-                    class="pbp__select"
-                  >
-                    <mat-label>Availability</mat-label>
-                    <mat-select
-                      [value]="availability() ?? all"
-                      (selectionChange)="onAvailability($event)"
-                    >
-                      <mat-option [value]="all">Any availability</mat-option>
-                      @for (value of availabilities; track value) {
-                        <mat-option [value]="value">{{ availabilityInfo[value].label }}</mat-option>
-                      }
-                    </mat-select>
-                  </mat-form-field>
-                </div>
-              </div>
-
-              @if (itemsError(); as error) {
-                <app-error-state
-                  compact
-                  title="The cards could not load"
-                  [message]="itemsErrorMessage()"
-                  (retry)="loadItems()"
-                />
-              } @else if (items(); as page) {
-                @if ((page.items ?? []).length === 0) {
-                  <app-empty-state
-                    icon="search_off"
-                    title="No cards match"
-                    description="Try another game, availability or search."
-                  />
-                } @else {
-                  <p class="pbp__count" aria-live="polite" data-testid="public-item-count">
-                    {{ page.totalItems }} {{ page.totalItems === 1 ? 'card' : 'cards' }}
-                  </p>
-                  <ul class="pbp__grid" [class.pbp__dim]="itemsLoading()" aria-label="Public cards">
-                    @for (item of page.items; track item.id) {
-                      <li class="pbp__cell">
-                        <app-public-item-card [item]="item" />
-                      </li>
-                    }
-                  </ul>
-                  @if ((page.totalPages ?? 0) > 1) {
-                    <mat-paginator
-                      class="pbp__paginator"
-                      [length]="page.totalItems ?? 0"
-                      [pageIndex]="page.page ?? 0"
-                      [pageSize]="pageSize"
-                      [hidePageSize]="true"
-                      (page)="onPage($event)"
-                      aria-label="Binder pages"
-                    />
-                  }
-                }
-              } @else {
-                <div class="pbp__grid" aria-busy="true">
-                  @for (slot of skeletons; track slot) {
-                    <app-skeleton variant="card" />
-                  }
-                </div>
-              }
-            </section>
-          }
-        }
-      }
-    </div>
-  `,
-  styles: `
-    .pbp {
-      max-width: 1280px;
-    }
-    .pbp__skeleton {
-      display: flex;
-      flex-direction: column;
-      gap: var(--spacing-5);
-    }
-    .pbp__items {
-      margin-top: var(--spacing-6);
-    }
-    .pbp__bar {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: var(--spacing-3);
-      margin-bottom: var(--spacing-4);
-    }
-    .pbp__title {
-      font-size: var(--font-size-xl);
-    }
-    .pbp__filters {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: var(--spacing-2) var(--spacing-3);
-    }
-    .pbp__pills {
-      display: flex;
-      flex-wrap: wrap;
-      gap: var(--spacing-1);
-    }
-    .pbp__pill {
-      padding: 6px var(--spacing-3);
-      border: 1px solid var(--color-border-strong);
-      border-radius: var(--radius-pill);
-      background: var(--color-surface);
-      color: var(--color-ink);
-      font: inherit;
-      font-size: var(--font-size-sm);
-      cursor: pointer;
-    }
-    .pbp__pill[aria-pressed='true'] {
-      border-color: var(--color-primary);
-      background: var(--color-primary-container);
-      color: var(--color-on-primary-container);
-      font-weight: var(--font-weight-semibold);
-    }
-    .pbp__search {
-      width: 240px;
-    }
-    .pbp__select {
-      width: 190px;
-    }
-    .pbp__count {
-      margin: 0 0 var(--spacing-3);
-      color: var(--color-text-muted);
-      font-size: var(--font-size-sm);
-    }
-    .pbp__grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: var(--spacing-4);
-      margin: 0;
-      padding: 0;
-      list-style: none;
-      transition: opacity var(--motion-duration-fast) var(--motion-easing-standard);
-    }
-    .pbp__cell {
-      min-width: 0;
-    }
-    .pbp__dim {
-      opacity: 0.6;
-    }
-    .pbp__paginator {
-      margin-top: var(--spacing-4);
-      background: transparent;
-    }
-    @media (max-width: 599px) {
-      .pbp__search,
-      .pbp__select {
-        width: 100%;
-      }
-      .pbp__grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: var(--spacing-3);
-      }
-    }
-  `,
+  providers: [BinderViewStore],
+  templateUrl: './public-binder-page.component.html',
+  styleUrl: './public-binder-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PublicBinderPageComponent {
-  private readonly api = inject(PublicBindersService);
+  protected readonly store = inject(BinderViewStore);
   private readonly auth = inject(AuthService);
   private readonly session = inject(SessionService);
   private readonly reports = inject(ReportActionsService);
   private readonly chatDrawer = inject(ChatDrawer);
-  protected readonly signedIn = this.auth.isAuthenticated;
+  private readonly gameContext = inject(GameContext);
+  private readonly toasts = inject(ToastService);
   private readonly router = inject(Router);
   private readonly title = inject(Title);
+  private readonly document = inject(DOCUMENT);
 
   /** Route parameter and query parameters (bound by the router). */
   readonly id = input.required<string>();
-  readonly game = input<string | undefined>();
-  readonly availability = input<string | undefined>();
   readonly q = input<string | undefined>();
-  readonly page = input<string | undefined>();
+  readonly sort = input<string | undefined>();
 
-  protected readonly all = ALL;
-  protected readonly pageSize = PAGE_SIZE;
+  protected readonly sorts = BINDER_SORTS;
   protected readonly maxLength = QUERY_MAX_LENGTH;
-  protected readonly availabilities = INVENTORY_AVAILABILITIES;
-  protected readonly availabilityInfo = AVAILABILITIES;
-  protected readonly skeletons = [0, 1, 2, 3, 4, 5];
+  protected readonly bones = [0, 1, 2, 3, 4, 5, 6];
   protected readonly query = new FormControl('', { nonNullable: true });
 
-  protected readonly state = signal<BinderState>({ kind: 'loading' });
-  protected readonly items = signal<PageResponsePublicInventoryItem | null>(null);
-  protected readonly itemsLoading = signal(false);
-  protected readonly itemsError = signal<ApiError | null>(null);
-  protected readonly binder = computed(() => {
-    const state = this.state();
-    return state.kind === 'ready' ? state.binder : null;
-  });
+  protected readonly binder = this.store.binder;
+  protected readonly isCore = computed(() => !!this.binder()?.sellsAsCore);
   protected readonly isOwn = computed(() => {
     const me = this.session.me();
-    return !!me && this.binder()?.owner.id === me.id;
+    return !!me && !!this.binder()?.owner?.id && this.binder()?.owner?.id === me.id;
+  });
+  protected readonly game = computed(() => binderGame(this.binder()));
+  protected readonly gameLabel = computed(() => gameInfo(this.game() ?? '').label);
+  protected readonly rating = computed(() => ratingText(this.store.rating()));
+  protected readonly province = computed(() => this.binder()?.owner?.place?.subdivisionName ?? null);
+  protected readonly stateCode = computed(
+    () => this.binder()?.owner?.place?.subdivisionCode ?? null,
+  );
+  protected readonly facts = computed(() => {
+    const binder = this.binder();
+    if (!binder) {
+      return '';
+    }
+    const cards = `${binder.itemCount} ${binder.itemCount === 1 ? 'card' : 'cards'}`;
+    return [cards, updatedLabel(binder.freshness?.updatedAt)].filter(Boolean).join(' · ');
+  });
+  protected readonly currentSort = computed<BinderSort>(() => {
+    const sort = this.sort();
+    return isBinderSort(sort) ? sort : 'recent';
+  });
+  protected readonly sortLabel = computed(
+    () => BINDER_SORTS.find((entry) => entry.value === this.currentSort())?.label ?? '',
+  );
+  protected readonly limitMessage = computed(() => {
+    const state = this.store.state();
+    return state.kind === 'limit' ? binderLimitMessage(state.info) : '';
   });
   protected readonly errorMessage = computed(() => {
-    const state = this.state();
+    const state = this.store.state();
     return state.kind === 'error' ? friendlyMessage(state.error) : '';
   });
-  protected readonly errorRequestId = computed(() => {
-    const state = this.state();
-    return state.kind === 'error' ? state.error.requestId : null;
-  });
-  protected readonly itemsErrorMessage = computed(() => {
-    const error = this.itemsError();
-    return error ? friendlyMessage(error) : '';
-  });
-  private readonly filters = computed(() => {
-    const availability = this.availability();
-    const page = Number.parseInt(this.page() ?? '', 10);
-    return {
-      id: this.id(),
-      game: this.game()?.trim().toLowerCase() || undefined,
-      availability: isInventoryAvailability(availability) ? availability : undefined,
-      query: (this.q() ?? '').trim().slice(0, QUERY_MAX_LENGTH) || undefined,
-      page: Number.isFinite(page) && page > 0 ? Math.min(page, 10_000) : 0,
-    };
-  });
-
-  private binderSubscription: Subscription | null = null;
-  private itemsSubscription: Subscription | null = null;
+  protected readonly canMessage = computed(() => !this.isOwn());
 
   constructor() {
     effect(() => {
-      this.id();
-      untracked(() => void this.load());
+      const id = this.id();
+      untracked(() => void this.store.open(id));
     });
     effect(() => {
-      const filters = this.filters();
+      const q = (this.q() ?? '').trim().slice(0, QUERY_MAX_LENGTH);
+      const sort = this.currentSort();
       untracked(() => {
-        if (this.state().kind === 'ready' && this.binder()?.id === filters.id) {
-          this.loadItems();
-        }
-      });
-    });
-    effect(() => {
-      const q = this.q() ?? '';
-      untracked(() => {
-        if (this.query.value.trim() !== q.trim()) {
+        if (this.query.value.trim() !== q) {
           this.query.setValue(q, { emitEvent: false });
         }
+        this.store.setFilters(q, sort);
+      });
+    });
+    // Opening a binder of another game makes it the browsed game (spec 4.2).
+    effect(() => {
+      const game = this.game();
+      untracked(() => {
+        if (game && this.gameContext.canBrowse(game)) {
+          this.gameContext.select(game);
+        }
+        this.applyTitle();
       });
     });
     this.query.valueChanges
@@ -434,82 +177,41 @@ export class PublicBinderPageComponent {
       )
       .subscribe((q) => {
         if (q !== (this.q() ?? '').trim()) {
-          this.navigate({ q: q || null, page: null }, true);
+          this.navigate({ q: q || null }, true);
         }
       });
-    // The title strategy resets the title on every navigation (filters): re-apply the name.
     this.router.events
       .pipe(
         filter((event) => event instanceof NavigationEnd),
         takeUntilDestroyed(),
       )
       .subscribe(() => setTimeout(() => this.applyTitle()));
-    inject(DestroyRef).onDestroy(() => {
-      this.binderSubscription?.unsubscribe();
-      this.itemsSubscription?.unsubscribe();
-    });
   }
 
-  protected async load(): Promise<void> {
-    this.binderSubscription?.unsubscribe();
-    this.state.set({ kind: 'loading' });
-    this.items.set(null);
-    await this.auth.ready();
-    this.binderSubscription = this.api
-      .getPublicBinder({ id: this.id() }, 'body', false, { context: publicContext() })
-      .subscribe({
-        next: (binder) => {
-          this.state.set({ kind: 'ready', binder });
-          this.applyTitle();
-          this.loadItems();
-        },
-        error: (error: unknown) => {
-          const apiError = toApiError(error);
-          if (apiError.status === 404 || apiError.errorCode === 'VALIDATION_FAILED') {
-            this.state.set({ kind: 'not-found' });
-          } else if (apiError.errorCode === 'LIMIT_REACHED') {
-            this.state.set({ kind: 'limit' });
-          } else {
-            this.state.set({ kind: 'error', error: apiError });
-          }
-        },
-      });
+  protected reload(): void {
+    void this.store.open(this.id());
   }
 
-  protected loadItems(): void {
-    this.itemsSubscription?.unsubscribe();
-    this.itemsLoading.set(true);
-    this.itemsError.set(null);
-    const { id, game, availability, query, page } = this.filters();
-    this.itemsSubscription = this.api
-      .listPublicBinderItems(
-        {
-          id,
-          game,
-          query,
-          availability,
-          page,
-          size: PAGE_SIZE,
-        },
-        'body',
-        false,
-        { context: publicContext() },
-      )
-      .subscribe({
-        next: (items) => {
-          this.items.set(items);
-          this.itemsLoading.set(false);
-        },
-        error: (error: unknown) => {
-          this.itemsError.set(toApiError(error));
-          this.itemsLoading.set(false);
-        },
-      });
+  protected setSort(sort: BinderSort): void {
+    this.navigate({ sort: sort === 'recent' ? null : sort }, true);
   }
 
-  /** "Report" on the owner card: the Report collector modal with the BINDER context. */
-  /** "Message": the chat drawer, about the deck core when this binder sells as one (stage R4). */
+  /** "Search" › "Binders in Quebec" (the state's list in Search). */
+  protected stateQuery(): Record<string, string> {
+    const code = this.stateCode();
+    return {
+      tab: 'binders',
+      ...(code ? { state: code } : {}),
+      ...(this.isCore() ? { kind: 'deckcores' } : {}),
+    };
+  }
+
+  /** "Message": the chat drawer, about the deck core when the binder sells as one (stage R4). */
   protected messageOwner(binder: PublicBinderResponse, opener: EventTarget | null): void {
+    if (!this.auth.isAuthenticated() || !binder.owner?.id) {
+      this.signIn();
+      return;
+    }
     void this.chatDrawer.message(
       {
         recipientId: binder.owner.id,
@@ -519,7 +221,21 @@ export class PublicBinderPageComponent {
     );
   }
 
+  /** "Message about this card" on a tile: the chat drawer about that copy. */
+  protected messageAbout(item: PublicInventoryItem, opener: EventTarget | null): void {
+    const binder = this.binder();
+    if (!this.auth.isAuthenticated() || !binder?.owner?.id) {
+      this.signIn();
+      return;
+    }
+    void this.chatDrawer.message({ recipientId: binder.owner.id, subjectItemId: item.id }, opener);
+  }
+
   protected async reportOwner(binder: PublicBinderResponse): Promise<void> {
+    if (!this.auth.isAuthenticated() || !binder.owner?.id) {
+      this.signIn();
+      return;
+    }
     await this.reports.report(
       {
         id: binder.owner.id,
@@ -531,22 +247,24 @@ export class PublicBinderPageComponent {
     );
   }
 
-  protected gameLabel(slug: string): string {
-    return gameInfo(slug).shortLabel;
+  /** Share: the browser's share sheet when it has one, else the link copied. */
+  protected async share(binder: PublicBinderResponse): Promise<void> {
+    const url = this.document.location.href.split('?')[0];
+    const nav = this.document.defaultView?.navigator;
+    try {
+      if (nav?.share) {
+        await nav.share({ title: binder.name, url });
+        return;
+      }
+      await nav?.clipboard?.writeText(url);
+      this.toasts.show({ title: 'Link copied', sub: binder.name });
+    } catch {
+      // Cancelled by the collector, or no clipboard: nothing to say.
+    }
   }
 
-  protected setFilter(key: 'game' | 'availability', value: string | null): void {
-    this.navigate({ [key]: value, page: null });
-  }
-
-  protected onAvailability(event: MatSelectChange): void {
-    const value = event.value as string;
-    this.setFilter('availability', value === ALL ? null : value);
-  }
-
-  protected onPage(event: PageEvent): void {
-    this.navigate({ page: event.pageIndex ? String(event.pageIndex) : null });
-    globalThis.scrollTo?.({ top: 0, behavior: 'smooth' });
+  private signIn(): void {
+    void this.router.navigate(['/auth/sign-in'], { queryParams: { returnUrl: this.router.url } });
   }
 
   private navigate(queryParams: Record<string, string | null>, replaceUrl = false): void {

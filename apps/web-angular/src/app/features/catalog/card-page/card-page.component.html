@@ -1,0 +1,150 @@
+<div class="cp">
+  @switch (state()) {
+    @case ('not-found') {
+      <div class="cp__state" role="status">
+        <h1 class="cp__state-title">This card isn't in the catalogue</h1>
+        <p class="cp__state-text">It may have been removed, or the link is incomplete.</p>
+        <a class="cp__outline" routerLink="/search" [queryParams]="{ tab: 'cards' }">Search cards</a>
+      </div>
+    }
+    @case ('error') {
+      <div class="cp__state" role="alert">
+        <h1 class="cp__state-title">This card could not load</h1>
+        <p class="cp__state-text">{{ errorMessage() }}</p>
+        <button type="button" class="cp__outline" (click)="reload()">Try again</button>
+      </div>
+    }
+    @default {
+      <div class="cp__grid">
+        <aside class="cp__left" aria-label="The card">
+          <div class="cp__frame">
+            @if (card(); as card) {
+              <app-card-image
+                class="cp__art"
+                [src]="art()"
+                [alt]="card.name ?? ''"
+                [game]="card.game"
+                [eager]="true"
+              />
+            } @else {
+              <span class="cp__art cp__art--bone" aria-hidden="true"></span>
+            }
+          </div>
+          @if (card(); as card) {
+            <p class="cp__game">{{ gameLabel() }}</p>
+            <h1 class="cp__name">{{ card.name }}</h1>
+            @if (caption(); as caption) {
+              <p class="cp__caption">
+                {{ caption.lead }}<br /><span class="cp__mono">{{ caption.line }}</span>
+              </p>
+            }
+            <a
+              class="cp__tcg"
+              [href]="tcgplayer()"
+              target="_blank"
+              rel="noopener noreferrer"
+              data-testid="tcgplayer-link"
+              >Check TCGplayer price <app-shell-icon name="external" [size]="16" /><span
+                class="visually-hidden"
+                >(opens in a new tab)</span
+              ></a
+            >
+            <div class="cp__actions">
+              <button
+                type="button"
+                class="cp__wish"
+                data-testid="card-wish-toggle"
+                [class.cp__wish--on]="!!wish()"
+                [attr.aria-pressed]="!!wish()"
+                [disabled]="wishBusy() || wishes.opening()"
+                (click)="toggleWish()"
+              >
+                @if (wish()) {
+                  <app-shell-icon name="check" [size]="18" />
+                  On your wishlist
+                } @else {
+                  <app-shell-icon name="star" [size]="18" />
+                  Add to wishlist
+                }
+              </button>
+              <button
+                type="button"
+                class="cp__have"
+                data-testid="card-i-have"
+                (click)="iHaveIt($event)"
+              >
+                <app-shell-icon name="plusSquare" [size]="18" />
+                I have this card
+              </button>
+            </div>
+            <app-card-data-attribution class="cp__credit" [game]="card.game" />
+          } @else {
+            <span class="cp__bone cp__bone--short" aria-hidden="true"></span>
+            <span class="cp__bone cp__bone--title" aria-hidden="true"></span>
+            <span class="visually-hidden" role="status">Loading the card</span>
+          }
+        </aside>
+
+        <section class="cp__right" aria-labelledby="cp-holders-title">
+          <header class="cp__head">
+            <h2 class="cp__h2" id="cp-holders-title">
+              Who has this card <span class="cp__muted">in {{ regionName() }}</span>
+            </h2>
+            @if (printings().length > 0) {
+              <button
+                type="button"
+                class="cp__pill"
+                aria-haspopup="dialog"
+                data-testid="printing-pill"
+                [attr.aria-label]="'Printing: ' + pillLabel() + '. Change printing'"
+                (click)="openPrintings($event)"
+              >
+                {{ pillLabel() }}
+                <app-shell-icon name="chevronDown" [size]="16" />
+              </button>
+            }
+          </header>
+          <p class="cp__lead">{{ lead() }}</p>
+          @if (card(); as card) {
+            <app-who-has
+              prefix="cp"
+              [cardId]="card.id!"
+              [printingId]="selection().printingId"
+              [rarity]="selection().rarity"
+              [cardName]="card.name ?? ''"
+              [region]="regionContext.current()"
+              [regionName]="regionName()"
+              [viewer]="viewer.place()"
+              [stickyTop]="64"
+              (wishRequested)="toggleWish()"
+            />
+          } @else {
+            <div class="cp__rows-bone" aria-hidden="true">
+              @for (bone of [0, 1, 2, 3, 4, 5]; track bone) {
+                <span class="cp__row-bone"></span>
+              }
+            </div>
+          }
+          <p class="cp__safety">
+            <app-shell-icon class="cp__safety-icon" name="shieldCheck" [size]="18" />
+            <span
+              >Agree on the price and shipping in the chat. The buyer pays the seller by e-Transfer,
+              outside OrenjiTrade, and the card ships by mail with tracking.
+              <a routerLink="/legal/trading-safely">Trading safely</a></span
+            >
+          </p>
+        </section>
+      </div>
+    }
+  }
+</div>
+
+@if (adding()) {
+  @defer (on immediate) {
+    <app-card-add-host
+      [cardId]="id()"
+      [printingId]="selection().printingId"
+      (closed)="closeAdd()"
+    />
+  }
+}

@@ -1,7 +1,10 @@
 import { Routes } from '@angular/router';
 import { cardsQueryRedirect } from '../../core/routing/legacy-redirects';
 
-/** `/cards` (search) and `/cards/:id` (detail). Public; the parent route applies the guards. */
+/**
+ * `/cards` (the catalogue) and `/cards/:id` (Who has this card, web stage WD). Public; the parent
+ * route applies the guards.
+ */
 export const CATALOG_ROUTES: Routes = [
   {
     path: '',
@@ -16,6 +19,6 @@ export const CATALOG_ROUTES: Routes = [
     path: ':id',
     title: 'Card',
     loadComponent: () =>
-      import('./card-detail/card-detail-page.component').then((m) => m.CardDetailPageComponent),
+      import('./card-page/card-page.component').then((m) => m.CardPageComponent),
   },
 ];
