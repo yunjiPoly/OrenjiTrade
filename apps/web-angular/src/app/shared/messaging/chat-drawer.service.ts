@@ -39,7 +39,13 @@ export class ChatDrawer {
   /** The recipient being opened (the button shows its progress). */
   readonly starting = this.startingState.asReadonly();
 
+  /** The account the open chat belongs to. */
+  private uid: string | null = this.auth.user()?.uid ?? null;
+
   constructor() {
+    // The drawer follows the account: signing out (here or in another tab) or switching to
+    // another account closes it at once, without giving the focus back (WC review F1, P1).
+    this.auth.changes$.subscribe((change) => this.onAccount(change.user?.uid ?? null));
     this.router.events
       .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
       .subscribe((event) => {
@@ -59,6 +65,7 @@ export class ChatDrawer {
       return;
     }
     const { recipientId, ...subject } = request;
+    const uid = this.auth.user()?.uid ?? null;
     this.startingState.set(recipientId);
     let conversation: ConversationSummary | null;
     try {
@@ -70,7 +77,8 @@ export class ChatDrawer {
     } finally {
       this.startingState.set(null);
     }
-    if (!conversation) {
+    // Signed out (or another account) while the chat was being started: nothing opens.
+    if (!conversation || uid !== (this.auth.user()?.uid ?? null)) {
       return;
     }
     if (this.layout.narrow()) {
@@ -90,6 +98,15 @@ export class ChatDrawer {
     if (state && state.conversation.id === conversation.id) {
       this.stateSignal.set({ ...state, conversation });
     }
+  }
+
+  private onAccount(uid: string | null): void {
+    if (uid === this.uid) {
+      return;
+    }
+    this.uid = uid;
+    this.stateSignal.set(null);
+    this.startingState.set(null);
   }
 
   /** Closes the drawer; the focus goes back to the control that opened it (spec 10.6). */
