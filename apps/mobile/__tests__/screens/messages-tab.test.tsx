@@ -186,10 +186,11 @@ describe('Messages tab: inbox', () => {
       render();
       const handle = await screen.findByText('collector3');
       // The handle takes the row's width on one line, capped like every handle (owner decision
-      // of 2026-10-28) and shrunk to fit rather than broken; the time under it.
+      // of 2026-10-28), its end cut rather than broken or shrunk; the time under it.
       expect(handle).toHaveProp('maxFontSizeMultiplier', HANDLE_MAX_FONT_SCALE);
       expect(handle).toHaveProp('numberOfLines', 1);
-      expect(handle).toHaveProp('adjustsFontSizeToFit', true);
+      expect(handle).toHaveProp('ellipsizeMode', 'tail');
+      expect(handle.props.adjustsFontSizeToFit).toBeUndefined();
       expect(screen.getByTestId('conversation-preview-collector3')).toHaveProp('numberOfLines', 2);
       // The title and the bell stay within the header (the bell's dot has no text, stage R9).
       expect(screen.getByText('Messages')).toHaveProp(

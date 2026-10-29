@@ -3,7 +3,6 @@ export { darkPalette, lightPalette, paletteFor, type ColorScheme, type Palette }
 export { SCRIM_FLOOR, scrimColor } from './scrim';
 export {
   HANDLE_MAX_FONT_SCALE,
-  HANDLE_MIN_FONT_SCALE,
   PINNED_MAX_FONT_SCALE,
   TITLE_MAX_FONT_SCALE,
   elevation,

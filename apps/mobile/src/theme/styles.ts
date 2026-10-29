@@ -82,16 +82,20 @@ export const PINNED_MAX_FONT_SCALE = 1.35;
  * longer fit its row and iOS broke it anywhere ("collector_ / 7f3k2a"). At this cap a handle of
  * the longest length the API allows (24 characters of [a-z0-9_], `HANDLE_MAX`) in ordinary
  * letters and digits fits one line of a row beside an avatar on a 402 pt wide phone; a wider one,
- * or a narrower row, shrinks to fit (`HANDLE_MIN_FONT_SCALE`). Every place that draws a handle uses `HandleText` or
- * `HANDLE_TEXT_PROPS` (src/components/ui/HandleText.tsx). Paragraphs that name a collector keep
- * growing. Not `TITLE_MAX_FONT_SCALE`: at 2 a handle of 24 characters is wider than such a row
- * (about 430 pt for 314), and a line that leads with a handle and may take two lines ("@{handle}
- * · Quebec") would break it again, since a text of two lines shrinks only once it overflows them.
+ * or a narrower row ("Message {handle}" in a button), keeps its size and ends with "…". Every
+ * place that draws a handle uses `HandleText` or `HANDLE_TEXT_PROPS`
+ * (src/components/ui/HandleText.tsx). Paragraphs that name a collector keep growing. Not
+ * `TITLE_MAX_FONT_SCALE`: at 2 a handle of 24 characters is wider than such a row (about 430 pt
+ * for 314), and a line that leads with a handle and may take two lines ("@{handle} · Quebec")
+ * would break it again.
+ *
+ * A handle is never shrunk to fit (`adjustsFontSizeToFit`; review fix 2 of the owner decisions of
+ * 2026-10-28): React Native 0.86's renderer ignores `minimumFontScale` on iOS and on Android and
+ * shrinks down to 4 points, and on iOS a frame a fraction of a point shorter than the line drives
+ * it there at any text size (a handle drawn a quarter of its size at the default size). The owner:
+ * big text with an occasional cut beats small text.
  */
 export const HANDLE_MAX_FONT_SCALE = PINNED_MAX_FONT_SCALE;
-
-/** The least a handle shrinks to, of its capped size, where its row is too narrow for it. */
-export const HANDLE_MIN_FONT_SCALE = 0.6;
 
 export function textStyle(
   size: keyof typeof fontSize,

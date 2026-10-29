@@ -36,8 +36,8 @@ export interface ButtonProps {
    */
   maxFontSizeMultiplier?: number;
   /**
-   * The label names a collector by handle ("Message {handle}"): one line, capped and shrunk to
-   * fit the button (`HANDLE_TEXT_PROPS`), so the handle never breaks (owner decision of
+   * The label names a collector by handle ("Message {handle}"): one line, capped, its end cut
+   * with "…" where the button is too narrow (`HANDLE_TEXT_PROPS`), so the handle never breaks (owner decision of
    * 2026-10-28).
    */
   handleInLabel?: boolean;

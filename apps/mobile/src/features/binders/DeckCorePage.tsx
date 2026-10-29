@@ -264,7 +264,7 @@ export function DeckCorePage({ binder, refreshing, onRefresh }: DeckCorePageProp
         ) : (
           <PillButton
             label={owner.handle ? DECK_CORE_COPY.message(owner.handle) : GUEST_COPY.messageButton}
-            // A handle stays on one line, shrunk to fit (owner decision of 2026-10-28).
+            // A handle stays on one line, capped (owner decision of 2026-10-28).
             handleInLabel={!!owner.handle}
             accessibilityHint={owner.id ? undefined : GUEST_COPY.needsAccount}
             icon="message-outline"

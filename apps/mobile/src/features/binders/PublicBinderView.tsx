@@ -259,7 +259,7 @@ function PlainBinder({
                 ? DECK_CORE_COPY.message(binder.owner.handle)
                 : GUEST_COPY.messageButton
             }
-            // A handle stays on one line, shrunk to fit (owner decision of 2026-10-28).
+            // A handle stays on one line, capped (owner decision of 2026-10-28).
             handleInLabel={!!binder.owner.handle}
             accessibilityHint={binder.owner.id ? undefined : GUEST_COPY.needsAccount}
             icon="message-outline"

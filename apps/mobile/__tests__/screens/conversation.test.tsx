@@ -4,12 +4,7 @@ import { Dimensions, Keyboard, ScrollView, StyleSheet } from 'react-native';
 
 import ConversationScreen from '@/app/messages/[id]';
 import { peekPendingDraft, setPendingDraft } from '@/src/features/messages/pendingDraft';
-import {
-  HANDLE_MAX_FONT_SCALE,
-  HANDLE_MIN_FONT_SCALE,
-  PINNED_MAX_FONT_SCALE,
-  TITLE_MAX_FONT_SCALE,
-} from '@/src/theme';
+import { HANDLE_MAX_FONT_SCALE, PINNED_MAX_FONT_SCALE, TITLE_MAX_FONT_SCALE } from '@/src/theme';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
@@ -96,13 +91,13 @@ describe('Conversation', () => {
     expect(screen.getByTestId('conversation-loading')).toBeOnTheScreen();
     expect(await screen.findByText('Hi! Still have the Lantern Fox?')).toBeOnTheScreen();
     expect(await screen.findByTestId('conversation-profile')).toHaveTextContent(/collector2/);
-    // The header's handle stays on one line, capped and shrunk to fit (owner decision of
-    // 2026-10-28, review fix 1, F7).
+    // The header's handle stays on one line, capped, never shrunk (owner decision of 2026-10-28,
+    // review fix 1, F7; review fix 2, R1-1).
     const handle = screen.getByTestId('conversation-handle');
     expect(handle).toHaveTextContent('collector2');
     expect(handle).toHaveProp('numberOfLines', 1);
-    expect(handle).toHaveProp('adjustsFontSizeToFit', true);
-    expect(handle).toHaveProp('minimumFontScale', HANDLE_MIN_FONT_SCALE);
+    expect(handle).toHaveProp('ellipsizeMode', 'tail');
+    expect(handle.props.adjustsFontSizeToFit).toBeUndefined();
     expect(handle).toHaveProp('maxFontSizeMultiplier', HANDLE_MAX_FONT_SCALE);
     // The status line names the province, never a city (ADR 0017).
     expect(screen.getByTestId('conversation-status')).toHaveTextContent(/^Ontario$/);

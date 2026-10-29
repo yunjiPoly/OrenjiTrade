@@ -54,8 +54,8 @@ export interface ListRowProps {
   kind?: 'link' | 'button';
   tone?: 'default' | 'danger';
   /**
-   * The label names a collector by handle ("Block {handle}"): one line, capped and shrunk to fit
-   * the row (`HANDLE_TEXT_PROPS`), so the handle never breaks (owner decision of 2026-10-28).
+   * The label names a collector by handle ("Block {handle}"): one line, capped, its end cut
+   * with "…" where the row is too narrow (`HANDLE_TEXT_PROPS`), so the handle never breaks (owner decision of 2026-10-28).
    */
   handleInLabel?: boolean;
   testID?: string;

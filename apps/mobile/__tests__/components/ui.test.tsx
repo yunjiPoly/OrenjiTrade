@@ -43,12 +43,7 @@ import { Stepper } from '@/src/components/ui/Stepper';
 import { SharedLinkCard } from '@/src/features/messages/LinkCards';
 import { SaleMessage } from '@/src/features/messages/SaleMessage';
 import { HANDLE_MAX } from '@/src/lib/profile';
-import {
-  HANDLE_MAX_FONT_SCALE,
-  HANDLE_MIN_FONT_SCALE,
-  PINNED_MAX_FONT_SCALE,
-  fontSize,
-} from '@/src/theme';
+import { HANDLE_MAX_FONT_SCALE, PINNED_MAX_FONT_SCALE, fontSize } from '@/src/theme';
 import { darkPalette } from '@/src/theme/palette';
 
 import { renderWithProviders } from '../test-utils';
@@ -608,7 +603,7 @@ describe('the largest text sizes: handles and toasts (owner decision of 2026-10-
   const LONGEST = 'collector_ab12cd34ef56gh';
 
   it.each([1, 3.1])(
-    'draws a handle on one line, capped, shrunk to fit rather than broken (text size %s)',
+    'draws a handle on one line, capped, cut with "…" rather than broken or shrunk (text size %s)',
     (fontScale) => {
       textSize(fontScale);
       renderWithProviders(<HandleText testID="handle">{LONGEST}</HandleText>);
@@ -617,9 +612,11 @@ describe('the largest text sizes: handles and toasts (owner decision of 2026-10-
       expect(handle).toHaveTextContent(LONGEST);
       expect(handle).toHaveProp('numberOfLines', 1);
       expect(handle).toHaveProp('maxFontSizeMultiplier', HANDLE_MAX_FONT_SCALE);
-      expect(handle).toHaveProp('adjustsFontSizeToFit', true);
-      expect(handle).toHaveProp('minimumFontScale', HANDLE_MIN_FONT_SCALE);
       expect(handle).toHaveProp('ellipsizeMode', 'tail');
+      // Never shrunk to fit (review fix 2, R1-1): React Native 0.86 ignores `minimumFontScale`
+      // on iOS and Android and shrinks down to 4 points.
+      expect(handle.props.adjustsFontSizeToFit).toBeUndefined();
+      expect(handle.props.minimumFontScale).toBeUndefined();
     }
   );
 
@@ -710,14 +707,17 @@ describe('the largest text sizes: handles and toasts (owner decision of 2026-10-
     textSize(3.1);
     renderWithProviders(<LongToast title="Card deleted" action />);
     fireEvent.press(screen.getByText('show'));
-    expect(screen.getByTestId('snackbar-title')).toHaveProp(
-      'maxFontSizeMultiplier',
-      SNACKBAR_MAX_FONT_SCALE
-    );
+    const title = screen.getByTestId('snackbar-title');
+    expect(title).toHaveProp('maxFontSizeMultiplier', SNACKBAR_MAX_FONT_SCALE);
+    // One line, its end cut rather than shrunk (review fix 2, R1-1: no floor above 4 points).
+    expect(title).toHaveProp('numberOfLines', SNACKBAR_TITLE_LINES);
+    expect(title).toHaveProp('ellipsizeMode', 'tail');
+    expect(title.props.adjustsFontSizeToFit).toBeUndefined();
+    expect(title.props.minimumFontScale).toBeUndefined();
     expect(screen.getByTestId('snackbar-text')).toHaveProp('numberOfLines', 3);
   });
 
-  it('keeps a confirmation’s buttons in reach and the handle in its title whole (largest size)', () => {
+  it('keeps a confirmation’s buttons in reach and the handle in its title on one line (largest size)', () => {
     textSize(3.1);
     renderWithProviders(
       <ConfirmDialog
@@ -800,13 +800,15 @@ describe('the largest text sizes: handles and toasts (owner decision of 2026-10-
     }
   );
 
-  // Review fix 1 (U1, U3, F5, F7): a label that names a handle stays on one line, capped and
-  // shrunk to fit its button or row, at the largest size as at the default one.
+  // Review fix 1 (U1, U3, F5, F7): a label that names a handle stays on one line, capped, its
+  // end cut with "…" where its button or row is too narrow, at the largest size as at the default
+  // one; never shrunk to fit (review fix 2, R1-1).
   function expectHandleLine(text: ReturnType<typeof screen.getByText>) {
     expect(text).toHaveProp('numberOfLines', 1);
-    expect(text).toHaveProp('adjustsFontSizeToFit', true);
-    expect(text).toHaveProp('minimumFontScale', HANDLE_MIN_FONT_SCALE);
+    expect(text).toHaveProp('ellipsizeMode', 'tail');
     expect(text).toHaveProp('maxFontSizeMultiplier', HANDLE_MAX_FONT_SCALE);
+    expect(text.props.adjustsFontSizeToFit).toBeUndefined();
+    expect(text.props.minimumFontScale).toBeUndefined();
   }
 
   it.each([1, 3.1])(

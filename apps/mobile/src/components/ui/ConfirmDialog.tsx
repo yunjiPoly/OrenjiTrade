@@ -25,8 +25,8 @@ export interface ConfirmDialogProps {
   tone?: 'default' | 'danger';
   busy?: boolean;
   /**
-   * The title names a collector by handle ("Block {handle}?"): one line, capped and shrunk to fit
-   * the dialog (`HANDLE_TEXT_PROPS`), so the handle never breaks (owner decision of 2026-10-28).
+   * The title names a collector by handle ("Block {handle}?"): one line, capped, its end cut
+   * with "…" where the dialog is too narrow (`HANDLE_TEXT_PROPS`), so the handle never breaks (owner decision of 2026-10-28).
    */
   handleInTitle?: boolean;
   onConfirm: () => void;

@@ -732,12 +732,13 @@ describe('the largest text sizes (stage R13 walk)', () => {
       'maxFontSizeMultiplier',
       2.5
     );
-    // The handle on a line of its own, made smaller to fit rather than broken (review fix 1),
-    // capped like every handle (owner decision of 2026-10-28).
+    // The handle on a line of its own, its end cut rather than broken (review fix 1), capped like
+    // every handle (owner decision of 2026-10-28), never shrunk (review fix 2, R1-1).
     const handle = await screen.findByTestId('settings-profile-handle');
     expect(handle).toHaveTextContent('@maika');
     expect(handle).toHaveProp('numberOfLines', 1);
-    expect(handle).toHaveProp('adjustsFontSizeToFit', true);
+    expect(handle).toHaveProp('ellipsizeMode', 'tail');
+    expect(handle.props.adjustsFontSizeToFit).toBeUndefined();
     expect(handle).toHaveProp('maxFontSizeMultiplier', HANDLE_MAX_FONT_SCALE);
     expect(within(card).getByText('Edit profile')).toBeOnTheScreen();
     expect(screen.queryByText('@maika · Edit profile')).toBeNull();

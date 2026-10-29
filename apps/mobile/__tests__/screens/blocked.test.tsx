@@ -86,10 +86,12 @@ describe('Settings › Blocked collectors', () => {
     );
     renderWithProviders(<BlockedUsersScreen />, { port: port() });
     const handle = await screen.findByTestId('blocked-handle-uxcy_mvklemg2tx_abcdefgh');
-    // One line, made smaller to fit rather than broken in the middle of the handle.
+    // One line, its end cut rather than broken in the middle of the handle; never shrunk (review
+    // fix 2 of the owner decisions of 2026-10-28, R1-1).
     expect(handle).toHaveTextContent('@uxcy_mvklemg2tx_abcdefgh');
     expect(handle).toHaveProp('numberOfLines', 1);
-    expect(handle).toHaveProp('adjustsFontSizeToFit', true);
+    expect(handle).toHaveProp('ellipsizeMode', 'tail');
+    expect(handle.props.adjustsFontSizeToFit).toBeUndefined();
     const row = screen.getByTestId('blocked-uxcy_mvklemg2tx_abcdefgh');
     expect(within(row).getByText(/^Blocked /)).toBeOnTheScreen();
     expect(screen.queryByText(/ · blocked /)).toBeNull();

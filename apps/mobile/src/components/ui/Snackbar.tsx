@@ -58,8 +58,9 @@ export const SNACKBAR_STACKED_FONT_SCALE = 1.3;
 
 /**
  * The lines a toast's title ("Saved", "Card deleted") takes, as `toastLayout` counts them: one,
- * shrunk to fit rather than cut when a title is longer (review fix 1 of the owner decisions of
- * 2026-10-28, F8: two allowed lines pushed a toast past its quarter of the window).
+ * its end cut with "…" when a title is longer (review fix 1 of the owner decisions of 2026-10-28,
+ * F8: two allowed lines pushed a toast past its quarter of the window). Never shrunk to fit:
+ * React Native 0.86 ignores `minimumFontScale` and shrinks down to 4 points (review fix 2).
  */
 export const SNACKBAR_TITLE_LINES = 1;
 
@@ -339,8 +340,7 @@ function SnackbarView({
             {message.title ? (
               <Text
                 numberOfLines={SNACKBAR_TITLE_LINES}
-                adjustsFontSizeToFit
-                minimumFontScale={0.75}
+                ellipsizeMode="tail"
                 maxFontSizeMultiplier={SNACKBAR_MAX_FONT_SCALE}
                 testID="snackbar-title"
                 style={[textStyle('md'), styles.title, { color: ink }]}
