@@ -11776,6 +11776,19 @@ e2e/inventory-import.spec.ts e2e/shell.spec.ts --retries=0` 14 of 14 with one wo
 the traces) and 14 of 14 with two. The full suite was not run locally for this fix: CI runs it on
 the next push (no spec counts on a per-user 429: none asserts `RATE_LIMITED`).
 
+The phone's unit job flaked on #93 and #94 the same morning, in tests that read a section of a
+screen on the frame of the element found before it. `wishlist.test.tsx` "removes a wish from its
+edit screen" found the header of a loading stand-in that the next state unmounted (fixed by
+waiting for the loaded editor, f2037aa2; the 20 s wait of b521a4a6 is gone); the profile's
+large-text test in `collector.test.tsx` read "See all" and the rails before their sections had
+loaded (#94, run 40886309376), and `profile.test.tsx` "leads See all to your Inventory…" pressed
+links and rows of sections still loading (found under load by the verifier): both now await each
+element (same assertions; 30 of 30 runs and the full suite green under load). The parity guard
+also refuses anything in the CI step's script beyond its exports, one `nohup java -jar` with
+exactly the identity block and the PID line (a `NAME=value` before the command, a `-D` option, a
+`--property=` override after the jar, `set -a` or `unset` would have given the API what the
+harness does not): 166 of 166 in `npm run test:scripts`.
+
 ## Owner decisions of 2026-10-28: suspended collectors, large text, quick replies after a sale, blocks
 
 The owner's answers of 2026-10-28 to the open follow-ups of the phone redesign (R8 follow-ups 1, 2
@@ -12333,7 +12346,8 @@ only use of `adjustsFontSizeToFit` is the sign-in wordmark. The handle and toast
 > fix 2 and a targeted review fix 3 (R2-1: an import row toggled while the check works holds, and
 > its box always shows what the row holds) are done** (see "Review fix 1", "Review fix 2" and
 > "Review fix 3 (targeted, R2-1)" in the WB section: no API, token, phone or migration change).
-> Next for WB: its pull request once WA's (#93) is merged.
+> WB's pull request is #95 (against `main` since WA, #93, merged on 2026-10-29); it merges after
+> the owner decisions' #94, with a merge commit once CI is green.
 >
 > **The exact next stage after WB's pull request: stage WC of the web redesign, Messages: the deal
 > beside the chat (boards W18 to W21; spec sections 10.1 to 10.6 and 10.8; decision 9)**, from the

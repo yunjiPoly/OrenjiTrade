@@ -433,8 +433,9 @@ collector edits and then commits; new items are PRIVATE and unfiled. The phone i
 Expired previews are purged by `POST /internal/jobs/inventory-import-purge`, which runs after every
 hourly `freshness` job (no Cloud Scheduler job of its own). Rate limits: 30 uploads and 30 commits
 an hour per collector. `SEED_IMPORT_FIXTURES=true` adds two fictional deck cards and an
-alternate artwork of the second (passcodes 910000001 to 910000003) for the phone's end-to-end
-suites only (`ImportFixtureSeedContributor`).
+alternate artwork of the second (passcodes 910000001 to 910000003) for the end-to-end suites
+only (`ImportFixtureSeedContributor`): the phone's isolated database, the web's E2E database and
+the web E2E job of CI; never a developer's database.
 
 ### Effective public visibility
 
