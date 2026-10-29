@@ -1,4 +1,14 @@
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { LiveAnnouncer } from '@angular/cdk/a11y';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  untracked,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type { WishlistItemResponse } from '@orenji/api-client';
 import { ShellIconComponent } from '../../../core/layout/shell-icon/shell-icon.component';
@@ -193,6 +203,21 @@ export class WishHoldersComponent {
   readonly edit = output<WishlistItemResponse>();
 
   protected readonly gameLabel = computed(() => gameInfo(this.wish()?.game ?? '').label);
+
+  constructor() {
+    // Choosing a wish fills this pane: a screen reader hears whose holders it shows (no count).
+    const announcer = inject(LiveAnnouncer);
+    let last: string | null = null;
+    effect(() => {
+      const wish = this.wish();
+      untracked(() => {
+        if (wish && wish.id !== last) {
+          void announcer.announce(`Who has ${wish.card?.name ?? 'this card'}`, 'polite');
+        }
+        last = wish?.id ?? null;
+      });
+    });
+  }
   protected readonly chips = computed(() => {
     const wish = this.wish();
     return wish ? wishTerms(wish).split(' · ') : [];

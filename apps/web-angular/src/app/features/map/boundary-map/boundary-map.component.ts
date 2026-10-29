@@ -92,6 +92,7 @@ interface Palette {
       #canvas
       class="bmap__canvas"
       data-testid="boundary-map"
+      (keydown.escape)="closeTooltips()"
       role="region"
       aria-roledescription="map"
       [attr.aria-label]="label()"
@@ -366,6 +367,11 @@ export class BoundaryMapComponent {
     const line = mapCountLine(this.counts().get(code), this.deckCores().get(code));
     const level = shadeLevel(this.counts().get(code));
     return `<strong>${escaped}</strong><br><span class="orenji-boundary-tooltip__swatch" data-level="${level}"></span>${line}`;
+  }
+
+  /** Esc on the map hides a hovered state's tooltip (SC 1.4.13); the next hover shows it again. */
+  protected closeTooltips(): void {
+    this.shapes?.eachLayer((layer) => layer.closeTooltip());
   }
 
   /** Zoom one step in or out (Search's own + and − buttons). */

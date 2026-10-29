@@ -188,6 +188,18 @@ describe('BoundaryMapComponent', () => {
     expect(traces().map((path) => path.getAttribute('stroke-width'))).toEqual(['1.5', '2']);
   });
 
+  it("Esc on the map hides a hovered state's tooltip (SC 1.4.13)", async () => {
+    const quebec = paths()[0];
+    quebec.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    await settle();
+    expect(element.querySelectorAll('.leaflet-tooltip')).toHaveLength(1);
+    element
+      .querySelector('[data-testid="boundary-map"]')!
+      .dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await settle();
+    expect(element.querySelectorAll('.leaflet-tooltip')).toHaveLength(0);
+  });
+
   it("draws the viewer's province with a teal dashed outline that takes no click", async () => {
     fixture.componentRef.setInput('home', 'CA-QC');
     fixture.detectChanges();
