@@ -96,7 +96,7 @@ test.describe('acceptance: inventory', () => {
     await editor.getByRole('radio', { name: 'Public' }).click();
     await editor.getByRole('textbox', { name: 'Public note' }).fill('Lightly played, sleeved.');
     await editor.getByTestId('edit-save').click();
-    await expect(page.getByTestId('toast').filter({ hasText: 'Saved' }).first()).toBeVisible();
+    await expect(editor.getByTestId('edit-save')).toHaveText(/No changes yet/);
     await editor.getByRole('button', { name: 'Close' }).click();
     await expect(editor).toBeHidden();
     await expect(dragon).toContainText(binderName);

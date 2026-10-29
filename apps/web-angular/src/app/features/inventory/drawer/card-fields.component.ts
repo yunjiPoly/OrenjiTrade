@@ -137,7 +137,7 @@ const VISIBILITIES: readonly SegmentOption<CardVisibility>[] = [
         <mat-select
           class="cf__select"
           panelClass="cf-binder-panel"
-          [attr.aria-labelledby]="id('binder')"
+          [aria-labelledby]="id('binder')"
           [value]="v.binderId"
           (valueChange)="patch({ binderId: $event })"
         >

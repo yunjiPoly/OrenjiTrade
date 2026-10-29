@@ -26,6 +26,11 @@ import {
  * the cards come from the fictional seed catalog.
  */
 
+/** A card of a public binder page. */
+function card(page: Page, name: string): Locator {
+  return page.getByRole('article', { name, exact: true });
+}
+
 /** A row of the table by its card. */
 function row(page: Page, name: string): Locator {
   return page.locator('[role="row"][data-item-id]', { hasText: name });

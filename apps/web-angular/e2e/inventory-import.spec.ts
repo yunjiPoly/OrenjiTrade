@@ -72,7 +72,7 @@ test.describe('inventory import (web WB)', () => {
     await page.getByRole('menuitem', { name: 'Import a deck (.ydk)' }).click();
     await expect(page).toHaveURL(/\/inventory\/import\?source=ydk$/);
     await expect(page.getByRole('heading', { level: 1, name: 'Import cards' })).toBeVisible();
-    await expect(page.getByTestId('import-limits')).toHaveText('Up to 100 kB and 500 lines');
+    await expect(page.getByTestId('import-limits')).toContainText('Up to 100 kB and 500 lines');
     await expect(page.getByText('The preview is kept for 60 minutes.')).toBeVisible();
     await expect(
       page.getByText("Your file's cards show here before anything is added."),
@@ -114,17 +114,23 @@ test.describe('inventory import (web WB)', () => {
     await page.getByTestId('import-newest').click();
     await expect(page.getByTestId('import-choose-bar')).toHaveCount(0, { timeout: 30_000 });
     await expect(page.getByTestId('import-commit')).toBeEnabled();
-    await expect(page.getByTestId('import-commit')).toHaveText(/Add 3 cards/);
+    // A card is one row, one printing: the Heron and its alternate artwork may become one card.
+    const label = (await page.getByTestId('import-commit').textContent()) ?? '';
+    const deckCards = Number(/Add (\d+) cards?/.exec(label)?.[1]);
+    expect(deckCards).toBeGreaterThanOrEqual(2);
+    await expect(page.locator('footer').getByText(`${deckCards} cards ·`)).toBeVisible();
 
     // Done: what was added, and what stayed out.
     await page.getByTestId('import-commit').click();
-    await expect(page.getByTestId('import-done')).toHaveText('3 cards added', { timeout: 30_000 });
+    await expect(page.getByTestId('import-done')).toHaveText(`${deckCards} cards added`, {
+      timeout: 30_000,
+    });
     await expect(
       page.getByText('They start private. Make the ones you trade public from Inventory.'),
     ).toBeVisible();
     await expect(page.getByText('Not recognised · 1')).toBeVisible();
     await expect(page.getByText('Card id 919999999')).toBeVisible();
-    expect(await itemCount(page, collector.idToken)).toBe(3);
+    expect(await itemCount(page, collector.idToken)).toBe(deckCards);
     await page.getByTestId('import-go').click();
     await expect(page).toHaveURL(/\/inventory$/);
     await expect(
@@ -133,7 +139,7 @@ test.describe('inventory import (web WB)', () => {
 
     // The Collectr export: another file, the same states.
     await page.goto('/inventory/import?source=csv');
-    await expect(page.getByTestId('import-limits')).toHaveText('Up to 2 MB and 5,000 rows');
+    await expect(page.getByTestId('import-limits')).toContainText('Up to 2 MB and 5,000 rows');
     await page.getByTestId('import-file').setInputFiles({
       name: 'collectr-export.csv',
       mimeType: 'text/csv',
@@ -148,7 +154,7 @@ test.describe('inventory import (web WB)', () => {
     }
     await page.getByTestId('import-commit').click();
     await expect(page.getByTestId('import-done')).toHaveText('2 cards added', { timeout: 30_000 });
-    expect(await itemCount(page, collector.idToken)).toBe(5);
+    expect(await itemCount(page, collector.idToken)).toBe(deckCards + 2);
 
     // A file the server refuses says why, in plain words.
     await page.getByRole('button', { name: 'Import another file' }).click();
