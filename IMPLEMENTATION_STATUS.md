@@ -11179,22 +11179,30 @@ from Google Fonts (as before); the walk had network.
 > offer notices headed as history, `re2js` 2.8.8 so `audit:gate` is green): next for WA, its pull
 > request.
 >
-> **The exact next stage after WA's pull request: stage WB of the web redesign, Inventory and
-> Import (boards W10 to W17; spec section 9; decisions 8, 18, 19 and 20)**, from the latest
-> `origin/main`: the phone's card model on the web (copies, "$ | % TCG", Public or Private, binder,
-> public note, photos; old web items' condition, language or edition read-only with "Add to public
-> note"), the binder pane, the toolbar, the 72 px table and the grid, selection and the bulk dock
-> (SET_VISIBILITY, MOVE_TO_BINDER, CONFIRM, DELETE, Undo through `/items/{id}/restore`), the Edit
-> card and Add cards drawers (440, pushing the table at lg and xl: the shell's `.app-side-sheet`
-> look is ready), quick add rows (Shift+N), inline price and copies edits, drag to same-game binders
-> with a "Move to binder" menu path (CDK drag-drop in the Inventory chunk only), the import at
-> `/inventory/import` with the limits from `/imports/limits` (check whether the commit returns the
-> new item ids for the post-import selection), the Binders tab, Edit binder and New binder; and
-> the list shortcuts of spec 4.9 in the "?" dialog. WA left for WB: the editor's per-field layout at
-> 440, the push of the drawer, Shift+N; and AA contrast older than WA (review fix 2, R1-5): the
-> availability chips' white text on the availability colours (2.81:1 in light, 1.86:1 and 2.27:1
-> in dark; also Search's results, WD), Inventory's orange "Temporarily public" label in light (use
-> `--app-primary-text`) and the dark binder count (4.13:1).
+> **Stage WB (Inventory and Import) is built** on `feature/wb-inventory-import`, stacked on WA
+> (section "Web redesign WB: Inventory and Import (2026-10-29)" above; no API change, no migration,
+> the next is still **V135**): the phone's card model on the web, the binder pane by game, the
+> toolbar, the 72 px table and the grid, selection and the bulk dock with Undo, inline price and
+> copies, quick add rows (Shift+N), drag to same-game binders with menu paths, the Edit card and
+> Add cards drawers, the Binders tab, Edit binder and New binder, the import at
+> `/inventory/import`; the chips' AA contrast; the phone's web E2E harness refuses a stale build.
+> The imported cards do not open already selected: the commit returns no item ids (an additive
+> field, decision 19, the owner's call). Next for WB: its reviewers (a functional verifier, product
+> and UX, accessibility), then its pull request once WA's (#93) is merged.
+>
+> **The exact next stage after WB's pull request: stage WC of the web redesign, Messages: the deal
+> beside the chat (boards W18 to W21; spec sections 10.1 to 10.6 and 10.8; decision 9)**, from the
+> latest `origin/main`: the inbox (340), the chat and the deal panel (320) at lg, the deal panel as
+> a drawer at md, one pane per route below 960; the pinned card or deck core, Mark as sold with the
+> quantity and tracking number (`POST /conversations/{id}/sales`) and its undo, Rate and Report as
+> the phone does; the composer's "+" menu with "Send my address" and "Send my e-Transfer email"
+> typed each time and never saved (decision 9; Settings › Shipping details says so); the chat
+> drawer (one at a time) opened from cards, binders and Home as a lazy chunk shared with Messages;
+> "More from {seller}" (owner check; a new endpoint returns places only and joins
+> GeoPrivacyContractTest); tracking numbers never in logs or analytics; E2E of a buyer and a
+> seller chat, Mark as sold and its undo, the drawer from a card page, and a test that nothing is
+> written to localStorage, sessionStorage or IndexedDB for the address or e-Transfer email. WB
+> left for WC: Ctrl/Cmd+Enter "or send" in the "?" dialog, the deck core's chat.
 
 > **Card scan on Android (owner, 2026-10-20):** the owner built `main` on Windows 11 with `npx expo run:android` (phone on USB) and the scan works on their Android phone. This Mac still has no Android SDK.
 
