@@ -1,6 +1,8 @@
 package com.orenjitrade.api.messaging.infra;
 
+import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.messaging.domain.RealtimeDestinations;
+import com.orenjitrade.api.profiles.domain.MemberDirectory;
 import java.security.Principal;
 import java.util.Map;
 import java.util.Set;
@@ -30,7 +32,9 @@ import org.springframework.stereotype.Component;
  *       /user/<id>/queue/...}), raw broker queues and topics are refused;
  *   <li>SEND: only {@code /app/typing}; clients can never publish to broker or user destinations;
  *   <li>every accepted frame of a session (heartbeats included) refreshes the presence key at most
- *       every {@link #PRESENCE_REFRESH_MILLIS} ms.
+ *       every {@link #PRESENCE_REFRESH_MILLIS} ms, after checking that the account may still
+ *       connect: a session opened before its account was suspended, banned or deleted ends there
+ *       (the instance that saw the change closes it at once, {@link RealtimeSessions}).
  * </ul>
  *
  * A refused frame ends the session with a STOMP ERROR frame (safe message, never the token).
@@ -51,13 +55,23 @@ public class StompSecurityInterceptor implements ChannelInterceptor {
     /** Destinations a client may SEND to. */
     public static final Set<String> ALLOWED_SENDS = Set.of(RealtimeDestinations.APP_TYPING);
 
+    /** The refusal of a session whose account may no longer connect. */
+    static final String ACCOUNT_REFUSED = "This account cannot connect";
+
     private final RealtimeAuthenticator authenticator;
     private final PresenceTracker presenceTracker;
+    private final MemberDirectory members;
+    private final TimeProvider timeProvider;
 
     public StompSecurityInterceptor(
-            RealtimeAuthenticator authenticator, PresenceTracker presenceTracker) {
+            RealtimeAuthenticator authenticator,
+            PresenceTracker presenceTracker,
+            MemberDirectory members,
+            TimeProvider timeProvider) {
         this.authenticator = authenticator;
         this.presenceTracker = presenceTracker;
+        this.members = members;
+        this.timeProvider = timeProvider;
     }
 
     @Override
@@ -116,13 +130,24 @@ public class StompSecurityInterceptor implements ChannelInterceptor {
             if (last instanceof Long at && now - at < PRESENCE_REFRESH_MILLIS) {
                 return;
             }
+        }
+        UUID userId;
+        try {
+            userId = UUID.fromString(user.getName());
+        } catch (IllegalArgumentException e) {
+            return; // not an account principal: nothing to check or refresh
+        }
+        // The account may have been suspended, banned or deleted since CONNECT (on another
+        // instance, or before RealtimeSessions closed the session): the frame is refused.
+        boolean mayConnect =
+                members.card(userId).map(card -> card.activeAt(timeProvider.now())).orElse(false);
+        if (!mayConnect) {
+            throw new RealtimeAccessDeniedException(ACCOUNT_REFUSED);
+        }
+        if (attributes != null) {
             attributes.put(PRESENCE_ATTRIBUTE, now);
         }
-        try {
-            presenceTracker.refresh(UUID.fromString(user.getName()));
-        } catch (IllegalArgumentException e) {
-            // not an account principal: nothing to refresh
-        }
+        presenceTracker.refresh(userId);
     }
 
     /**

@@ -70,7 +70,7 @@ export interface AdminUsersServiceInterface {
 
     /**
      * Suspend an account (ADMIN, SUPER_ADMIN)
-     * Blocks every API call of the account (403 ACCOUNT_SUSPENDED) and disables the identity-provider user. Audited.
+     * Refuses every non-public API call of the account (403 ACCOUNT_SUSPENDED, with suspendedUntil when temporary) and its realtime connection. The identity-provider user stays enabled: the collector can sign in and is shown the suspension. Audited.
      * @endpoint post /api/v1/admin/users/{id}/suspend
 * @param requestParameters
      */
@@ -78,7 +78,7 @@ export interface AdminUsersServiceInterface {
 
     /**
      * Lift a suspension (ADMIN, SUPER_ADMIN)
-     * 409 when the account is not suspended. Audited.
+     * Lifts the suspension (and a ban mark) and enables the identity-provider user. 409 when the account is not suspended. Audited.
      * @endpoint post /api/v1/admin/users/{id}/unsuspend
 * @param requestParameters
      */

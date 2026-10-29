@@ -1,7 +1,8 @@
 # Native flow 4 of the phone redesign (owner spec 2026-10-14, section 14; stage R4, mockup screens
 # 22 to 25): as the seller, send your e-Transfer email from the + sheet, mark the card sold with a
 # tracking number, undo, mark it sold again, and rate. Ada (fresh, fictional, Quebec, the app user)
-# lists one copy at "$32"; Ben (fresh, fictional, Ontario, driven from the host through the
+# lists one copy at "$32" (before she writes anything she marks it sold and undoes it: her quick
+# replies follow the sale, owner decision of 2026-10-28); Ben (fresh, fictional, Ontario, driven from the host through the
 # isolated API, scripts/deals.js) opens the chat about that card, so it is pinned, and asks "Is it
 # still available?". Ada's inbox shows the card's picture on the row; her chat shows "· your card"
 # with "Mark as sold" and the selling tip. The + sheet offers "Send my e-Transfer email" ("Saved on
@@ -58,6 +59,57 @@ tags:
 - assertVisible:
     id: 'quick-reply-Yes, still available'
 - takeScreenshot: r4-chat-selling
+
+# Owner decision of 2026-10-28 (R8 follow-up 3): Ada has not written yet; once the card is marked
+# sold her quick replies are the ones after a sale, and the undo brings the first ones back.
+- tapOn:
+    id: 'pinned-mark-sold'
+- extendedWaitUntil:
+    visible:
+      id: 'mark-sold-confirm'
+    timeout: 15000
+- tapOn:
+    id: 'mark-sold-confirm'
+- extendedWaitUntil:
+    visible:
+      id: 'mark-sold-undo'
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: 'quick-reply-Shipped!'
+    timeout: 30000
+- assertVisible:
+    id: 'quick-reply-Got your e-Transfer'
+- assertNotVisible:
+    id: 'quick-reply-Yes, still available'
+- takeScreenshot: od-replies-after-sale-seller
+- tapOn:
+    id: 'mark-sold-undo'
+- extendedWaitUntil:
+    visible: '.*Sale undone\..*'
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: 'quick-reply-Yes, still available'
+    timeout: 30000
+- assertNotVisible:
+    id: 'quick-reply-Shipped!'
+- extendedWaitUntil:
+    visible:
+      id: 'pinned-mark-sold'
+    timeout: 30000
+- runScript:
+    file: scripts/deals.js
+    env:
+      ACTION: expect-sales
+      EMAIL: ${output.ben.email}
+      PASSWORD: ${output.ben.password}
+      CONVERSATION: ${output.conversation.id}
+      EXPECT_SALES: '0'
+- extendedWaitUntil:
+    notVisible:
+      id: 'mark-sold-undo'
+    timeout: 20000
 
 # "+": "Send my e-Transfer email", asked the first time, into the message box only.
 - tapOn:

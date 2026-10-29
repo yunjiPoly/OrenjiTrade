@@ -586,12 +586,12 @@ describe('Add and edit a wish', () => {
     const api = mockApi(routes({ 'DELETE /api/v1/wishlist/{id}': noContent }));
     renderWithProviders(<EditWishScreen />, { port: port() });
     // Edit wish (mockup v50 screen 65): the wished printing under the card, no "Change".
-    // The screen waits for the wish, its card and the price terms: on a loaded CI runner that took
-    // longer than the default 10 s once (2026-10-26), as home.test.tsx's slow paths do.
-    expect(
-      await screen.findByRole('header', { name: 'Edit wish' }, { timeout: 20_000 })
-    ).toBeOnTheScreen();
+    // The header is checked once the editor is up. Until the wish and then its card have loaded, a
+    // skeleton page stands in under the same "Edit wish" header, and each step mounts a new one: a
+    // header found on a stand-in could be gone before the expect (the CI failures of 2026-10-26 and
+    // 2026-10-29, "element could not be found in the element tree"; never a slow screen).
     expect(await screen.findByTestId('wish-card-line')).toHaveTextContent(/^SVX-001 · Ultra Rare$/);
+    expect(screen.getByRole('header', { name: 'Edit wish' })).toBeOnTheScreen();
     expect(screen.queryByTestId('wish-change-card')).toBeNull();
     expect(screen.getByTestId('wish-save')).toHaveTextContent('Save changes');
     fireEvent.press(await screen.findByRole('button', { name: 'Remove from wishlist' }));

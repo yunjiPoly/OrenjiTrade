@@ -48,22 +48,27 @@ function hasSent(messages: readonly MessageResponse[], senderId: string | null |
  * seller has replied, "Is it still available?" and "How much with shipping?", then "e-Transfer
  * sent!", "Tracking number?" and "Thanks!"; selling, until the reader has written, "Yes, still
  * available" and "Send me your address", then "Got your e-Transfer", "Shipped!" and "Thanks for
- * buying!". A reply the reader already sent in this chat (that exact text) is hidden. A chat
- * without a card has none.
+ * buying!". Once the chat's card is marked sold (`sold`, the subject's own flag: a sale not undone)
+ * both sides have the "after" replies, whether or not anyone wrote; the undo brings the first ones
+ * back to whoever has not written (owner decision of 2026-10-28, R8 follow-up 3). A reply the
+ * reader already sent in this chat (that exact text) is hidden. A chat without a card has none.
  */
 export function quickReplies(
   side: DealSide,
   messages: readonly MessageResponse[],
   selfId: string | null | undefined,
-  otherId: string | null | undefined
+  otherId: string | null | undefined,
+  sold = false
 ): string[] {
   let replies: readonly string[];
   switch (side) {
     case 'buying':
-      replies = hasSent(messages, otherId) ? QUICK_REPLIES.buyingAfter : QUICK_REPLIES.buyingFirst;
+      replies =
+        sold || hasSent(messages, otherId) ? QUICK_REPLIES.buyingAfter : QUICK_REPLIES.buyingFirst;
       break;
     case 'selling':
-      replies = hasSent(messages, selfId) ? QUICK_REPLIES.sellingAfter : QUICK_REPLIES.sellingFirst;
+      replies =
+        sold || hasSent(messages, selfId) ? QUICK_REPLIES.sellingAfter : QUICK_REPLIES.sellingFirst;
       break;
     default:
       return [];

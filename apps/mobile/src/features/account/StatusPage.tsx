@@ -1,6 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ComponentProps, ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Screen } from '@/src/components/ui/Screen';
 import { Text } from '@/src/components/ui/Text';
@@ -51,13 +52,21 @@ export interface StatusPageProps {
   actions?: ReactNode;
   /** 72 pt (the account states, Verify your email) or 64 pt (Reset password's sent state). */
   iconSize?: 64 | 72;
+  /**
+   * The buttons stay at the bottom of the screen while the lines scroll above them (screen 44,
+   * review fix 1 of the owner decisions of 2026-10-28, U5: at the largest text sizes the page was
+   * four screens tall and Sign out, the one thing a suspended collector can do, came last). The
+   * caller caps the buttons' words as for other pinned controls (`PINNED_MAX_FONT_SCALE`).
+   */
+  pinActions?: boolean;
   testID?: string;
 }
 
 /**
  * A page that says where the collector stands (stage R12, mockup v50 screens 38's sent state, 39,
  * 44, 45 and 46): a round icon, a title and its lines centred, the buttons at the bottom. It
- * scrolls when the text size makes it taller than the screen, the buttons then after the lines.
+ * scrolls when the text size makes it taller than the screen, the buttons then after the lines,
+ * or pinned under them (`pinActions`).
  */
 export function StatusPage({
   icon,
@@ -66,8 +75,33 @@ export function StatusPage({
   children,
   actions,
   iconSize = 72,
+  pinActions = false,
   testID,
 }: StatusPageProps) {
+  const { palette } = useTheme();
+  const insets = useSafeAreaInsets();
+  if (pinActions && actions) {
+    return (
+      <View testID={testID} style={[styles.fill, { backgroundColor: palette.background }]}>
+        <Screen
+          scroll
+          fillHeight="below-header"
+          testID={testID ? `${testID}-scroll` : undefined}
+          contentContainerStyle={[styles.page, styles.pinnedPage]}
+        >
+          <StatusBody icon={icon} tone={tone} title={title} iconSize={iconSize}>
+            {children}
+          </StatusBody>
+        </Screen>
+        <View
+          testID={testID ? `${testID}-actions` : undefined}
+          style={[styles.pinned, { paddingBottom: insets.bottom + spacing[6] }]}
+        >
+          {actions}
+        </View>
+      </View>
+    );
+  }
   return (
     <Screen
       scroll
@@ -171,7 +205,11 @@ export function StatusText({
 }
 
 const styles = StyleSheet.create({
+  fill: { flex: 1 },
   page: { paddingHorizontal: spacing[5] },
+  // The bottom inset belongs to the pinned buttons.
+  pinnedPage: { paddingBottom: spacing[6] },
+  pinned: { paddingHorizontal: spacing[5], paddingTop: spacing[3], gap: spacing[2] },
   body: { alignItems: 'center', gap: spacing[3] },
   circle: { alignItems: 'center', justifyContent: 'center' },
   title: {

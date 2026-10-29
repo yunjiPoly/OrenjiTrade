@@ -55,5 +55,6 @@ export { Skeleton, SkeletonList, type SkeletonListProps, type SkeletonProps } fr
 export { SnackbarProvider, useSnackbar, type Snackbar, type SnackbarOptions } from './Snackbar';
 export { StateScroll, type StateScrollProps } from './StateScroll';
 export { Stepper, type StepperProps } from './Stepper';
+export { HANDLE_TEXT_PROPS, HandleText } from './HandleText';
 export { Text, TextInput } from './Text';
 export { TextField, type TextFieldProps } from './TextField';

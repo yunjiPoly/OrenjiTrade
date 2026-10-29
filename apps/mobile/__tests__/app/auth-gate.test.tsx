@@ -278,6 +278,63 @@ describe('auth gate: the 18+ confirmation (launch readiness, Review our terms si
   });
 });
 
+describe('auth gate: a suspension leaves the login on (owner decision of 2026-10-28)', () => {
+  const UNTIL = '2026-11-02T15:00:00Z';
+
+  it.each([
+    ['with its end date', { suspendedUntil: UNTIL }],
+    ['without an end date', {}],
+  ])(
+    'moves a collector suspended while signed in to Account suspended at the next request, %s',
+    async (_label, extra) => {
+      mockSegments.current = ['(tabs)', 'messages'];
+      const port = new FakeAuthPort(testUser());
+      const api = mockApi({
+        'GET /api/v1/me': [
+          ok(meFixture()),
+          problem(403, 'ACCOUNT_SUSPENDED', 'This account is suspended', extra),
+        ],
+      });
+      renderWithProviders(<RootNavigator />, { port });
+      await waitFor(() => expect(api.callsTo('GET /api/v1/me')).toHaveLength(1));
+      expect(mockRouter.dismissTo).not.toHaveBeenCalled();
+      act(() => {
+        reportAccountSignal(
+          ApiError.fromProblem(403, {
+            status: 403,
+            errorCode: 'ACCOUNT_SUSPENDED',
+            message: 'This account is suspended',
+            ...extra,
+          }),
+          'http://localhost:8090/api/v1/conversations'
+        );
+      });
+      await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/suspended'));
+      // No "Your session has ended" detour: the session is kept and nobody is signed out.
+      expect(useSessionNotice.getState().ended).toBe(false);
+      expect(port.signOut).not.toHaveBeenCalled();
+      expect(mockRouter.dismissTo).not.toHaveBeenCalledWith('/sign-in');
+    }
+  );
+
+  it.each([
+    ['with its end date', { suspendedUntil: UNTIL }],
+    ['without an end date', {}],
+  ])(
+    'lands a suspended collector who signs in again on Account suspended, %s',
+    async (_l, extra) => {
+      mockSegments.current = ['(auth)', 'sign-in'];
+      const port = new FakeAuthPort(testUser());
+      mockApi({
+        'GET /api/v1/me': problem(403, 'ACCOUNT_SUSPENDED', 'This account is suspended', extra),
+      });
+      renderWithProviders(<RootNavigator />, { port });
+      await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/suspended'));
+      expect(port.signOut).not.toHaveBeenCalled();
+    }
+  );
+});
+
 describe('auth gate: a remembered link belongs to its collector (stage R12, review fix 1)', () => {
   const UNCONFIRMED = {
     profileComplete: true,

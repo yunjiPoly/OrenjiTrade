@@ -21,7 +21,6 @@ export const CONSENT_COPY = {
 /** 44 Suspended. */
 export const SUSPENDED_COPY = {
   title: 'Your account is suspended',
-  defaultReason: 'This account is suspended.',
   endsOn: (date: string) => `The suspension ends on ${date}.`,
   contactBefore:
     'While suspended you cannot use OrenjiTrade. If you think this is a mistake, write to ',
@@ -31,6 +30,16 @@ export const SUSPENDED_COPY = {
   signOut: 'Sign out',
   activeTitle: 'Your account is active',
 } as const;
+
+/**
+ * The line under 44's title: the words the API sent, unless they are its general "This account is
+ * suspended", which only repeats the title (the API sends no moderator's reason, owner decision of
+ * 2026-10-28); without it the end date sits right under the title, also at the largest text sizes.
+ */
+export function suspensionReason(message: string | null | undefined): string | null {
+  const text = message?.trim() ?? '';
+  return !text || /^this account is suspended\.?$/i.test(text) ? null : text;
+}
 
 /** 45 Scheduled for deletion. */
 export const DELETION_COPY = {

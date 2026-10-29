@@ -9,6 +9,7 @@ documentation is updated. Each completed item lists location, tests, migrations,
 
 **Last updated:** 2026-10-23 (stage R14's review fix 1: a refusal in the bar at the bottom held to the button's text size and to a quarter of the window (Report, Rate, Write a reference, the wish form); Add a wish's line above the card search held small, so the field stays at the top; Import done closes the toast of Check the cards; a binder's card picker says when there is no card of its game; "Leave out" right under the amber bar and the lines it leaves out shown as left out; a line's copies alone ("×3") while the file names no condition; the wish's price chips the terms alone; tests for a set's paging, the grid's columns, a cleared details row, the 600-character comment and Import done's count; the native report flow ends with a refusal at the largest size; phone and tests only, no API change, no migration; see "Review fix 1" in the R14 section). Before: 2026-10-23 (stage R14 of the phone redesign, "Report, rating, reference, binders, wishes, import and sets (60 to 69)": Report collector with the server's reasons as radio rows and "Send report" grey with "Choose a reason first.", Report sent in place; Rate a collector with the deal ("{card} · sold to you {date}": `dealName` and `soldToYou` on a sale's `RatingEligibilityInteraction`, through the ratings module's `SaleDeals` extension point implemented by deals), Overall's 34 pt stars and word, clearable details rows, "Write a reference instead" and "Publish rating"; Write a reference; New binder with its game's line; "Add a wish" opening Search's card search, the form with price chips, Edit a wish with its remove sheet; the import's file step, Check the cards and Import done; a set with "Who has cards of this set" and a three-column grid, paged; refusals said in the bar at the bottom; no migration; on `feature/r7-home` for the one giant pull request; see "Phone redesign R14: Report, rating, reference, binders, wishes, import and sets (60 to 69) (2026-10-23)"). Before: 2026-10-23 (stage R13's review fix 2, the last round: P3, Blocked collectors' "They are never told.", answered with evidence and no code change; owner follow-up 7 restated with what the blocked side can still read over HTTP, last active and online status included, and the API remedy recommended; the quick checks green at `5f3987c2`; next: stage R14)
 **Last updated:** 2026-10-28 (stage WA's review fix 2: the phone's per-tab top bars below 960 on the five tabs' own pages (the tab's title in Sora 28, the pills on Home and Search, the bell; the account menu on Profile; the page's own title visually hidden); old offer, trade, payment and dispute notices head "Past offer on {card}" with the old links' sentence; `re2js` 2.8.8 in the lockfile, so `audit:gate` is green; the chips' contrast left to WB and WD; web, lockfile and documents only, no API, token, phone or migration change; see "Review fix 2" in the WA section). Before: 2026-10-28 (stage WA's review fix 1: the reviewers' 42 findings, web and tests only: Legal's "See also" without the payment policies while `protectedPayments` is off, no "Accepts offers" filter, old offer notices as history, the Messages badge by chats, "/" and Ctrl/Cmd+K keeping Search's tab, an AA orange text tone in light for Material and the shell, Material focus rings, popovers that keep the focus, toasts announced over dialogs, the search's Tab, arrows and live announcements, the catalogue's `text=`, the ratings without meetups; U3 (per-tab top bars below 960) left to the owner; `audit:gate` red on a new `re2js` advisory; see "Review fix 1" in the WA section). Before: 2026-10-28 (web redesign stage WA, Tokens and the shell, built on `feature/wa-tokens-shell`: the tokens with light `onPrimary` in ink shared with the phone, Material through the tokens, the new shell (top bar with the region and game pills and the global search, the rail, the tab bar below 960, the account menu, toasts, drawers, the keyboard shortcuts and the "?" dialog with its off switch), the routes and redirects of spec 4.11, offers, trades, checkout and disputes out of the web UI; no API change, no migration; see "Web redesign WA: Tokens and the shell (2026-10-28)"). Before: 2026-10-27 (the second giant pull request merged into `main`, #87, `7bfc879e`: stages R12 to R15 and the wrap-up R8; every CI check green, the web build's Google Fonts download retried once; the phone redesign is complete; NEXT TASK and the handoff updated, and NEXT TASK's stale R7 paragraph ("not pushed", "V134") corrected; documents only). Before: 2026-10-27 (stage R8's review fix 1: the guest card's tint fills the card on the web build again and on iOS (one frame without padding for both); a test that the guest card draws the theme's faint stops; an empty state's description never larger than its title; at large text sizes Who has this card puts the picture above the name, Add cards' "Coming later" goes under "Scan with camera", and the deck core page's back button stays on screen with a band under the clock; the documents say what R8's walk covered at the largest size and what a suspended collector sees (one owner decision with R12's); phone and documents only, no API change, no migration; the full native suite 42 / 43, the one failure a run crossing midnight, 1 / 1 alone; see "Review fix 1" in the R8 section). Before: 2026-10-26 (stage R8 of the phone redesign, the wrap-up, done last in the giant pull request: the documents after the whole redesign (CLAUDE.md, the product overview, the contracts index, the test accounts, the seed data, the READMEs, the handoff); the full native suite on the owner's iPhone 18 Pro (two R15 flows never run on the iPhone failed and were fixed: R15's F3 closed; the reviewers' verifier then ran every flow on `5182b992`, 43 / 43); a walk of every mockup screen in dark and light at the default size (73 of 77) and, at the largest text size, of the screens in R8's table (60 of 77 signed in, dark), one screenshot each for the pull request; fixed: the guest card's tint on iOS and an empty state's title at the largest size; no migration, no API change; see "Phone redesign R8: Wrap-up of the phone redesign (spec section 15, R8), done last in the giant pull request (2026-10-26)"). Before: 2026-10-25 (stage R15's review fix 2: the wishlist alert's distance check no longer fails on a random handle holding "km" (the test's seller always has one now); two native flows prepared, a guest's Message on a plain public binder and Sign in from Search › Wishlist through Review our terms; tests only, no API, phone or web change, no migration; the native suite, the iPhone walk and the PR screenshots still not run (the owner's simulator was not booted); see "Review fix 2" in the R15 section). Before: 2026-10-25 (stage R15's review fix 1: listing photos by opaque URLs that never name the owner (`/api/v1/public/item-images/{id}`, `/binder-images/{id}`, no migration); a guest's Message on a plain public binder opens the chat after sign-in; no profile tags for guests; the guest window 10 per 10 s; back to Search › Wishlist after sign-in; a guest's binder search wording; a screen left by an ended session stays its collector's; a leftover guest action forgotten; the native suite still not run (the owner's simulator was not booted); see "Review fix 1" in the R15 section). Before: 2026-10-25 (stage R15 of the phone redesign, "Browse without an account (70 to 75)": the app opens on Home for a signed-out visitor; Home and Search as a guest with the person button, the guest's card and "A collector" rows with their places; Inventory, Messages, Profile and Search › Wishlist ask to sign in in place; one sheet for every action that needs an account, finished after the sign-in back on the guest's screen (`GET /listings/owner`); Sign in's close button; sign-out to Home; API: `PrivacyPolicyService.canSeeWho`, the feed open (GET), the `guest-discovery` rate limit; no migration; the iPhone walk and the native suite not run (the owner's simulator was not booted); see "Phone redesign R15: Browse without an account (70 to 75) (2026-10-25)"). Before: 2026-10-23 (stage R13's review fix 1: a Private profile is off the map on Settings, Location and Privacy (one rule, `mapStatus`); "Preview" right after a save shows the saved profile; Privacy's "Show me on the map" waits for a saved place; a refused profile save says why above "Save changes" and scrolls to the field; handles, "English | Français" and "(optional)" whole at the largest text size; tests for every Privacy switch's binding, the report pills' colours, tags as a set, the 12th tag; the R13 privacy contract test reads a block and a report; phone and tests only, no API change, no migration; see "Review fix 1" in the R13 section). Before: 2026-10-23 (stage R13 of the phone redesign, "Settings (47 to 59)": Settings with the profile card and the groups of mockup v50 (the place and the map, the theme, the blocked collectors' number, the reports waiting, the email), Edit profile with one "Save changes" (the tags in the same request: an optional `tags` on `PUT /me/profile`, all or nothing), "Preview" and the leave guard, Location with "Show me on the map" first and the remove sheet, Notifications as a grid of topics by channel (a channel that is off dims its column), Privacy saved at once with "All changes saved", Appearance, Blocked collectors, My reports with pills, Account, Delete account grey until ticked, Legal with seven documents and the amber draft banner; every page with its own top bar; no migration; on `feature/r7-home` for the one giant pull request; see "Phone redesign R13: Settings (47 to 59) (2026-10-23)"). Before: 2026-10-22 (stage R12's review fix 1: a screen the gate kept for Review our terms or the welcome never opens for the next account on the phone (Sign out forgets it, a kept link belongs to its collector's uid) and is never pushed over the welcome; the welcome, Sign in, Create account and Reset password scroll the field being typed in above the keyboard (the welcome's buttons stay pinned under it); "Choose your country." under the pickers, scrolled into view; the progress bar's value 33, 67 and 100 %; Could not load keeps the error's own words, "No answer from OrenjiTrade" and the `errorCode · requestId` line; Reset password's sent state resends with "Resend in {n} s"; the welcome's tag suggestions without game and language tags; phone only, no API change, no migration; see "Review fix 1" in the R12 section). Before: 2026-10-22 (stage R12 of the phone redesign, "Sign-in, sign-up and welcome (36 to 46)": Sign in with the wordmark and its line, Create your account with the documents in one card and the 18+ confirmation in its own (English only), "Create account" disabled until every box is ticked with one line saying what is missing, the sent states of Reset password and Verify your email in place, the welcome in three steps (the live handle check `GET /me/profile/handle-availability`, the game tiles with "Opens first" and at least one game, the place with its switches), no age step (an account without the 18+ confirmation is on Review our terms first), the account states centred with a 72 pt icon and "Deletion cancelled" in place; no migration; on `feature/r7-home` for the one giant pull request; see "Phone redesign R12: Sign-in, sign-up and welcome (36 to 46) (2026-10-22)"). Before: 2026-10-22 (stage R11's review fix 2: a post's time is never cut by a long province (the line under the handle wraps without a cap at large text sizes; beside the handle the province gives way and the time stays whole), and Community's and a room's closed, empty, not found and error states scroll at large text sizes (`StateScroll`) instead of running over the title and the tabs; phone only, no API change, no migration; see "Review fix 2" in the R11 section). Before: 2026-10-22 (stage R11's review fix 1: an open room shows newer posts (every 15 s while on screen, on coming back, with a pull), a post's avatar and handle open the author's profile, "{province} · {time}" under the handle at large text sizes, Community closes when a refresh finds `publicChat` off; API: a post's place decided for a member who is not the author (a PRIVATE profile's author no longer reads their own province), a shared binder the reader can no longer open left out with its stored name and handle (`payload.binderUnavailable`, "Binder no longer available"), the rooms' `postCount24h` counting what the caller may see, `COMMUNITY` uploads refused while `publicChat` is off; tests for each and for the reviewers' surviving mutants; no migration; see "Review fix 1" in the R11 section). Before: 2026-10-22 (stage R11 of the phone redesign, "Messages › Community (32, 33): one simple room per game": Messages with the Chats | Community tabs and the Chats dot, one public room per platform region and game (V134: 15 rooms, every other channel archived, `publicChat` on unless an admin chose), the browsed region's rooms with the browsed game's first and a dot for posts newer than the last visit on this phone, a room read like a chat with rules, banner, day separators, posts with up to 4 photos (`COMMUNITY` uploads, 3 MB, EXIF and GPS stripped), a shared card, binder or deck core, the "⋯" sheet (Message, Report, Block, Delete), the 429, duplicate and network errors; the author's province for discoverable authors only, never a city; on `feature/r7-home` for the one giant pull request; see "Phone redesign R11: Messages > Community (32, 33): one simple room per game (2026-10-22)"). Before: 2026-10-22 (stage R10's review fix 2: a printing code typed as printed lists its own printings only, each once: the number without its leading zeros only when the code as typed finds nothing, and then as the whole number (`ZSK 001` never lists `ZSK-100`, `EMR 001` never `EMR-150`, `ZTK 0012` still finds `ZTK-12`); no migration, no field or parameter changed; see "Review fix 2" in the R10 section). Before: 2026-10-22 (stage R10's review fix 1: tests for the TCGdex set-code rule and the other surviving mutants, a Magic code typed as the card prints it (`ZTK 0012` finds `ZTK-12`) in search and suggestions, ADR 0021's rejection of Scryfall's "Default Cards" corrected and what "Unique Artwork" leaves out put to the owner, the TCGdex MIT notice in the app as an owner and lawyer follow-up; no migration, no field or parameter changed; see "Review fix 1" in the R10 section). Before: 2026-10-21 (stage R10 of the phone redesign, "Card data for Magic and Pokémon": Scryfall (Magic, the "Unique Artwork" bulk file, English paper cards, one image per artwork) and TCGdex (Pokémon, the card database's archive, English only, one image per printing) as `CardProvider` adapters tested on hand-written fixtures only, printings on their own artwork, the Magic and Pokémon credits and Settings › Appearance's card data credits, Who has this card showing a chosen printing's picture, ADR 0021, "never hotlink provider images" for every provider; no migration, no API change; the owner runs the real imports; see "Phone redesign R10: Card data for Magic and Pokémon (2026-10-21)"). Before: 2026-10-21 (stage R9's review fix 1: a notification that opens nothing shows its whole line, a chat opened from a sale notification names its Back "Back to Notifications", a tapped chat push opens the chat, New pages past 50 unread before Earlier begins, evening cases of the phone's time zone; phone only, no API change, no migration; the full check list green, the native suite 38 / 38; see "Review fix 1" in the R9 section). Before: 2026-10-21 (stage R9 of the phone redesign, "Notifications (31) and the bell": the bell's orange dot and "Notifications, {n} new" on the five tabs, Notifications with New and "Mark all as read", Earlier by cursor pages, each kind's icon, colours, sentence and target, freshness reminders answered in place, the empty, loading and error states, a tapped push opening its row's target; API: optional `excludeTypes` on `GET /notifications` and its unread count, new `data` keys of wishlist alerts, sales and freshness notices; no migration; on `feature/r7-home` for the one giant pull request; see "Phone redesign R9: Notifications (31) and the bell (2026-10-21)"). Before: 2026-10-21 (stage R7's review fix 1: a block refreshes Home, an old Map tab link is followed once, the feed's later pages date new-card posts by the first page's time, "Back to the map" opens the map, the chips and Home's title stay on a load error, Add cards' Back names Home, the reader's place is kept on a refresh, and the tests the reviewers' mutants survived; no migration; see "Review fix 1" in the R7 section). Before: 2026-10-21 (stage R7 of the phone redesign, "Home": Home as the first of five tabs with the region and game pills, the search field, Get started, the chips, the feed in sections by time (new cards with "+n", wishes with "I have it", deck cores) and the end, the quiet, empty, loading and error states; `GET /api/v1/feed` and V133 (`binder.core_since`); the seed's feed dated relative to now; branch `feature/r7-home`, builder done, not pushed; see "Phone redesign R7: Home (2026-10-21)"). Before: 2026-10-20 (stage G's review fix 2: a test of `game=` with a binder made without a game whose cover is of another game, and `CatalogMetadataIT` no longer depends on the order of the suite's classes; no migration, no API, phone or web change; see "Review fix 2" in the G section). Before: 2026-10-20 (stage G's review fix 1: `game=` leaves out binders made without a game that hold another game's card or cover, blocks with `game=` tested, V132 (covers of the binder's game, column defaults for an older app version), `BinderResponse.gameLocked`, "Add a wish" by the browsed game, New binder waits for its game, "Switch game", the game sheet's loading and error, the audit gate's vite and MCP server overrides; the full check list green, the native suite 35 / 35; see "Review fix 1" in the G section). Before: 2026-10-20 (stage G of the phone redesign, "One game at a time": the browsed game per account with the game pill and "Choose a game", the restyled "Choose a region", Search scoped to the game, binders of one game with V130 (One Piece) and V131 (`binder.game_id`), `game=` on the discovery reads; branch `feature/g-one-game`, builder done, not pushed; see "Phone redesign G: one game at a time (2026-10-20)"). Before: 2026-10-20 (stage R6's review fix 2: the "See all" pages' "not available" and "You blocked {handle}" states fill the page on iOS, where they had lost their titles and texts; native flow 6 opens them across a block; see "Review fix 2" in the R6 section). Before: 2026-10-20 (stage R6's review fix 1: Share profile in the "⋯" sheet waits until iOS has dismissed the sheet, "I have it" leaves the chat's card alone until send and never offers a deck core's card, your "See all binders" works every time, the references page keeps the block rule, deck cores first on profiles, your page says why others see no cards while you are not on the map or private, the "⋯" sheet's scroll bar at the largest size, the owner's order of 2026-10-20 (no French work, English cards only) in the handoff and NEXT TASK; the full check list green, the native suite 34 / 34; see "Review fix 1" in the R6 section). Before: 2026-10-20 (stage R6 of the phone redesign, "Profiles", mockup screens 19 to 21, and Settings behind the gear: another collector's profile with the "⋯" sheet (Share profile, Report, Block), the header and its one line ("{city, }{province} · Member since {year} · Active this week"), Message, Cards, Binders, Looking for with "I have it", About, Ratings & references, each with "See all", the compact top bar on scroll; "I have it" opening the chat with your copy pinned and the text in the box, nothing sent before send; your Profile tab with Edit profile, Share profile and the gear that opens Settings; API: `cardId` on `GET /inventory/items` and `excludeDeckCoreItems` on `GET /collectors/{handle}/inventory`, both optional; no migration (V128 stays free); native flow 6; the walk at the largest text size fixed two layouts — branch `feature/r6-profiles`, builder done, not pushed; see "Phone redesign R6: profiles (2026-10-19)"). Before: 2026-10-16 (stage R5's review fix 1: the old `/regions/<region>/<code>` link crashed the tabs (its `state` parameter is React Navigation's own; now `place`), `rarity` on `GET /search/card-holders` and the card page's `?rarity=`, a new link to the card page on screen, the 1st Edition on holder rows, the Search key keeping the whole text, the region pill's name alone, two native flakes, the card results starting at the top for each new text or game; see "Review fix 1" in the R5 section). Before: 2026-10-16 (stage R5 of the phone redesign, "Search", mockup screens 11 to 15: four tabs (Search | Inventory | Messages | Profile); Search's map with the state card, typing a card with the collectors and the recent searches, Who has this card (the one card page: holders by province, Message pinning the card, "Also in a deck core"), Search › Binders with Deck cores, Search › Wishlist with "Available", Settings › Privacy › "Remember my searches"; the old routes and links redirect; API: `GET /search/collectors`, `sort=province`, `available` and `GET /wishlist/availability`, blocked collectors left out of search's collectors in SQL, no search text in the search analytics events; no migration (V128 stays free); native flows 2 and 3 in full; the walk at the largest text size fixed four layouts — branch `feature/r5-search`, builder done, not pushed; see "Phone redesign R5: search (2026-10-16)")
+**Last updated:** 2026-10-29 (review fix 2 of the owner decisions of 2026-10-28, round 2 of 2: handles and a toast's title are cut with "…" at their cap and never shrunk to fit, because React Native 0.86 ignores `minimumFontScale` on iOS and Android and shrank a handle to 4 points; a source test keeps shrink to fit out of the app; phone only, no API change, no migration; see "Review fix 2" in the 2026-10-28 section). Before: 2026-10-28 (review fix 1 of the owner decisions of 2026-10-28, round 1 of at most 2: a suspended, deletion-pending or deleted account reads the public routes as a guest, a suspension closes the realtime sessions opened before it, nothing is written while suspended, a new conversation refused for a block reads as one refused by a collector who accepts none, the block decided in the handle lookup's one query; every label naming a handle on one line, the confirmation's buttons stacked, screen 44's buttons pinned, a toast's title on one line; two native flows made robust; re2js held at 2.8.8 for a new advisory; no migration; see "Review fix 1" in the 2026-10-28 section). Before: 2026-10-28 (the owner decisions of 2026-10-28 on R8's follow-ups 1 to 3, R12's follow-up 3 and R13's follow-up 7, built on `feature/owner-decisions-1028`, not pushed: a suspension leaves the login on and a suspended collector sees screen 44 with its end date, handles and toasts capped at the largest text sizes while paragraphs grow, the quick replies after a sale, a block answered as "not found"; no migration, descriptions-only OpenAPI change; see "Owner decisions of 2026-10-28: suspended collectors, large text, quick replies after a sale, blocks"). Before: 2026-10-27 (the second giant pull request merged into `main`, #87, `7bfc879e`: stages R12 to R15 and the wrap-up R8; every CI check green, the web build's Google Fonts download retried once; the phone redesign is complete; NEXT TASK and the handoff updated, and NEXT TASK's stale R7 paragraph ("not pushed", "V134") corrected; documents only). Before: 2026-10-27 (stage R8's review fix 1: the guest card's tint fills the card on the web build again and on iOS (one frame without padding for both); a test that the guest card draws the theme's faint stops; an empty state's description never larger than its title; at large text sizes Who has this card puts the picture above the name, Add cards' "Coming later" goes under "Scan with camera", and the deck core page's back button stays on screen with a band under the clock; the documents say what R8's walk covered at the largest size and what a suspended collector sees (one owner decision with R12's); phone and documents only, no API change, no migration; the full native suite 42 / 43, the one failure a run crossing midnight, 1 / 1 alone; see "Review fix 1" in the R8 section). Before: 2026-10-26 (stage R8 of the phone redesign, the wrap-up, done last in the giant pull request: the documents after the whole redesign (CLAUDE.md, the product overview, the contracts index, the test accounts, the seed data, the READMEs, the handoff); the full native suite on the owner's iPhone 18 Pro (two R15 flows never run on the iPhone failed and were fixed: R15's F3 closed; the reviewers' verifier then ran every flow on `5182b992`, 43 / 43); a walk of every mockup screen in dark and light at the default size (73 of 77) and, at the largest text size, of the screens in R8's table (60 of 77 signed in, dark), one screenshot each for the pull request; fixed: the guest card's tint on iOS and an empty state's title at the largest size; no migration, no API change; see "Phone redesign R8: Wrap-up of the phone redesign (spec section 15, R8), done last in the giant pull request (2026-10-26)"). Before: 2026-10-25 (stage R15's review fix 2: the wishlist alert's distance check no longer fails on a random handle holding "km" (the test's seller always has one now); two native flows prepared, a guest's Message on a plain public binder and Sign in from Search › Wishlist through Review our terms; tests only, no API, phone or web change, no migration; the native suite, the iPhone walk and the PR screenshots still not run (the owner's simulator was not booted); see "Review fix 2" in the R15 section). Before: 2026-10-25 (stage R15's review fix 1: listing photos by opaque URLs that never name the owner (`/api/v1/public/item-images/{id}`, `/binder-images/{id}`, no migration); a guest's Message on a plain public binder opens the chat after sign-in; no profile tags for guests; the guest window 10 per 10 s; back to Search › Wishlist after sign-in; a guest's binder search wording; a screen left by an ended session stays its collector's; a leftover guest action forgotten; the native suite still not run (the owner's simulator was not booted); see "Review fix 1" in the R15 section). Before: 2026-10-25 (stage R15 of the phone redesign, "Browse without an account (70 to 75)": the app opens on Home for a signed-out visitor; Home and Search as a guest with the person button, the guest's card and "A collector" rows with their places; Inventory, Messages, Profile and Search › Wishlist ask to sign in in place; one sheet for every action that needs an account, finished after the sign-in back on the guest's screen (`GET /listings/owner`); Sign in's close button; sign-out to Home; API: `PrivacyPolicyService.canSeeWho`, the feed open (GET), the `guest-discovery` rate limit; no migration; the iPhone walk and the native suite not run (the owner's simulator was not booted); see "Phone redesign R15: Browse without an account (70 to 75) (2026-10-25)"). Before: 2026-10-23 (stage R13's review fix 1: a Private profile is off the map on Settings, Location and Privacy (one rule, `mapStatus`); "Preview" right after a save shows the saved profile; Privacy's "Show me on the map" waits for a saved place; a refused profile save says why above "Save changes" and scrolls to the field; handles, "English | Français" and "(optional)" whole at the largest text size; tests for every Privacy switch's binding, the report pills' colours, tags as a set, the 12th tag; the R13 privacy contract test reads a block and a report; phone and tests only, no API change, no migration; see "Review fix 1" in the R13 section). Before: 2026-10-23 (stage R13 of the phone redesign, "Settings (47 to 59)": Settings with the profile card and the groups of mockup v50 (the place and the map, the theme, the blocked collectors' number, the reports waiting, the email), Edit profile with one "Save changes" (the tags in the same request: an optional `tags` on `PUT /me/profile`, all or nothing), "Preview" and the leave guard, Location with "Show me on the map" first and the remove sheet, Notifications as a grid of topics by channel (a channel that is off dims its column), Privacy saved at once with "All changes saved", Appearance, Blocked collectors, My reports with pills, Account, Delete account grey until ticked, Legal with seven documents and the amber draft banner; every page with its own top bar; no migration; on `feature/r7-home` for the one giant pull request; see "Phone redesign R13: Settings (47 to 59) (2026-10-23)"). Before: 2026-10-22 (stage R12's review fix 1: a screen the gate kept for Review our terms or the welcome never opens for the next account on the phone (Sign out forgets it, a kept link belongs to its collector's uid) and is never pushed over the welcome; the welcome, Sign in, Create account and Reset password scroll the field being typed in above the keyboard (the welcome's buttons stay pinned under it); "Choose your country." under the pickers, scrolled into view; the progress bar's value 33, 67 and 100 %; Could not load keeps the error's own words, "No answer from OrenjiTrade" and the `errorCode · requestId` line; Reset password's sent state resends with "Resend in {n} s"; the welcome's tag suggestions without game and language tags; phone only, no API change, no migration; see "Review fix 1" in the R12 section). Before: 2026-10-22 (stage R12 of the phone redesign, "Sign-in, sign-up and welcome (36 to 46)": Sign in with the wordmark and its line, Create your account with the documents in one card and the 18+ confirmation in its own (English only), "Create account" disabled until every box is ticked with one line saying what is missing, the sent states of Reset password and Verify your email in place, the welcome in three steps (the live handle check `GET /me/profile/handle-availability`, the game tiles with "Opens first" and at least one game, the place with its switches), no age step (an account without the 18+ confirmation is on Review our terms first), the account states centred with a 72 pt icon and "Deletion cancelled" in place; no migration; on `feature/r7-home` for the one giant pull request; see "Phone redesign R12: Sign-in, sign-up and welcome (36 to 46) (2026-10-22)"). Before: 2026-10-22 (stage R11's review fix 2: a post's time is never cut by a long province (the line under the handle wraps without a cap at large text sizes; beside the handle the province gives way and the time stays whole), and Community's and a room's closed, empty, not found and error states scroll at large text sizes (`StateScroll`) instead of running over the title and the tabs; phone only, no API change, no migration; see "Review fix 2" in the R11 section). Before: 2026-10-22 (stage R11's review fix 1: an open room shows newer posts (every 15 s while on screen, on coming back, with a pull), a post's avatar and handle open the author's profile, "{province} · {time}" under the handle at large text sizes, Community closes when a refresh finds `publicChat` off; API: a post's place decided for a member who is not the author (a PRIVATE profile's author no longer reads their own province), a shared binder the reader can no longer open left out with its stored name and handle (`payload.binderUnavailable`, "Binder no longer available"), the rooms' `postCount24h` counting what the caller may see, `COMMUNITY` uploads refused while `publicChat` is off; tests for each and for the reviewers' surviving mutants; no migration; see "Review fix 1" in the R11 section). Before: 2026-10-22 (stage R11 of the phone redesign, "Messages › Community (32, 33): one simple room per game": Messages with the Chats | Community tabs and the Chats dot, one public room per platform region and game (V134: 15 rooms, every other channel archived, `publicChat` on unless an admin chose), the browsed region's rooms with the browsed game's first and a dot for posts newer than the last visit on this phone, a room read like a chat with rules, banner, day separators, posts with up to 4 photos (`COMMUNITY` uploads, 3 MB, EXIF and GPS stripped), a shared card, binder or deck core, the "⋯" sheet (Message, Report, Block, Delete), the 429, duplicate and network errors; the author's province for discoverable authors only, never a city; on `feature/r7-home` for the one giant pull request; see "Phone redesign R11: Messages > Community (32, 33): one simple room per game (2026-10-22)"). Before: 2026-10-22 (stage R10's review fix 2: a printing code typed as printed lists its own printings only, each once: the number without its leading zeros only when the code as typed finds nothing, and then as the whole number (`ZSK 001` never lists `ZSK-100`, `EMR 001` never `EMR-150`, `ZTK 0012` still finds `ZTK-12`); no migration, no field or parameter changed; see "Review fix 2" in the R10 section). Before: 2026-10-22 (stage R10's review fix 1: tests for the TCGdex set-code rule and the other surviving mutants, a Magic code typed as the card prints it (`ZTK 0012` finds `ZTK-12`) in search and suggestions, ADR 0021's rejection of Scryfall's "Default Cards" corrected and what "Unique Artwork" leaves out put to the owner, the TCGdex MIT notice in the app as an owner and lawyer follow-up; no migration, no field or parameter changed; see "Review fix 1" in the R10 section). Before: 2026-10-21 (stage R10 of the phone redesign, "Card data for Magic and Pokémon": Scryfall (Magic, the "Unique Artwork" bulk file, English paper cards, one image per artwork) and TCGdex (Pokémon, the card database's archive, English only, one image per printing) as `CardProvider` adapters tested on hand-written fixtures only, printings on their own artwork, the Magic and Pokémon credits and Settings › Appearance's card data credits, Who has this card showing a chosen printing's picture, ADR 0021, "never hotlink provider images" for every provider; no migration, no API change; the owner runs the real imports; see "Phone redesign R10: Card data for Magic and Pokémon (2026-10-21)"). Before: 2026-10-21 (stage R9's review fix 1: a notification that opens nothing shows its whole line, a chat opened from a sale notification names its Back "Back to Notifications", a tapped chat push opens the chat, New pages past 50 unread before Earlier begins, evening cases of the phone's time zone; phone only, no API change, no migration; the full check list green, the native suite 38 / 38; see "Review fix 1" in the R9 section). Before: 2026-10-21 (stage R9 of the phone redesign, "Notifications (31) and the bell": the bell's orange dot and "Notifications, {n} new" on the five tabs, Notifications with New and "Mark all as read", Earlier by cursor pages, each kind's icon, colours, sentence and target, freshness reminders answered in place, the empty, loading and error states, a tapped push opening its row's target; API: optional `excludeTypes` on `GET /notifications` and its unread count, new `data` keys of wishlist alerts, sales and freshness notices; no migration; on `feature/r7-home` for the one giant pull request; see "Phone redesign R9: Notifications (31) and the bell (2026-10-21)"). Before: 2026-10-21 (stage R7's review fix 1: a block refreshes Home, an old Map tab link is followed once, the feed's later pages date new-card posts by the first page's time, "Back to the map" opens the map, the chips and Home's title stay on a load error, Add cards' Back names Home, the reader's place is kept on a refresh, and the tests the reviewers' mutants survived; no migration; see "Review fix 1" in the R7 section). Before: 2026-10-21 (stage R7 of the phone redesign, "Home": Home as the first of five tabs with the region and game pills, the search field, Get started, the chips, the feed in sections by time (new cards with "+n", wishes with "I have it", deck cores) and the end, the quiet, empty, loading and error states; `GET /api/v1/feed` and V133 (`binder.core_since`); the seed's feed dated relative to now; branch `feature/r7-home`, builder done, not pushed; see "Phone redesign R7: Home (2026-10-21)"). Before: 2026-10-20 (stage G's review fix 2: a test of `game=` with a binder made without a game whose cover is of another game, and `CatalogMetadataIT` no longer depends on the order of the suite's classes; no migration, no API, phone or web change; see "Review fix 2" in the G section). Before: 2026-10-20 (stage G's review fix 1: `game=` leaves out binders made without a game that hold another game's card or cover, blocks with `game=` tested, V132 (covers of the binder's game, column defaults for an older app version), `BinderResponse.gameLocked`, "Add a wish" by the browsed game, New binder waits for its game, "Switch game", the game sheet's loading and error, the audit gate's vite and MCP server overrides; the full check list green, the native suite 35 / 35; see "Review fix 1" in the G section). Before: 2026-10-20 (stage G of the phone redesign, "One game at a time": the browsed game per account with the game pill and "Choose a game", the restyled "Choose a region", Search scoped to the game, binders of one game with V130 (One Piece) and V131 (`binder.game_id`), `game=` on the discovery reads; branch `feature/g-one-game`, builder done, not pushed; see "Phone redesign G: one game at a time (2026-10-20)"). Before: 2026-10-20 (stage R6's review fix 2: the "See all" pages' "not available" and "You blocked {handle}" states fill the page on iOS, where they had lost their titles and texts; native flow 6 opens them across a block; see "Review fix 2" in the R6 section). Before: 2026-10-20 (stage R6's review fix 1: Share profile in the "⋯" sheet waits until iOS has dismissed the sheet, "I have it" leaves the chat's card alone until send and never offers a deck core's card, your "See all binders" works every time, the references page keeps the block rule, deck cores first on profiles, your page says why others see no cards while you are not on the map or private, the "⋯" sheet's scroll bar at the largest size, the owner's order of 2026-10-20 (no French work, English cards only) in the handoff and NEXT TASK; the full check list green, the native suite 34 / 34; see "Review fix 1" in the R6 section). Before: 2026-10-20 (stage R6 of the phone redesign, "Profiles", mockup screens 19 to 21, and Settings behind the gear: another collector's profile with the "⋯" sheet (Share profile, Report, Block), the header and its one line ("{city, }{province} · Member since {year} · Active this week"), Message, Cards, Binders, Looking for with "I have it", About, Ratings & references, each with "See all", the compact top bar on scroll; "I have it" opening the chat with your copy pinned and the text in the box, nothing sent before send; your Profile tab with Edit profile, Share profile and the gear that opens Settings; API: `cardId` on `GET /inventory/items` and `excludeDeckCoreItems` on `GET /collectors/{handle}/inventory`, both optional; no migration (V128 stays free); native flow 6; the walk at the largest text size fixed two layouts — branch `feature/r6-profiles`, builder done, not pushed; see "Phone redesign R6: profiles (2026-10-19)"). Before: 2026-10-16 (stage R5's review fix 1: the old `/regions/<region>/<code>` link crashed the tabs (its `state` parameter is React Navigation's own; now `place`), `rarity` on `GET /search/card-holders` and the card page's `?rarity=`, a new link to the card page on screen, the 1st Edition on holder rows, the Search key keeping the whole text, the region pill's name alone, two native flakes, the card results starting at the top for each new text or game; see "Review fix 1" in the R5 section). Before: 2026-10-16 (stage R5 of the phone redesign, "Search", mockup screens 11 to 15: four tabs (Search | Inventory | Messages | Profile); Search's map with the state card, typing a card with the collectors and the recent searches, Who has this card (the one card page: holders by province, Message pinning the card, "Also in a deck core"), Search › Binders with Deck cores, Search › Wishlist with "Available", Settings › Privacy › "Remember my searches"; the old routes and links redirect; API: `GET /search/collectors`, `sort=province`, `available` and `GET /wishlist/availability`, blocked collectors left out of search's collectors in SQL, no search text in the search analytics events; no migration (V128 stays free); native flows 2 and 3 in full; the walk at the largest text size fixed four layouts — branch `feature/r5-search`, builder done, not pushed; see "Phone redesign R5: search (2026-10-16)")
 **Last updated:** 2026-10-16 (the owner's inventory change dated 2026-10-16 merged with `main` after stage R4, #76: conflicts only in this file, the handoff and one hooks test (both sides kept); R4's chat shows a saved price as typed, so the new "$12.50" / "85% TCG" texts read as they are, and its "Share a card from your inventory" sheet, which reuses the Inventory row, now shows and speaks each card's Public or Private tag too; no migration, no API change (`git diff origin/main -- apps/api apps/web-angular packages` empty). The full check list on the merged code, retries off: mobile typecheck, lint and format clean; `test:mobile` 95 suites / 1,070 tests (+ 28 node tests); `expo export` iOS, Android and web exit 0; mobile web E2E 58 passed; the native suite 33 / 33 flows in 52 min 7 s on the owner's iPhone 18 Pro; `test:scripts` 135; `audit:gate` OK (2 allow-listed highs); Spotless clean; `test:api` 1,058 tests + 12 catalog tests, 0 failures; web build 896.09 kB initial; `test:web` 136 files / 633 tests; web E2E 70 passed — branch `feature/inventory-visibility-price`, its pull request next, not pushed)
 **Last updated:** 2026-10-15 (the owner's inventory change dated 2026-10-16, mockup v43 screens 1, 6 to 9, phone only: a Public / Private tag after the card code on every Inventory row (amber, with its status's short label "Public · not visible", while nobody can see a public card; spoken in the row's name), the asking price typed in "$" or "% TCG" (a switch beside a number box; "$" above 0, two decimals at most, 99999.99 at most, a comma as the decimal point; "% TCG" a whole number from 1 to 200; saved as "$12.50" or "85% TCG"; a new card starts in the mode used last on the phone, "$" the first time; an old text such as "Trade only" kept as "Was: {text}" until a price is typed), Copies on its own row above the price; deck cores keep their free text; no migration, no API change; fix round 1: the tags follow "Show me on the map", a saved or removed location and Edit binder at once (those writes read the cards again), the light theme's pending tag a dark amber, an ended temporary publication the short "Public · ended", Edit card remembers the mode only when it saves a new price; fix round 2: any Edit card save writes a saved text that reads back into a mode the one way ("85 % tcg" as "85% TCG", "12,50 $" as "$12.50"), as no change by itself and not as the mode used last, "Trade only" and old amounts without a text left as they are — branch `feature/inventory-visibility-price`, builder done, fix rounds 1 and 2 done, not pushed; see "Changed by the owner on 2026-10-16" at the end of `docs/product/specs/2026-10-14-phone-redesign.md`)
 **Last updated:** 2026-10-16 (stage R4's review fix 2: a test that the Mark as sold sheet keeps the card it opened with, and the quick reply chips' 44 pt touch targets on iOS; see "Review fix 2" in the R4 section). Before: 2026-10-16 (stage R4's review fix 1: Mark as sold names the card the seller saw, pins pushed to both collectors, the toast's Undo above the keyboard, sold deck cores out of `binders.max`, the tracking-number log test and nine minor fixes; see "Review fix 1" in the R4 section). Before that: 2026-10-15 (stage R4 of the phone redesign, "Messages and Mark as sold", mockup screens 22 to 25: V127 — the chat's subject (`subject_item_id` / `subject_binder_id`, `POST /conversations` pinning a card or a deck core, `GET /conversations/{id}`, sharing one's own card with `inventoryItemId`), the `sale` table and the new `deals` module (`POST /conversations/{id}/sales`, `POST /sales/{id}/undo` within 10 minutes and before a rating, the copies leaving the inventory and coming back exactly), the SALE interaction, the sale message and the buyer's `SALE_RECORDED` notification; on the phone the inbox, the chat's top bar, pinned bar, safety tip per side, quick replies and "+" sheet with the saved address or e-Transfer email (Settings › Shipping details, on the phone only), Mark as sold with its toast and Undo, the sale message per side with "Rate {other}"; R3's leftovers fixed first; native flows 4 and 3 (as far as R4 reaches) — branch `feature/r4-messages-mark-as-sold`, builder done, not pushed; see "Phone redesign R4: messages and Mark as sold (2026-10-15)")
@@ -9108,7 +9109,9 @@ same blocks, cards, pills, words and states. **It found six things, fixed**:
    API disables the account in the identity provider when it suspends it, so the phone only shows 44
    while a session it already had is still accepted, and the reason it shows is the API's general
    "This account is suspended" (the API does not send the moderator's reason). Whether 44 should show
-   the reason and the end date at sign-in is the owner's call (an API change).
+   the reason and the end date at sign-in is the owner's call (an API change). **Decided
+   2026-10-28** (owner, one decision with R8's follow-up 2): the login stays on, 44 shows the end
+   date at sign-in; the reason is not sent (section "Owner decisions of 2026-10-28").
 4. **The welcome's tags**: the mockup shows six fixed chips ("Trader", "Collector", "Seller",
    "Competitive player", "Ships tracked", "Graded cards"); the app shows the curated tags of `GET
    /tags` (the admin's list), which differ. The admin can rename them.
@@ -9628,7 +9631,9 @@ run the specs when its web export does not target `:8090`, as the native harness
    and `isBlocked: true`, so any HTTP client can tell; the phone shows "not available". Either the
    API answers the blocked side as for an unknown collector (404, `isBlocked` only for the blocker),
    or the copy of Blocked collectors (the mockup's) is softened. An API change for the owner to
-   decide (the paused web reads `isBlocked`).
+   decide (the paused web reads `isBlocked`). **Decided 2026-10-28** (owner): the API answers the
+   blocked side as for an unknown collector and words a refused message as for any collector who
+   cannot receive messages (section "Owner decisions of 2026-10-28").
 
 ### Review fix 2 (2026-10-23)
 
@@ -9684,7 +9689,8 @@ review fix 1's full check list ran on; fix 2 changes only this file and the hand
 
 Not verified in fix 2: the Android run could not be verified (no Android SDK).
 
-**Owner follow-up 7 (P3), restated with a recommendation.** The blocked side can still read the
+**Owner follow-up 7 (P3), restated with a recommendation** (decided on 2026-10-28 as recommended,
+see "Owner decisions of 2026-10-28"). The blocked side can still read the
 blocker's profile header, including when they were last active and whether they are online while
 the blocker shows those, and can tell the block from `isBlocked`. The recommendation is the API
 remedy, phone first: `GET /collectors/{handle}` and the ratings and references answer the blocked
@@ -10693,6 +10699,8 @@ counts messages only).
 
 1. **Screens at the largest text size** listed above under "Seen and left": say if any should be
    capped like the titles (a body cap would shrink every paragraph's text at the largest sizes).
+   **Decided 2026-10-28** (owner): paragraphs stay uncapped; handles and toasts are capped (section
+   "Owner decisions of 2026-10-28").
 2. **A suspended collector never sees "Account suspended" (44)** (one decision with R12's owner
    follow-up 3): `AdminUserService` and `AdminReportService` disable the Firebase account
    (`identityAdmin.disableUser`) when they suspend a collector. The phone then says "Your session
@@ -10702,9 +10710,12 @@ counts messages only).
    says "Your session has ended"). Keeping the Auth account enabled during a suspension (the API
    already refuses every call with `403 ACCOUNT_SUSPENDED`) would show 44 at sign-in, and sending
    the moderator's reason would let 44 show it (R12's follow-up 3); an API and security-policy
-   decision for the owner.
+   decision for the owner. **Decided 2026-10-28** (owner): the login stays on during a suspension
+   and 44 shows its end date; the moderator's reason is not sent (an owner follow-up of that
+   section).
 3. **The quick replies after a sale** (R4): "Yes, still available" and "Send me your address" still
-   show to a seller who never wrote before marking the card sold.
+   show to a seller who never wrote before marking the card sold. **Decided 2026-10-28** (owner):
+   the replies switch to the after-sale ones once the card is marked sold, for both sides.
 
 ### Review fix 1 (2026-10-26)
 
@@ -11165,6 +11176,537 @@ Mac). A screen reader pass, 200% zoom and the keyboard-only pass of every page a
 accessibility reviewer's; this stage tested the keyboard paths with Playwright. The fonts come
 from Google Fonts (as before); the walk had network.
 
+## Owner decisions of 2026-10-28: suspended collectors, large text, quick replies after a sale, blocks
+
+The owner's answers of 2026-10-28 to the open follow-ups of the phone redesign (R8 follow-ups 1, 2
+and 3, R12 follow-up 3, R13 follow-up 7), built on `feature/owner-decisions-1028` from `main`
+`1efe4962`. **No migration** (the next free one stays **V135**; V124 and V128 stay unused), no ADR,
+nothing under `apps/web-angular` changed; the OpenAPI changed in descriptions only (the regenerated
+clients carry the new descriptions, no field or type changed). Contract:
+[`docs/api/contracts/od-2026-10-28-suspensions-blocks.md`](docs/api/contracts/od-2026-10-28-suspensions-blocks.md).
+Free for all (ADR 0019), deals ship by mail (ADR 0018), English only (owner, 2026-10-20). Decision
+5 (Magic's Scryfall file, "Default Cards") waits for the Scryfall fix of the other session; the
+TCGdex MIT notice is a question for the owner's lawyer; the real catalog imports are the owner's.
+
+**The owner's words** (data the batch was built from): (1) "Leave the login on during a suspension.
+They sign in and land on the Account suspended screen with its end date. They still can't do
+anything, because the API refuses every request." (2) "Leave paragraphs alone, and only cap the
+small things: handles and the pop-up messages." (3) "Also switch to the after replies once the
+card is marked sold." (4) "The server would answer the blocked person as if your profile didn't
+exist (the same not found as an unknown name). It would also use the same error wording for a
+block as for anyone else who can't receive messages."
+
+**What changes for a collector**
+
+- **A suspended collector sees why** (decision 1): a suspension, by an admin or by a report's
+  decision, no longer turns off the login. A collector who is signed in when they are suspended
+  lands on "Your account is suspended" (mockup v50 screen 44) at the phone's next request to the
+  API (a page it has not loaded yet, a list older than a minute, any change, or coming back to the
+  app; what it read in the last minute shows from its cache until then), with "The
+  suspension ends on {date}." (no date for an open-ended one), the appeal line with
+  support@orenjitrade.com, "Community guidelines" and Sign out; signing out and in again lands there
+  again. Before, they read "Your session has ended" and then "This account has been disabled".
+  Nothing they try is accepted: every non-public request still answers `403 ACCOUNT_SUSPENDED`, the
+  realtime connection too. A ban still turns the login off.
+- **Handles and toasts at the largest text sizes** (decision 2): a collector's handle stays on one
+  line wherever it is drawn (rows, headers, profile and Settings cards, chats and their list,
+  community posts, Blocked collectors, references, sheets), shrinking a little where a row is too
+  narrow rather than breaking in the middle; at large text sizes Home's post header and a sale's or
+  a rating's notification put the handle on a line of its own above the rest of the sentence, and
+  a label or a title naming a collector ("Rate {handle}", "Block {handle}?", the sheets' rows) has
+  its words capped. A toast covers at most about a quarter of the screen, keeps its "Undo" or "View", its five
+  seconds and its whole message for VoiceOver. Paragraphs keep growing with the phone's text size
+  (an occasional broken word is accepted).
+- **Quick replies after a sale** (decision 3): once the chat's card is marked sold, both sides see
+  the replies for after a sale ("Got your e-Transfer", "Shipped!", "Thanks for buying!" for the
+  seller; "e-Transfer sent!", "Tracking number?", "Thanks!" for the buyer), whether or not anyone
+  wrote; the undo of Mark as sold brings back the first ones to whoever has not written.
+- **Found by the walk and fixed**: at the largest text size a confirmation (Block, and every other
+  `ConfirmDialog`) was taller than the screen and its buttons could not be reached; it now scrolls
+  inside the window with its buttons under it. Screen 44 no longer repeats its title with the
+  API's general "This account is suspended", so the end date sits right under the title.
+- **A block reads as "not found"** (decision 4): a collector you blocked reads your profile, its
+  ratings and its references exactly as a name that does not exist (cards, binders and wishes
+  already did), and when they try to message you they read "This collector cannot receive messages
+  right now", the words of any collector who cannot receive messages. You keep "You blocked
+  {handle}" and Unblock. The phone already showed "This collector is not available" for a profile
+  that answers not found: no phone change was needed there.
+
+**API** (decisions 1 and 4; additive for the paused web: no field removed or retyped)
+
+- `AdminUserService.suspend` and `AdminReportService`'s `SUSPENDED` decision no longer call
+  `IdentityAdminClient.disableUser`; `BANNED` still does; `unsuspend` still calls `enableUser`.
+  The test profile's `NoopIdentityAdminClient` records its calls in order (`callsFor`).
+- `CollectorProfileService.view` and `requireVisibleCollector` (the profile, its ratings and
+  references) answer `404 NOT_FOUND` "Collector not found" when the profile's owner blocked the
+  caller and the caller did not block them, right after the account is found and before any of its
+  data is read, in one query (`BlockRepository.hidesFrom` through the new
+  `BlockRelationProvider.isHiddenByBlock`). `PublicBinderService.requireOwner` (cards and binders)
+  and `WishlistService.publicSummary` decide their block (both directions, as before) before
+  reading the privacy settings.
+- `ConversationService.start` and `send`: the blocked side's refusal reads "This collector cannot
+  receive messages right now" (403 `MESSAGING_BLOCKED`, the inactive participant's answer); the
+  blocker keeps "You cannot message this collector" (`BlockService.hasBlocked`, one direction).
+- OpenAPI descriptions of the suspension, the report decision, the collector profile, a new
+  conversation and a message.
+
+**Phone** (decisions 1 to 3; no new screen)
+
+- Decision 1: no code change was needed for the route (any `403 ACCOUNT_SUSPENDED` is an account
+  signal and the gate shows 44 from the API's `suspendedUntil`); jest and a native flow prove it.
+- Decision 2: `HandleText` and `HANDLE_TEXT_PROPS` (`src/components/ui/HandleText.tsx`): one line,
+  `HANDLE_MAX_FONT_SCALE` (= `PINNED_MAX_FONT_SCALE`, 1.35, beside the other caps in
+  `src/theme/styles.ts`), shrunk to fit down to `HANDLE_MIN_FONT_SCALE` (0.6) before the end gives
+  way (review fix 2: never shrunk any more, the end cut with "…" at the cap; that floor was never
+  applied, see "Review fix 2"); used by the holder, seller and collector rows, Search's binder and deck core lines, the
+  card page's deck core lines, the chat's header, typing line and inbox row, the profile header
+  and the person header (report, rate, reference), Settings' profile card, Blocked collectors, the
+  references and the community posts; `ListRow`'s `handleInLabel` for the sheets' "Rate / Report /
+  Block / Unblock / Message {handle}" rows, `ConfirmDialog`'s `handleInTitle` for "Block
+  {handle}?", the capped label of "Rate {handle}"; at large text sizes (`useStackedRows`) Home's
+  post header and a sale's or a rating's notification (`RowText.strongIsHandle`) draw the handle
+  with `HandleText` on its own line above the rest of the sentence. The
+  toast (`Snackbar`): words capped at `SNACKBAR_MAX_FONT_SCALE` (= `PINNED_MAX_FONT_SCALE`, like
+  R14's bottom-bar refusals), `toastLayout` gives the words as many lines as keep the whole toast
+  within `SNACKBAR_MAX_WINDOW_SHARE` (a quarter) of the window, never fewer than two; the action
+  stays, the five seconds and the spoken label are unchanged. Paragraphs are not capped.
+- Decision 3: `quickReplies(side, messages, selfId, otherId, sold)` gives the "after" replies
+  while `subject.sold` (a sale not undone) is true; the chat passes the subject's flag.
+- Found by the walk: `ConfirmDialog`'s title and message scroll within the window (`maxHeight`)
+  with the buttons outside the scroll; screen 44 shows the API's words only when they say more than
+  its title (`suspensionReason`).
+
+**Decisions, and why**
+
+1. **A suspension keeps the refresh tokens too** (the lead's question): the API verifies ID tokens
+   without the revocation check and refuses a suspended account from its own database on every
+   request (`AccountAccessFilter`, `RealtimeAuthenticator`), so a token gives a suspended collector
+   nothing. A revocation would make the Firebase SDK fail its next refresh (hourly, or the forced
+   refresh after a 401) and the phone would show "Your session has ended" before the suspension:
+   the detour the owner wants gone. A ban still disables the login and revokes the tokens.
+2. **The moderator's reason is not sent**: the reason and a report's note are moderators' internal
+   notes for the audit log (a report's note can name or hint at the reporter), and a separate
+   "message to the collector" needs a field on the admin page, which is the paused web. Owner
+   follow-up 1 below.
+3. **The blocker keeps their view also when both blocked each other**: answering "not found" to a
+   collector who blocked the other would tell them they were blocked back (they know they blocked:
+   Settings lists it). Once they unblock, the other's block applies and the profile reads "not
+   available".
+4. **A new conversation refused for a block stays 403 `MESSAGING_BLOCKED`**, with the general words,
+   rather than the 404 of a suspended recipient: the paused web's E2E (`messaging.spec.ts`)
+   asserts 403 `MESSAGING_BLOCKED` for the blocked side's new conversation, and the owner's words
+   are about the wording. The remaining difference (status 403 here, 404 for a suspended
+   recipient) is owner follow-up 3.
+5. **One cap for handles, not a new value**: `HANDLE_MAX_FONT_SCALE` equals the pinned controls'
+   1.35, its own named constant so it can be tuned in one place. At 1.35 a 24-character handle of
+   ordinary letters and digits (about 0.56 em each in Inter) fits a row beside a 44 pt avatar on a
+   402 pt phone (a jest test keeps that true); a wider handle or a narrower row shrinks to fit
+   (iOS and Android support `adjustsFontSizeToFit` on one line). Review fix 2: they do, but
+   without the floor (`minimumFontScale` is ignored, 4 points); a wider handle or a narrower row
+   now keeps the cap and ends with "…".
+6. **A handle inside a sentence gets its own line at large sizes, the sentence is not capped**: the
+   owner left paragraphs alone. Capping only the handle's part of a sentence was tried first and
+   the walk showed iOS drawing the sentence's lines over each other at the largest size (the
+   lines seemed spaced for the capped part), so at large text sizes (`useStackedRows`) the handle is
+   drawn alone with `HandleText` and the rest of the sentence under it; at other sizes the
+   sentence is as before.
+7. **The toast follows R14's bottom-bar refusal**: the same cap and the same quarter of the window;
+   lines are cut (with "…") only when a message would need more than a quarter, and VoiceOver
+   still reads it whole.
+8. **Screen 44 without the line that repeated its title**: the API sends no reason, and its general
+   words only repeated "Your account is suspended"; at the largest size they pushed the end date
+   below the first screen. Other words (a deleted account's) still show.
+9. **A confirmation scrolls rather than capping its message** (found by the walk): the message is a
+   paragraph, which the owner leaves uncapped; the dialog's title and message scroll within the
+   window and its buttons stay under them.
+10. **The R8 native flow 4 (`deal-mark-sold.yaml`) marks the card sold and undoes it before the
+   seller writes**, so it proves the after-sale replies of a seller who never wrote and their
+   undo, then goes on as before.
+
+**Tests**
+
+- API: `SuspensionKeepsTheLoginIT` (5: an admin suspension and a report's never call the identity
+  provider; a ban does and unsuspend enables it again; an account disabled under the old rule gets
+  its login back; ten kinds of request refused with `ACCOUNT_SUSPENDED` and nothing written; an
+  open-ended one without `suspendedUntil`; the moderator's reason never in the answer; an expired
+  suspension acts again), `BlockAnsweredAsNotFoundIT` (3: the blocked side's profile and eight
+  section reads compared with an unknown handle's body; the blocker's view; both blocked; after
+  each unblock; bystanders; the message cases from both sides compared with an inactive
+  participant's answer), `RealtimeIT` (an admin suspension refused at CONNECT, by query token and
+  CONNECT header, back after unsuspend), `AuditIT`, `ReportFlowIT`, `CollectorProfilePageIT` and
+  `MessagingAuthorizationIT` follow the new rules. `GeoPrivacyContractTest` (18) and the R13
+  privacy contract test pass unchanged (no response gained a field).
+- Phone (jest): `auth-gate.test.tsx` (a collector suspended while signed in reaches `/suspended` at
+  the next request without the session notice or a sign-out, and a collector signing in again
+  lands there, each with and without an end date), `account-states.test.tsx` (an open-ended
+  suspension: no date, the appeal line; the end date right under the title when the API sends its
+  general words), `accountStatus.test.ts` (`suspensionReason`), `dealRules.test.ts` (seller and buyer, wrote or not, sold,
+  undone), `conversation.test.tsx` (the seller who never wrote and the buyer nobody wrote to see the
+  after-sale replies), `ui.test.tsx` (`HandleText` at text size 1 and 3.1, a line led by a handle,
+  the longest handle's width at the cap, the toast at 1 and 3.1 with its action, spoken label and
+  five seconds, the quarter of the window for windows of 667, 874 and 956 pt, a confirmation's
+  buttons outside its scroll and the handle in its title capped), `notifications.test.tsx` (a
+  sale's handle on its own capped line at 3.1, inline at 1), `home.test.tsx` (a post's handle line
+  at 3.1), and the large-text tests of the inbox, a community room and Settings, which asserted the
+  old uncapped handles.
+- Native: `account-suspended.yaml` (new; `scripts/suspension.js`: the seed admin suspends a
+  fictional collector through the API), `deal-mark-sold.yaml` (extended).
+
+**Checks** (retries off; 2026-10-28, this Mac, JDK 21, OrbStack; the owner's iPhone 18 Pro simulator
+under the shared lock, its appearance light and text size large before and after, unchanged)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | pass |
+| `npm run test:api` | pass: **1,294 tests** in 202 classes (`test`) + **13** in 2 (`catalogTest`), 0 failures (5 min 5 s; `GeoPrivacyContractTest` 18) |
+| `./gradlew exportOpenApi` then `npm run generate:api` | descriptions only (6 operations), committed (`edf3aa3c`); git clean afterwards |
+| `npm run build -w apps/web-angular` | pass, initial total **893.88 kB** |
+| `npm run test:web`, web lint, web format check | **136 files / 633 tests**; pass; pass |
+| `npm run test:e2e -- --retries=0` | **70 / 70** (1 min 43 s); no web test asserted the old answer to a blocked caller |
+| `npm run typecheck`, `lint`, `format:check` `-w apps/mobile` | pass, pass, pass |
+| `npm run test:mobile` | **127 suites / 1,772 tests** |
+| `npx expo export` iOS, Android, web (scratch folders) | pass (1,975, 2,101 and 1,596 modules), on the final code |
+| `npm run test:mobile:e2e -- --retries=0` | **66 / 66** (1 min 27 s), on the final code |
+| `npm run test:mobile:maestro -- --platform ios` | every flow: **43 / 44** (70 min 57 s) on `a6519701`; the one failure was the new `account-suspended.yaml` (the flow tapped a tab whose list was still fresh in the phone's cache, so no request reached the API, then typed over the kept address on Sign in): fixed in the flow (`180207a3`) and passed alone. The later phone fixes (`bf1f6272`, `fce56001`, `1d843259`) were followed by the flows that reach what they changed, on the final code: `account-suspended`, `blocked-users`, `notifications-bell`, `home-feed`, the three imports, `profile-pages-settings-gear`, `deal-mark-sold`, `large-text`, **12 / 12** |
+| `npm run test:scripts` | **147 / 147** |
+| `npm run audit:gate` | pass (the two allowlisted advisories until 2026-11-30) |
+
+**Walked on the owner's iPhone 18 Pro** (the shared lock, Expo Go 57.0.9, the isolated stack; scratch Maestro flows driving
+fictional `@mobile-e2e.test` collectors through the API, three of them with 24-character handles,
+the longest the API allows; the app's own Light and Dark themes; the largest text size by the
+launch argument `UIPreferredContentSizeCategoryAccessibilityXXXL`, so no setting of the device was
+changed; every account deleted afterwards). Two walks, each in dark and light at the default and
+the largest size, passed (8 / 8 runs: walk A on the final code, walk B on the code of screen
+44's last change; screenshots in
+`.local-dev/od-notes/pr-shots/`, 27 kept for the pull request):
+
+- **Screen 44** reached by a real suspension (the seed admin through the API) while signed in, at
+  the phone's next request, and after signing in again, with "The suspension ends on {date}." and
+  without a date for an open-ended one; never "Your session has ended".
+- **Handles and toasts** on Home (a post header), Search (a collector and Who has this card), a
+  profile and its "⋯" sheet, the chat's header and the inbox, Community, Notifications and Settings
+  › Blocked collectors; the toasts "Marked as sold" with Undo, "Sale undone." and "{handle} is
+  blocked.". At the largest size every 24-character handle stayed on one line; a toast stayed
+  within a quarter of the screen.
+- **The quick replies** as the buyer the seller never wrote to (before, after Mark as sold, after
+  its undo; the seller marked sold through the API) and as the seller who never wrote (before,
+  after, after the toast's Undo).
+- **The blocked collector's view**: from a community post's author while the room was open, from
+  the chat's header while the chat was open, and by a deep link: "This collector is not available"
+  each time.
+- **Found and fixed by the walk**: the block confirmation at the largest size (taller than the
+  screen, its buttons out of reach, the handle in its title broken: `fce56001`), a notification's
+  lines drawn over each other at the largest size (`1d843259`), screen 44's line that repeated its
+  title and pushed the date down (`bf1f6272`). Seen and left (the owner's rule for paragraphs):
+  sentences that name a collector ("You blocked {handle}. Unblock them…", "This is the beginning of
+  your conversation with {handle}.", the support address on 44) still break a long word at the
+  largest size.
+
+**Not done, could not be verified**
+
+- The Android run could not be verified (no Android SDK on this Mac).
+- The full native suite was not run a second time on the final code (the cost rule): the three
+  phone fixes after it were followed by the 12 flows that reach them, all green.
+- VoiceOver itself was not run: the toasts' spoken label and announcement are proven by jest; the
+  walk read the accessibility tree through Maestro only.
+- Sign in after Sign out keeps the address of the session that just ended (seen while writing the
+  native flow, which now signs in again from a cleared app); not a change of this batch, left as
+  it is.
+
+**Owner follow-ups**
+
+1. **The moderator's reason on screen 44** (decision 1): not sent. Today's suspension reason and a
+   report's resolution note are internal notes for the audit log (a report's note can name or hint
+   at the reporter). Showing a reason needs a separate "message to the collector" written for them,
+   which needs a field on the admin page (the paused web) and a column; the owner decides whether
+   and when.
+2. **A chat leaves both inboxes at a block** (found while looking further, decision 4; not a
+   read of the profile): `ConversationRepository.summaries` leaves out a pair with a block in
+   either direction and `GET /conversations/{id}` answers 404 to both, while a chat with a
+   suspended or deleted collector stays in the list (sends refused "cannot receive messages right
+   now"). The blocked collector can therefore tell a block from a collector who cannot receive
+   messages by the chat disappearing. Keeping the chat visible to the blocked side (read-only, its
+   sends refused with the general words) would close it; a messaging change for the owner.
+3. **A new conversation refused for a block answers 403, a suspended recipient 404** (decision 4,
+   why above): the words are now the same as for any collector who cannot receive messages; making
+   the status the same too (404 "Collector not found" for the blocked side) changes the paused
+   web's E2E assertion in `apps/web-angular/e2e/messaging.spec.ts` ("B can no longer ... start a
+   new conversation": `expect(refused.status()).toBe(403)` and `MESSAGING_BLOCKED`).
+4. Looked at and **not leaks of a block** (each answers the blocked side as for a missing, private or
+   suspended thing): a public binder or deck core link (`requirePublicBinder`, the missing binder's
+   404 both ways), a community post's author (posts of blocked and of suspended authors are left
+   out alike), search, the map and Home (both directions in SQL), the handle check of the welcome
+   (it says a name is taken, the same for a private or suspended collector), a third collector's
+   ratings naming the blocker (as they name a private one).
+
+### Review fix 1 (2026-10-28)
+
+Independent reviewers (privacy, functional, UX) reported 28 findings on `51b04c76` (several the same problem seen by two of them); each was fixed at
+its cause with a test that would have caught it, or answered with evidence. No migration (V135
+stays free), no ADR, nothing under `apps/web-angular` changed; the OpenAPI changed in one
+description (a new conversation refused for a block), the clients regenerated.
+
+**What changed for a collector**
+
+- **A suspended collector reads the app as a guest, not as a member** (P1, F2): with the login
+  left on, the token of a suspended account still read who holds a card, who posted on Home, the
+  owners of binders and name search, for as long as the suspension lasted. On every public route
+  the token of a refused account (a suspension in force, a deletion pending, a deleted account) is
+  now dropped: the answer is a signed-out visitor's, places, never who.
+- **The realtime connection really is cut** (P3, F3): a connection opened before the suspension
+  kept sending "typing" to the other collector and subscribing. A suspension, a ban, a deletion
+  request and a deletion now close the account's realtime sessions at once; an API instance that
+  did not see the event refuses the session at its next presence check (20 s).
+- **Nothing is written while suspended** (P5, F10): a refused request no longer marks the account
+  "Active this week", and a new e-mail at the identity provider waits for the end of the
+  suspension (the account keeps the e-mail it was suspended with).
+- **A new conversation refused for a block reads as one refused by a collector who accepts none**
+  (P2, F1): "This collector does not accept new conversations", `403 MESSAGING_BLOCKED`, field for
+  field; before, the words were used by a block only. Sending in a chat keeps "This collector
+  cannot receive messages right now", the inactive participant's words.
+- **No timing tells a block** (P9, F9): the profile, its ratings and references, cards, binders and
+  wishes look the handle up in one query that also leaves out a collector who blocked the caller,
+  so a block costs what an unknown handle costs (the extra query and its 0.2 to 0.3 ms are gone).
+- **Handles at the largest text size** (U1, U2, U3, F5, F6): "Message {handle}" on a profile, a deck
+  core and a public binder, "by @{handle}" on a binder shared in a chat, the sheets' "Report /
+  Block / Message {handle}" rows, "Block {handle}?" and "Rate {handle}" stay on one line, capped
+  and shrunk to fit, so even the widest 24-character handle no longer breaks.
+- **A confirmation at the largest size** (U4): its two buttons are capped like other pinned
+  controls and stack (the confirmation on top), so "Cancel" no longer runs out of the dialog.
+- **Screen 44 at the largest size** (U5): "Community guidelines" and Sign out stay pinned at the
+  bottom of the screen while the lines scroll above them (45 and "Deletion cancelled" too).
+- **A toast's title** (F8) takes the one line `toastLayout` counts (shrunk to fit when longer), so
+  a toast with a title never passes its quarter of the window.
+
+**Code**
+
+- API: `AccountAccessFilter` (a refused account on a public route runs as the anonymous guest);
+  `RealtimeSessions` (new: a `WebSocketHandlerDecoratorFactory` keeping the open sessions, closing
+  an account's on `UserSuspendedEvent`, `AccountDeletionRequestedEvent`, `AccountDeletedEvent`),
+  `StompSecurityInterceptor` (the account checked with `MemberDirectory` at each presence refresh,
+  "This account cannot connect"), `PresenceTracker.localSessions`; `UserAccountService` (the
+  identity sync after the expiry check and only outside a suspension) and
+  `UserAccountRepository.touchLastActive` (not for a suspension in force); `ConversationService`
+  (`requireNotBlocked(me, other, othersWords)`: the NOBODY words on `start`, the inactive words on
+  `send`); `CollectorLookup` and `CollectorHandleRepository` (new, profiles: the handle, the
+  visibility and the block in one query) used by `CollectorProfileService`, `PublicBinderService`
+  and `WishlistService`; `BlockRepository.hidesFrom`, `BlockService.isHiddenByBlock` and
+  `BlockRelationProvider.isHiddenByBlock` removed (unused).
+- Phone: `Button` and `PillButton` take `handleInLabel` (`HANDLE_TEXT_PROPS` plus
+  `HANDLE_LABEL_STYLE`); `ListRow`'s `handleInLabel`, `ConfirmDialog`'s `handleInTitle` and
+  `SaleMessage`'s "Rate" now shrink to fit one line (`HANDLE_TEXT_PROPS`), not only cap;
+  `SharedLinkCard`'s binder owner is a `HandleText`; `ConfirmDialog`'s buttons capped at
+  `PINNED_MAX_FONT_SCALE` and stacked (`useStackedRows`, `column-reverse`); `StatusPage`'s
+  `pinActions` (used by `app/(account)/suspended.tsx`, its buttons capped); `Snackbar`'s
+  `SNACKBAR_TITLE_LINES` (1) shared by the title and `toastLayout`; `ThreadHeader`'s handle has the
+  test id `conversation-handle`.
+- Native: `report-collector.yaml` (F4) taps the reason again after a small swipe until "Choose a
+  reason first." leaves the bar.
+
+**Decisions, and why**
+
+1. **A refused account on a public route is a guest, not a 403** (P1, F2): the public routes are
+   the ones anybody reads signed out (stage R15), so a 403 there would refuse a suspended token
+   what any visitor gets, while the guest's answer gives it nothing a member gets; the phone on
+   screen 44 reads only public things (the legal documents behind "Community guidelines"). A
+   deletion pending and a deleted account are refused on member routes the same way, so they read
+   as guests too.
+2. **Both: close the sessions at the event, and check at the presence refresh** (P3, F3): the
+   event closes them at once on the instance that made the change (the only one in the first-year
+   profile, ADR 0016); the check covers the scale-up path, where the event fires on one instance,
+   at the cost of one lookup per session every 20 s, the rhythm the presence key is refreshed at.
+3. **The NOBODY words, not the unknown recipient's 404, on a new conversation** (P2, F1): both are
+   answers to "a collector who cannot receive messages"; the 404 would match a suspended recipient
+   on that route exactly, but the paused web's E2E (`messaging.spec.ts`, lines 229 to 235) asserts
+   `403 MESSAGING_BLOCKED` for that call and the owner's order is that every web check keeps
+   passing. The pair "profile 404, new conversation 403" can still tell a caller who kept the
+   blocker's id: owner follow-up 3, rewritten below.
+4. **The e-mail waits for the end of the suspension** (P5): moderators decided about the account
+   with the e-mail it had; it syncs at the first request after the end. A deleted account never
+   syncs (unchanged).
+5. **The handle cap stays 1.35** (U6, a design note, answered with evidence): at 2
+   (`TITLE_MAX_FONT_SCALE`) a 24-character handle is about 430 pt wide for a 314 pt row, so it would
+   shrink to fit anyway in one-line places, and the lines that lead with a handle and may take two
+   lines ("@{handle} · Quebec", the inbox, Who has this card) would break it again: iOS shrinks a
+   two-line text only once it overflows both lines, and a word longer than a line is broken on the
+   first. The reason is written beside the constant (`src/theme/styles.ts`).
+6. **A label that names a handle shrinks as one line rather than putting the handle on a line of
+   its own** (U1, U3): a two-line label lets iOS break the handle on the first line ("Report
+   wmwm…" / "kuxom1", the reviewers' screenshot); one line shrunk to fit keeps it whole. At the
+   floor (0.6 of the cap) the widest 24-character handle fits a full-width button, a sheet row and
+   the sale message's "Rate" pill; the screen reader reads the whole label.
+7. **A toast's title takes one line** (F8): titles are a word or two ("Saved", "Card deleted");
+   one line shrunk to fit keeps the quarter of the window that two allowed lines could pass.
+8. **Only screen 44's file pins its buttons** (U5): 45 and "Deletion cancelled" are the same
+   screen; the other status pages (39, 46, Reset password's sent state) were not part of the
+   finding and keep their layout.
+
+**Tests that would have caught them**
+
+- API: `RefusedAccountBrowsesAsGuestIT` (new: nine public reads with a suspended token compared
+  with a guest's, body for body, then for a deletion pending and a deleted account; who never
+  read; a member again once the suspension is over), `RealtimeIT.aSessionOpenedBeforeTheSuspensionIsClosedByIt`
+  (typing reaches the partner, the suspension closes the session, nothing more arrives, the
+  partner keeps theirs; a deletion request closes one too), `StompSecurityInterceptorTest`
+  (a suspended, banned, deletion-pending, deleted or unknown account refused at its next frame, an
+  expired suspension passes), `SuspensionKeepsTheLoginIT` (the exact fields of `403
+  ACCOUNT_SUSPENDED`; refused requests write neither `last_active_at` nor a new e-mail),
+  `BlockAnsweredAsNotFoundIT` (a new conversation refused for a block compared with a NOBODY
+  recipient's on the same route, with and without an earlier chat; the lookup misses a collector
+  who blocked the caller in its one query and finds them for the blocker, both sides of a mutual
+  block, others, guests and after a suspension's end), `CollectorLookupTest` (a miss reads nothing
+  else).
+- Phone (jest): `ui.test.tsx` (the Button, PillButton and ListRow handle labels at 1 and 3.1, "Rate
+  {handle}" and "by @{handle}", the dialog's buttons capped and stacked at 3.1 and side by side at
+  1, its title on one line, a rendered toast's height, read from the rendered lines, caps and
+  paddings, within a quarter for windows of 667, 874 and 956 pt), `collector.test.tsx` (the profile
+  header's handle, "Message {handle}" and the sheet's Report and Block rows), `conversation.test.tsx`
+  (the chat header's handle), `account-states.test.tsx` (screen 44 at 3.1: the lines scroll, Sign
+  out and the guidelines pinned outside the scroll, capped).
+
+**Checks** (retries off; 2026-10-28, this Mac, JDK 21, OrbStack; the owner's iPhone 18 Pro under
+the shared lock)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | pass |
+| `npm run test:api` | pass: **1,300 tests** in 204 classes (`test`) + **13** in 2 (`catalogTest`), 0 failures (4 min 38 s; `GeoPrivacyContractTest` 18) |
+| `./gradlew exportOpenApi` then `npm run generate:api` | one description (a new conversation), committed (`895ea0b9`); git clean afterwards |
+| `npm run build -w apps/web-angular` | pass, initial total **893.88 kB** (before and after the re2js bump) |
+| `npm run test:web`, web lint, web format check | **136 files / 633 tests**; pass; pass |
+| `npm run test:e2e -- --retries=0` | **70 / 70** (1 min 30 s); `messaging.spec.ts`'s `403 MESSAGING_BLOCKED` for the blocked side's new conversation holds |
+| `npm run typecheck`, `lint`, `format:check` `-w apps/mobile` | pass, pass, pass (again after the re2js bump) |
+| `npm run test:mobile` | **127 suites / 1,778 tests** (a first run beside `test:api` lost one jest worker to a SIGSEGV in `ocrProvider.test.ts`, which passed alone, 15 / 15; the full run again on a quiet machine, and after the re2js bump, passed) |
+| `npx expo export` iOS, Android, web (scratch folders) | pass (1,975, 2,101 and 1,596 modules), after the re2js bump |
+| `npm run test:mobile:e2e -- --retries=0` | **66 / 66** (1 min 30 s) |
+| `npm run test:mobile:maestro -- --platform ios` | every flow: **43 / 44** (72 min) on `7d3bd5b8`: `report-collector.yaml` passed (F4 fixed); `guest-message-holder.yaml` failed at its last step, in the suite and alone (Back returns to the card page where the guest had scrolled, and with the holders the suite had made the card's name was off the screen); the flow now scrolls up to it (`548b6329`, no app change) and passed alone (1 min 49 s) |
+| `npm run test:scripts` | **147 / 147** |
+| `npm run audit:gate` | failed on an advisory published after the batch was built (GHSA-GG6H-894W-4M9C, re2js before 2.8.7, through `firebase` → `@firebase/firestore`); `re2js` held on the patched 2.8 line by an override (`~2.8.8`, `38eb56ae`; 2.9.1 was a day old): pass |
+
+**Walked on the owner's iPhone 18 Pro** (the shared lock, the isolated stack, dark, the largest
+text size by launch argument, so no setting of the device changed; appearance light and text
+size large before and after): the builder's walks A and B (2 / 2) and the UX reviewer's walk A (1 /
+1) on the final phone code: "Message {handle}" on a profile on one line, the "⋯" sheet's Report and
+Block rows with the widest 24-character handle on one line, "Rate {handle}" on one line, a shared
+binder's "by @{handle}" on one line, the block confirmation with Block and Cancel stacked and
+whole, screen 44 with Community guidelines and Sign out pinned under the scrolling lines. The
+walks' accounts were deleted.
+
+**Seen and not fixed** (for the lead): in the full suite's failure screenshot of
+`guest-message-holder.yaml`, at the default text size, one holder's handle on Who has this card
+was drawn far smaller than the others (about a third of their size, below `HANDLE_MIN_FONT_SCALE`)
+right after the guest signed in, when the rows' "A collector" turned into handles in place. It
+looks like iOS keeping a stale shrink of `adjustsFontSizeToFit` when a one-line text changes;
+not reproduced on purpose and not in the reviewers' findings (screenshot kept in the scratch
+folder, `small-fix1/tiny-handle-default-size.png`).
+
+**Owner follow-ups** (follow-ups 2 to 4 above are replaced by these)
+
+1. **The moderator's reason on screen 44**: unchanged (follow-up 1 above).
+2. **A chat leaves the blocked side's inbox at a block** (P6, F11; follow-up 2 above, confirmed by
+   the reviewers with numbers): as the blocked side, `GET /conversations/{id}` and its messages
+   answer `404` and the chat is not in the inbox, while sending in it answers `403` "This collector
+   cannot receive messages right now"; a chat with a suspended partner stays readable (`200`) and
+   listed. Owner decision: keep the chat readable for the blocked side as for an inactive partner,
+   or answer every route of that chat `404`.
+3. **A new conversation refused for a block** (P2, F1; replaces follow-up 3 above): the blocked
+   side now reads exactly what a collector who accepts no new conversations answers (`403
+   MESSAGING_BLOCKED`, "This collector does not accept new conversations"). An unknown, suspended
+   or deleted recipient answers `404` "Collector not found" there, so a caller who kept the
+   blocker's id can pair the profile's `404` with this `403`. Answering the blocked side `404`
+   instead (the owner's "as if your profile didn't exist" taken literally) breaks the paused web's
+   `apps/web-angular/e2e/messaging.spec.ts` lines 229 to 235 (`expect(refused.status()).toBe(403)`,
+   `errorCode` `MESSAGING_BLOCKED`): the owner decides, and allows that web test to change if so.
+4. **Signing out, or a second account, shows a block** (P7 a): signed out, `GET
+   /collectors/{handle}/binders` and `/inventory` answer `200` with the blocker's public binders
+   and cards (places only), where the blocked caller gets `404`. A block binds two accounts; the
+   phone opens no profile for a guest. Accepted limit unless the owner wants the handle-addressed
+   reads closed to guests (a web-visible change).
+5. **Blocking back reveals a block** (P7 b, F11): the blocked side who blocks the blocker reads
+   their profile again (`200`, `isBlocked: true`), while blocking a suspended collector leaves its
+   profile `404`. The other rule (both sides `404` in a mutual block) would tell the first blocker
+   they were blocked back. Owner decision: which view wins in a mutual block.
+6. **The blocker's ratings of others** (P8): `GET /collectors/{someone else}/ratings` shows the
+   blocker as rater (handle, name, words) to the blocked side, as to anyone (a private or
+   suspended rater shows the same way, so it does not single out a block). Owner decision: show
+   such ratings as "A collector" (as for guests) to a viewer the rater blocked, or leave them.
+7. **Accounts suspended before this change stay disabled in Firebase** (P10, F12): they read
+   "This account has been disabled" rather than screen 44, and stay locked out after a temporary
+   suspension ends until an admin lifts it (only `unsuspend` enables the login). No environment
+   is in production yet; before deploying to one that holds such accounts, lift and re-apply
+   those suspensions, or enable their Firebase users (every `SUSPENDED` account whose `banned_at`
+   is null), as a one-off.
+8. **A new advisory in the audit gate, not caused by this batch** (found by the final checks):
+   GHSA-GG6H-894W-4M9C, re2js before 2.8.7, reaches the repo through `firebase` →
+   `@firebase/firestore` 4.17.2 (`^2.8.3`), unchanged since `main`; neither app imports Firestore.
+   Fixed here by an override (`"re2js": "~2.8.8"` in the root `package.json`, `38eb56ae`); `main`
+   and the other branches fail the gate until it is merged.
+
+### Review fix 2 (2026-10-29)
+
+The second review (round 2 of 2) reported one finding on `0f00e9a5`, minor: **R1-1, on iOS the
+0.6 minimum size of a handle does nothing, so a handle can shrink to 4 points** (decision 2). It
+was right, and wider than reported: the minimum applies on neither platform. Fixed at its cause in
+`f2f3dc1f`; phone only, no API change, no migration (V135 stays free), no ADR, nothing under
+`apps/web-angular` changed, the clients unchanged.
+
+**The cause** (React Native 0.86.3, the new architecture, read in `node_modules`): a text shrunk to
+fit (`adjustsFontSizeToFit`) is shrunk by the native text layout down to `minimumFontSize`, 4
+points when unset: on iOS in `RCTTextLayoutManager.mm` (lines 245 to 249), on Android in
+`TextLayoutManager.kt` (`PA_KEY_MINIMUM_FONT_SIZE`, 4 dp). Neither reads `minimumFontScale` (only
+the old iOS architecture did), and the JavaScript `Text` cannot pass `minimumFontSize` (its native
+view config lists `minimumFontScale` only). So the handles' floor (`HANDLE_MIN_FONT_SCALE`, 0.6)
+and the toast title's (0.75) were never applied, on iOS or on Android: the reviewer's other
+remedy, "the minimum applies on Android only", would have been wrong too. The 4-point handle that
+review fix 1 saw at the default size (`sneigh_mvstnuo1tt` on Who has this card, a quarter of its
+row's size, its row wide enough) is most likely iOS's fit test (`NSTextStorage+FontScaling.m`):
+it requires the text's frame to be at least as tall as the laid-out line, and the line's height
+is fixed by the style's `lineHeight`, so a frame even a fraction of a point short fails at every
+smaller size and the text falls to the 4-point floor. Segmented's comment already recorded the
+same ("four points high at the default text size", 2026-10-13). Not reproduced on purpose (the
+reviewer could not either, in 38 screenshots).
+
+**What changed for a collector**: a handle, a label that names one ("Message {handle}", "Block
+{handle}?", a sheet's "Report {handle}", "Rate {handle}") and a toast's title stay on one line at
+their caps as before, and where the row or button is too narrow for the whole text (the widest
+handles at the largest sizes) the end gives way to "…" at the capped size instead of the text
+being drawn smaller. A handle is never drawn at 4 points again. The owner's own words chose this
+side: "big text with an occasional broken word beats small text". The words a screen reader says
+are unchanged (the whole label). Paragraphs are untouched.
+
+**Code**: `HANDLE_TEXT_PROPS` is `numberOfLines` 1, `ellipsizeMode` "tail" and
+`maxFontSizeMultiplier` `HANDLE_MAX_FONT_SCALE`; `HANDLE_MIN_FONT_SCALE` is gone; the toast's title
+is one line with "tail" (`Snackbar`); the comments of `styles.ts`, `HandleText`, `Button`,
+`PillButton`, `ListRow`, `ConfirmDialog`, the deck core and binder pills and the mobile README say
+so. The sign-in wordmark (stage R12, on `main` before this batch) still uses shrink to fit with
+the same 4-point floor: out of this stage, owner follow-up 10 below.
+
+**Tests** (each would have caught it): `__tests__/theme/noShrinkToFit.test.ts` (new): React
+Native's iOS and Android text layouts shrink to `minimumFontSize` with a 4-point default and never
+read `minimumFontScale`, and `Text` cannot pass `minimumFontSize` (it fails when an upgrade changes
+that, so a floor can be reconsidered); no file of `src/` or `app/` names `minimumFontScale`; the
+only use of `adjustsFontSizeToFit` is the sign-in wordmark. The handle and toast assertions of
+`ui.test.tsx` (fontScale 1 and 3.1), `conversation`, `collector`, `messages-tab`, `settings` and
+`blocked` now check one line, the cap, "tail" and no shrink.
+
+**Checks** (retries off): `spotlessCheck --rerun-tasks` pass; `test:api` not re-run (nothing under `apps/api` but its README changed since review fix 1's green run, 1,300 + 13 tests); `exportOpenApi` and `generate:api` change nothing; the web build 893.88 kB initial, `test:web` 136 files / 633 tests, web lint and format pass; web E2E 70 / 70; mobile typecheck, lint and format pass; `test:mobile` 128 suites / 1,781 tests; `expo export` for iOS, Android and web exit 0; mobile web E2E 66 / 66; the native suite on the owner's iPhone 18 Pro 44 / 44 (71 min); `test:scripts` 147 / 147; `audit:gate` OK. Walked on the iPhone 18 Pro (walk A of the batch, the longest handles and the toasts on Home, Who has this card, a profile, the chats and their list, Notifications, Community, the "⋯" sheet and Blocked collectors), dark at the largest text size and light at the default size, 22 screenshots each: every handle on one line at its size, the cut ones ending with "…" ("Message mobenlong_mvt…", "Report mocylong_mvt862crx6…" at the largest size), the toasts capped with their action. The walks' accounts were deleted; appearance light and text size large before and after. Android: the Android run could not be verified.
+
+**Owner follow-ups** (added to review fix 1's list)
+
+9. **A handle too wide for its row ends with "…" instead of shrinking** (R1-1): at the largest
+   text sizes the widest handles in a button or a sheet's row ("Message collector_ab12cd34ef56gh")
+   lose their last characters on screen (VoiceOver still says them); at the default size the
+   longest ones (23 or 24 characters) do so beside a price on Who has this card (the walk showed
+   21 characters and "…"). A shrink with a real floor
+   needs React Native to honour `minimumFontScale` (a later version or a native change, which Expo
+   Go 57 does not allow) or a layout measured in JavaScript for every handle. Owner decision: is
+   the "…" acceptable?
+10. **The sign-in wordmark still shrinks to fit** (found with R1-1; stage R12, on `main`):
+    "OrenjiTrade" on Sign in keeps `adjustsFontSizeToFit` at the pinned cap, so it has the same
+    4-point floor and could, in the same rare case, be drawn tiny; R12's walk added the shrink so
+    that the word is not cut at the largest sizes. Owner decision: leave it, or draw the wordmark
+    at its cap and accept "…" there.
+
 ## NEXT TASK
 
 > **The web resumes (owner, 2026-10-28): stages WA to WH2 of the web redesign**, one at a time
@@ -11362,13 +11904,27 @@ from Google Fonts (as before); the walk had network.
 > phone redesign (R1 to R7, G, R9 to R15 and the wrap-up R8) is complete on `main`. The next
 > migration is **V135**; an ADR takes **0022** or later.
 >
-> **Exact next task: the owner's choice among the open items** (nothing starts until the owner
-> picks): the owner follow-ups of R8 (paragraphs and handles that break a word at the largest text
-> size, a suspended collector's screen 44, one decision with R12's follow-up 3, the quick replies
-> after a sale), R13's follow-up 7 (a blocked collector can still read the blocker's profile header
-> through the API), R10's two decisions (Scryfall's file for Magic, the TCGdex MIT notice), the
-> real catalog imports (the owner's step), the card scan's Android run, and the list under "Then,
-> the owner's choice" below. Nothing brings back a paid feature (ADR 0019); English cards only.
+> **The owner decisions of 2026-10-28 are built** (branch `feature/owner-decisions-1028`, not
+> pushed; section "Owner decisions of 2026-10-28: suspended collectors, large text, quick replies
+> after a sale, blocks" above; contract `docs/api/contracts/od-2026-10-28-suspensions-blocks.md`):
+> R8's follow-ups 1 to 3, R12's follow-up 3 and R13's follow-up 7 decided and built; no migration,
+> the next is still **V135**.
+>
+> **Review fix 1 is done** (round 1 of at most 2; 28 findings: section "Owner decisions of
+> 2026-10-28", "Review fix 1"; the owner follow-ups there replace that section's 2 to 4).
+> **Review fix 2 is done** (round 2 of 2; one finding, R1-1: handles and a toast's title are cut
+> with "…" and never shrunk to fit, since React Native 0.86 ignores `minimumFontScale`; owner
+> follow-ups 9 and 10 added; "Review fix 2" in the same section).
+>
+> **Exact next task: ship this batch** (its pull request, merged on green CI; both review rounds are done),
+> **then decision 5**: Magic's Scryfall file becomes "Default Cards" (owner, 2026-10-28: collectors
+> care about which printing they own), a small change of the Scryfall adapter, once the Scryfall
+> import fix of the other session (`fix/scryfall-jsonl-bulk`) is on `main`. Still open, none of
+> them a technical task of an agent: the TCGdex MIT notice in the app (a question for the owner's
+> lawyer; if the full text must appear, Settings › Legal › Licences), the real catalog imports (the
+> owner's step), the card scan's Android run, the owner follow-ups of the 2026-10-28 section, and
+> the list under "Then, the owner's choice" below. Nothing brings back a paid feature (ADR 0019);
+> English cards only.
 
 > **Owner prompts of 2026-10-19 (saved word for word):**
 > [`docs/product/specs/2026-10-19-home-full-design.md`](docs/product/specs/2026-10-19-home-full-design.md)

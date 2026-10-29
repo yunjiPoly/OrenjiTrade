@@ -453,7 +453,8 @@ src/
                            401, RFC 9457 -> ApiError, 428/403 account signals), query client,
                            query keys, hooks per area
   components/ui/           Screen, TextField + form controls, Button, QueryState (skeleton / empty /
-                           error with retry), Snackbar, ConfirmDialog, Stepper, CardImage, ...
+                           error with retry), Snackbar, ConfirmDialog, Stepper, CardImage,
+                           HandleText, ...
   features/                screen parts per feature (legal, location, onboarding, profile,
                            catalog, inventory, binders, limits, map, collectors, messages, ...)
   features/legal/          the legal texts of both languages (legalTexts), the device / stored
@@ -721,6 +722,24 @@ Conventions later stages reuse:
   button there and a Maestro tap would open the developer menu instead. (On iOS, Expo Go floats
   it over the right end of the header itself; the flows switch it off, see
   `.maestro/subflows/hide-tools-button.yaml`.)
+
+### The largest text sizes (owner decision of 2026-10-28)
+
+Paragraphs follow the phone's text size without a cap: a body text, a description, Sign in's line
+or a notification's sentence may break a word longer than its line at the largest accessibility
+sizes (the owner prefers big text with an occasional broken word to small text). Only the small
+things are capped, each with a constant of `src/theme/styles.ts`: titles (`TITLE_MAX_FONT_SCALE`),
+the controls pinned above a list (`PINNED_MAX_FONT_SCALE`), **collectors' handles**
+(`HANDLE_MAX_FONT_SCALE`, with `HandleText` / `HANDLE_TEXT_PROPS`: one line, its end cut with
+"…" where its row is too narrow, never shrunk to fit, since React Native 0.86 ignores
+`minimumFontScale` and shrinks down to 4 points; a label or a title naming a collector ("Block {handle}?", a sheet's "Report
+{handle}", "Rate {handle}") has its words capped; at large sizes Home's post header and a sale's
+or a rating's notification put the handle on a line of its own above the sentence, because a
+capped part inside a growing sentence made iOS draw its lines over each other) and **toasts**
+(`SNACKBAR_MAX_FONT_SCALE`; `toastLayout` keeps a toast within a quarter of the window, with its
+action, its five seconds and its whole message spoken by VoiceOver). A confirmation
+(`ConfirmDialog`) scrolls inside the window with its buttons under it. A new screen that shows a
+handle uses `HandleText`.
 
 ## Scripts
 
@@ -1040,7 +1059,10 @@ segment finds a collector of the region set up by `scripts/parity.js`, with his 
 two steps: the field keeps the keyboard while the first results arrive under it; his profile and "Looking for" with the condition only; the wish opens the card),
 `holders-filters.yaml` (a card listed twice by a collector of the region: the holders list with
 both prices and the holder's state, sorted by price, narrowed to the Lightly Played copy,
-cleared), `blocked-users.yaml`
+cleared), `account-suspended.yaml` (owner decision of 2026-10-28: a fresh collector signed in on
+the phone is suspended by the seed admin through the API (`scripts/suspension.js`), lands on
+"Your account is suspended" with "The suspension ends on {date}." at the next request, signs out
+and in again and sees it again; suspended again without an end, no date), `blocked-users.yaml`
 (block from a conversation -> Settings -> Blocked users -> Unblock, checked on the API; the other
 collector can write again), `age-step-existing-account.yaml` (a collector created on the host
 without the 18+ confirmation (`CONFIRM_AGE=false`) signs in, sees the "Age" step alone, is refused

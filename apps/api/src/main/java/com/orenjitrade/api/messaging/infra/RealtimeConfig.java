@@ -30,7 +30,8 @@ import tools.jackson.databind.json.JsonMapper;
  * {@code /user}, application destinations under {@code /app}, server heartbeats every 20 s, and the
  * Redis subscription {@code rt:user:*} (prefix {@code orenji.realtime.channel-prefix}) that
  * forwards cross-instance publications to the local sessions. Allowed origins are the CORS origins
- * of {@code orenji.security.cors}.
+ * of {@code orenji.security.cors}. {@link RealtimeSessions} closes the sessions of an account that
+ * is suspended, banned or deleted.
  */
 @Configuration(proxyBeanMethods = false)
 @EnableWebSocketMessageBroker
@@ -43,15 +44,18 @@ public class RealtimeConfig implements WebSocketMessageBrokerConfigurer, Disposa
     private final OrenjiSecurityProperties security;
     private final TokenHandshakeInterceptor handshakeInterceptor;
     private final StompSecurityInterceptor stompInterceptor;
+    private final RealtimeSessions realtimeSessions;
     private final ThreadPoolTaskScheduler heartbeatScheduler;
 
     public RealtimeConfig(
             OrenjiSecurityProperties security,
             TokenHandshakeInterceptor handshakeInterceptor,
-            StompSecurityInterceptor stompInterceptor) {
+            StompSecurityInterceptor stompInterceptor,
+            RealtimeSessions realtimeSessions) {
         this.security = security;
         this.handshakeInterceptor = handshakeInterceptor;
         this.stompInterceptor = stompInterceptor;
+        this.realtimeSessions = realtimeSessions;
         // Private scheduler (not a bean) so it never becomes the @Scheduled task scheduler.
         this.heartbeatScheduler = new ThreadPoolTaskScheduler();
         this.heartbeatScheduler.setPoolSize(1);
@@ -86,6 +90,8 @@ public class RealtimeConfig implements WebSocketMessageBrokerConfigurer, Disposa
     @Override
     public void configureWebSocketTransport(WebSocketTransportRegistration registration) {
         registration.setMessageSizeLimit(MESSAGE_SIZE_LIMIT);
+        // Tracks the open sessions so a suspension, a ban or a deletion closes them at once.
+        registration.addDecoratorFactory(realtimeSessions);
     }
 
     /** Subscribes this instance to every account channel of the realtime fan-out. */

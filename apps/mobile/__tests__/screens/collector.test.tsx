@@ -3,7 +3,7 @@ import { Dimensions, Share, StyleSheet } from 'react-native';
 
 import CollectorScreen from '@/app/collectors/[id]/index';
 import { meKeys } from '@/src/api/queryKeys';
-import { TITLE_MAX_FONT_SCALE } from '@/src/theme';
+import { HANDLE_MAX_FONT_SCALE, TITLE_MAX_FONT_SCALE } from '@/src/theme';
 import { useSessionNotice } from '@/src/auth/sessionNotice';
 import { peekPendingDraft } from '@/src/features/messages/pendingDraft';
 
@@ -97,6 +97,17 @@ function order(ids: string[]): string[] {
   return [...ids].sort((a, b) => tree.indexOf(`"${a}"`) - tree.indexOf(`"${b}"`));
 }
 
+/**
+ * A handle, or a label that names one, on one line, capped, its end cut with "…" where its row is
+ * too narrow (owner, 2026-10-28); never shrunk to fit (review fix 2, R1-1).
+ */
+function expectHandleLine(text: ReturnType<typeof screen.getByTestId>) {
+  expect(text).toHaveProp('numberOfLines', 1);
+  expect(text).toHaveProp('ellipsizeMode', 'tail');
+  expect(text).toHaveProp('maxFontSizeMultiplier', HANDLE_MAX_FONT_SCALE);
+  expect(text.props.adjustsFontSizeToFit).toBeUndefined();
+}
+
 describe("Another collector's profile (mockup screens 19 and 20)", () => {
   it('shows a skeleton, then the header, the line and Message, never a distance', async () => {
     mockApi(routes());
@@ -116,6 +127,12 @@ describe("Another collector's profile (mockup screens 19 and 20)", () => {
       'Ontario · Member since 2024 · Active this week'
     );
     expect(screen.getByTestId('collector-message')).toHaveTextContent(/Message collector2$/);
+    // The handle in the header and in "Message {handle}" stays on one line, capped, at the
+    // largest text size as at this one (owner decision of 2026-10-28, review fixes 1 and 2).
+    expectHandleLine(screen.getByTestId('collector-handle'));
+    expectHandleLine(
+      within(screen.getByTestId('collector-message')).getByText('Message collector2')
+    );
     expect(screen.queryByText(/km|Canada/)).toBeNull();
     // The location section is gone.
     expect(screen.queryByText('Location')).toBeNull();
@@ -369,12 +386,14 @@ describe('At the largest text size (the walk of stage R6)', () => {
       expect(StyleSheet.flatten(screen.getByTestId('collector-header').props.style)).toMatchObject({
         flexDirection: 'column',
       });
-      // "Looking for" broke as "Looki / ng for" beside "See all".
+      // "Looking for" broke as "Looki / ng for" beside "See all". Each section loads on its own
+      // after the header: its "See all" and its rail are waited for, never read on the header's
+      // frame (on a loaded CI runner they were not there yet).
       expect(screen.getByText('Looking for')).toHaveProp(
         'maxFontSizeMultiplier',
         TITLE_MAX_FONT_SCALE
       );
-      expect(screen.getAllByText('See all')[0]).toHaveProp(
+      expect((await screen.findAllByText('See all'))[0]).toHaveProp(
         'maxFontSizeMultiplier',
         TITLE_MAX_FONT_SCALE
       );
@@ -382,11 +401,11 @@ describe('At the largest text size (the walk of stage R6)', () => {
       expect(await screen.findByTestId(`profile-have-${CARD_ID}`)).toBeOnTheScreen();
       // The cards and binders are rows, the whole name beside the picture (in a tile the name
       // broke in the middle of a word).
-      expect(screen.getByTestId('profile-cards-rail').type).not.toBe('RCTScrollView');
-      expect(screen.getByTestId(`profile-card-${CARD.id}`)).toHaveTextContent(
+      expect(await screen.findByTestId(`profile-card-${CARD.id}`)).toHaveTextContent(
         'Azure-Eyes Sky Dragon85% TCG'
       );
-      expect(screen.getByTestId('profile-binders-rail').type).not.toBe('RCTScrollView');
+      expect(screen.getByTestId('profile-cards-rail').type).not.toBe('RCTScrollView');
+      expect((await screen.findByTestId('profile-binders-rail')).type).not.toBe('RCTScrollView');
     } finally {
       act(() => {
         Dimensions.set({ window, screen: window });
@@ -574,6 +593,9 @@ describe('The "⋯" sheet: Share profile, Report, Block', () => {
     render();
     fireEvent.press(await screen.findByTestId('collector-menu'));
     expect(screen.getByTestId('collector-report')).toHaveTextContent(/Report collector2$/);
+    // The sheet's rows that name the collector keep the handle on one line (review fix 1, F7).
+    expectHandleLine(within(screen.getByTestId('collector-report')).getByText('Report collector2'));
+    expectHandleLine(within(screen.getByTestId('collector-block')).getByText('Block collector2'));
     fireEvent.press(screen.getByTestId('collector-report'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/report',

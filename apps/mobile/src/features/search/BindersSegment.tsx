@@ -28,6 +28,7 @@ import {
   useStackedRows,
   useTheme,
 } from '@/src/theme';
+import { HandleText } from '@/src/components/ui/HandleText';
 
 import { SearchInput } from './SearchField';
 import { BINDERS_COPY } from './searchCopy';
@@ -275,7 +276,9 @@ export const BinderSearchRow = memo(function BinderSearchRow({
       )}
       <View style={[styles.text, stacked && styles.textStacked]}>
         <Text style={[textStyle('md'), styles.bold, { color: palette.ink }]}>{binder.name}</Text>
-        <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{line}</Text>
+        <HandleText numberOfLines={2} style={[textStyle('sm'), { color: palette.textMuted }]}>
+          {line}
+        </HandleText>
       </View>
       {price ? (
         <Text

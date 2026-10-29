@@ -22,7 +22,7 @@ class AuditIT extends AbstractIntegrationTest {
     @Autowired private NoopIdentityAdminClient identityAdminClient;
 
     @Test
-    void suspendWritesAuditRowWithRequestIdAndDisablesIdentity() {
+    void suspendWritesAuditRowWithRequestIdAndLeavesTheLoginOn() {
         String admin = uniqueUid("audit-admin");
         UUID adminId = provisionWithRoles(admin, Role.ADMIN);
         String target = uniqueUid("audit-target");
@@ -53,7 +53,9 @@ class AuditIT extends AbstractIntegrationTest {
                 .contains("\"reason\"")
                 .contains("Repeated spam reports")
                 .contains("\"previousStatus\"");
-        assertThat(identityAdminClient.isDisabled(target)).isTrue();
+        // Owner decision of 2026-10-28: the login stays on (the API refuses the account itself).
+        assertThat(identityAdminClient.isDisabled(target)).isFalse();
+        assertThat(identityAdminClient.callsFor(target)).isEmpty();
 
         // The suspended user is blocked; the admin sees the suspension in the detail view.
         http.get()
@@ -89,7 +91,7 @@ class AuditIT extends AbstractIntegrationTest {
                 .jsonPath("$.deletionRequest")
                 .value(request -> assertThat(request).isNull());
 
-        // Unsuspend re-enables the identity and the account.
+        // Unsuspend enables the identity (a no-op here) and the account.
         http.post()
                 .uri("/api/v1/admin/users/{id}/unsuspend", targetId)
                 .header(HttpHeaders.AUTHORIZATION, bearer(admin))
@@ -97,6 +99,7 @@ class AuditIT extends AbstractIntegrationTest {
                 .expectStatus()
                 .isNoContent();
         assertThat(identityAdminClient.isDisabled(target)).isFalse();
+        assertThat(identityAdminClient.callsFor(target)).containsExactly("enable");
         assertThat(me(target).path("status").asString()).isEqualTo("ACTIVE");
         assertThat(testUsers.auditRowsFor(targetId))
                 .extracting(r -> r.get("action"))

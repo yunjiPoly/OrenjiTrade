@@ -8,7 +8,6 @@ import com.orenjitrade.api.profiles.domain.CollectorProfileView.LastActiveBucket
 import com.orenjitrade.api.profiles.domain.CollectorProfileView.OnlineStatus;
 import com.orenjitrade.api.profiles.domain.ProfileService.PublicProfileParts;
 import com.orenjitrade.api.profiles.events.CollectorProfileViewed;
-import com.orenjitrade.api.users.domain.UserAccountService;
 import com.orenjitrade.api.users.domain.UserAccountSnapshot;
 import java.time.Duration;
 import java.time.Instant;
@@ -26,15 +25,17 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Builds the public collector profile ({@code GET /api/v1/collectors/{handle}}) for one viewer:
  * suspended, deletion-pending and deleted accounts do not exist publicly (404), PRIVATE profiles
- * exist only for their owner (404 for everyone else), the location is present only for discoverable
- * collectors (state/province + country, plus the city only while the collector shows it; ADR 0017).
+ * exist only for their owner (404 for everyone else), a collector who blocked the viewer does not
+ * exist for the viewer (404, the same answer as an unknown handle), the location is present only
+ * for discoverable collectors (state/province + country, plus the city only while the collector
+ * shows it; ADR 0017).
  */
 @Service
 public class CollectorProfileService {
 
     static final String NOT_FOUND = "Collector not found";
 
-    private final UserAccountService userAccountService;
+    private final CollectorLookup lookup;
     private final ProfileService profileService;
     private final PrivacySettingsService privacySettingsService;
     private final PrivacyPolicyService privacyPolicy;
@@ -47,7 +48,7 @@ public class CollectorProfileService {
     private final ApplicationEventPublisher events;
 
     public CollectorProfileService(
-            UserAccountService userAccountService,
+            CollectorLookup lookup,
             ProfileService profileService,
             PrivacySettingsService privacySettingsService,
             PrivacyPolicyService privacyPolicy,
@@ -58,7 +59,7 @@ public class CollectorProfileService {
             ObjectProvider<BlockRelationProvider> blocks,
             ObjectProvider<PresenceProvider> presence,
             ApplicationEventPublisher events) {
-        this.userAccountService = userAccountService;
+        this.lookup = lookup;
         this.profileService = profileService;
         this.privacySettingsService = privacySettingsService;
         this.privacyPolicy = privacyPolicy;
@@ -75,9 +76,7 @@ public class CollectorProfileService {
     public CollectorProfileView view(@Nullable UUID viewerId, String handle) {
         Instant now = timeProvider.now();
         UserAccountSnapshot account =
-                userAccountService
-                        .findByHandle(handle)
-                        .filter(candidate -> isPubliclyVisible(candidate, now))
+                lookup.visibleByHandle(viewerId, handle)
                         .orElseThrow(() -> ApiException.notFound(NOT_FOUND));
         UUID targetId = account.id();
         PrivacySettingsView privacy = privacySettingsService.settingsOf(targetId);
@@ -130,17 +129,14 @@ public class CollectorProfileService {
 
     /**
      * The id of the collector holding {@code handle} when their profile is visible to the viewer
-     * (same rules as {@link #view}: unknown, suspended, deletion-pending and deleted accounts and
-     * profiles the privacy settings hide are {@code 404}). Used by the profile's sub-resources
-     * (Phase 7 ratings and references). Publishes nothing.
+     * (same rules as {@link #view}: unknown, suspended, deletion-pending and deleted accounts,
+     * profiles the privacy settings hide and collectors who blocked the viewer are {@code 404}).
+     * Used by the profile's sub-resources (Phase 7 ratings and references). Publishes nothing.
      */
     @Transactional(readOnly = true)
     public UUID requireVisibleCollector(@Nullable UUID viewerId, String handle) {
-        Instant now = timeProvider.now();
         UserAccountSnapshot account =
-                userAccountService
-                        .findByHandle(handle)
-                        .filter(candidate -> isPubliclyVisible(candidate, now))
+                lookup.visibleByHandle(viewerId, handle)
                         .orElseThrow(() -> ApiException.notFound(NOT_FOUND));
         UUID targetId = account.id();
         PrivacySettingsView privacy = privacySettingsService.settingsOf(targetId);

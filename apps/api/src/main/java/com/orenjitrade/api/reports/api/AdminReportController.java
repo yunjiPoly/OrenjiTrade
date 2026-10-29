@@ -155,11 +155,12 @@ public class AdminReportController {
             description =
                     "ACTIONED with an action (WARNING: a notice to the collector; LISTINGS_PAUSED:"
                         + " their public listings are paused; SUSPENDED: suspension with the note"
-                        + " as reason and an optional suspendUntil; BANNED: suspension without end"
-                        + " plus the ban mark) or DISMISSED (action NONE). SUSPENDED and BANNED"
-                        + " need ADMIN (403 for moderators); an administrator's account needs a"
-                        + " SUPER_ADMIN. Audited (`REPORT_RESOLVED` with the action; `user.suspend`"
-                        + " / `user.ban` on the account). With notifyReporter the reporter gets a"
+                        + " as reason and an optional suspendUntil, the login left on; BANNED:"
+                        + " suspension without end plus the ban mark, the identity-provider user"
+                        + " disabled) or DISMISSED (action NONE). SUSPENDED and BANNED need ADMIN"
+                        + " (403 for moderators); an administrator's account needs a SUPER_ADMIN."
+                        + " Audited (`REPORT_RESOLVED` with the action; `user.suspend` / `user.ban`"
+                        + " on the account). With notifyReporter the reporter gets a"
                         + " REPORT_DECISION notification without specifics. 409 for decided"
                         + " reports.")
     @ApiResponse(responseCode = "200", description = "The decided report")
