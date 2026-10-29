@@ -231,7 +231,7 @@
             matButton="filled"
             type="button"
             class="foot__add"
-            [disabled]="blocked() || empty() || phase() === 'committing' || working()"
+            [disabled]="blocked() || empty() || phase() === 'committing' || working() || busyRows().size > 0"
             [attr.aria-describedby]="blocked() ? 'foot-hint' : null"
             (click)="commit()"
             data-testid="import-commit"

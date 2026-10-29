@@ -331,6 +331,16 @@ Learned from the review of the phone (review fix 1); a second client does the sa
   its cache: the client deletes it once the upload answered, was refused or was abandoned (a
   Collectr export holds what its owner paid).
 
+### The web (stage WB, 2026-10-28)
+
+`/inventory/import` follows the same rules: the commit waits while a row edit is on its way, a
+reached limit and the rate limit answer in plain words, an open preview or a cut commit is picked
+up again from `GET /inventory/imports`, and the lines that stayed out are listed on Done. The
+web's card model shows no condition, so it sends no `SET_CONDITION` and shows none. The commit
+answers counts, not the ids of the items it created or raised: the web's "imported cards open
+already selected" (decision 18) waits for an additive field (spec section 18, decision 19), and
+Inventory opens sorted by Recently added instead.
+
 ## Worked examples
 
 Fictional data. `P1`, `P2`... stand for printing ids.

@@ -234,39 +234,69 @@ the Emulator UI (http://localhost:4000/auth).
 Contract: `docs/api/contracts/phase3-inventory.md` (web section). Generated client only
 (`InventoryService`, `BindersService`, `PublicBindersService`).
 
-- **`/inventory`** (`features/inventory`): signed-out visitors get a sign-in invitation. The
-  container (`InventoryPageComponent`) keeps every filter in the URL
-  (`?binder=<id>|unfiled&q=&game=&visibility=&availability=&condition=&freshness=&sort=&view=&page=&size=`,
-  parsed by `data/inventory-params.ts`) and provides `InventoryStore` (signals for binders,
-  summary, privacy settings, the item page, selection; writes return promises that reject with
-  `ApiError`) and `BinderActionsService` to its dialogs through the page injector.
-  - Left: `BinderListComponent` (All cards, Unfiled, binders with visibility icon and counts,
-    New binder, binder manager); a horizontal strip below 960 px.
-  - Top: `InventorySummaryComponent` (cards/copies, public now, private, temporarily public with
-    the next end, stale + hidden with "Confirm all" = bulk CONFIRM of every STALE/HIDDEN item),
-    a privacy notice when something is public but the collector is neither discoverable nor has a
-    PUBLIC profile (ADR 0004 rules), `InventoryToolbarComponent` (search, visibility segmented
-    control All/Private/Public/Temporarily public, game, availability, condition, freshness,
-    sort, grid/table).
-  - Selected binder: `BinderHeaderComponent` (kind, description, effective visibility with the
-    reason when nobody can see it, counts, freshness, publish 1 hour / 24 hours / until disabled,
-    make private, view public page, edit, confirm, delete).
-  - Items: `InventoryItemCardComponent` (grid) / `InventoryItemTableComponent` (table) with
-    picture, name, printing code, condition/availability/offers chips, price, quantity stepper
-    (PATCH in place), visibility badge (`data/visibility-status.ts` explains why a public item is
-    not visible: hidden, expired, private binder, owner hidden) and freshness badge (server label).
-  - Multi-select: `BulkBarComponent` (visibility incl. temporary with 1 h / 24 h / 3 / 7 / 30
-    days, move to binder or unfiled, availability, confirm, delete with confirmation); the outcome
-    sentence lists skipped cards and why (`data/bulk-actions.ts`).
-  - Dialogs (opened with the page injector): `AddCardDialogComponent` (autocomplete on
-    `/cards/suggest` → printing picker on `/cards/{id}` → details, private by default so cards can
-    be prepared and published later; `/inventory?card=<id>&add=<printingId>` opens it, used by the
-    card detail's "Add to inventory"), `ItemEditorSheetComponent` (side panel: every field via
-    `ItemDetailsFieldsComponent`, PATCH of the changed fields only (`data/item-form.ts`), photos,
-    confirm availability, delete), `BinderFormDialogComponent` (create/edit; 429 `binders.max`
-    opens the global limit-reached dialog and an inline message), `BinderManagerDialogComponent`
-    (drag and drop or arrow buttons to reorder, inline rename, publish/make private, delete,
-    create).
+- **`/inventory`** and **`/inventory/import`** (`features/inventory`, web redesign stage WB, spec
+  section 9, boards W10 to W17; `inventory.routes.ts`, two lazy chunks; CDK drag-drop only in the
+  Inventory chunk). The phone's card model (decision 8): copies, the price as "$ | % TCG" saved as
+  one text (`data/item-price.ts`, `data/card-form.ts`, ported from the phone), Private or Public, a
+  binder of the card's game, the public note, photos. Signed-out visitors get a sign-in invitation.
+  The container (`InventoryPageComponent`) keeps the view in the URL
+  (`?tab=cards|binders&binder=<id>|unfiled&q=&game=&visibility=PUBLIC|PRIVATE&freshness=&sort=created|name|price&dir=&view=table|grid&item=<id>`,
+  `data/inventory-params.ts`; the table or grid choice is also remembered in this browser) and
+  provides `InventoryStore` (100 cards a load with "Load more", the selection with Shift ranges,
+  highlights of new rows, inline saves with `confirm: true`, restores), `InventoryActions` (deletes
+  with Undo through `POST /items/{id}/restore` one card at a time, bulk outcomes that name what
+  changed and why, Ctrl/Cmd+Z for the last Undo outside a text field) and `BinderActionsService`.
+  - Layout: at lg and xl the binder pane (256), the list and a 440 drawer that pushes it; at md the
+    pane hides (a Binder menu in the toolbar) and drawers lie over the list with a scrim; below 960
+    the phone's design (drawers between the per-tab bar and the tab bar, one scrolling row of
+    filters, an icon bulk dock, no drag and no quick add rows).
+  - `BinderPaneComponent`: All cards, Unfiled, one section per game (stage G) with binder rows (a
+    24 px cover, lock or globe, count, deck core tag), a "⋯" menu (also on right-click: Edit binder,
+    Make public or private, Move up, Move down, Delete binder), reorder by drag within a game, and
+    the drop targets of a card drag (same-game binders outlined, others dimmed "Only … cards can go
+    in").
+  - Header: "Inventory", Cards | Binders with your counts, Import, the orange Add cards split
+    button (Quick add rows · Shift+N, Import a deck (.ydk), Import from Collectr (.csv)). The
+    summary line, the binder strip ([Private | Public], Edit binder), the freshness banner ("Still
+    have them" = bulk CONFIRM of every stale or hidden card, "Show them"), the visibility banner,
+    the paused-listings banner.
+  - `InventoryToolbarComponent`: search ("/" focuses it), Game, [All | Public | Private], Sort
+    (Recently added, Name, Price) with its direction, Clear filters, Select (grid), [Table | Grid].
+  - `InventoryTableComponent` (`role=grid`, 72 px rows, sticky header; container queries give the
+    phone's row with the drawer open and drop Binder and Updated at md): the art (a 160 px preview
+    on hover; drag starts here), name, game monogram, code and rarity, a same-game binder menu, the
+    visibility tag (click toggles Private and Public), a copies stepper on hover or focus, the
+    inline price (`PriceEditorComponent`: Enter saves, Esc cancels, "Was: …" for an old text), the
+    age with a freshness dot, the "⋯" menu (Edit, Move to binder, Make public or private, Still have
+    it, Check TCGplayer price, Delete). One tab stop (the active row): ↑↓ or j/k, Enter, Space or x,
+    Ctrl/Cmd+A, Esc. `InventoryGridComponent`: tiles (art ≤160, badge, checkbox, name, code, price,
+    copies).
+  - `BulkDockComponent`: "6 selected" · Make public · Make private · Move to binder (by game,
+    Unfiled, New binder…) · Still have them · Delete (confirm, then "6 cards deleted" with Undo) ·
+    Clear. No "Set price" and no "Select all that match" (decision 19).
+  - `QuickAddRowsComponent` (Shift+N): a code resolves its printing through `/cards/suggest`, a
+    name opens a printing list; Enter adds the row (one `POST /inventory/items`), copies reset to 1;
+    each added row has Undo for 10 minutes; errors and the 429 stay inline.
+  - Drawers (`drawer/`): `EditCardDrawerComponent` (Previous and Next with Alt+↑ / Alt+↓, each
+    saving first; "Discard your changes?"; Ctrl/Cmd+Enter; the old web form's condition, language
+    and edition read-only with "Add to public note"; photos in four slots, images dropped on the
+    drawer go there), `AddCardsDrawerComponent` (Card, Printing, Details; "Keep these for the next
+    card"; the loop back to the search; "Add many at once").
+  - Binders (`binders/`): `BindersTabComponent` (by game, covers, freshness with "Still have
+    them", Move up / Move down, the deck core tip), `EditBinderDrawerComponent` (name, the game
+    locked once the binder holds a card, [Private | Public], the purple "Sell as a deck core" with
+    photos, price, note and key cards), `NewBinderDialogComponent` (five game tiles, "Cards coming
+    soon" for a game without cards, the deck core switch, "Cards inside" from a selection; the
+    stage G 409s and the binder limit in plain words).
+  - A `.ydk` or `.csv` dropped anywhere on Inventory opens Import with it (`ImportHandoff`).
+- **`/inventory/import`** (`import/`, contract `docs/api/contracts/s5-inventory-import.md`):
+  `ImportSourceComponent` (deck or Collectr, the drop zone, the limits read from
+  `GET /inventory/imports/limits`, paste the text), the check (chips All | Which copy? | Not
+  recognised, "Use the newest", `ImportRowsComponent` with the deck sections, the printing menu,
+  copies and status), the sticky footer ("34 cards · 69 copies will be added", Add, Discard) and
+  `ImportDoneComponent`. An open preview (60 minutes) or a cut commit is picked up again. The commit
+  returns no item ids, so the imported cards do not open already selected (decision 19): Inventory
+  opens sorted by Recently added.
 - **`/binders/:id`** (`features/binders`): public binder (`GET /public/binders/{id}` + items, sent
   with the ID token when signed in so `binder.views.per_day` counts and blocks apply). Owner
   card with the owner's state or province only (ADR 0017), game pills, search and
