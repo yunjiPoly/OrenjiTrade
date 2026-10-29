@@ -238,7 +238,7 @@ test.describe('inventory (web WB)', () => {
     await row(page, 'Azure-Eyes Sky Dragon').getByRole('checkbox').check();
     await row(page, 'Lantern Fox Spirit').getByRole('checkbox').check();
     await row(page, 'Emberfang Fox VMAX').getByRole('checkbox').check();
-    const dock = page.getByRole('toolbar', { name: 'Selected cards' });
+    const dock = page.getByRole('group', { name: 'Selected cards' });
     await expect(dock).toContainText('3 selected');
     await dock.getByTestId('bulk-move').click();
     await page.getByRole('menuitem', { name: 'E2E trades' }).click();
@@ -246,12 +246,39 @@ test.describe('inventory (web WB)', () => {
       "1 Pokémon card can't go in a Yu-Gi-Oh! binder.",
     );
     await expect(pane(page).getByTestId(`pane-binder-${ygo.id}`)).toContainText('2');
-    await dock.getByRole('button', { name: /^Clear/ }).click();
+    // The focus stays in the dock after its action, and Esc on the page clears the selection
+    // (WB review F7, U1): it no longer falls to the page's body.
+    await expect
+      .poll(() => page.evaluate(() => document.activeElement?.closest('app-bulk-dock') !== null))
+      .toBe(true);
+    await page.keyboard.press('Escape');
     await expect(dock).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => document.activeElement?.tagName)).not.toBe('BODY');
+
+    // A Pokémon card dragged onto the Yu-Gi-Oh! binder is refused before any request (spec 9.7).
+    let bulkCalls = 0;
+    page.on('request', (request) => {
+      if (request.method() === 'POST' && /\/inventory\/items\/bulk$/.test(request.url())) {
+        bulkCalls++;
+      }
+    });
+    const target = pane(page).getByTestId(`pane-binder-${ygo.id}`);
+    {
+      const from = (await row(page, 'Emberfang Fox VMAX').locator('.c-art').boundingBox())!;
+      const to = (await target.boundingBox())!;
+      await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(from.x + 20, from.y + 20, { steps: 4 });
+      await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 12 });
+      await expect(target).not.toContainText('Move 1 card here');
+      await page.mouse.up();
+      await page.waitForTimeout(500);
+      expect(bulkCalls).toBe(0);
+      await expect(target).toContainText('2');
+    }
 
     // Drag the new card's art onto the binder in the pane (the menu path is above).
     const source = row(page, "Monarch's Tempest Decree").locator('.c-art');
-    const target = pane(page).getByTestId(`pane-binder-${ygo.id}`);
     const from = (await source.boundingBox())!;
     const to = (await target.boundingBox())!;
     await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
@@ -277,6 +304,55 @@ test.describe('inventory (web WB)', () => {
     await expect(toast(page, '4 cards restored')).toBeVisible();
     await expect(row(page, 'Emberfang Fox VMAX')).toBeVisible();
     expect((await items(page, collector.idToken)).length).toBe(4);
+  });
+
+  test("the owner reaches a public binder's page from Inventory; a hidden owner hears why and where to fix it; Skip to content stays on the page", async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(120_000);
+    // Declared a province, hidden from the map (the default): public cards nobody sees yet.
+    const owner = await createOnboardedCollector(request, 'wbpublic', { location: true });
+    const binder = await apiCreateBinder(request, owner.idToken, {
+      name: 'E2E shown binder',
+      gameId: await gameIdOf(request, owner.idToken, 'yugioh'),
+    });
+    await apiCreateItem(request, owner.idToken, {
+      printingId: await printingIdOf(request, owner.idToken, 'AZR-EN001'),
+      binderId: binder.id,
+      visibility: 'PUBLIC',
+      conditionStated: false,
+    });
+    await apiPublishBinder(request, owner.idToken, binder.id, 'UNTIL_DISABLED');
+    await signInThroughUi(page, owner.email, owner.password);
+    await page.goto('/inventory');
+    const banner = page.getByTestId('visibility-banner');
+    await expect(banner).toContainText(
+      'You are hidden from the map and your profile is not public',
+    );
+    await expect(banner.getByRole('link', { name: 'Privacy settings' })).toHaveAttribute(
+      'href',
+      '/settings/privacy',
+    );
+
+    // Skip to content moves the focus into the page, never to Home (WB review A10).
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('link', { name: 'Skip to content' })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(/\/inventory$/);
+    await expect(page.locator('#main-content')).toBeFocused();
+
+    // Visible to others once the owner is on the map: "View public page" (WB review F2).
+    await apiUpdatePrivacy(request, owner.idToken, { discoverable: true });
+    await page.goto(`/inventory?binder=${binder.id}`);
+    await expect(banner).toHaveCount(0);
+    const strip = page.getByTestId('binder-strip');
+    await expect(strip.getByRole('link', { name: 'View public page' })).toBeVisible();
+    await page.goto('/inventory?tab=binders');
+    await expect(page.getByTestId(`binder-public-${binder.id}`)).toBeVisible();
+    await page.getByTestId(`binder-public-${binder.id}`).click();
+    await expect(page).toHaveURL(new RegExp(`/binders/${binder.id}$`));
+    await expect(page.getByRole('heading', { level: 1, name: 'E2E shown binder' })).toBeVisible();
   });
 
   test('a second collector opens a published binder with the owner state and country only', async ({

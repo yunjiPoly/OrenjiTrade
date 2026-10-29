@@ -354,17 +354,17 @@ export class QuickAddRowsComponent {
         next: (card) => {
           this.searching.set(false);
           const printings = (card.printings ?? []).map((printing) => ({
-              kind: 'PRINTING',
-              id: card.id,
-              printingId: printing.id,
-              name: card.name,
-              game: card.game,
-              printingCode: printing.printingCode ?? undefined,
-              setName: printing.setName ?? null,
-              rarity: printing.rarity ?? null,
-              imageUrl: printing.images?.[0]?.url ?? card.primaryImageUrl,
-              variant: printingVariant(printing, card.printings ?? []),
-            })) as QuickSuggestion[];
+            kind: 'PRINTING',
+            id: card.id,
+            printingId: printing.id,
+            name: card.name,
+            game: card.game,
+            printingCode: printing.printingCode ?? undefined,
+            setName: printing.setName ?? null,
+            rarity: printing.rarity ?? null,
+            imageUrl: printing.images?.[0]?.url ?? card.primaryImageUrl,
+            variant: printingVariant(printing, card.printings ?? []),
+          })) as QuickSuggestion[];
           if (printings.length === 1) {
             // A card with one printing: it is the one on the card.
             void this.pick(printings[0]);

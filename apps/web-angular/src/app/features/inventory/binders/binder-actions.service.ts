@@ -89,10 +89,7 @@ export class BinderActionsService {
       await this.store.reorderBinders(ids);
       // The new place is said (A11), and the moved binder's "⋯" keeps the focus (A1): moving
       // its row in the page drops the focus otherwise.
-      void this.announcer.announce(
-        `${binder.name} moved ${offset < 0 ? 'up' : 'down'}`,
-        'polite',
-      );
+      void this.announcer.announce(`${binder.name} moved ${offset < 0 ? 'up' : 'down'}`, 'polite');
       setTimeout(() => {
         const active = document.activeElement;
         if (!active || active === document.body || !active.isConnected) {

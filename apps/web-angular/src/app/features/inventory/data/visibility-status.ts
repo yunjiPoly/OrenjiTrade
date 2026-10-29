@@ -177,5 +177,8 @@ export function notVisibleBanner(
       privacyLink: true,
     };
   }
-  return { text: `${cards} Put them in a public binder or choose your province.`, privacyLink: false };
+  return {
+    text: `${cards} Put them in a public binder or choose your province.`,
+    privacyLink: false,
+  };
 }

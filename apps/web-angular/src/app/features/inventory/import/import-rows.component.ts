@@ -94,9 +94,7 @@ export class ImportRowsComponent {
     const rows = this.rows();
     const preview = this.preview();
     if (preview.source !== 'YDK') {
-      return [
-        { key: 'all', title: null as string | null, rows: [...rows], include: true },
-      ];
+      return [{ key: 'all', title: null as string | null, rows: [...rows], include: true }];
     }
     const sections = preview.sections;
     // A row lists under the first section that holds its copies (main, extra, then side).

@@ -327,8 +327,9 @@ html:has(.imp .foot) {
   scroll-padding-bottom: 96px;
 }
 
+// Below 960 the footer wraps (up to 160 at 360) above the 64 tab bar.
 @media (max-width: 959.98px) {
   html:has(.imp .foot) {
-    scroll-padding-bottom: calc(168px + env(safe-area-inset-bottom));
+    scroll-padding-bottom: calc(240px + env(safe-area-inset-bottom));
   }
 }

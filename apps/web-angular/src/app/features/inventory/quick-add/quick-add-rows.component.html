@@ -151,7 +151,9 @@
     @if (listOpen() && list().length) {
       <div class="qa__pop">
         <p class="qa__pop-title" id="qa-list-title">
-          {{ listOfCards() ? 'Pick the card, then its printing' : 'Pick the printing on your card' }}
+          {{
+            listOfCards() ? 'Pick the card, then its printing' : 'Pick the printing on your card'
+          }}
         </p>
         <ul id="qa-list" role="listbox" aria-labelledby="qa-list-title">
           @for (s of list(); track $index; let i = $index) {

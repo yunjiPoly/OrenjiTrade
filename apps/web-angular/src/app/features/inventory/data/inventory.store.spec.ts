@@ -164,7 +164,7 @@ describe('InventoryStore', () => {
     );
   });
 
-  it("moves a temporarily public card to a binder with its stored visibility (F4)", async () => {
+  it('moves a temporarily public card to a binder with its stored visibility (F4)', async () => {
     const until = new Date(Date.now() + 2 * 86_400_000).toISOString();
     const card = item('t', {
       visibility: 'TEMPORARILY_PUBLIC' as InventoryItemResponse['visibility'],
@@ -237,7 +237,7 @@ describe('InventoryStore', () => {
       expect(most).toBe(4);
     });
 
-    it('hands back the cards still waiting after the last pause, with the server\'s delay', async () => {
+    it("hands back the cards still waiting after the last pause, with the server's delay", async () => {
       inventory['restoreInventoryItem'] = vi.fn(({ id }: { id: string }) =>
         id === '1'
           ? of(item(id))

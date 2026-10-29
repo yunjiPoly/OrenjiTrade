@@ -42,9 +42,9 @@ describe('binder game errors (stage G 409s, spec 9.12)', () => {
 
 describe("an Undo's words (F1)", () => {
   it('names the cards back, the ones past 10 minutes, and asks to try again for the rest', () => {
-    expect(restoreMessage({ restored: 3, gone: [], waiting: [], retryAfterSeconds: null }, 3)).toEqual(
-      { title: '3 cards restored', sub: null, tone: 'success' },
-    );
+    expect(
+      restoreMessage({ restored: 3, gone: [], waiting: [], retryAfterSeconds: null }, 3),
+    ).toEqual({ title: '3 cards restored', sub: null, tone: 'success' });
     expect(
       restoreMessage({ restored: 97, gone: [], waiting: ['x', 'y'], retryAfterSeconds: 40 }, 99),
     ).toEqual({
@@ -55,12 +55,16 @@ describe("an Undo's words (F1)", () => {
     expect(
       restoreMessage({ restored: 0, gone: [], waiting: ['x'], retryAfterSeconds: null }, 1),
     ).toEqual({ title: '1 card not restored yet', sub: 'Try again in a moment.', tone: 'error' });
-    expect(restoreMessage({ restored: 1, gone: ['z'], waiting: [], retryAfterSeconds: null }, 2)).toEqual(
-      { title: 'Card restored', sub: '1 card could no longer be restored.', tone: 'success' },
-    );
-    expect(restoreMessage({ restored: 0, gone: ['z'], waiting: [], retryAfterSeconds: null }, 1).title).toBe(
-      'This card can no longer be restored.',
-    );
+    expect(
+      restoreMessage({ restored: 1, gone: ['z'], waiting: [], retryAfterSeconds: null }, 2),
+    ).toEqual({
+      title: 'Card restored',
+      sub: '1 card could no longer be restored.',
+      tone: 'success',
+    });
+    expect(
+      restoreMessage({ restored: 0, gone: ['z'], waiting: [], retryAfterSeconds: null }, 1).title,
+    ).toBe('This card can no longer be restored.');
   });
 });
 
@@ -79,7 +83,9 @@ describe('InventoryActions', () => {
   beforeEach(() => {
     store = {
       items: () => [item('a'), item('b'), item('c')],
-      bulk: vi.fn(() => Promise.resolve({ updated: 2, skipped: [{ itemId: 'c', reason: 'NOT_FOUND' }] })),
+      bulk: vi.fn(() =>
+        Promise.resolve({ updated: 2, skipped: [{ itemId: 'c', reason: 'NOT_FOUND' }] }),
+      ),
       restoreItems: vi.fn(),
       binders: () => [],
       bindersById: () => new Map(),

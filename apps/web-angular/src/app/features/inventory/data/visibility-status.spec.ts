@@ -132,7 +132,7 @@ describe('visibility status', () => {
     ).toMatchObject({ pending: true, label: 'Public · not visible' });
   });
 
-  it("words the banner of public cards nobody sees by its real cause (F3)", () => {
+  it('words the banner of public cards nobody sees by its real cause (F3)', () => {
     expect(notVisibleBanner(0, true)).toBeNull();
     // A collector hidden from the map with a profile that is not public (the default).
     expect(notVisibleBanner(4, false)).toEqual({

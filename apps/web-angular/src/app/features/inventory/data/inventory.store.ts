@@ -493,7 +493,12 @@ export class InventoryStore {
     waiting.push(...queue);
     this.refresh();
     restored.forEach((id) => this.flash(this.highlightState, id, HIGHLIGHT_MS));
-    return { restored, gone, waiting, retryAfterSeconds: waiting.length ? retryAfterSeconds : null };
+    return {
+      restored,
+      gone,
+      waiting,
+      retryAfterSeconds: waiting.length ? retryAfterSeconds : null,
+    };
   }
 
   async uploadImage(id: string, file: Blob): Promise<InventoryItemResponse> {

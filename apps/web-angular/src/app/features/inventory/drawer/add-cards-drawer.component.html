@@ -75,7 +75,6 @@
         <p class="hint" role="status">Searching…</p>
       }
       <div id="add-options" role="listbox" aria-label="Cards and printings" class="results">
-
         @if (cards().length) {
           <p class="label" aria-hidden="true">Cards</p>
           @for (suggestion of cards(); track suggestion.id; let i = $index) {

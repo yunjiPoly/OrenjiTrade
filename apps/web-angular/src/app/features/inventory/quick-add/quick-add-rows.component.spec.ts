@@ -41,7 +41,10 @@ describe('QuickAddRowsComponent (spec 9.10, Shift+N)', () => {
     announce = vi.fn(() => Promise.resolve());
     TestBed.configureTestingModule({
       providers: [
-        { provide: CatalogService, useValue: { suggestCards: suggest, getCard: vi.fn(() => of({})) } },
+        {
+          provide: CatalogService,
+          useValue: { suggestCards: suggest, getCard: vi.fn(() => of({})) },
+        },
         {
           provide: InventoryStore,
           useValue: {

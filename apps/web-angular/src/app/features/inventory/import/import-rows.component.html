@@ -22,7 +22,9 @@
         </span>
         <span role="cell" class="section">
           <strong>{{ group.title }}</strong>
-          <span class="muted small">{{ sectionLine(group.rows.length, copiesOf(group.rows)) }}</span>
+          <span class="muted small">{{
+            sectionLine(group.rows.length, copiesOf(group.rows))
+          }}</span>
         </span>
         <span role="cell" class="section__hide">
           <button
@@ -104,8 +106,8 @@
                       ><span class="mono">{{ code(pr) }}</span> · {{ pr.rarity }}
                       @if (variant(row, pr); as v) {
                         · <strong class="print__variant">{{ v }}</strong>
-                      }</span
-                    >
+                      }
+                    </span>
                     <span class="muted small print__set">{{ pr.setName }}</span>
                   </span>
                 } @else {

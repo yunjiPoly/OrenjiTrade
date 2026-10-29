@@ -438,7 +438,9 @@ export class AddCardsDrawerComponent {
    * name), which a screen reader then reads.
    */
   private focusStep(): void {
-    setTimeout(() => this.host.nativeElement.querySelector<HTMLElement>('[data-step-focus]')?.focus());
+    setTimeout(() =>
+      this.host.nativeElement.querySelector<HTMLElement>('[data-step-focus]')?.focus(),
+    );
   }
 
   private focusField(): void {
