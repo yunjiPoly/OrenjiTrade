@@ -187,6 +187,7 @@ const EMPTY_DRAFT: LocationDraft = {
     }
     .location-fields--settings .location-fields__region {
       grid-column: 1 / -1;
+      margin-bottom: var(--spacing-2);
     }
     @media (max-width: 599.98px) {
       .location-fields--settings {
