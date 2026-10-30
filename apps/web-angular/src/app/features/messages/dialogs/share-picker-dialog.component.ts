@@ -228,6 +228,9 @@ const CARDS_PAGE = 30;
     }
     .sp__head,
     .sp__search,
+    .sp__foot {
+      flex: 0 0 auto;
+    }
     .sp__empty-box {
       display: flex;
       flex-direction: column;
@@ -246,9 +249,6 @@ const CARDS_PAGE = 30;
       font-size: var(--font-size-sm);
       font-weight: var(--font-weight-semibold);
       text-decoration: none;
-    }
-    .sp__foot {
-      flex: 0 0 auto;
     }
     .sp__search {
       display: flex;
@@ -443,7 +443,12 @@ export class SharePickerDialogComponent {
       .map((b) => ({
         id: b.id,
         name: b.name,
-        line: b.sellsAsCore ? SHARE_COPY.deckCore : SHARE_COPY.binder,
+        // In a room, the board's "Public binder · Yu-Gi-Oh!" (W22); in a chat, "Binder".
+        line: this.room
+          ? `${b.sellsAsCore ? SHARE_COPY.deckCore : ROOM_SHARE_COPY.publicBinder} · ${this.room.name}`
+          : b.sellsAsCore
+            ? SHARE_COPY.deckCore
+            : SHARE_COPY.binder,
         price: b.sellsAsCore ? (b.askingPriceText?.trim() ?? null) : null,
         imageUrl: null,
         game: b.game ?? null,

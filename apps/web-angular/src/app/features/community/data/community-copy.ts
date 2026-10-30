@@ -172,4 +172,5 @@ export const ROOM_SHARE_COPY = {
     `None of your public ${room} binders match “${query}”.`,
   addCards: 'Add cards',
   yourBinders: 'Your binders',
+  publicBinder: 'Public binder',
 } as const;
