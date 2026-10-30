@@ -502,6 +502,17 @@ test.describe('web stage WD: Search, Who has this card, sets, binders and deck c
       await phone.touchscreen.tap(point.x, point.y);
       const card = phone.getByRole('region', { name: 'Chosen state or province' });
       await expect(card).toContainText('Quebec');
+      // The viewer's own province (board W29), the whole card above the tab bar, and no tooltip
+      // left over the map by the tap (WD review R1-5).
+      await expect(card).toContainText('Canada · your province');
+      await expect(phone.locator('.leaflet-tooltip')).toHaveCount(0);
+      await expect
+        .poll(async () => {
+          const box = (await card.boundingBox())!;
+          const tabs = (await phone.locator('app-tab-bar nav').boundingBox())!;
+          return box.y + box.height <= tabs.y;
+        })
+        .toBe(true);
       await card.getByRole('button', { name: 'See binders' }).click();
       await expect(phone).toHaveURL(/tab=binders.*state=CA-QC|state=CA-QC.*tab=binders/);
     } finally {

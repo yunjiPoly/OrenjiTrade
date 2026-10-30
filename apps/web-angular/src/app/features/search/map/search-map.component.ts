@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  afterRenderEffect,
   computed,
   inject,
   input,
@@ -9,12 +10,18 @@ import {
   signal,
 } from '@angular/core';
 import { ShellIconComponent } from '../../../core/layout/shell-icon/shell-icon.component';
+import { RegionsStore } from '../../../shared/regions/regions.store';
 import { BoundaryMapComponent } from '../../map/boundary-map/boundary-map.component';
 import { SHADE_LEGEND, mapCountLine } from '../../map/data/boundaries';
 
 /** "Map of public Yu-Gi-Oh! binders by state or province in Americas (North)" (spec 6.4). */
 export function searchMapLabel(game: string, region: string): string {
   return `Map of public ${game} binders by state or province in ${region}`;
+}
+
+/** The state card's second line (board W29, the phone's): "Canada · your province", or "Canada". */
+export function stateCardSubtitle(country: string, mine: boolean): string {
+  return mine ? `${country} · your province` : country;
 }
 
 /**
@@ -61,9 +68,13 @@ export function searchMapLabel(game: string, region: string): string {
       </div>
     </div>
     @if (card(); as code) {
+      @let place = cardPlace();
       <div class="sm__card" role="region" aria-label="Chosen state or province">
         <div class="sm__card-text">
-          <p class="sm__card-title">{{ names().get(code) ?? code }}</p>
+          <p class="sm__card-title">{{ place ? place.name : (names().get(code) ?? code) }}</p>
+          @if (place) {
+            <p class="sm__card-sub">{{ place.subtitle }}</p>
+          }
           <p class="sm__card-line">{{ line(code) }}</p>
         </div>
         <button type="button" class="sm__card-go" (click)="seeBinders(code)">See binders</button>
@@ -246,6 +257,11 @@ export function searchMapLabel(game: string, region: string): string {
       margin: 0;
       font-weight: var(--font-weight-semibold);
     }
+    .sm__card-sub {
+      margin: 0;
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-sm);
+    }
     .sm__card-line {
       margin: 2px 0 0;
       color: var(--color-text-muted);
@@ -277,6 +293,10 @@ export function searchMapLabel(game: string, region: string): string {
       .sm__top {
         top: 12px;
         right: 12px;
+      }
+      /* Brought into view above the tab bar when a tap opens it (WD review R1-5). */
+      .sm__card {
+        scroll-margin-bottom: calc(64px + env(safe-area-inset-bottom) + 12px);
       }
       /* One compact line at the bottom (board W29), off most of the map. */
       .sm__legend {
@@ -322,6 +342,33 @@ export class SearchMapComponent {
   protected readonly card = signal<string | null>(null);
   protected readonly label = computed(() => searchMapLabel(this.gameName(), this.regionName()));
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly regions = inject(RegionsStore);
+  /** The card's place: "Quebec" over "Canada · your province" (board W29, the phone's card). */
+  protected readonly cardPlace = computed(() => {
+    const code = this.card();
+    const entry = this.regions.subdivision(code);
+    if (!code || !entry) {
+      return null;
+    }
+    return {
+      name: entry.subdivision.wholeCountry ? entry.country.name : entry.subdivision.name,
+      subtitle: stateCardSubtitle(entry.country.name, code === this.home()),
+    };
+  });
+
+  constructor() {
+    // A tap opens the card at the map's bottom, which may lie under the tab bar: brought into view
+    // (WD review R1-5; `scroll-margin-bottom` keeps it above the tabs).
+    afterRenderEffect({
+      write: () => {
+        if (this.card()) {
+          this.host.nativeElement
+            .querySelector<HTMLElement>('.sm__card')
+            ?.scrollIntoView?.({ block: 'nearest' });
+        }
+      },
+    });
+  }
 
   protected line(code: string): string {
     return mapCountLine(this.counts().get(code), this.deckCores().get(code));
