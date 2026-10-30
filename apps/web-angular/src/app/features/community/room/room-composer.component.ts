@@ -18,18 +18,25 @@ import { ShellLayout } from '../../../core/layout/shell-layout.service';
 import { ChatDrafts } from '../../../shared/messaging/chat-drafts.service';
 import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import { ROOM_COMPOSER_COPY, ROOM_COPY } from '../data/community-copy';
-import { POST_MAX_LENGTH, POST_NEAR_LIMIT, RoomAttachment, canPost } from '../data/community-rules';
+import {
+  POST_MAX_LENGTH,
+  POST_NEAR_LIMIT,
+  RoomAttachment,
+  addAttachment,
+  canPost,
+} from '../data/community-rules';
 
 /** What the message box hands to the room when the collector posts. */
 export interface RoomDraft {
   text: string;
-  attachment: RoomAttachment | null;
+  /** At most one card and one binder or deck core, the card first (WF review U4). */
+  attachments: RoomAttachment[];
 }
 
 /**
  * The message box of a room (spec 10.7, board W22): "+" (40 round) opens "Share a card" and
  * "Share a binder or deck core" (no photo: community photos are stage S4); what was added waits
- * above the field, removable; the field "Write to the room" grows from 1 to 6 lines; the post
+ * above the field, removable, a card and a binder or deck core together as on the phone; the field "Write to the room" grows from 1 to 6 lines; the post
  * button (40 round) turns orange with text (a post always has text). Enter posts, Shift+Enter
  * makes a new line. A refusal shows under it in the phone's words, with "Try again" after a
  * network error. The text is kept per room while the page is open (in memory only).
@@ -39,37 +46,39 @@ export interface RoomDraft {
   imports: [ReactiveFormsModule, MatMenuModule, CardImageComponent, ShellIconComponent],
   template: `
     <form class="rc" (submit)="submit($event)" [attr.aria-label]="copy.field(roomName())">
-      @if (attachment(); as a) {
+      @if (attachments().length > 0) {
         <div class="rc__tray" role="group" [attr.aria-label]="copy.tray">
-          <span class="rc__chip" [class.rc__chip--core]="a.kind === 'binder' && a.deckCore">
-            @if (a.kind === 'card') {
-              <span class="rc__art" aria-hidden="true">
-                <app-card-image size="fill" [src]="a.card.imageUrl" [game]="a.card.game" alt="" />
-              </span>
-              <span class="rc__chip-text">
-                <span class="rc__chip-name">{{ a.card.name }}</span>
-                @if (a.card.printingCode) {
-                  <span class="rc__chip-line rc__chip-line--mono">{{ a.card.printingCode }}</span>
-                }
-              </span>
-            } @else {
-              <span class="rc__binder" aria-hidden="true">
-                <app-shell-icon [name]="a.deckCore ? 'layers' : 'binder'" [size]="20" />
-              </span>
-              <span class="rc__chip-text">
-                <span class="rc__chip-name">{{ a.binder.name }}</span>
-                <span class="rc__chip-line">{{ binderLine(a) }}</span>
-              </span>
-            }
-            <button
-              type="button"
-              class="rc__remove"
-              [attr.aria-label]="copy.remove(a.kind === 'card' ? a.card.name : a.binder.name)"
-              (click)="removeAttachment()"
-            >
-              <app-shell-icon name="close" [size]="16" [stroke]="2.2" />
-            </button>
-          </span>
+          @for (a of attachments(); track a.kind) {
+            <span class="rc__chip" [class.rc__chip--core]="a.kind === 'binder' && a.deckCore">
+              @if (a.kind === 'card') {
+                <span class="rc__art" aria-hidden="true">
+                  <app-card-image size="fill" [src]="a.card.imageUrl" [game]="a.card.game" alt="" />
+                </span>
+                <span class="rc__chip-text">
+                  <span class="rc__chip-name">{{ a.card.name }}</span>
+                  @if (a.card.printingCode) {
+                    <span class="rc__chip-line rc__chip-line--mono">{{ a.card.printingCode }}</span>
+                  }
+                </span>
+              } @else {
+                <span class="rc__binder" aria-hidden="true">
+                  <app-shell-icon [name]="a.deckCore ? 'layers' : 'binder'" [size]="20" />
+                </span>
+                <span class="rc__chip-text">
+                  <span class="rc__chip-name">{{ a.binder.name }}</span>
+                  <span class="rc__chip-line">{{ binderLine(a) }}</span>
+                </span>
+              }
+              <button
+                type="button"
+                class="rc__remove"
+                [attr.aria-label]="copy.remove(a.kind === 'card' ? a.card.name : a.binder.name)"
+                (click)="removeAttachment(a)"
+              >
+                <app-shell-icon name="close" [size]="16" [stroke]="2.2" />
+              </button>
+            </span>
+          }
         </div>
       }
       <div class="rc__row">
@@ -188,7 +197,7 @@ export class RoomComposerComponent {
   protected readonly text = new FormControl('', { nonNullable: true });
   protected readonly length = signal(0);
   private readonly value = signal('');
-  protected readonly attachment = signal<RoomAttachment | null>(null);
+  protected readonly attachments = signal<RoomAttachment[]>([]);
   protected readonly ready = computed(() => canPost(this.value(), this.busy()));
   protected readonly nearLimit = computed(() => this.length() >= POST_NEAR_LIMIT);
 
@@ -198,15 +207,15 @@ export class RoomComposerComponent {
       const slug = this.slug();
       untracked(() => {
         this.text.setValue(this.drafts.get(draftKey(slug)));
-        this.attachment.set(null);
+        this.attachments.set([]);
         this.sync(false);
       });
     });
   }
 
-  /** What the share picker chose waits above the field. */
+  /** What the share picker chose waits above the field (in place of the same kind's). */
   attach(attachment: RoomAttachment): void {
-    this.attachment.set(attachment);
+    this.attachments.update((current) => addAttachment(current, attachment));
     this.focus();
   }
 
@@ -222,13 +231,13 @@ export class RoomComposerComponent {
   reset(): void {
     this.text.setValue('');
     this.drafts.set(draftKey(this.slug()), '');
-    this.attachment.set(null);
+    this.attachments.set([]);
     this.sync(false);
     this.focus();
   }
 
-  protected removeAttachment(): void {
-    this.attachment.set(null);
+  protected removeAttachment(attachment: RoomAttachment): void {
+    this.attachments.update((current) => current.filter((item) => item.kind !== attachment.kind));
     this.focus();
   }
 
@@ -260,7 +269,7 @@ export class RoomComposerComponent {
       this.focus();
       return;
     }
-    this.post.emit({ text: this.text.value, attachment: this.attachment() });
+    this.post.emit({ text: this.text.value, attachments: this.attachments() });
   }
 
   private sync(typed: boolean): void {

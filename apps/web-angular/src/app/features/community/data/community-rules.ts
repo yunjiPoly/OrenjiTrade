@@ -186,13 +186,35 @@ export function mergePosts(
   for (const post of incoming) {
     byId.set(post.id, post);
   }
-  return [...byId.values()].sort(
-    (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt) || b.id.localeCompare(a.id),
-  );
+  return [...byId.values()].sort(comparePosts);
 }
 
-/** What a post shares besides its text (never a photo on the web: community photos are S4). */
+/** The order of the posts shown: newest first (negative when `a` comes before `b`). */
+export function comparePosts(
+  a: Pick<PostResponse, 'id' | 'createdAt'>,
+  b: Pick<PostResponse, 'id' | 'createdAt'>,
+): number {
+  return Date.parse(b.createdAt) - Date.parse(a.createdAt) || b.id.localeCompare(a.id);
+}
+
+/**
+ * One thing a post shares besides its text: a card, or a binder or deck core (never a photo on the
+ * web: community photos are S4). A post carries at most one of each (WF review U4).
+ */
 export type RoomAttachment = RoomShareChoice;
+
+/**
+ * The tray after the picker chose `choice`: it takes the place of what was there of its kind (a
+ * card, or a binder or deck core); the other kind stays. The card comes first.
+ */
+export function addAttachment(
+  current: readonly RoomAttachment[],
+  choice: RoomAttachment,
+): RoomAttachment[] {
+  return [...current.filter((item) => item.kind !== choice.kind), choice].sort((a, b) =>
+    a.kind === b.kind ? 0 : a.kind === 'card' ? -1 : 1,
+  );
+}
 
 /** Whether the post button is orange: some text, not too long (a post always has text). */
 export function canPost(text: string, busy = false): boolean {
@@ -200,13 +222,18 @@ export function canPost(text: string, busy = false): boolean {
   return !busy && length > 0 && text.length <= POST_MAX_LENGTH;
 }
 
-/** The request of a draft. */
-export function postRequest(text: string, attachment: RoomAttachment | null): CreatePostRequest {
+/** The request of a draft: its text, the card's printing and the binder, each when shared. */
+export function postRequest(
+  text: string,
+  attachments: readonly RoomAttachment[] | null,
+): CreatePostRequest {
   const request: CreatePostRequest = { body: text.trim() };
-  if (attachment?.kind === 'card') {
-    request.cardPrintingId = attachment.card.printingId;
-  } else if (attachment?.kind === 'binder') {
-    request.binderId = attachment.binder.binderId;
+  for (const attachment of attachments ?? []) {
+    if (attachment.kind === 'card') {
+      request.cardPrintingId = attachment.card.printingId;
+    } else {
+      request.binderId = attachment.binder.binderId;
+    }
   }
   return request;
 }

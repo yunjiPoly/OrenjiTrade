@@ -14,10 +14,10 @@ import { MatMenuModule } from '@angular/material/menu';
 import { RouterLink } from '@angular/router';
 import type { PostResponse } from '@orenji/api-client';
 import { ShellIconComponent } from '../../../core/layout/shell-icon/shell-icon.component';
+import { ShellLayout } from '../../../core/layout/shell-layout.service';
 import { MediaUrlPipe } from '../../../shared/pipes/media-url.pipe';
 import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
 import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
-import { gameInfo } from '../../../shared/domain/games';
 import { ROOM_COPY } from '../data/community-copy';
 import { POST_MAX_LENGTH, postPlace, postTime } from '../data/community-rules';
 import { RoomStore } from '../data/room.store';
@@ -36,7 +36,7 @@ export interface PostActionEvent {
  * One post of a room (spec 10.7, board W22): a 36 avatar, the handle (it opens the profile; "You"
  * on one's own), "{province} · {time}" (the time alone when the author shares no place; never a
  * city), the text, the photos a phone added (read only: the web posts none, community photos are
- * stage S4), a shared card ("View", Who has this card on that printing), a shared deck core
+ * stage S4), a shared card ("View", Who has this card on that printing) and/or a shared deck core
  * ("Deck core", its price, "Open") or binder, or "Binder no longer available". A "⋯" menu shows on
  * hover or focus: "Message {h}", "Report this post", "Block {h}" (Remove for a moderator); one's
  * own post has Edit and Delete instead. No reply threads.
@@ -105,7 +105,14 @@ export interface PostActionEvent {
             >
               <app-shell-icon name="more" [size]="18" [stroke]="2.6" />
             </button>
-            <mat-menu #menu="matMenu" xPosition="before" class="app-more-menu">
+            <mat-menu
+              #menu="matMenu"
+              xPosition="before"
+              [class]="layout.narrow() ? 'app-more-menu app-menu--sheet' : 'app-more-menu'"
+              [backdropClass]="
+                layout.narrow() ? 'cdk-overlay-dark-backdrop' : 'cdk-overlay-transparent-backdrop'
+              "
+            >
               @if (own()) {
                 @if (p.canEdit) {
                   <button mat-menu-item type="button" (click)="startEdit()">
@@ -221,7 +228,9 @@ export interface PostActionEvent {
               >{{ copy.view }}</a
             >
           </div>
-        } @else if (p.payload.binder; as binder) {
+        }
+        <!-- A post may share a card and a binder or deck core together (WF review U2). -->
+        @if (p.payload.binder; as binder) {
           <div
             class="share"
             [class.share--core]="binder.deckCore"
@@ -247,11 +256,15 @@ export interface PostActionEvent {
             }
             <span class="share__text">
               <span class="share__name">{{ binder.name }}</span>
+              <!-- No game: a post may share a binder of any game, and its data names none
+                   (WF review F5). -->
               @if (binder.deckCore) {
                 <span class="share__badge">{{ copy.deckCore }}</span>
-                <span class="share__line">{{ coreLine(binder.askingPriceText) }}</span>
+                @if (binder.askingPriceText?.trim(); as price) {
+                  <span class="share__line">{{ price }}</span>
+                }
               } @else {
-                <span class="share__line">{{ copy.publicBinder }} · {{ gameName() }}</span>
+                <span class="share__line">{{ copy.publicBinder }}</span>
               }
             </span>
             <a
@@ -275,12 +288,13 @@ export interface PostActionEvent {
 })
 export class RoomPostComponent {
   private readonly store = inject(RoomStore);
+  protected readonly layout = inject(ShellLayout);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly moreButton = viewChild<ElementRef<HTMLButtonElement>>('more');
   private readonly editor = viewChild<ElementRef<HTMLTextAreaElement>>('editor');
 
   readonly post = input.required<PostResponse>();
-  /** The room's game (the card art's placeholder, the binder's line). */
+  /** The room's game (the card art's placeholder). */
   readonly game = input<string | null>(null);
   /** The words of the day separator above it ("Yesterday"), for its spoken label. */
   readonly day = input('');
@@ -308,10 +322,6 @@ export class RoomPostComponent {
   protected readonly place = computed(() => postPlace(this.post()));
   protected readonly time = computed(() => postTime(this.post().createdAt));
   protected readonly photos = computed(() => this.post().payload.photos ?? []);
-  protected readonly gameName = computed(() => {
-    const game = this.game();
-    return game ? gameInfo(game).label : '';
-  });
   protected readonly label = computed(() => {
     const post = this.post();
     const day = this.day();
@@ -323,9 +333,9 @@ export class RoomPostComponent {
     });
   });
 
-  /** "Yu-Gi-Oh! · $95" under a shared deck core (board W22). */
-  protected coreLine(price: string | null | undefined): string {
-    return [this.gameName(), price?.trim()].filter(Boolean).join(' · ');
+  /** The focus on the handle, the post's first link (older posts shown; WF review A2). */
+  focusHandle(): void {
+    this.host.nativeElement.querySelector<HTMLElement>('.post__handle')?.focus();
   }
 
   /** The "⋯" button (the focus goes back to it after a dialog). */

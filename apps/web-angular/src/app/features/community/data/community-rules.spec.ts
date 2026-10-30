@@ -13,6 +13,7 @@ import {
   postErrorMessage,
   postPlace,
   postRequest,
+  addAttachment,
   readRulesPane,
   readVisits,
   regionOfSlug,
@@ -50,6 +51,24 @@ function memoryStorage(): Storage {
     setItem: (key, value) => void values.set(key, value),
   };
 }
+
+const CARD = {
+  kind: 'card' as const,
+  card: {
+    printingId: 'pr-1',
+    cardId: 'c-1',
+    name: 'Ash',
+    printingCode: 'X',
+    imageUrl: null,
+    game: 'yugioh',
+  },
+};
+const CORE = {
+  kind: 'binder' as const,
+  binder: { binderId: 'b-1', name: 'Core', itemCount: 3 },
+  deckCore: true,
+  price: '$95',
+};
 
 describe('community rules (web WF, spec 10.7)', () => {
   it("orders the region's game rooms: the browsed game first, then the games' order", () => {
@@ -157,27 +176,21 @@ describe('community rules (web WF, spec 10.7)', () => {
     expect(canPost('Hi', true)).toBe(false);
     expect(canPost('x'.repeat(POST_MAX_LENGTH + 1))).toBe(false);
     expect(postRequest('  Hello  ', null)).toEqual({ body: 'Hello' });
-    expect(
-      postRequest('Spare', {
-        kind: 'card',
-        card: {
-          printingId: 'pr-1',
-          cardId: 'c-1',
-          name: 'Ash',
-          printingCode: 'X',
-          imageUrl: null,
-          game: 'yugioh',
-        },
-      }),
-    ).toEqual({ body: 'Spare', cardPrintingId: 'pr-1' });
-    expect(
-      postRequest('Core', {
-        kind: 'binder',
-        binder: { binderId: 'b-1', name: 'Core', itemCount: 3 },
-        deckCore: true,
-        price: '$95',
-      }),
-    ).toEqual({ body: 'Core', binderId: 'b-1' });
+    expect(postRequest('Spare', [CARD])).toEqual({ body: 'Spare', cardPrintingId: 'pr-1' });
+    expect(postRequest('Core', [CORE])).toEqual({ body: 'Core', binderId: 'b-1' });
+    // A card and a binder together, as the phone and the old web allowed (WF review U4).
+    expect(postRequest('Both', [CARD, CORE])).toEqual({
+      body: 'Both',
+      cardPrintingId: 'pr-1',
+      binderId: 'b-1',
+    });
+  });
+
+  it('the tray keeps one card and one binder or deck core; a new choice replaces its kind', () => {
+    const other = { ...CORE, binder: { binderId: 'b-2', name: 'Trades', itemCount: 9 } };
+    expect(addAttachment([], CORE)).toEqual([CORE]);
+    expect(addAttachment([CORE], CARD)).toEqual([CARD, CORE]);
+    expect(addAttachment([CARD, CORE], other)).toEqual([CARD, other]);
   });
 
   it('words a refused post as the phone does; only a network or server error is retried', () => {

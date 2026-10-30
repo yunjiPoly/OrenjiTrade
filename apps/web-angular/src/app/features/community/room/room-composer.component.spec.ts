@@ -71,7 +71,7 @@ describe('RoomComposerComponent (spec 10.7, board W22)', () => {
     field().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', shiftKey: true }));
     expect(posted).toEqual([]);
     field().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
-    expect(posted).toEqual([{ text: 'Line one', attachment: null }]);
+    expect(posted).toEqual([{ text: 'Line one', attachments: [] }]);
     fixture.componentInstance.reset();
     fixture.detectChanges();
     expect(field().value).toBe('');
@@ -93,12 +93,49 @@ describe('RoomComposerComponent (spec 10.7, board W22)', () => {
     expect(tray.textContent).toContain('Deck core · $180');
     type('My core');
     element.querySelector('form')!.dispatchEvent(new Event('submit'));
-    expect(posted[0].attachment?.kind).toBe('binder');
+    expect(posted[0].attachments.map((item) => item.kind)).toEqual(['binder']);
     const remove = tray.querySelector<HTMLButtonElement>('button')!;
     expect(remove.getAttribute('aria-label')).toBe('Remove Snake-Eye core from your post');
     remove.click();
     fixture.detectChanges();
     expect(element.querySelector('[role="group"]')).toBeNull();
+  });
+
+  it('a card and a binder go together, as on the phone (WF review U4)', () => {
+    render();
+    const component = fixture.componentInstance;
+    component.attach({
+      kind: 'binder',
+      binder: { binderId: 'b-1', name: 'Snake-Eye core', itemCount: 12 },
+      deckCore: true,
+      price: '$180',
+    });
+    component.attach({
+      kind: 'card',
+      card: {
+        printingId: 'pr-1',
+        cardId: 'c-1',
+        name: 'Ash Blossom',
+        printingCode: 'MACR-EN036',
+        imageUrl: null,
+        game: 'yugioh',
+      },
+    });
+    fixture.detectChanges();
+    const chips = [...element.querySelectorAll('[role="group"] .rc__chip-name')].map((node) =>
+      node.textContent?.trim(),
+    );
+    expect(chips).toEqual(['Ash Blossom', 'Snake-Eye core']);
+    type('Both');
+    element.querySelector('form')!.dispatchEvent(new Event('submit'));
+    expect(posted[0].attachments.map((item) => item.kind)).toEqual(['card', 'binder']);
+    // Removing one keeps the other.
+    element
+      .querySelector<HTMLButtonElement>('[aria-label="Remove Ash Blossom from your post"]')!
+      .click();
+    fixture.detectChanges();
+    expect(element.querySelector('[role="group"]')?.textContent).toContain('Snake-Eye core');
+    expect(element.querySelector('[role="group"]')?.textContent).not.toContain('Ash Blossom');
   });
 
   it('shows a refusal, with "Try again" after a network error only', () => {

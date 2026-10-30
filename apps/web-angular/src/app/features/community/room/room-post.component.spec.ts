@@ -3,6 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { PostResponse } from '@orenji/api-client';
 import { AppConfigService } from '../../../core/config/app-config.service';
+import { ShellLayout } from '../../../core/layout/shell-layout.service';
 import { RoomStore } from '../data/room.store';
 import { fixturePost } from '../testing/community-fixtures';
 import { PostActionEvent, RoomPostComponent } from './room-post.component';
@@ -20,6 +21,7 @@ describe('RoomPostComponent (spec 10.7, board W22)', () => {
   let fixture: ComponentFixture<RoomPostComponent>;
   let element: HTMLElement;
   const isModerator = signal(false);
+  const narrow = signal(false);
 
   function render(post: PostResponse, day = 'Today'): void {
     TestBed.configureTestingModule({
@@ -31,6 +33,7 @@ describe('RoomPostComponent (spec 10.7, board W22)', () => {
           useValue: { selfId: signal('me'), isModerator, update: vi.fn(async () => null) },
         },
         { provide: AppConfigService, useValue: { apiBaseUrl: () => '' } },
+        { provide: ShellLayout, useValue: { narrow } },
       ],
     });
     fixture = TestBed.createComponent(RoomPostComponent);
@@ -50,9 +53,10 @@ describe('RoomPostComponent (spec 10.7, board W22)', () => {
     );
   }
 
-  afterEach(() =>
-    document.querySelectorAll('.cdk-overlay-container').forEach((node) => node.remove()),
-  );
+  afterEach(() => {
+    narrow.set(false);
+    document.querySelectorAll('.cdk-overlay-container').forEach((node) => node.remove());
+  });
 
   it('shows the handle, "{province} · {time}", the text, and is named for screen readers', () => {
     render(
@@ -152,7 +156,10 @@ describe('RoomPostComponent (spec 10.7, board W22)', () => {
     );
     const core = element.querySelector('[data-testid="post-deck-core"]')!;
     expect(core.textContent).toContain('Deck core');
-    expect(core.textContent).toContain('Yu-Gi-Oh! · $95');
+    // The price alone: the post's data names no game, and the core may be of another game than
+    // the room's (WF review F5).
+    expect(core.querySelector('.share__line')?.textContent?.trim()).toBe('$95');
+    expect(core.textContent).not.toContain('Yu-Gi-Oh!');
     expect(core.querySelector('a')?.getAttribute('href')).toBe('/binders/b-1');
     fixture.componentRef.setInput(
       'post',
@@ -163,6 +170,51 @@ describe('RoomPostComponent (spec 10.7, board W22)', () => {
       'Binder no longer available',
     );
     expect(element.querySelector('[data-testid="post-binder-gone"] a')).toBeNull();
+  });
+
+  it('a public binder reads "Public binder", without the room\'s game (WF review F5)', () => {
+    render(
+      fixturePost('a', '2026-10-30T09:00:00Z', {
+        payload: {
+          binder: { id: 'b-2', name: 'Singles for sale', ownerHandle: 'collector5' },
+        },
+      }),
+    );
+    const binder = element.querySelector('[data-testid="post-binder"]')!;
+    expect(binder.querySelector('.share__line')?.textContent?.trim()).toBe('Public binder');
+    expect(binder.textContent).not.toContain('Yu-Gi-Oh!');
+  });
+
+  it('a post that shares a card and a deck core shows both (WF review U2)', () => {
+    render(
+      fixturePost('a', '2026-10-30T09:00:00Z', {
+        payload: {
+          card: { id: 'pr-1', cardId: 'c-1', name: 'Lantern Fox Spirit', printingCode: 'LFS-001' },
+          binder: {
+            id: 'b-1',
+            name: 'Moth Queen core',
+            ownerHandle: 'collector2',
+            deckCore: true,
+            askingPriceText: '$40',
+          },
+        },
+      }),
+    );
+    expect(element.querySelector('[data-testid="post-card"]')?.textContent).toContain(
+      'Lantern Fox Spirit',
+    );
+    expect(element.querySelector('[data-testid="post-deck-core"]')?.textContent).toContain(
+      'Moth Queen core',
+    );
+  });
+
+  it('below 960 the "⋯" menu is a bottom sheet, as "+" (spec 16, WF review U6)', async () => {
+    narrow.set(true);
+    render(fixturePost('a', '2026-10-30T09:00:00Z'));
+    await menuItems();
+    const panel = document.querySelector('.mat-mdc-menu-panel')!;
+    expect(panel.classList).toContain('app-menu--sheet');
+    expect(panel.classList).toContain('app-more-menu');
   });
 
   it("shows a phone's photos read only, each opening the larger view", () => {
