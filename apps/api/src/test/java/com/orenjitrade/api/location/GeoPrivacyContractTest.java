@@ -1305,6 +1305,19 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
                         201);
         fetched.add(new Fetched("/api/v1/conversations (card)", buyer, started));
         String chatId = started.path("id").asString();
+        // WF review P3: the buyer rates the seller once, so the RATING_RECEIVED row RatingService
+        // writes (with the rater's id since WF) is read through the contract; taken back after.
+        UUID sellerId = idOf("collector5");
+        String sellerSummary =
+                (String)
+                        testUsers
+                                .query(
+                                        "SELECT (SELECT row_to_json(s)::text FROM rating_summary s"
+                                                + " WHERE s.user_id = ?) AS v",
+                                        sellerId)
+                                .get(0)
+                                .get("v");
+        String ratingId = null;
         try {
             JsonNode sale =
                     callJson(
@@ -1341,7 +1354,36 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
                         .as("a sale's interaction")
                         .doesNotContain("trackingNumber", "place", "city", "sellerId", "buyerId");
                 assertThat(eligibility.toString()).doesNotContain("LX123456789CA");
+                if (caller.equals(buyer)) {
+                    JsonNode rating =
+                            callJson(
+                                    HttpMethod.POST,
+                                    "/api/v1/ratings",
+                                    buyer,
+                                    Map.of(
+                                            "interactionId",
+                                            deal.path("id").asString(),
+                                            "overall",
+                                            5),
+                                    201);
+                    fetched.add(new Fetched("/api/v1/ratings", buyer, rating));
+                    ratingId = rating.path("id").asString();
+                }
             }
+            JsonNode sellerNotifications = fetch("/api/v1/notifications?limit=50", seller);
+            JsonNode rated = null;
+            for (JsonNode row : sellerNotifications.path("items")) {
+                if ("RATING_RECEIVED".equals(row.path("type").asString())
+                        && ratingId != null
+                        && ratingId.equals(row.path("data").path("ratingId").asString())) {
+                    rated = row;
+                }
+            }
+            assertThat(rated).as("the seller's RATING_RECEIVED of the buyer's rating").isNotNull();
+            assertThat(rated.path("data").path("raterId").asString()).isEqualTo(buyerId.toString());
+            // The undo of a sale is closed once rated: the rating is taken back first.
+            removeRating(ratingId, sellerId, sellerSummary);
+            ratingId = null;
             // A seeded deck core as the subject, with its photo or card picture.
             JsonNode core =
                     callJson(
@@ -1369,6 +1411,9 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
                                     null,
                                     200)));
         } finally {
+            if (ratingId != null) {
+                removeRating(ratingId, sellerId, sellerSummary);
+            }
             testUsers.update(
                     "UPDATE conversation SET subject_item_id = NULL, subject_binder_id = NULL,"
                             + " subject_set_at = NULL, subject_set_by = NULL WHERE id IN (?, ?)",
@@ -1393,6 +1438,24 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
                 .as("tracking number in the logs")
                 .doesNotContain("LX123456789CA");
         assertContract(output);
+    }
+
+    /**
+     * Takes back a rating made by a test (WF review P3): the rating, its notification, and the
+     * ratee's summary as it was before ({@code summary} its row as JSON, {@code null} for none).
+     */
+    private void removeRating(String ratingId, UUID rateeId, @Nullable String summary) {
+        testUsers.update(
+                "DELETE FROM notification WHERE type = 'RATING_RECEIVED' AND data->>'ratingId' = ?",
+                ratingId);
+        testUsers.update("DELETE FROM rating WHERE id = ?", UUID.fromString(ratingId));
+        testUsers.update("DELETE FROM rating_summary WHERE user_id = ?", rateeId);
+        if (summary != null) {
+            testUsers.update(
+                    "INSERT INTO rating_summary SELECT * FROM json_populate_record(NULL::"
+                            + "rating_summary, CAST(? AS json))",
+                    summary);
+        }
     }
 
     /**
