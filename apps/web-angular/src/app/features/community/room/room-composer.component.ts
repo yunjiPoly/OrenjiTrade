@@ -148,7 +148,7 @@ export interface RoomDraft {
           <app-shell-icon name="alert" [size]="16" />
           <span>{{ message }}</span>
           @if (retryable()) {
-            <button type="button" class="rc__retry" (click)="retry.emit()">
+            <button type="button" class="rc__retry" (click)="retryPost()">
               {{ copy.tryAgain }}
             </button>
           }
@@ -182,10 +182,13 @@ export class RoomComposerComponent {
   readonly busy = input(false);
   /** Why the last post was refused. */
   readonly error = input<string | null>(null);
-  /** The refusal was a network error: "Try again" sends the same post again. */
+  /**
+   * The refusal was a network error: "Try again" sends the post again, as the box holds it now (a
+   * card or binder added or removed since goes with it or stays out; WF review R1-2).
+   */
   readonly retryable = input(false);
   readonly post = output<RoomDraft>();
-  readonly retry = output<void>();
+  readonly retry = output<RoomDraft>();
   readonly share = output<'card' | 'binder'>();
   /** The field changed (the room clears a refusal that no longer applies). */
   readonly edited = output<void>();
@@ -269,7 +272,20 @@ export class RoomComposerComponent {
       this.focus();
       return;
     }
-    this.post.emit({ text: this.text.value, attachments: this.attachments() });
+    this.post.emit(this.draft());
+  }
+
+  /** "Try again" after a network refusal: what the box holds now, never an older copy. */
+  protected retryPost(): void {
+    if (!this.ready()) {
+      this.focus();
+      return;
+    }
+    this.retry.emit(this.draft());
+  }
+
+  private draft(): RoomDraft {
+    return { text: this.text.value, attachments: this.attachments() };
   }
 
   private sync(typed: boolean): void {

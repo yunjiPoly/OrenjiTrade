@@ -158,7 +158,7 @@
         [error]="refusal()?.message ?? null"
         [retryable]="!!refusal()?.retryable"
         (post)="onPost($event)"
-        (retry)="retry()"
+        (retry)="retry($event)"
         (edited)="onEdited()"
         (share)="openShare($event)"
       />

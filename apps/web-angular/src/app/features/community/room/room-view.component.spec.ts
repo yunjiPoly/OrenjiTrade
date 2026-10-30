@@ -207,6 +207,54 @@ describe('RoomViewComponent (spec 10.7, board W22)', () => {
     expect(error()).toBeNull();
   });
 
+  it('"Try again" posts the binder added after a network refusal, then clears the box (WF review R1-2)', async () => {
+    await render();
+    const field = element.querySelector<HTMLTextAreaElement>('[data-testid="room-field"]')!;
+    field.value = 'Trading my binder';
+    field.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    api['createCommunityPost'].mockReturnValue(
+      throwError(() => new HttpErrorResponse({ status: 0 })),
+    );
+    element.querySelector('form.rc')!.dispatchEvent(new Event('submit'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(api['createCommunityPost']).toHaveBeenLastCalledWith(
+      { slug: 'americas-north-yugioh', createPostRequest: { body: 'Trading my binder' } },
+      'body',
+      false,
+      expect.anything(),
+    );
+    const error = () => element.querySelector('[data-testid="room-post-error"]');
+    expect(error()?.textContent).toContain('Your post was not sent.');
+    // The collector adds a binder without touching the text, then tries again.
+    fixture.debugElement
+      .query((node) => node.name === 'app-room-composer')
+      .componentInstance.attach({
+        kind: 'binder',
+        binder: { binderId: 'b-9', name: 'Yu-Gi-Oh! trade binder', itemCount: 40 },
+        deckCore: false,
+        price: null,
+      });
+    fixture.detectChanges();
+    api['createCommunityPost'].mockReturnValue(of(fixturePost('new', new Date().toISOString())));
+    error()!.querySelector<HTMLButtonElement>('button')!.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(api['createCommunityPost']).toHaveBeenLastCalledWith(
+      {
+        slug: 'americas-north-yugioh',
+        createPostRequest: { body: 'Trading my binder', binderId: 'b-9' },
+      },
+      'body',
+      false,
+      expect.anything(),
+    );
+    expect(error()).toBeNull();
+    expect(field.value).toBe('');
+    expect(element.querySelector('.rc__tray')).toBeNull();
+  });
+
   it('the community turned off while open: the rooms list is read again (WF review P2)', async () => {
     await render();
     expect(rooms['refresh']).not.toHaveBeenCalled();

@@ -132,7 +132,6 @@ export class RoomViewComponent {
    * reader hears one summary, not every old post as if it had just arrived.
    */
   protected readonly quietLog = signal(false);
-  private lastDraft: RoomDraft | null = null;
   private scrolledFor: string | null = null;
   /** The log was at its end (the newest post in view) before its height changed. */
   private pinned = true;
@@ -157,7 +156,6 @@ export class RoomViewComponent {
         if (this.store.slug() !== slug) {
           this.refusal.set(null);
           this.rulesOverlay.set(false);
-          this.lastDraft = null;
         }
         this.store.open(slug);
       });
@@ -341,29 +339,25 @@ export class RoomViewComponent {
   protected onEdited(): void {
     if (this.refusal()) {
       this.refusal.set(null);
-      this.lastDraft = null;
     }
   }
 
   protected async onPost(draft: RoomDraft): Promise<void> {
     this.refusal.set(null);
-    this.lastDraft = draft;
     const refusal = await this.store.create(postRequest(draft.text, draft.attachments));
     if (refusal) {
       this.refusal.set(refusal);
       return;
     }
-    this.lastDraft = null;
     this.composer()?.reset();
     this.syncList();
     this.scrollToEnd();
     void this.announcer.announce(ROOM_COMPOSER_COPY.posted(this.room().name), 'polite');
   }
 
-  protected retry(): void {
-    if (this.lastDraft) {
-      void this.onPost(this.lastDraft);
-    }
+  /** "Try again" sends what the message box holds now (WF review R1-2). */
+  protected retry(draft: RoomDraft): void {
+    void this.onPost(draft);
   }
 
   protected async openShare(mode: 'card' | 'binder'): Promise<void> {

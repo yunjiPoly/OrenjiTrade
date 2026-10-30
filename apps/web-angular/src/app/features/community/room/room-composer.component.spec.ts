@@ -142,6 +142,7 @@ describe('RoomComposerComponent (spec 10.7, board W22)', () => {
     render();
     const retried: unknown[] = [];
     fixture.componentInstance.retry.subscribe(() => retried.push(true));
+    type('Hello room');
     fixture.componentRef.setInput('error', 'You already posted this.');
     fixture.detectChanges();
     const error = element.querySelector('[data-testid="room-post-error"]')!;
@@ -153,6 +154,43 @@ describe('RoomComposerComponent (spec 10.7, board W22)', () => {
     fixture.detectChanges();
     element.querySelector<HTMLButtonElement>('[data-testid="room-post-error"] button')!.click();
     expect(retried).toHaveLength(1);
+  });
+
+  it('"Try again" sends the box as it is now: a binder added after the refusal goes too (WF review R1-2)', () => {
+    render();
+    const retried: RoomDraft[] = [];
+    fixture.componentInstance.retry.subscribe((draft) => retried.push(draft));
+    type('Trading my binder');
+    fixture.componentRef.setInput('error', 'Your post was not sent. Check your connection.');
+    fixture.componentRef.setInput('retryable', true);
+    fixture.detectChanges();
+    fixture.componentInstance.attach({
+      kind: 'binder',
+      binder: { binderId: 'b-9', name: 'Yu-Gi-Oh! trade binder', itemCount: 40 },
+      deckCore: false,
+      price: null,
+    });
+    fixture.detectChanges();
+    const tryAgain = () =>
+      element.querySelector<HTMLButtonElement>('[data-testid="room-post-error"] button')!;
+    tryAgain().click();
+    expect(retried).toHaveLength(1);
+    expect(retried[0].text).toBe('Trading my binder');
+    expect(retried[0].attachments).toEqual([
+      expect.objectContaining({
+        kind: 'binder',
+        binder: expect.objectContaining({ binderId: 'b-9' }),
+      }),
+    ]);
+    // Removed after the refusal: it stays out.
+    element
+      .querySelector<HTMLButtonElement>(
+        '[aria-label="Remove Yu-Gi-Oh! trade binder from your post"]',
+      )!
+      .click();
+    fixture.detectChanges();
+    tryAgain().click();
+    expect(retried[1].attachments).toEqual([]);
   });
 
   it('near the limit it counts the characters', () => {
