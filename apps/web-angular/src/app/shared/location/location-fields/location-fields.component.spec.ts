@@ -113,6 +113,17 @@ describe('LocationFieldsComponent', () => {
     expect(emitted.at(-1)?.showCity).toBe(false);
   });
 
+  it('stacks one field per row in the welcome, the city counter never wrapping (WG U4)', async () => {
+    await mount(null);
+    const group = element.querySelector('.location-fields')!;
+    expect(group.classList).not.toContain('location-fields--stacked');
+    fixture.componentRef.setInput('stacked', true);
+    fixture.detectChanges();
+    expect(group.classList).toContain('location-fields--stacked');
+    expect(getComputedStyle(group).gridTemplateColumns).toBe('minmax(0, 1fr)');
+    expect(element.querySelector('.location-fields__count')?.textContent?.trim()).toBe('0 / 80');
+  });
+
   it('explains what is missing once errors are shown', async () => {
     await mount({ countryCode: 'CA', subdivisionCode: '', city: '', showCity: true });
     expect(element.querySelector('[role="alert"]')).toBeNull();

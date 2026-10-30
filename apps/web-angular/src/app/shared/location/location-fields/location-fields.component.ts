@@ -58,6 +58,7 @@ const EMPTY_DRAFT: LocationDraft = {
       <div
         class="location-fields"
         [class.location-fields--settings]="settingsLayout()"
+        [class.location-fields--stacked]="stacked()"
         role="group"
         aria-label="Your location"
       >
@@ -115,7 +116,7 @@ const EMPTY_DRAFT: LocationDraft = {
         <mat-form-field
           appearance="outline"
           class="location-fields__city"
-          [subscriptSizing]="settingsLayout() ? 'dynamic' : 'fixed'"
+          [subscriptSizing]="settingsLayout() || stacked() ? 'dynamic' : 'fixed'"
         >
           <mat-label>City (optional)</mat-label>
           <input
@@ -133,7 +134,9 @@ const EMPTY_DRAFT: LocationDraft = {
           } @else {
             <mat-hint>Only shown on your profile, never used to locate you.</mat-hint>
           }
-          <mat-hint align="end">{{ draft().city.length }} / {{ cityMax }}</mat-hint>
+          <mat-hint align="end" class="location-fields__count"
+            >{{ draft().city.length }} / {{ cityMax }}</mat-hint
+          >
         </mat-form-field>
 
         <div class="location-fields__show-city">
@@ -171,6 +174,14 @@ const EMPTY_DRAFT: LocationDraft = {
     }
     .location-fields__city {
       grid-column: 1 / -1;
+    }
+    .location-fields__count {
+      flex: none;
+      white-space: nowrap;
+    }
+    /* The welcome's card (WG review U4): one field per row, as its other steps. */
+    .location-fields--stacked {
+      grid-template-columns: minmax(0, 1fr);
     }
     .location-fields__show-city {
       grid-column: 1 / -1;
@@ -219,6 +230,8 @@ export class LocationFieldsComponent {
    * Country | State, the city's "only if you show it" and the line under the city switch.
    */
   readonly settingsLayout = input(false, { transform: booleanAttribute });
+  /** One field per row (the welcome's card), the city's hint growing instead of overlapping. */
+  readonly stacked = input(false, { transform: booleanAttribute });
   /** Whether the collector shows on the map (hidden: the profile shows no place at all, P3). */
   readonly onMap = input(true);
   readonly valueChange = output<LocationDraft>();

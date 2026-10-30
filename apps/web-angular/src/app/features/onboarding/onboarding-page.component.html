@@ -189,6 +189,7 @@
           <p class="welcome__intro">{{ copy.place.intro }}</p>
           <div class="welcome__group">
             <app-location-fields
+              stacked
               [value]="location()"
               [showErrors]="locationSubmitted()"
               (valueChange)="location.set($event)"
