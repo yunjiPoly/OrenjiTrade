@@ -131,16 +131,15 @@ test.describe('acceptance: registration', () => {
     // Not discoverable yet (the default): the profile shows no place at all.
     await page.goto(`/collectors/${handle}`);
     await expect(page.getByRole('heading', { level: 1, name: displayName })).toBeVisible();
-    await expect(page.getByRole('list', { name: 'Games' })).toContainText('Pokémon');
-    await expect(page.getByRole('list', { name: 'Collector details' })).toContainText(
-      'Not on the map',
-    );
+    await expect(page.getByRole('list', { name: 'Games and tags' })).toContainText('Pokémon');
+    await expect(page.getByTestId('collector-facts')).toContainText('Not on the map');
     await expect(page.getByTestId('collector-city')).toHaveCount(0);
 
     // Discoverable: the profile shows the state and, with "show my city" on, the city.
     await api.updatePrivacy(token, { discoverable: true });
     await page.reload();
-    await expect(page.getByTestId('collector-public-label')).toContainText(label);
+    // The header names the province (board W23b), the city before it.
+    await expect(page.getByTestId('collector-public-label')).toContainText(label.split(',')[0]);
     await expect(page.getByTestId('collector-city')).toHaveText(city);
   });
 });

@@ -304,7 +304,11 @@ test.describe('the web redesign shell (WA)', () => {
 
   test('the skip links come first, "Skip the map" on the map', async ({ page }) => {
     await forbidMapProviders(page);
+    // Web stage WE: Home is the feed (no map); the map is Search's, beside its list.
     await page.goto('/');
+    await expect(page.getByRole('heading', { level: 1, name: 'What’s new' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Skip the map' })).toHaveCount(0);
+    await page.goto('/search?tab=binders');
     await expect(page.getByTestId('boundary-map')).toBeVisible();
     await page.keyboard.press('Tab');
     await expect(page.getByRole('link', { name: 'Skip to content' })).toBeFocused();
@@ -312,7 +316,7 @@ test.describe('the web redesign shell (WA)', () => {
     const skipMap = page.getByRole('link', { name: 'Skip the map' });
     await expect(skipMap).toBeFocused();
     await page.keyboard.press('Enter');
-    await expect(page.locator('#map-list')).toBeFocused();
+    await expect(page.locator('#search-list')).toBeFocused();
   });
 
   test('the session banner says the account could not load, and "Try again" works', async ({

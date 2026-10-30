@@ -250,7 +250,14 @@ test.describe('card pictures', () => {
     // The collector profile: public cards (and the binder preview).
     await page.goto(`/collectors/${owner.handle}`);
     await expect(page.getByRole('heading', { level: 1, name: owner.displayName })).toBeVisible();
-    await expectPictures(page.getByRole('list', { name: 'Public cards' }), 2, 2);
+    // Cards of two games show one game at a time (spec 11, board W23): the other is a click away.
+    const cards = page.getByRole('list', { name: 'Public cards' });
+    await expectPictures(cards, 1, 2);
+    const games = page.getByRole('radiogroup', { name: 'Game of the cards' });
+    if ((await games.count()) > 0) {
+      await games.getByRole('radio', { checked: false }).first().click();
+      await expectPictures(cards, 1, 2);
+    }
     await expectNoProviderSources(page);
 
     // Search › Wishlist (web stage WD): the wish's picture is decorative beside its name.

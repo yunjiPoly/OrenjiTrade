@@ -142,7 +142,9 @@ test.describe('acceptance: privacy', () => {
       pageV.getByRole('option', { name: new RegExp(`^${escapeRegExp(seller.handle)}, `) }),
     ).toBeVisible();
     await pageV.goto(`/collectors/${seller.handle}`);
-    await expect(pageV.getByTestId('collector-public-label')).toContainText(place.label);
+    await expect(pageV.getByTestId('collector-public-label')).toContainText(
+      place.label.split(',')[0],
+    );
     await expect(pageV.getByTestId('collector-city')).toHaveText(city);
     await pageV.goto(`/binders/${binder.id}`);
     await expect(pageV.getByTestId('owner-public-label')).toContainText(place.label.split(',')[0]);

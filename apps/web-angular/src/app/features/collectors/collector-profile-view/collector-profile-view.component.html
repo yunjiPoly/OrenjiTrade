@@ -35,7 +35,7 @@
           }
         </ul>
       }
-      <p class="cp__facts">
+      <p class="cp__facts" data-testid="collector-facts">
         @if (p.location; as location) {
           <!-- One text after the city: a line break of the template never adds a space. -->
           <span data-testid="collector-public-label">
@@ -46,6 +46,10 @@
               (location.city ? ', ' : '') + (location.subdivisionName || location.countryName)
             }}</span></span
           >
+          <span aria-hidden="true"> · </span>
+        } @else if (isOwn()) {
+          <!-- Your own profile: why no place shows (others see nothing here). -->
+          <span>Not on the map</span>
           <span aria-hidden="true"> · </span>
         }
         <span>Member since {{ p.memberSince | date: 'y' }}</span>

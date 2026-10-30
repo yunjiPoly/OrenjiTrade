@@ -48,7 +48,9 @@ test.describe('settings', () => {
     await page.getByLabel('City (optional)').fill(city);
     await page.getByTestId('location-save').click();
     await expect(page.getByTestId('location-label')).toHaveText(/Quebec, Canada/);
-    await expect(page.getByText('Hidden from the map')).toBeVisible();
+    await expect(page.getByTestId('location-discoverable')).toContainText(
+      'You are hidden from the map.',
+    );
     // The old address of this page still works.
     await page.goto('/settings/trading-area');
     await expect(page).toHaveURL(/\/settings\/location$/);

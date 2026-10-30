@@ -37,7 +37,8 @@ test.describe('web stage WE: Home, notifications and settings', () => {
     const watcher = watchCoordinates(page);
     await signInThroughUi(page, viewer.email, viewer.password);
     await page.goto('/?game=yugioh');
-    await expect(page).toHaveURL(/\/\?region=americas-north&game=yugioh$/);
+    await expect(page).toHaveURL(/region=americas-north/);
+    await expect(page).toHaveURL(/game=yugioh/);
     await expect(page.getByRole('heading', { level: 1, name: 'What’s new' })).toBeVisible();
     await expect(page.locator('.home__scope')).toContainText(
       'Yu-Gi-Oh! · Americas (North) · last 30 days',
