@@ -13522,7 +13522,7 @@ API change (the account deletion, no DTO, OpenAPI, schema or migration change: t
 | Check | Result |
 | --- | --- |
 | `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | passed |
-| `npm run test:api` | run 1: 1312 tests, 1 failed (the new guest check found no 5-picture post on the first page: the suite's own newer posts push the seed's past it; the test now pages through, `e8e246c7`); run 2 on the final API tree: 1312 tests, 1 failed, `RefusedAccountBrowsesAsGuestIT` (it compares two reads of Quebec's binders while other classes write binders; untouched by this fix), which passes alone; GeoPrivacyContractTest, FeedIT and both deletion ITs passed |
+| `npm run test:api` | run 1: 1312 tests, 1 failed (the new guest check found no 5-picture post on the first page: the suite's own newer posts push the seed's past it; the test now pages through, `e8e246c7`); run 2: 1312 tests, 1 failed, `RefusedAccountBrowsesAsGuestIT` (passes alone). Its cause, not WE's: the test compares a guest's and the suspended account's reads of Quebec's binders, and a binder another class wrote about a minute earlier read "Updated just now" to the first call and "Updated 1 minute ago" to the second (`freshness.label` is worded at the read's moment; nothing else differed). The test now compares the reads without that label and reads the guest's again when a write lands between the two (`79255ef6`, test only); **run 3: 1312 tests, 0 failed** (4 min 24 s) |
 | Mutants (scratch, reverted) | API: the guest leak on 5 or 6 pictures (M6), the lost message phrase (A1) and a missing sale rename fail the new tests; web: M7 (check while hidden), M8 (1 minute), M20 (chat pushes prepended) and M22 (city shown while hidden) fail them |
 | `(cd apps/api && ./gradlew exportOpenApi)` then `npm run generate:api` | no change (no DTO change); the tree stays clean |
 | `npm run lint -w apps/web-angular`, `npm run format:check -w apps/web-angular` | passed |
@@ -13601,12 +13601,12 @@ same fields).
 > the game pill, a tap by the set page's footer lands, the toasts clear the wishlist dock as
 > measured, Esc hides a hovered tooltip with the focus anywhere, the narrow state card above the
 > tab bar as board W29; web only). `origin/main` with WC (#98) is merged into the branch at
-> `9ff27437`. **Next for WD: its pull request** (the lead opens it, against `main`), merged with a
-> merge commit once CI is green. Round 2 left one minor (R2-1) and some nits open: stage WE fixes
-> them first (the WD section's "Left open by the verifier of fix 2").
+> `9ff27437`. **WD is merged into `main`** (#99, merge commit `46650aca`, 2026-10-30; `main` merged
+> into WE's branch at `30eb9eb8`, no file changed). Round 2 left one minor (R2-1) and some nits
+> open: stage WE fixed them first (the WD section's "Left open by the verifier of fix 2").
 >
 > **Stage WE (Home, profiles, notifications and settings) is built** on `feature/we-home-profiles`,
-> stacked on WD (#99; section "Web redesign WE: Home, profiles, notifications and settings
+> made on WD (#99, merged; its base is now `main`; section "Web redesign WE: Home, profiles, notifications and settings
 > (2026-10-29)" above; contract `docs/api/contracts/we-web-home.md`; one additive API parameter,
 > `previews` on `GET /feed`, and the account deletion renaming the deleted collector in the other
 > collectors' notifications; no migration, the next is still **V135**): WD's R2-1 and nits and WC's
@@ -13619,7 +13619,7 @@ same fields).
 > deletion renames others' rating and sale notifications, guests on `previews=6` tested, Shift+Tab
 > never under Home's toolbar, Location's what others see follows the form and the hidden state).
 > **Next for WE: the reviewers' round 2** (at most one more fix round), then its pull request
-> after WD's (#99) is merged.
+> against `main`.
 >
 > **The exact next stage after WE's pull request: stage WF of the web redesign, Messages ›
 > Community (board W22; spec section 10.7; decision 11; after phone R11)**, from the latest
