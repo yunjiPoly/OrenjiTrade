@@ -186,6 +186,10 @@ describe('OnboardingPageComponent, the welcome (spec 14: three steps)', () => {
     const tiles = [...element.querySelectorAll<HTMLButtonElement>('.tile')];
     expect(tiles.map((tile) => tile.dataset['game'])).toEqual(['yugioh', 'pokemon', 'onepiece']);
     expect(tiles[2].classList).toContain('tile--soon');
+    // The art and the name are dimmed, never "Cards coming soon" (contrast, WG review A3).
+    expect(getComputedStyle(tiles[2]).opacity).not.toBe('0.6');
+    expect(getComputedStyle(tiles[2].querySelector('.tile__name')!).opacity).toBe('0.6');
+    expect(getComputedStyle(tiles[2].querySelector('.tile__soon')!).opacity).not.toBe('0.6');
     tiles[2].click();
     tiles[1].click();
     fixture.detectChanges();

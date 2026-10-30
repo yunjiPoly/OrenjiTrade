@@ -80,7 +80,10 @@ import { WelcomeGame, openingGame } from './welcome-rules';
       border: 2px solid var(--color-primary);
       background: var(--color-primary-tint-subtle);
     }
-    .tile--soon:not(.tile--on) {
+    /* Dimmed: the art and the name; "Cards coming soon" stays readable at full strength (4.5:1
+       or more on the tile, WG review A3). */
+    .tile--soon:not(.tile--on) app-game-monogram,
+    .tile--soon:not(.tile--on) .tile__name {
       opacity: 0.6;
     }
     .tile:focus-visible {
