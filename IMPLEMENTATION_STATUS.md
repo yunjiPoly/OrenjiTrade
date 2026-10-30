@@ -13963,6 +13963,78 @@ and `aria-allowed-role` (A7) and `page-has-heading-one` below 960 (A10) that the
 reviewer listed among its checks; the Android run could not be verified (the stage touches no phone
 code).
 
+### Review fix 2 (round 2 of 2)
+
+The check of review fix 1 (verifier round 2) found one major and three minors; each is fixed at its
+cause with a test that fails without the fix (web only: no API source, DTO, OpenAPI, token or
+migration change; the next migration is still **V135**).
+
+- **R1-1 (major): a room's 15-second refresh no longer reads older pages into the room.** The P1
+  refresh read down to the oldest post shown, but a new post shifts the pages by one, so the last
+  page read reached past that post and the whole of it joined the room (and its live log) with the
+  cursor moved to its end: 30, then 60, 90, 120 posts shown and 2, 3, 4 reads per poll after three
+  new posts. `RoomStore.refresh` now keeps only the posts at or newer than the oldest post shown
+  and, when the read went past it, leaves the cursor and "Show older posts" as they were (the API's
+  cursor is a keyset of `created_at` and id, so the old cursor still continues just below that
+  post). Unit tests (`room.store.spec`, +2): a room of 150 paged as the API does, three new posts
+  give 31, 32, 33 shown, the oldest unchanged, two reads per poll, a quiet poll the same, "Show
+  older posts" from the oldest shown; a room of 40 with 30 shown keeps "Show older posts". Walked:
+  150 posts in the One Piece room, 30 → 31 → 32 → 33 shown, two reads per poll, one node added to
+  the live log per new post, "Show older posts" then shows the next 30 without a gap or a duplicate.
+- **R1-2 (minor): "Try again" posts the message box as it is now.** After a network refusal the
+  composer's "Try again" emits the box's current text and shares (`RoomComposerComponent.retry` is
+  now a `RoomDraft`; the room view's stale `lastDraft` is gone), so a binder or card added or
+  removed after the refusal goes with the post or stays out, and the box is cleared only once that
+  post is in. Unit tests: `room-composer.component.spec` (a binder added after the refusal goes,
+  one removed stays out) and `room-view.component.spec` (an aborted post, a binder added, "Try
+  again" sends `binderId`, then the box and the tray are empty). Walked with an aborted request.
+- **R1-3 (minor): "Share a binder or deck core" lists every public binder, the room's game first.**
+  The WF picker had narrowed the list to the room's game, as board W22's sample does; the phone's
+  picker and the web's before WF list every public binder and the API accepts any (F5 already drops
+  the game from a shared binder for that reason). Each row names its own game ("Public binder ·
+  Pokémon"); the search says "Search your binders", the empty and no-match lines "You have no public
+  binders or deck cores yet." and "None of your public binders match “…”." Unit test in
+  `share-picker-dialog.component.spec`; the contract's row updated. Walked as collector5 in the
+  Yu-Gi-Oh! room: Monarch core first, then the Pokémon and Magic binders; "Singles" finds them.
+- **R1-4 (minor): "Report this post" fits board W22 at 1440x900.** In the post's report the content
+  may use the window's height less the title, the buttons and 16 px above and below (from 600 px
+  wide; `ReportActionsService` caps the dialog at the window's height less 32 px, so it never
+  outgrows it), the radios are 32 px (Material's density -2), the lines under the reasons 12 px,
+  and the 20 px the form left above the post is gone (Material's "title + content" rule does not
+  see through the form). Measured at 1440x900: the content 706 of 706 px (before: 585 shown of
+  820), the dialog 847 px tall (the board's 868); at 1024x768 and 390 the content scrolls as
+  before; at 720x450 (200 percent) the dialog stays inside the window. Tests: the community E2E's
+  report runs at 1440x900 and asserts seven reasons, no scroll in the content, the dialog inside
+  the window, Details and "Send report" in view; unit tests for the post's compact class (a
+  collector's report keeps its boxed rows) and the service's `maxHeight` (`report-actions.service.spec`,
+  new).
+
+**Decisions of fix 2**
+
+16. **R1-3 against board W22's sample**: the board's picker filters the binders by the room's game;
+    the spec (10.7) does not, and the rule is to keep what works (the phone and the web before WF
+    list every public binder). Reported as a spec point changed: every public binder, the room's
+    game first, with the board's words kept where they still hold ("Public binder · {game}" names
+    the binder's own game) and the game left out of the search, empty and no-match lines.
+17. **R1-1's edge case**: when a whole room was shown ("Show older posts" gone) and a post older
+    than the oldest shown becomes visible again (an unblock elsewhere), a refresh does not add it
+    and the button does not come back until the room is opened again; a cursor cannot be made on
+    the client, and reading it in would bring back the harm R1-1 describes.
+
+**Tests added or changed in fix 2**: web unit `room.store.spec` (+2), `room-composer.component.spec`
+(+1; the existing "Try again" test types text first, as the button only shows after a post with
+text), `room-view.component.spec` (+1), `share-picker-dialog.component.spec` (the binder test
+rewritten for every game), `report-collector-dialog.component.spec` (2 assertions),
+`report-actions.service.spec` (new, 1); web E2E `community.spec.ts` (the report's fit at 1440x900).
+
+**Checks of review fix 2**: CHECKS_FIX2
+
+**AFTER screenshots** in `.local-dev/wf-notes/pr-shots/after/`: `community-report` (1440 dark and
+light, 1024, 390), `community-share-binder` (1440 dark and light, 1024, 390) and
+`community-share-binder-search-1440-dark`. The walk stack (API 8580, `orenjitrade_wf_check` with
+150 fictional posts added in the One Piece room, Redis db 6, web 4400) was dropped and flushed
+after.
+
 ## NEXT TASK
 
 > **The web resumes (owner, 2026-10-28): stages WA to WH2 of the web redesign**, one at a time
