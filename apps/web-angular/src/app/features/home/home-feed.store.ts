@@ -33,6 +33,8 @@ export class HomeFeedStore {
   private query: FeedQuery | null = null;
   private cursor: string | null = null;
   private generation = 0;
+  /** The first page being read (not quietly): the same query again shares it (U7). */
+  private inFlight: { query: FeedQuery; promise: Promise<void> } | null = null;
 
   readonly posts = this.postsState.asReadonly();
   readonly status = this.statusState.asReadonly();
@@ -58,8 +60,38 @@ export class HomeFeedStore {
       this.moreState() === 'idle',
   );
 
-  /** Reads the first page of `query` (the skeletons show unless `quiet`). */
-  async load(query: FeedQuery, quiet = false): Promise<void> {
+  /**
+   * Reads the first page of `query` (the skeletons show unless `quiet`). The same query asked
+   * again while its first page is being read shares that read (Home's URL gaining `region` and
+   * `game` re-runs the page's effect: one read, never two).
+   */
+  load(query: FeedQuery, quiet = false): Promise<void> {
+    const pending = this.inFlight;
+    if (
+      !quiet &&
+      pending &&
+      pending.query.region === query.region &&
+      pending.query.game === query.game &&
+      pending.query.kind === query.kind
+    ) {
+      return pending.promise;
+    }
+    const promise = this.readFirst(query, quiet);
+    if (quiet) {
+      this.inFlight = null;
+      return promise;
+    }
+    const entry = { query, promise };
+    this.inFlight = entry;
+    void promise.finally(() => {
+      if (this.inFlight === entry) {
+        this.inFlight = null;
+      }
+    });
+    return promise;
+  }
+
+  private async readFirst(query: FeedQuery, quiet: boolean): Promise<void> {
     const generation = ++this.generation;
     this.query = query;
     this.newerState.set(false);

@@ -45,8 +45,8 @@ describe("Home's map card drawing (spec 5.3: static SVG, no Leaflet)", () => {
     expect(byCode.get('CA-QC')?.level).toBe(3);
     expect(byCode.get('CA-ON')?.level).toBe(0);
     expect(map.home).toMatch(/^M/);
-    // Centred on the province and its neighbours: the far-away state is not drawn.
-    expect(byCode.has('US-HI')).toBe(false);
+    // The whole browsed region (board W1), not a view around the province: the far state too.
+    expect(byCode.has('US-HI')).toBe(true);
     // Country outlines are not shapes.
     expect(map.shapes.every((shape) => shape.code)).toBe(true);
   });
@@ -61,27 +61,12 @@ describe("Home's map card drawing (spec 5.3: static SVG, no Leaflet)", () => {
     expect(Math.max(...home)).toBeLessThanOrEqual(MAP_CARD_SIZE.width);
   });
 
-  it("keeps a small province's neighbours in view (never a single shape filling the card)", () => {
-    const tiny: BoundaryCollection = {
-      type: 'FeatureCollection',
-      features: [
-        {
-          type: 'Feature',
-          properties: { kind: 'subdivision', code: 'AR-C', country: 'AR' },
-          geometry: { type: 'Polygon', coordinates: square(-58.5, -34.7, 0.2) },
-        },
-        {
-          type: 'Feature',
-          properties: { kind: 'subdivision', code: 'AR-B', country: 'AR' },
-          geometry: { type: 'Polygon', coordinates: square(-61, -38, 3) },
-        },
-      ],
-    };
-    const map = staticMap(tiny, 'americas-south', new Map(), 'AR-C');
-    expect(map.shapes.map((shape) => shape.code)).toContain('AR-B');
-    const home = (map.home ?? '').match(/-?\d+(\.\d+)?/g)!.map(Number);
-    const xs = home.filter((_, i) => i % 2 === 0);
-    expect(Math.max(...xs) - Math.min(...xs)).toBeLessThan(MAP_CARD_SIZE.width / 4);
+  it('frames the same region whether or not the viewer has a province in it (U8)', () => {
+    const withHome = staticMap(COLLECTION, 'americas-north', new Map(), 'CA-QC');
+    const without = staticMap(COLLECTION, 'americas-north', new Map(), null);
+    expect(withHome.shapes).toEqual(without.shapes);
+    // The outline is the province's own shape in that view.
+    expect(withHome.home).toBe(withHome.shapes.find((shape) => shape.code === 'CA-QC')?.d);
   });
 
   it('shows the whole region when the viewer has no province in it', () => {

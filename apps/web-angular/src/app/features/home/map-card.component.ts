@@ -5,6 +5,7 @@ import {
   effect,
   inject,
   input,
+  output,
   signal,
   untracked,
 } from '@angular/core';
@@ -56,7 +57,19 @@ import { MAP_CARD_SIZE, staticMap } from './static-map';
           {{ regionName() }}
         }
       </h2>
-      <p class="mc__line">{{ line() }}</p>
+      @if (countsFailed()) {
+        <p class="mc__line mc__line--failed" role="alert" data-testid="home-map-card-error">
+          Couldn't load the map.
+          <button type="button" class="mc__retry" (click)="retryCounts.emit()">Try again</button>
+        </p>
+      } @else if (countsLoading()) {
+        <p class="mc__line">
+          <span class="mc__line-bone" aria-hidden="true"></span>
+          <span class="visually-hidden">Loading the binder counts</span>
+        </p>
+      } @else {
+        <p class="mc__line">{{ line() }}</p>
+      }
       <a class="mc__explore" routerLink="/search" [queryParams]="searchQuery()">Explore the map</a>
       <p class="mc__caption">{{ caption() }}</p>
     </section>
@@ -139,6 +152,18 @@ import { MAP_CARD_SIZE, staticMap } from './static-map';
       color: var(--color-text-secondary);
       font-size: 13px;
     }
+    .mc__line-bone {
+      display: inline-block;
+      width: 140px;
+      height: 12px;
+      border-radius: 6px;
+      background: var(--color-surface-variant);
+      vertical-align: middle;
+    }
+    .mc__line--failed .mc__retry {
+      padding: 0;
+      font-size: 13px;
+    }
     .mc__explore {
       display: flex;
       align-items: center;
@@ -171,6 +196,12 @@ export class MapCardComponent {
   readonly homeName = input<string | null>(null);
   readonly counts = input<ReadonlyMap<string, number>>(new Map());
   readonly deckCores = input<ReadonlyMap<string, number>>(new Map());
+  /** The binder counts could not load: "Couldn't load the map." with Try again, never "none". */
+  readonly countsFailed = input(false);
+  /** The binder counts are loading: a line skeleton, never "No public binders here yet". */
+  readonly countsLoading = input(false);
+  /** Try again after a failed counts read. */
+  readonly retryCounts = output<void>();
 
   private readonly assets = inject(BoundaryAssets);
   private readonly collection = signal<{ region: string; data: BoundaryCollection } | null>(null);

@@ -8,9 +8,6 @@ import { REGION_VIEW, ShadeLevel, shadeLevel } from '../map/data/boundaries';
  * a pixel: the page carries drawing coordinates only, never a place's position.
  */
 
-/** The narrowest view around a province, in projected units (about 11 degrees of longitude). */
-const MIN_SPAN = 0.03;
-
 /** The card's drawing size (spec 5.3: 280×168). */
 export const MAP_CARD_SIZE = { width: 280, height: 168 } as const;
 
@@ -72,23 +69,6 @@ function fit(minX: number, minY: number, maxX: number, maxY: number, pad: number
   };
 }
 
-function boundsOf(rings: readonly Ring[]): [number, number, number, number] {
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-  for (const ring of rings) {
-    for (const point of ring) {
-      const [x, y] = project(point);
-      minX = Math.min(minX, x);
-      minY = Math.min(minY, y);
-      maxX = Math.max(maxX, x);
-      maxY = Math.max(maxY, y);
-    }
-  }
-  return [minX, minY, maxX, maxY];
-}
-
 /** An SVG path of these rings in the view, points closer than half a pixel dropped. */
 export function pathOf(rings: readonly Ring[], view: View): string {
   const parts: string[] = [];
@@ -124,8 +104,9 @@ export function pathOf(rings: readonly Ring[], view: View): string {
 }
 
 /**
- * The card's drawing: the viewer's province and its neighbours when it is in this region (as
- * Search's map opens, spec 6.4), else the whole region; every state shaded by its binder count.
+ * The card's drawing: the whole browsed region (spec 5.3 and board W1: a choropleth of the browsed
+ * region, framed as Search's map frames the region), every state shaded by its binder count, and
+ * the viewer's province, when it is in this region, outlined above the shapes.
  */
 export function staticMap(
   collection: BoundaryCollection,
@@ -139,24 +120,11 @@ export function staticMap(
   const homeFeatures = home
     ? subdivisions.filter((feature) => feature.properties.code === home)
     : [];
-  let view: View;
-  if (homeFeatures.length > 0) {
-    let [minX, minY, maxX, maxY] = boundsOf(homeFeatures.flatMap(ringsOf));
-    // A small province (a capital district) still shows its neighbours: at least MIN_SPAN wide.
-    const grow = (low: number, high: number, span: number): [number, number] => {
-      const middle = (low + high) / 2;
-      return high - low >= span ? [low, high] : [middle - span / 2, middle + span / 2];
-    };
-    [minX, maxX] = grow(minX, maxX, MIN_SPAN);
-    [minY, maxY] = grow(minY, maxY, (MIN_SPAN * MAP_CARD_SIZE.height) / MAP_CARD_SIZE.width);
-    view = fit(minX, minY, maxX, maxY, 0.35);
-  } else {
-    const box = REGION_VIEW[region] ?? REGION_VIEW['americas-north'];
-    const [[south, west], [north, east]] = box;
-    const [minX, maxY] = project([west, south]);
-    const [maxX, minY] = project([east, north]);
-    view = fit(minX, minY, maxX, maxY, 0);
-  }
+  const box = REGION_VIEW[region] ?? REGION_VIEW['americas-north'];
+  const [[south, west], [north, east]] = box;
+  const [minX, maxY] = project([west, south]);
+  const [maxX, minY] = project([east, north]);
+  const view = fit(minX, minY, maxX, maxY, 0);
   const shapes: StaticShape[] = subdivisions.map((feature) => {
     const code = feature.properties.code ?? null;
     return {

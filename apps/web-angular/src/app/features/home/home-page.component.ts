@@ -1,3 +1,4 @@
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { DOCUMENT, NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
@@ -33,8 +34,10 @@ import { GetStartedComponent } from './get-started.component';
 import { HomeFeedStore } from './home-feed.store';
 import {
   FEED_FILTERS,
+  FILTER_ANNOUNCEMENTS,
   FILTER_LABELS,
   FeedFilter,
+  NEWER_ANNOUNCEMENT,
   GET_STARTED_HIDDEN_PREFIX,
   chipDot,
   chipEmptyText,
@@ -91,6 +94,8 @@ export class HomePageComponent {
   private readonly wishlistApi = inject(WishlistService);
   private readonly router = inject(Router);
   private readonly document = inject(DOCUMENT);
+  private readonly announcer = inject(LiveAnnouncer);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly sentinel = viewChild<ElementRef<HTMLElement>>('sentinel');
   private readonly heading = viewChild<ElementRef<HTMLElement>>('heading');
   private readonly injector = inject(Injector);
@@ -168,6 +173,11 @@ export class HomePageComponent {
   private appliedAccount: string | null | undefined = undefined;
   private lastCheck = Date.now();
   private observer: IntersectionObserver | null = null;
+  /**
+   * What to tell a screen reader once the list asked for is shown (a chip, a refresh; SC 4.1.3):
+   * said when a first page read after `after` is in.
+   */
+  private pending: { message: () => string; after: number | null } | null = null;
 
   constructor() {
     void this.regions.load();
@@ -298,6 +308,36 @@ export class HomePageComponent {
       this.observer?.disconnect();
     });
 
+    // Screen readers hear the pill appear ("New posts are available.", no number) and the result
+    // of a chip or a refresh once its posts are shown (SC 4.1.3).
+    let announcedNewer = false;
+    effect(() => {
+      const newer = this.store.newer();
+      untracked(() => {
+        if (newer && !announcedNewer) {
+          void this.announcer.announce(NEWER_ANNOUNCEMENT, 'polite');
+        }
+        announcedNewer = newer;
+      });
+    });
+    effect(() => {
+      const status = this.store.status();
+      const loadedAt = this.store.loadedAt();
+      untracked(() => {
+        const pending = this.pending;
+        if (!pending || status === 'loading') {
+          return;
+        }
+        if (status === 'error') {
+          // The error itself is an alert.
+          this.pending = null;
+        } else if (loadedAt !== pending.after) {
+          this.pending = null;
+          void this.announcer.announce(pending.message(), 'polite');
+        }
+      });
+    });
+
     // The next page when the end of the list comes into view.
     effect(() => {
       const element = this.sentinel()?.nativeElement ?? null;
@@ -307,12 +347,18 @@ export class HomePageComponent {
 
   protected setFilter(filter: FeedFilter): void {
     if (filter !== this.filter()) {
+      this.pending = {
+        message: () =>
+          this.store.empty() === 'chip' ? this.chipEmpty() : FILTER_ANNOUNCEMENTS[filter],
+        after: this.store.loadedAt(),
+      };
       this.navigate({ kind: urlOfFilter(filter) });
     }
   }
 
   /** The refresh button: reads the first page again, keeping the list until it answers. */
   protected refresh(): void {
+    this.pending = { message: () => 'Updated.', after: this.store.loadedAt() };
     this.lastCheck = Date.now();
     void this.store.load(
       { region: this.regionCode(), game: this.gameCode(), kind: this.filter() },
@@ -329,8 +375,25 @@ export class HomePageComponent {
     });
   }
 
-  protected retry(): void {
-    void this.store.load({ region: this.regionCode(), game: this.gameCode(), kind: this.filter() });
+  /**
+   * "Try again": the error's button goes away while it reads, so the focus moves on purpose: to
+   * the heading once the posts are in, back to the new "Try again" when it fails again (A4).
+   */
+  protected async retry(): Promise<void> {
+    await this.store.load({
+      region: this.regionCode(),
+      game: this.gameCode(),
+      kind: this.filter(),
+    });
+    afterNextRender(
+      () => {
+        const again = this.host.nativeElement.querySelector<HTMLElement>(
+          '[data-testid="home-error"] button',
+        );
+        (again ?? this.heading()?.nativeElement)?.focus({ preventScroll: !again });
+      },
+      { injector: this.injector },
+    );
   }
 
   /** "Switch game": opens the game pill's popover. */
@@ -338,12 +401,25 @@ export class HomePageComponent {
     this.document.querySelector<HTMLButtonElement>('app-game-pill button')?.click();
   }
 
-  /** "Hide these steps": for good, for this account in this browser. */
+  /**
+   * "Hide these steps": for good, for this account in this browser. Its button goes away with it,
+   * so the focus moves on: to the map card's "Explore the map" in the rail, to the chips at md (A4).
+   */
   protected hideSteps(): void {
     const uid = this.auth.user()?.uid ?? null;
     if (uid) {
       this.writeHidden(uid);
     }
+    afterNextRender(
+      () => {
+        const root = this.host.nativeElement;
+        (
+          root.querySelector<HTMLElement>('.mc__explore') ??
+          root.querySelector<HTMLElement>('.home__chip--on')
+        )?.focus();
+      },
+      { injector: this.injector },
+    );
   }
 
   private check(): void {

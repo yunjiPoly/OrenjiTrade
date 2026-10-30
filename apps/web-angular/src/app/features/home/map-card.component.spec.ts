@@ -74,4 +74,25 @@ describe('MapCardComponent (spec 5.3: a static SVG, no Leaflet)', () => {
       '/search?tab=binders&state=CA-QC',
     );
   });
+
+  it('a failed counts read says "Couldn\'t load the map." with Try again, never the empty line (F5)', async () => {
+    const retry = vi.fn();
+    fixture.componentInstance.retryCounts.subscribe(retry);
+    fixture.componentRef.setInput('counts', new Map());
+    fixture.componentRef.setInput('countsFailed', true);
+    fixture.detectChanges();
+    const error = element.querySelector('[data-testid="home-map-card-error"]')!;
+    expect(error.textContent).toContain("Couldn't load the map.");
+    expect(element.textContent).not.toContain('No public binders');
+    error.querySelector('button')!.click();
+    expect(retry).toHaveBeenCalled();
+  });
+
+  it('while the counts load, a skeleton line instead of "No public binders here yet"', () => {
+    fixture.componentRef.setInput('counts', new Map());
+    fixture.componentRef.setInput('countsLoading', true);
+    fixture.detectChanges();
+    expect(element.querySelector('.mc__line-bone')).not.toBeNull();
+    expect(element.textContent).not.toContain('No public binders');
+  });
 });

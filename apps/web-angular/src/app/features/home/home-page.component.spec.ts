@@ -1,3 +1,4 @@
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
@@ -14,7 +15,7 @@ import { RegionsStore } from '../../shared/regions/regions.store';
 import { BoundaryAssets } from '../map/data/boundaries';
 import { RegionMapStore } from '../map/data/region-map.store';
 import { HomeFeedStore } from './home-feed.store';
-import { HomePageComponent } from './home-page.component';
+import { HomePageComponent, NEWER_CHECK_MS } from './home-page.component';
 
 describe('HomePageComponent (spec 5, boards W1 and W2)', () => {
   let fixture: ComponentFixture<HomePageComponent>;
@@ -25,6 +26,7 @@ describe('HomePageComponent (spec 5, boards W1 and W2)', () => {
   const signedIn = signal(true);
   const browsable = signal<ReadonlySet<string> | null>(new Set(['yugioh']));
   const select = vi.fn(() => true);
+  const announce = vi.fn(async () => undefined);
 
   async function render(): Promise<void> {
     store = {
@@ -84,6 +86,7 @@ describe('HomePageComponent (spec 5, boards W1 and W2)', () => {
         },
         { provide: WishlistService, useValue: { listWishlist: () => of([]) } },
         { provide: BoundaryAssets, useValue: { load: async () => ({ features: [] }) } },
+        { provide: LiveAnnouncer, useValue: { announce } },
       ],
     });
     TestBed.overrideComponent(HomePageComponent, {
@@ -98,6 +101,9 @@ describe('HomePageComponent (spec 5, boards W1 and W2)', () => {
               setRegion: vi.fn(),
               countByCode: signal(new Map()),
               deckCoreByCode: signal(new Map()),
+              countsError: signal(null),
+              countsLoading: signal(false),
+              loadCounts: vi.fn(),
             },
           },
         ],
@@ -113,6 +119,7 @@ describe('HomePageComponent (spec 5, boards W1 and W2)', () => {
   beforeEach(() => {
     browsable.set(new Set(['yugioh']));
     select.mockClear();
+    announce.mockClear();
     status.set('ready');
     newer.set(false);
     signedIn.set(true);
@@ -203,5 +210,74 @@ describe('HomePageComponent (spec 5, boards W1 and W2)', () => {
       { region: 'americas-north', game: 'yugioh', kind: 'ALL' },
       true,
     );
+  });
+
+  describe('the quiet check for newer posts (spec 5.1: every 5 minutes while the tab is visible)', () => {
+    let hidden = false;
+
+    beforeEach(() => {
+      hidden = false;
+      // setTimeout stays real (the test bed's scheduler); the page's interval and clock are fake.
+      vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        get: () => (hidden ? 'hidden' : 'visible'),
+      });
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+      delete (document as unknown as Record<string, unknown>)['visibilityState'];
+    });
+
+    it('looks once after 5 minutes, never sooner', async () => {
+      await render();
+      const check = store['checkNewer'] as ReturnType<typeof vi.fn>;
+      expect(NEWER_CHECK_MS).toBe(5 * 60_000);
+      vi.advanceTimersByTime(4.5 * 60_000);
+      expect(check).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(30_000);
+      expect(check).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(4 * 60_000);
+      expect(check).toHaveBeenCalledTimes(1);
+    });
+
+    it('never looks while the tab is hidden, and looks again when it comes back', async () => {
+      await render();
+      const check = store['checkNewer'] as ReturnType<typeof vi.fn>;
+      hidden = true;
+      vi.advanceTimersByTime(12 * 60_000);
+      expect(check).not.toHaveBeenCalled();
+      hidden = false;
+      document.dispatchEvent(new Event('visibilitychange'));
+      expect(check).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('screen readers hear "New posts are available." once, without a number (SC 4.1.3)', async () => {
+    await render();
+    expect(announce).not.toHaveBeenCalled();
+    newer.set(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(announce).toHaveBeenCalledWith('New posts are available.', 'polite');
+    expect(announce).toHaveBeenCalledTimes(1);
+  });
+
+  it('Try again sends the focus to the heading once the posts are in (A4)', async () => {
+    status.set('error');
+    await render();
+    (store['load'] as ReturnType<typeof vi.fn>).mockImplementation(async () => {
+      status.set('ready');
+    });
+    const button = element.querySelector<HTMLButtonElement>('[data-testid="home-error"] button')!;
+    button.focus();
+    button.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    await vi.waitFor(() => {
+      TestBed.tick();
+      expect(document.activeElement).toBe(element.querySelector('h1'));
+    });
   });
 });

@@ -192,6 +192,9 @@
         [homeName]="home()?.name ?? null"
         [counts]="mapStore.countByCode()"
         [deckCores]="mapStore.deckCoreByCode()"
+        [countsFailed]="!!mapStore.countsError()"
+        [countsLoading]="mapStore.countsLoading()"
+        (retryCounts)="mapStore.loadCounts()"
       />
       <p class="home__links">
         <a routerLink="/legal/trading-safely">Trading safely</a> ·

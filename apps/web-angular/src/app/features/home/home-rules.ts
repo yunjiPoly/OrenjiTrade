@@ -24,6 +24,17 @@ export const FILTER_LABELS: Readonly<Record<FeedFilter, string>> = {
   DECK_CORES: 'Deck cores',
 };
 
+/** What a screen reader hears once a chip's posts are shown (SC 4.1.3; never a count). */
+export const FILTER_ANNOUNCEMENTS: Readonly<Record<FeedFilter, string>> = {
+  ALL: 'Showing all posts.',
+  NEW_CARDS: 'Showing new cards.',
+  WANTED: 'Showing wanted cards.',
+  DECK_CORES: 'Showing deck cores.',
+};
+
+/** Said once when "New posts · Show" appears (no number, as the pill). */
+export const NEWER_ANNOUNCEMENT = 'New posts are available.';
+
 /** The colour of a chip's dot and of a post's verb (spec 5.1 and 5.2). */
 export type FeedTone = 'cards' | 'wanted' | 'deckCore';
 

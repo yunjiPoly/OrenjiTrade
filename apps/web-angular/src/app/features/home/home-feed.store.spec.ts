@@ -101,4 +101,21 @@ describe("HomeFeedStore (spec 5.4: GET /feed with the web's 6 pictures)", () => 
     await store.load(query);
     expect(store.empty()).toBe('region');
   });
+
+  it('the same query asked again while its first page is read shares that read (U7)', async () => {
+    const answer = new Subject<ReturnType<typeof page>>();
+    getFeed.mockReturnValueOnce(answer);
+    const first = store.load(query);
+    const second = store.load({ ...query });
+    answer.next(page(['a'], null));
+    answer.complete();
+    await Promise.all([first, second]);
+    expect(getFeed).toHaveBeenCalledTimes(1);
+    expect(store.posts().map((post) => post.id)).toEqual(['a']);
+    // Once answered, a new load (Try again, another chip) reads again; a quiet refresh always does.
+    getFeed.mockReturnValue(of(page(['b'], null)));
+    await store.load(query);
+    await store.load(query, true);
+    expect(getFeed).toHaveBeenCalledTimes(3);
+  });
 });
