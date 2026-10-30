@@ -74,6 +74,8 @@ export const ROOM_COPY = {
   deleteTitle: 'Delete this post?',
   deleteBody: 'Your post leaves the room for everyone.',
   deleted: 'Post deleted.',
+  /** Said politely once an edited post is saved (WF leftover A9). */
+  saved: 'Post saved',
   removed: 'Post removed. The action is in the audit log.',
   updated: 'Post updated.',
   you: 'You',

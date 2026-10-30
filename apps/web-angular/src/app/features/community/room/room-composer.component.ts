@@ -124,7 +124,8 @@ export interface RoomDraft {
           [id]="fieldId"
           [formControl]="text"
           [placeholder]="copy.placeholder"
-          [attr.aria-describedby]="hintId"
+          [attr.aria-describedby]="error() ? errorId + ' ' + hintId : hintId"
+          [attr.aria-invalid]="error() ? 'true' : null"
           [attr.maxlength]="maxLength"
           rows="1"
           (keydown)="onKeydown($event)"
@@ -144,7 +145,7 @@ export interface RoomDraft {
         </button>
       </div>
       @if (error(); as message) {
-        <p class="rc__error" role="alert" data-testid="room-post-error">
+        <p class="rc__error" role="alert" data-testid="room-post-error" [id]="errorId">
           <app-shell-icon name="alert" [size]="16" />
           <span>{{ message }}</span>
           @if (retryable()) {
@@ -197,6 +198,8 @@ export class RoomComposerComponent {
   protected readonly maxLength = POST_MAX_LENGTH;
   protected readonly fieldId = `room-field-${Math.random().toString(36).slice(2, 8)}`;
   protected readonly hintId = `${this.fieldId}-hint`;
+  /** The refusal under the field: in its description while shown (WF leftover A8). */
+  protected readonly errorId = `${this.fieldId}-error`;
   protected readonly text = new FormControl('', { nonNullable: true });
   protected readonly length = signal(0);
   private readonly value = signal('');

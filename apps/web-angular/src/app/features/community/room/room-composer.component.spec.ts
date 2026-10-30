@@ -147,6 +147,10 @@ describe('RoomComposerComponent (spec 10.7, board W22)', () => {
     fixture.detectChanges();
     const error = element.querySelector('[data-testid="room-post-error"]')!;
     expect(error.getAttribute('role')).toBe('alert');
+    // The refusal describes the field, which reads as invalid meanwhile (WF leftover A8).
+    const field = element.querySelector('[data-testid="room-field"]')!;
+    expect(field.getAttribute('aria-describedby')?.split(' ')).toContain(error.id);
+    expect(field.getAttribute('aria-invalid')).toBe('true');
     expect(error.textContent).toContain('You already posted this.');
     expect(error.querySelector('button')).toBeNull();
     fixture.componentRef.setInput('error', 'Your post was not sent. Check your connection.');

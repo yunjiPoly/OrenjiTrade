@@ -211,6 +211,16 @@ export class RoomViewComponent {
         observer?.disconnect();
       });
     });
+    // A refusal makes the message box taller: the newest post stays in view when the log was at
+    // its end (WF leftover A8; the size observer alone missed it at 200 percent zoom).
+    effect(() => {
+      const refusal = this.refusal();
+      untracked(() => {
+        if (refusal && this.pinned) {
+          this.scrollToEnd();
+        }
+      });
+    });
     // Rooms have no push: the open room reads its pages again every 15 s while on screen.
     const poll = setInterval(() => void this.poll(), ROOM_POLL_MS);
     const onVisible = () => {

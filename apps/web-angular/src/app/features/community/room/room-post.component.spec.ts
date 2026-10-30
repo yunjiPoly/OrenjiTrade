@@ -1,3 +1,4 @@
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
@@ -115,6 +116,27 @@ describe('RoomPostComponent (spec 10.7, board W22)', () => {
     expect(element.querySelector('.post__you')?.textContent).toBe('You');
     expect(element.querySelector('article')?.getAttribute('aria-label')).toContain('sam (you)');
     expect(await menuItems()).toEqual(['Edit', 'Delete']);
+  });
+
+  it('saving an edited post says "Post saved" politely (WF leftover A9)', async () => {
+    render(
+      fixturePost('a', '2026-10-30T09:00:00Z', {
+        author: { id: 'me', handle: 'sam', displayName: 'Sam' },
+        canEdit: true,
+        canDelete: true,
+      }),
+    );
+    const announce = vi.spyOn(TestBed.inject(LiveAnnouncer), 'announce').mockResolvedValue();
+    await menuItems();
+    document.querySelector<HTMLButtonElement>('.mat-mdc-menu-panel [mat-menu-item]')!.click();
+    fixture.detectChanges();
+    const editor = element.querySelector<HTMLTextAreaElement>('.post__edit-text')!;
+    editor.value = 'An edited post';
+    editor.dispatchEvent(new Event('input'));
+    element.querySelector<HTMLFormElement>('.post__edit')!.dispatchEvent(new Event('submit'));
+    await fixture.whenStable();
+    expect(TestBed.inject(RoomStore).update).toHaveBeenCalledWith('a', 'An edited post');
+    expect(announce).toHaveBeenCalledWith('Post saved', 'polite');
   });
 
   it('a moderator sees "Remove (moderator)" on someone else\'s post', async () => {

@@ -424,8 +424,12 @@ describe('RoomViewComponent (spec 10.7, board W22)', () => {
   it('Room rules is the third pane at 1280 and wider: shown, then hidden and remembered', async () => {
     await render();
     expect(toggle().getAttribute('aria-pressed')).toBe('true');
+    expect(toggle().hasAttribute('aria-expanded')).toBe(false);
     const pane = element.querySelector('[data-testid="room-rules"]')!;
-    expect(pane.getAttribute('role')).toBe('complementary');
+    // A labelled region, never a complementary landmark inside the room's region (A7).
+    expect(pane.tagName).toBe('DIV');
+    expect(pane.getAttribute('role')).toBe('region');
+    expect(element.querySelector('aside')).toBeNull();
     expect(pane.textContent).toContain('You can post up to 10 times an hour in each room.');
     expect(pane.textContent).toContain('Your city never appears in a room.');
     toggle().click();
@@ -434,13 +438,28 @@ describe('RoomViewComponent (spec 10.7, board W22)', () => {
     expect(localStorage.getItem(RULES_PANE_KEY)).toBe('off');
   });
 
+  it("the room's name is an h2 beside the list and the page's h1 on its own (WF leftover A10)", async () => {
+    await render();
+    expect(element.querySelector('h2.room__name')?.textContent).toBeTruthy();
+    expect(element.querySelector('h1')).toBeNull();
+    fixture.componentRef.setInput('showBack', true);
+    fixture.detectChanges();
+    expect(element.querySelector('h1.room__name')?.textContent).toBeTruthy();
+    expect(element.querySelector('h2.room__name')).toBeNull();
+  });
+
   it('at md Room rules is a drawer that starts closed and closes with Esc', async () => {
     medium.set(true);
     await render();
     expect(element.querySelector('[data-testid="room-rules"]')).toBeNull();
+    // A dialog's toggle: expanded and haspopup, never also pressed (A7).
+    expect(toggle().hasAttribute('aria-pressed')).toBe(false);
+    expect(toggle().getAttribute('aria-expanded')).toBe('false');
     toggle().click();
     fixture.detectChanges();
+    expect(toggle().getAttribute('aria-expanded')).toBe('true');
     const drawer = element.querySelector('[data-testid="room-rules"]')!;
+    expect(drawer.tagName).toBe('DIV');
     expect(drawer.getAttribute('role')).toBe('dialog');
     expect(drawer.getAttribute('aria-modal')).toBe('true');
     drawer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));

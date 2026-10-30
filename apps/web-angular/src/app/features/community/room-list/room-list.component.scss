@@ -125,7 +125,8 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--color-primary);
+  /* The darker accent in light (3:1 and more on the page; WF leftover A11), the orange in dark. */
+  background: var(--app-primary-text, var(--color-primary));
 }
 
 .rl__foot {
