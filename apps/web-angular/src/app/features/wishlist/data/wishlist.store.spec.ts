@@ -55,6 +55,7 @@ describe('WishlistStore', () => {
     location: typeof location;
     privacy: typeof privacy;
     load: ReturnType<typeof vi.fn>;
+    ensureLoaded: ReturnType<typeof vi.fn>;
     savePrivacy: ReturnType<typeof vi.fn>;
   };
 
@@ -75,6 +76,7 @@ describe('WishlistStore', () => {
         privacy.set({ wishlistVisible: false } as PrivacySettings);
         return true;
       }),
+      ensureLoaded: vi.fn(async () => (myLocation.load as () => Promise<boolean>)()),
       savePrivacy: vi.fn(async (settings: PrivacySettings) => {
         privacy.set(settings);
         return settings;
