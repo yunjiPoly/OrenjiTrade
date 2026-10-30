@@ -89,6 +89,7 @@ describe('GuestActions: the sign-in dialog and the pending action (spec 14)', ()
       expect.objectContaining({
         data: { action: { kind: 'message', listing: { itemId: 'i-1' } }, subject: null },
         panelClass: 'app-dialog--confirm',
+        ariaDescribedBy: 'sign-in-dialog-text',
       }),
     );
     expect(router.url).toBe('/auth/sign-in?returnUrl=%2Fcards%2Fc-1%3Fprinting%3Dp-1');

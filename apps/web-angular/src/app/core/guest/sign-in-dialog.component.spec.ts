@@ -1,6 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { SignInDialogComponent, SignInDialogData } from './sign-in-dialog.component';
+import {
+  SignInDialogComponent,
+  SignInDialogData,
+  signInDialogDescription,
+} from './sign-in-dialog.component';
 
 describe('SignInDialogComponent (spec 14, board W26: 440)', () => {
   let close: ReturnType<typeof vi.fn>;
@@ -35,6 +39,13 @@ describe('SignInDialogComponent (spec 14, board W26: 440)', () => {
     const subject = element.querySelector('[data-testid="sign-in-dialog-subject"]')!;
     expect(subject.textContent).toContain('Infinite Impermanence');
     expect(subject.textContent).toContain('A collector · New York · $24.00');
+    // The ids the dialog's description names (WG review A2).
+    expect(element.querySelector('#sign-in-dialog-text')?.textContent).toContain('It’s free.');
+    expect(element.querySelector('#sign-in-dialog-subject')).toBe(subject);
+    expect(signInDialogDescription(null)).toBe('sign-in-dialog-text');
+    expect(signInDialogDescription({ kind: 'person', title: 'A collector', line: 'Quebec' })).toBe(
+      'sign-in-dialog-text sign-in-dialog-subject',
+    );
   });
 
   it('[Create account], [Sign in] and "Not now" answer the step chosen', () => {

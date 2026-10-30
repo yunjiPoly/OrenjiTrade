@@ -136,16 +136,17 @@ export class GuestActions {
     let choice: GuestAskChoice;
     try {
       // The dialog and Material's dialog service are lazy: they stay out of the initial bundle.
-      const [{ SignInDialogComponent }, { MatDialog }] = await Promise.all([
-        import('./sign-in-dialog.component'),
-        import('@angular/material/dialog'),
-      ]);
+      const [{ SignInDialogComponent, signInDialogDescription }, { MatDialog }] = await Promise.all(
+        [import('./sign-in-dialog.component'), import('@angular/material/dialog')],
+      );
       this.openingState.set(false);
       const ref = this.injector
         .get(MatDialog)
         .open<unknown, SignInDialogData, GuestAskChoice>(SignInDialogComponent, {
           data: { action, subject },
           panelClass: 'app-dialog--confirm',
+          // "It's free…" and the card or collector, read after the title (WG review A2).
+          ariaDescribedBy: signInDialogDescription(subject),
           autoFocus: 'first-tabbable',
           restoreFocus: true,
         });

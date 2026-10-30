@@ -5,6 +5,22 @@ import { ShellIconComponent } from '../layout/shell-icon/shell-icon.component';
 import { GUEST_COPY, GuestAction, GuestAskSubject, askTitle } from './guest-actions';
 import type { GuestAskChoice } from './guest-actions.service';
 
+/**
+ * The dialog's description (WG review A2): "It's free…" and what it is about, read after the title
+ * when the dialog opens (`ariaDescribedBy`). One sign-in dialog is open at a time.
+ */
+export const SIGN_IN_DIALOG_IDS = {
+  text: 'sign-in-dialog-text',
+  subject: 'sign-in-dialog-subject',
+} as const;
+
+/** The ids that describe the dialog: the words, then the card or collector when there is one. */
+export function signInDialogDescription(subject: GuestAskSubject | null): string {
+  return subject
+    ? `${SIGN_IN_DIALOG_IDS.text} ${SIGN_IN_DIALOG_IDS.subject}`
+    : SIGN_IN_DIALOG_IDS.text;
+}
+
 export interface SignInDialogData {
   action: GuestAction;
   subject: GuestAskSubject | null;
@@ -22,9 +38,9 @@ export interface SignInDialogData {
   template: `
     <div class="ask" data-testid="sign-in-dialog">
       <h2 class="ask__title" mat-dialog-title>{{ title }}</h2>
-      <p class="ask__text">{{ copy.dialogText }}</p>
+      <p class="ask__text" [id]="ids.text">{{ copy.dialogText }}</p>
       @if (data.subject; as subject) {
-        <div class="ask__subject" data-testid="sign-in-dialog-subject">
+        <div class="ask__subject" data-testid="sign-in-dialog-subject" [id]="ids.subject">
           @if (subject.kind === 'card') {
             <span class="ask__art" aria-hidden="true">
               <app-card-image size="fill" [src]="subject.imageUrl" [game]="subject.game" alt="" />
@@ -190,6 +206,7 @@ export class SignInDialogComponent {
   private readonly ref = inject<MatDialogRef<SignInDialogComponent, GuestAskChoice>>(MatDialogRef);
 
   protected readonly copy = GUEST_COPY;
+  protected readonly ids = SIGN_IN_DIALOG_IDS;
   protected readonly title = askTitle(this.data.action);
 
   protected choose(choice: GuestAskChoice): void {
