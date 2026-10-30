@@ -14027,7 +14027,24 @@ text), `room-view.component.spec` (+1), `share-picker-dialog.component.spec` (th
 rewritten for every game), `report-collector-dialog.component.spec` (2 assertions),
 `report-actions.service.spec` (new, 1); web E2E `community.spec.ts` (the report's fit at 1440x900).
 
-**Checks of review fix 2**: CHECKS_FIX2
+**Checks of review fix 2** (retries off, the real numbers; head before this table `52950f97`)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | clean |
+| `npm run test:api` | **209 classes / 1,313 tests** (`test`) and 13 (`catalogTest`), 0 failures, 4 min 42 s (no API change this round) |
+| `exportOpenApi` then `generate:api` | nothing changed; git clean |
+| `npm run lint`, `format:check -w apps/web-angular` | clean |
+| `npm test -w apps/web-angular`, `npm run test:web` | **199 files / 1,037 tests** (fix 1: 198 / 1,032); targeted before: the new tests fail without their fixes (R1-1's two, R1-2's room-view test; R1-2's composer test does not compile against the old `retry`) |
+| `npm run build -w apps/web-angular`, `build:prod` | initial total **763.73 kB** (budget 900 kB; fix 1 763.73 kB), no warning |
+| `npm run test:e2e -- --retries=0` (8180/4300, under the lock) | **96 passed** (1.3 min), with the report's fit at 1440x900 |
+| `npm run typecheck`, `lint`, `format:check -w apps/mobile` | clean |
+| `npm run test:mobile` | **128 suites / 1,782 tests** |
+| `npx expo export` (scratch folders) | iOS 1,975 modules, Android 2,101 modules, web 1,596 modules and 68 static routes |
+| `npm run test:mobile:e2e -- --retries=0` (8090/19006, under the simulator lock) | `--stack-only` (the served bundle names `http://localhost:8090` only, by the harness and by hand), `--reuse-running`: **66 passed** (1.1 min), `--stop` |
+| `npm run test:mobile:maestro -- --platform ios` | **not run, not needed**: no shared code changed since the builder's 44/44 (this round touched `apps/web-angular` and the docs only; no `apps/api`, `apps/mobile`, `packages/design-tokens`, `packages/api-client` or `packages/shared-types`) |
+| `npm run test:scripts` | **165 / 165** |
+| `npm run audit:gate` | OK |
 
 **AFTER screenshots** in `.local-dev/wf-notes/pr-shots/after/`: `community-report` (1440 dark and
 light, 1024, 390), `community-share-binder` (1440 dark and light, 1024, 390) and
