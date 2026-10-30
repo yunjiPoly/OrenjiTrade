@@ -183,17 +183,6 @@ jobs:
           done
           echo "::error::The API did not become ready"; tail -n 200 "$RUNNER_TEMP/api.log"; exit 1
 
-      # Stage R11 archived the community channels the paused web's specs use (V134: one room per
-      # platform region and game); they come back in the E2E database only, as `npm run test:e2e`
-      # does (scripts/lib/web-e2e-guard.mjs, PAUSED_WEB_CHANNELS).
-      - name: Bring back the paused web's community channels (E2E database only)
-        env:
-          E2E_DB_CONTAINER: orenjitrade-postgres
-        run: >-
-          node --input-type=module -e "import { psql } from './scripts/lib/local-db.mjs';
-          import { E2E_DB, pausedWebChannelsSql } from './scripts/lib/web-e2e-guard.mjs';
-          psql(E2E_DB, pausedWebChannelsSql(E2E_DB));"
-
       # Playwright's webServer writes e2e/.runtime/config.json (API :8180) and starts
       # `ng serve --configuration e2e` on :4300; retries and workers come from playwright.config.ts
       # (CI: 2 retries, 2 workers, list + HTML reporters). The global setup refuses an API without
