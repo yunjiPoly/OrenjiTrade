@@ -5375,8 +5375,8 @@ On 2026-10-14, this branch, every suite with retries off:
 | `npm run infra:validate` | passed (fmt, init without backend, validate; nothing planned or applied) |
 | `npm run audit:gate` | OK (no unreviewed high or critical advisory) |
 
-The API, client, mobile and full web E2E checks ran on `15de3501`; the one later web change (a room
-row's spoken punctuation, `0dc9cb30`) was re-checked on the final tree: `npm run test:web` (196 files
+The API, client, mobile and full web E2E checks ran on `61ce6fcb`; the one later web change (a room
+row's spoken punctuation, `969be46b`) was re-checked on the final tree: `npm run test:web` (196 files
 / 1,004 tests), both builds (763.51 kB) and `community.spec.ts` with `acceptance/community.spec.ts`
 alone (**6 passed**).
 | Android | **the Android run could not be verified** (no Android SDK on this Mac) |
