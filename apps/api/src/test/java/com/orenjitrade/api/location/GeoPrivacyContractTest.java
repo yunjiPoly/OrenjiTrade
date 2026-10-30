@@ -876,6 +876,17 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
         }
     }
 
+    /** The new-cards posts of a feed page with more than the phone's 4 pictures. */
+    private static int widePostsOf(JsonNode page) {
+        int wide = 0;
+        for (JsonNode post : page.path("items")) {
+            if (post.path("newCards").path("previews").size() > 4) {
+                wide++;
+            }
+        }
+        return wide;
+    }
+
     private void readSignedOut(CapturedOutput output) {
         Map<String, String> userIds = new LinkedHashMap<>();
         List<String> names = new ArrayList<>();
@@ -936,12 +947,27 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
                                             + "&kind="
                                             + kind,
                                     null);
-                    for (JsonNode post : web.path("items")) {
-                        if (post.path("newCards").path("previews").size() > 4) {
-                            widePosts++;
-                        }
-                    }
+                    widePosts += widePostsOf(web);
                 }
+            }
+            // Every page of the web's new cards (the suite's own posts may push the seed's wide
+            // posts past the first page): each one goes through the same checks.
+            String newCards =
+                    "/api/v1/feed?limit=50&previews=6&region="
+                            + region
+                            + "&game=yugioh&kind=NEW_CARDS";
+            JsonNode page = fetch(newCards, null);
+            widePosts += widePostsOf(page);
+            for (int more = 0; more < 40 && page.path("hasMore").asBoolean(); more++) {
+                page =
+                        fetch(
+                                newCards
+                                        + "&cursor="
+                                        + java.net.URLEncoder.encode(
+                                                page.path("nextCursor").asString(),
+                                                java.nio.charset.StandardCharsets.UTF_8),
+                                null);
+                widePosts += widePostsOf(page);
             }
             JsonNode counts = fetch("/api/v1/regions/" + region + "/binder-counts", null);
             for (JsonNode subdivision : counts.path("subdivisions")) {
