@@ -11,6 +11,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Title } from '@angular/platform-browser';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
@@ -152,6 +153,7 @@ export class SetPageComponent {
   protected readonly auth = inject(AuthService);
   private readonly guest = inject(GuestActions);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly announcer = inject(LiveAnnouncer);
 
   readonly id = input.required<string>();
 
@@ -229,7 +231,7 @@ export class SetPageComponent {
       }
       untracked(() => {
         if (this.guest.take((action) => action.kind === 'add' && action.setId === id)) {
-          void this.toggleAdding();
+          void this.toggleAdding().then(() => this.saySignedInAdding());
         }
       });
     });
@@ -385,6 +387,21 @@ export class SetPageComponent {
     ) {
       target.scrollIntoView({ block: 'center' });
     }
+  }
+
+  /**
+   * The adding mode a guest asked for, opened after signing in: said, with the keyboard on "Stop
+   * adding" as after a member's own press (WG review A7, SC 4.1.3).
+   */
+  private saySignedInAdding(): void {
+    if (!this.adding()) {
+      return;
+    }
+    const name = this.set()?.name;
+    void this.announcer.announce(name ? `Adding from ${name}` : 'Adding from this set', 'polite');
+    setTimeout(() =>
+      this.host.nativeElement.querySelector<HTMLElement>('[data-testid="add-from-set"]')?.focus(),
+    );
   }
 
   protected async toggleAdding(event?: Event): Promise<void> {
