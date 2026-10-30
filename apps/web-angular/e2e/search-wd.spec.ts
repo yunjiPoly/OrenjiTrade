@@ -401,14 +401,34 @@ test.describe('web stage WD: Search, Who has this card, sets, binders and deck c
     // The footer is gone: the focus is back on "Add from this set" (A15).
     await expect(page.getByTestId('add-from-set')).toBeFocused();
     // "Who has cards of this set" lists that set's cards on Search › Cards (spec 7.5, U4).
+    // Its list reads the browsed game with the set, as the phone does (WD review R1-1).
+    const setRead = page.waitForRequest(
+      (req) =>
+        req.url().includes('/api/v1/cards?') &&
+        req.url().includes(`set=${setId}`) &&
+        req.url().includes('size=50'),
+    );
     await page.getByRole('link', { name: 'Who has cards of this set' }).click();
     await expect(page).toHaveURL(new RegExp(`/search\\?.*set=${setId}`));
+    expect(new URL((await setRead).url()).searchParams.get('game')).toBe('yugioh');
     await expect(page.getByTestId('set-chip')).toContainText('Azure Dawn · AZR');
     await expect(
       page.getByTestId('set-card-row').filter({ hasText: 'Azure-Eyes Sky Dragon' }),
     ).toBeVisible();
     await page.getByTestId('set-chip').click();
     await expect(page).not.toHaveURL(/set=/);
+    // Another game in the pill leaves the set of the old game: no Yu-Gi-Oh! card under Pokémon.
+    await page.goto(`/search?tab=cards&set=${setId}`);
+    await expect(page.getByTestId('set-chip')).toContainText('Azure Dawn · AZR');
+    await page.getByTestId('game-pill').click();
+    await page
+      .getByRole('dialog', { name: 'Choose a game' })
+      .getByRole('radio', { name: /^Pokémon/ })
+      .click();
+    await expect(page).toHaveURL(/game=pokemon/);
+    await expect(page).not.toHaveURL(/set=/);
+    await expect(page.getByTestId('set-chip')).toHaveCount(0);
+    await expect(page.getByTestId('set-card-row')).toHaveCount(0);
     const items = await request.get(`${API_URL}/api/v1/inventory/items`, {
       headers: authHeader(viewer.idToken),
     });

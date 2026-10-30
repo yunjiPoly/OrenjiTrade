@@ -10,7 +10,7 @@ describe('SetCardsComponent', () => {
   let element: HTMLElement;
   let searchCards: ReturnType<typeof vi.fn>;
 
-  async function render(q = '') {
+  async function render(q = '', game = '') {
     searchCards = vi.fn(({ page }: { page: number }) =>
       of({
         items: [
@@ -32,7 +32,7 @@ describe('SetCardsComponent', () => {
           provide: CatalogService,
           useValue: {
             searchCards,
-            getSet: () => of({ set: { id: 's1', code: 'AZR', name: 'Azure Dawn' } }),
+            getSet: () => of({ set: { id: 's1', code: 'AZR', name: 'Azure Dawn', game: 'yugioh' } }),
           },
         },
       ],
@@ -40,6 +40,10 @@ describe('SetCardsComponent', () => {
     fixture = TestBed.createComponent(SetCardsComponent);
     fixture.componentRef.setInput('setId', 's1');
     fixture.componentRef.setInput('q', q);
+    if (game) {
+      fixture.componentRef.setInput('game', game);
+      fixture.componentRef.setInput('gameName', game === 'pokemon' ? 'Pokémon' : 'Yu-Gi-Oh!');
+    }
     element = fixture.nativeElement as HTMLElement;
     fixture.detectChanges();
     await fixture.whenStable();
@@ -93,6 +97,34 @@ describe('SetCardsComponent', () => {
     fixture.detectChanges();
     expect(element.textContent).toContain('The cards of this set could not load.');
     expect(element.querySelector('.sc__action')?.textContent).toContain('Try again');
+  });
+
+  it('sends the browsed game with the set, and a new game reads again (WD review R1-1)', async () => {
+    await render('', 'yugioh');
+    expect(searchCards).toHaveBeenLastCalledWith(
+      { set: 's1', game: 'yugioh', page: 0, size: 50 },
+      'body',
+      false,
+      expect.anything(),
+    );
+    // The set's game is not the browsed one (a hand-made link): no other game's card shows, and
+    // the pane says why instead of "no cards in the catalogue".
+    searchCards.mockReturnValueOnce(of({ items: [], page: 0, totalPages: 0 }));
+    fixture.componentRef.setInput('game', 'pokemon');
+    fixture.componentRef.setInput('gameName', 'Pokémon');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(searchCards).toHaveBeenLastCalledWith(
+      { set: 's1', game: 'pokemon', page: 0, size: 50 },
+      'body',
+      false,
+      expect.anything(),
+    );
+    expect(element.querySelectorAll('[data-testid="set-card-row"]')).toHaveLength(0);
+    expect(element.querySelector('[data-testid="set-cards-empty"]')?.textContent?.trim()).toBe(
+      'AZR is a Yu-Gi-Oh! set, not a Pokémon one.',
+    );
   });
 
   it('names the chip by the set name and code', () => {

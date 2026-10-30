@@ -16,6 +16,7 @@ import type { CardSummary, SetSummary } from '@orenji/api-client';
 import { Subscription } from 'rxjs';
 import { silentErrors } from '../../../core/http/http-context';
 import { ShellIconComponent } from '../../../core/layout/shell-icon/shell-icon.component';
+import { gameInfo } from '../../../shared/domain/games';
 import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 
 /** Cards per page of one set (`GET /cards?set=`, the API's maximum). */
@@ -67,11 +68,15 @@ type Status = 'loading' | 'ready' | 'error';
         </div>
       } @else if (cards().length === 0) {
         <p class="sc__empty" data-testid="set-cards-empty">
-          {{
-            q()
-              ? 'No card of ' + (set()?.code || 'this set') + ' matches ‘' + q() + '’.'
-              : 'This set has no cards in the catalogue yet.'
-          }}
+          @if (otherGame(); as other) {
+            {{ (set()?.code || 'This set') + ' is a ' + other + ' set, not a ' + gameName() + ' one.' }}
+          } @else {
+            {{
+              q()
+                ? 'No card of ' + (set()?.code || 'this set') + ' matches ‘' + q() + '’.'
+                : 'This set has no cards in the catalogue yet.'
+            }}
+          }
         </p>
       } @else {
         <ul class="sc__rows" [attr.aria-label]="'Cards of ' + (chip() || 'this set')">
@@ -219,6 +224,12 @@ export class SetCardsComponent {
   private readonly catalog = inject(CatalogService);
 
   readonly setId = input.required<string>();
+  /**
+   * The browsed game (the game pill): sent with `set=`, as the phone does, so a set never lists
+   * the cards of another game under the pill (WD review R1-1).
+   */
+  readonly game = input('');
+  readonly gameName = input('');
   readonly q = input('');
   /** "Show every card": back to the whole catalogue of the browsed game. */
   readonly cleared = output<void>();
@@ -230,6 +241,12 @@ export class SetCardsComponent {
   private readonly totalPages = signal(0);
   protected readonly hasMore = computed(() => this.page() + 1 < this.totalPages());
   protected readonly chip = computed(() => setChipLabel(this.set()));
+  /** "Yu-Gi-Oh!" when the set belongs to another game than the browsed one (a hand-made link). */
+  protected readonly otherGame = computed(() => {
+    const own = this.set()?.game;
+    const game = this.game();
+    return own && game && own !== game ? gameInfo(own).label : null;
+  });
   private request = 0;
   private subscriptions: Subscription[] = [];
 
@@ -250,6 +267,7 @@ export class SetCardsComponent {
     });
     effect(() => {
       this.setId();
+      this.game();
       this.q();
       untracked(() => this.reload());
     });
@@ -273,10 +291,17 @@ export class SetCardsComponent {
     const request = ++this.request;
     this.status.set('loading');
     const query = this.q().trim();
+    const game = this.game();
     this.subscriptions.push(
       this.catalog
         .searchCards(
-          { set: this.setId(), page, size: SET_CARDS_PAGE_SIZE, ...(query ? { query } : {}) },
+          {
+            set: this.setId(),
+            ...(game ? { game } : {}),
+            page,
+            size: SET_CARDS_PAGE_SIZE,
+            ...(query ? { query } : {}),
+          },
           'body',
           false,
           { context: silentErrors() },

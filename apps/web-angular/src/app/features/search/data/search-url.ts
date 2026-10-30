@@ -87,8 +87,8 @@ export interface SwitchInput {
 /**
  * The URL patch that mirrors the pills into the URL (one navigation). When the region changed, a
  * state of the old region (it would answer 404 on every Try again) and the open binder go; a
- * chosen wish stays, its holders follow the region. When the game changed, the open binder and
- * the chosen wish of the old game go.
+ * chosen wish stays, its holders follow the region. When the game changed, the open binder, the
+ * chosen wish and the set of the old game go (a set belongs to one game: WD review R1-1).
  */
 export function switchPatch(input: SwitchInput): Record<string, string | null> {
   const patch: Record<string, string | null> = {};
@@ -107,6 +107,7 @@ export function switchPatch(input: SwitchInput): Record<string, string | null> {
     if (input.requestedGame) {
       patch['open'] = null;
       patch['wish'] = null;
+      patch['set'] = null;
     }
   }
   return patch;

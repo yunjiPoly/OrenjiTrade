@@ -83,7 +83,13 @@ type Status = 'idle' | 'loading' | 'ready' | 'error';
       </div>
 
       @if (set(); as setId) {
-        <app-set-cards [setId]="setId" [q]="q()" (cleared)="setCleared.emit()" />
+        <app-set-cards
+          [setId]="setId"
+          [game]="game()"
+          [gameName]="gameName()"
+          [q]="q()"
+          (cleared)="setCleared.emit()"
+        />
       } @else if (!typing()) {
         @if (recent.remembering() && recent.list().length > 0) {
           <section class="cp__section" aria-labelledby="cards-pane-recent">

@@ -100,7 +100,7 @@ describe('Search URL (spec 4.11, web stage WD)', () => {
       ).toEqual({ region: 'americas-north', state: null, open: null });
     });
 
-    it('drops the open binder and the chosen wish of the old game when the game pill switches', () => {
+    it('drops the open binder, the chosen wish and the set of the old game when the game pill switches', () => {
       expect(
         switchPatch({
           requestedRegion: 'americas-north',
@@ -110,7 +110,7 @@ describe('Search URL (spec 4.11, web stage WD)', () => {
           state: 'CA-ON',
           regionHas: (code) => americas.has(code),
         }),
-      ).toEqual({ game: 'pokemon', open: null, wish: null });
+      ).toEqual({ game: 'pokemon', open: null, wish: null, set: null });
     });
 
     it('changes nothing when the URL already says the browsed region and game', () => {
