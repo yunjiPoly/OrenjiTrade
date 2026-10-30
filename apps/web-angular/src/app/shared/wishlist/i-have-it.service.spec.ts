@@ -78,9 +78,9 @@ describe('"I have it" (spec 5.2 and 11)', () => {
   it('words the draft and the button', () => {
     expect(iHaveItDraft('Ash Blossom')).toBe('Hi! I have Ash Blossom.');
     expect(iHaveItLabel('Ash Blossom', 'theo.duels')).toBe(
-      'I have Ash Blossom. Message theo.duels',
+      'I have it: Ash Blossom. Message theo.duels',
     );
-    expect(iHaveItLabel('Ash Blossom', null)).toBe('I have Ash Blossom');
+    expect(iHaveItLabel('Ash Blossom', null)).toBe('I have it: Ash Blossom');
   });
 
   it('opens the chat with the draft and the public copy as its card', async () => {

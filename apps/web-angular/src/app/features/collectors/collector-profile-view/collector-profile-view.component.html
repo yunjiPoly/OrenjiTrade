@@ -88,6 +88,7 @@
         <button
           type="button"
           class="cp__round"
+          data-testid="collector-more"
           [attr.aria-label]="'More for ' + p.handle"
           [matMenuTriggerFor]="more"
         >
@@ -129,234 +130,244 @@
 
   <div class="cp__body">
     <div class="cp__main">
-      <!-- Cards: two rows of six, the game control, See all inline (yours: Inventory). -->
-      <section class="cp__section" aria-labelledby="collector-cards">
-        <div class="cp__section-head">
-          <h2 class="cp__h2" id="collector-cards">Cards</h2>
-          @if (gameOptions().length > 1 && cardGame(); as game) {
-            <app-segmented
-              class="cp__games"
-              label="Game of the cards"
-              size="sm"
-              [options]="gameOptions()"
-              [value]="game"
-              (valueChange)="cardGameChange.emit($event)"
-            />
-          }
-          <span class="cp__spacer"></span>
-          @if (isOwn()) {
-            <a
-              class="cp__primary cp__primary--sm"
-              routerLink="/inventory"
-              [queryParams]="{ add: 'new' }"
-            >
-              <app-shell-icon name="plus" [size]="18" />
-              Add cards
-            </a>
-            <a class="cp__see" routerLink="/inventory">See all</a>
-          } @else if (!cardsExpanded() && publicItemCount() > (publicItems()?.length ?? 0)) {
-            <button type="button" class="cp__see" (click)="moreCards.emit()">See all</button>
-          }
-        </div>
-        @if (publicItems(); as items) {
-          @if (items.length > 0) {
-            <ul class="cp__cards" aria-label="Public cards">
-              @for (item of items; track item.id) {
-                <li class="cp__card">
-                  <a
-                    class="cp__card-link"
-                    [routerLink]="['/cards', item.card.id]"
-                    [queryParams]="item.printing.id ? { printing: item.printing.id } : {}"
-                  >
-                    <app-card-image
-                      class="cp__card-art"
-                      [src]="picture(item)"
-                      [game]="item.card.game"
-                      alt=""
-                    />
-                    <span class="cp__card-name">{{ item.card.name }}</span>
-                    <span class="cp__card-price">{{ price(item) || ' ' }}</span>
-                  </a>
-                </li>
-              }
-            </ul>
-            @if (cardsExpanded() && cardsHasMore()) {
-              <div class="cp__more-row">
-                <button
-                  type="button"
-                  class="cp__outline"
-                  [disabled]="cardsLoadingMore()"
-                  (click)="moreCards.emit()"
-                >
-                  {{ cardsLoadingMore() ? 'Loading…' : 'Load more' }}
-                </button>
-              </div>
+      @if (p.isBlocked) {
+        <!-- Blocked: nothing of theirs is read or shown (the banner says why), never an error. -->
+        <p class="cp__empty" data-testid="collector-blocked-lists">
+          Their cards, binders and wishes stay hidden while you block {{ p.handle }}.
+        </p>
+      } @else {
+        <!-- Cards: two rows of six, the game control, See all inline (yours: Inventory). -->
+        <section class="cp__section" aria-labelledby="collector-cards">
+          <div class="cp__section-head">
+            <h2 class="cp__h2" id="collector-cards">Cards</h2>
+            @if (gameOptions().length > 1 && cardGame(); as game) {
+              <app-segmented
+                class="cp__games"
+                label="Game of the cards"
+                size="sm"
+                [options]="gameOptions()"
+                [value]="game"
+                (valueChange)="cardGameChange.emit($event)"
+              />
             }
-          } @else if (cardsFailed()) {
-            <p class="cp__muted" role="alert">
-              The cards could not load.
-              <button type="button" class="cp__text" (click)="retryCards.emit()">Try again</button>
-            </p>
-          } @else {
-            <p class="cp__empty">
-              {{
-                isOwn()
-                  ? 'Your public cards show here. Set a card to Public in Inventory.'
-                  : 'No public cards' +
-                    (cardGame() ? ' of ' + gameLabel(cardGame()!) : '') +
-                    ' yet.'
-              }}
-            </p>
-          }
-        } @else {
-          <div class="cp__cards cp__cards--bones" aria-busy="true">
-            <span class="visually-hidden">Loading the cards</span>
-            @for (bone of [0, 1, 2, 3, 4, 5]; track bone) {
-              <span class="cp__bone" aria-hidden="true"></span>
-            }
-          </div>
-        }
-      </section>
-
-      <!-- Binders: three cards (229 wide, 120 covers). -->
-      <section class="cp__section" aria-labelledby="collector-binders">
-        <div class="cp__section-head">
-          <h2 class="cp__h2" id="collector-binders">Binders</h2>
-          <span class="cp__spacer"></span>
-          @if (isOwn()) {
-            <a class="cp__see" routerLink="/inventory" [queryParams]="{ tab: 'binders' }"
-              >See all</a
-            >
-          } @else if ((binders()?.length ?? 0) > bindersPreview) {
-            <button
-              type="button"
-              class="cp__see"
-              [attr.aria-expanded]="allBinders()"
-              (click)="toggleBinders()"
-            >
-              {{ allBinders() ? 'Show fewer' : 'See all' }}
-            </button>
-          }
-        </div>
-        @if (binders(); as list) {
-          @if (list.length > 0) {
-            <ul class="cp__binders" aria-label="Public binders">
-              @for (binder of shownBinders(); track binder.id) {
-                <li>
-                  <app-profile-binder-card [binder]="binder" />
-                </li>
-              }
-            </ul>
-          } @else if (bindersFailed()) {
-            <p class="cp__muted" role="alert">
-              Public binders could not load.
-              <button type="button" class="cp__text" (click)="retryBinders.emit()">
-                Try again
-              </button>
-            </p>
-          } @else {
-            <p class="cp__empty">
-              {{
-                isOwn()
-                  ? 'Publish a binder so collectors of your region can see what you trade.'
-                  : 'When ' + p.handle + ' publishes a binder, it will show up here.'
-              }}
-            </p>
-          }
-        } @else {
-          <div class="cp__binders cp__binders--bones" aria-busy="true">
-            <span class="visually-hidden">Loading the binders</span>
-            @for (bone of [0, 1, 2]; track bone) {
-              <span class="cp__bone cp__bone--binder" aria-hidden="true"></span>
-            }
-          </div>
-        }
-      </section>
-
-      <!-- Looking for: rows of 64; "I have it" on someone else's, Edit on yours; no availability. -->
-      @if (lookingFor(); as rows) {
-        @if (rows.length > 0 || isOwn()) {
-          <section class="cp__section" aria-labelledby="collector-wishlist">
-            <div class="cp__section-head">
-              <h2 class="cp__h2" id="collector-wishlist">Looking for</h2>
-              <span class="cp__spacer"></span>
-              @if (isOwn()) {
-                <a class="cp__see" routerLink="/search" [queryParams]="{ tab: 'wishlist' }"
-                  >See all</a
-                >
-              } @else if (rows.length > wishesPreview) {
-                <button
-                  type="button"
-                  class="cp__see"
-                  [attr.aria-expanded]="allWishes()"
-                  (click)="toggleWishes()"
-                >
-                  {{ allWishes() ? 'Show fewer' : 'See all' }}
-                </button>
-              }
-            </div>
-            @if (rows.length > 0) {
-              <ul
-                class="cp__wishes"
-                [attr.aria-label]="
-                  isOwn() ? 'Cards you are looking for' : 'Cards ' + p.handle + ' is looking for'
-                "
+            <span class="cp__spacer"></span>
+            @if (isOwn()) {
+              <a
+                class="cp__primary cp__primary--sm"
+                routerLink="/inventory"
+                [queryParams]="{ add: 'new' }"
               >
-                @for (
-                  row of isOwn() ? rows.slice(0, wishesPreview) : shownWishes();
-                  track row.key
-                ) {
-                  <li class="cp__wish">
-                    <span class="cp__wish-art" aria-hidden="true">
-                      <app-card-image [src]="row.imageUrl" [game]="row.game" size="xs" alt="" />
-                    </span>
-                    <span class="cp__wish-text">
-                      @if (row.cardId) {
-                        <a class="cp__wish-name" [routerLink]="['/cards', row.cardId]">{{
-                          row.name
-                        }}</a>
-                      } @else {
-                        <span class="cp__wish-name">{{ row.name }}</span>
-                      }
-                      <span class="cp__wish-terms">
-                        @if (row.game) {
-                          <app-game-monogram [game]="row.game" [size]="16" />
-                        }
-                        {{ row.terms }}
-                      </span>
-                      @if (row.note) {
-                        <span class="cp__wish-note">{{ row.note }}</span>
-                      }
-                    </span>
-                    @if (isOwn()) {
-                      <a
-                        class="cp__outline cp__outline--sm"
-                        routerLink="/search"
-                        [queryParams]="{ tab: 'wishlist', wish: row.wishId }"
-                        [attr.aria-label]="'Edit ' + row.name"
-                      >
-                        <app-shell-icon name="pencil" [size]="16" />
-                        Edit
-                      </a>
-                    } @else if (row.cardId) {
-                      <button
-                        type="button"
-                        class="cp__have"
-                        [attr.aria-label]="haveLabel(row.name, p.handle)"
-                        (click)="haveIt.emit({ row, opener: $event.currentTarget })"
-                      >
-                        I have it
-                      </button>
-                    }
+                <app-shell-icon name="plus" [size]="18" />
+                Add cards
+              </a>
+              <a class="cp__see" routerLink="/inventory">See all</a>
+            } @else if (!cardsExpanded() && publicItemCount() > (publicItems()?.length ?? 0)) {
+              <button type="button" class="cp__see" (click)="moreCards.emit()">See all</button>
+            }
+          </div>
+          @if (publicItems(); as items) {
+            @if (items.length > 0) {
+              <ul class="cp__cards" aria-label="Public cards">
+                @for (item of items; track item.id) {
+                  <li class="cp__card">
+                    <a
+                      class="cp__card-link"
+                      [routerLink]="['/cards', item.card.id]"
+                      [queryParams]="item.printing.id ? { printing: item.printing.id } : {}"
+                    >
+                      <app-card-image
+                        class="cp__card-art"
+                        [src]="picture(item)"
+                        [game]="item.card.game"
+                        alt=""
+                      />
+                      <span class="cp__card-name">{{ item.card.name }}</span>
+                      <span class="cp__card-price">{{ price(item) || ' ' }}</span>
+                    </a>
                   </li>
                 }
               </ul>
+              @if (cardsExpanded() && cardsHasMore()) {
+                <div class="cp__more-row">
+                  <button
+                    type="button"
+                    class="cp__outline"
+                    [disabled]="cardsLoadingMore()"
+                    (click)="moreCards.emit()"
+                  >
+                    {{ cardsLoadingMore() ? 'Loading…' : 'Load more' }}
+                  </button>
+                </div>
+              }
+            } @else if (cardsFailed()) {
+              <p class="cp__muted" role="alert">
+                The cards could not load.
+                <button type="button" class="cp__text" (click)="retryCards.emit()">
+                  Try again
+                </button>
+              </p>
             } @else {
               <p class="cp__empty">
-                Add the cards you want: collectors see them here when you show your wishlist.
+                {{
+                  isOwn()
+                    ? 'Your public cards show here. Set a card to Public in Inventory.'
+                    : 'No public cards' +
+                      (cardGame() ? ' of ' + gameLabel(cardGame()!) : '') +
+                      ' yet.'
+                }}
               </p>
             }
-          </section>
+          } @else {
+            <div class="cp__cards cp__cards--bones" aria-busy="true">
+              <span class="visually-hidden">Loading the cards</span>
+              @for (bone of [0, 1, 2, 3, 4, 5]; track bone) {
+                <span class="cp__bone" aria-hidden="true"></span>
+              }
+            </div>
+          }
+        </section>
+
+        <!-- Binders: three cards (229 wide, 120 covers). -->
+        <section class="cp__section" aria-labelledby="collector-binders">
+          <div class="cp__section-head">
+            <h2 class="cp__h2" id="collector-binders">Binders</h2>
+            <span class="cp__spacer"></span>
+            @if (isOwn()) {
+              <a class="cp__see" routerLink="/inventory" [queryParams]="{ tab: 'binders' }"
+                >See all</a
+              >
+            } @else if ((binders()?.length ?? 0) > bindersPreview) {
+              <button
+                type="button"
+                class="cp__see"
+                [attr.aria-expanded]="allBinders()"
+                (click)="toggleBinders()"
+              >
+                {{ allBinders() ? 'Show fewer' : 'See all' }}
+              </button>
+            }
+          </div>
+          @if (binders(); as list) {
+            @if (list.length > 0) {
+              <ul class="cp__binders" aria-label="Public binders">
+                @for (binder of shownBinders(); track binder.id) {
+                  <li>
+                    <app-profile-binder-card [binder]="binder" />
+                  </li>
+                }
+              </ul>
+            } @else if (bindersFailed()) {
+              <p class="cp__muted" role="alert">
+                Public binders could not load.
+                <button type="button" class="cp__text" (click)="retryBinders.emit()">
+                  Try again
+                </button>
+              </p>
+            } @else {
+              <p class="cp__empty">
+                {{
+                  isOwn()
+                    ? 'Publish a binder so collectors of your region can see what you trade.'
+                    : 'When ' + p.handle + ' publishes a binder, it will show up here.'
+                }}
+              </p>
+            }
+          } @else {
+            <div class="cp__binders cp__binders--bones" aria-busy="true">
+              <span class="visually-hidden">Loading the binders</span>
+              @for (bone of [0, 1, 2]; track bone) {
+                <span class="cp__bone cp__bone--binder" aria-hidden="true"></span>
+              }
+            </div>
+          }
+        </section>
+
+        <!-- Looking for: rows of 64; "I have it" on someone else's, Edit on yours; no availability. -->
+        @if (lookingFor(); as rows) {
+          @if (rows.length > 0 || isOwn()) {
+            <section class="cp__section" aria-labelledby="collector-wishlist">
+              <div class="cp__section-head">
+                <h2 class="cp__h2" id="collector-wishlist">Looking for</h2>
+                <span class="cp__spacer"></span>
+                @if (isOwn()) {
+                  <a class="cp__see" routerLink="/search" [queryParams]="{ tab: 'wishlist' }"
+                    >See all</a
+                  >
+                } @else if (rows.length > wishesPreview) {
+                  <button
+                    type="button"
+                    class="cp__see"
+                    [attr.aria-expanded]="allWishes()"
+                    (click)="toggleWishes()"
+                  >
+                    {{ allWishes() ? 'Show fewer' : 'See all' }}
+                  </button>
+                }
+              </div>
+              @if (rows.length > 0) {
+                <ul
+                  class="cp__wishes"
+                  [attr.aria-label]="
+                    isOwn() ? 'Cards you are looking for' : 'Cards ' + p.handle + ' is looking for'
+                  "
+                >
+                  @for (
+                    row of isOwn() ? rows.slice(0, wishesPreview) : shownWishes();
+                    track row.key
+                  ) {
+                    <li class="cp__wish">
+                      <span class="cp__wish-art" aria-hidden="true">
+                        <app-card-image [src]="row.imageUrl" [game]="row.game" size="xs" alt="" />
+                      </span>
+                      <span class="cp__wish-text">
+                        @if (row.cardId) {
+                          <a class="cp__wish-name" [routerLink]="['/cards', row.cardId]">{{
+                            row.name
+                          }}</a>
+                        } @else {
+                          <span class="cp__wish-name">{{ row.name }}</span>
+                        }
+                        <span class="cp__wish-terms">
+                          @if (row.game) {
+                            <app-game-monogram [game]="row.game" [size]="16" />
+                          }
+                          {{ row.terms }}
+                        </span>
+                        @if (row.note) {
+                          <span class="cp__wish-note">{{ row.note }}</span>
+                        }
+                      </span>
+                      @if (isOwn()) {
+                        <a
+                          class="cp__outline cp__outline--sm"
+                          routerLink="/search"
+                          [queryParams]="{ tab: 'wishlist', wish: row.wishId }"
+                          [attr.aria-label]="'Edit ' + row.name"
+                        >
+                          <app-shell-icon name="pencil" [size]="16" />
+                          Edit
+                        </a>
+                      } @else if (row.cardId && p.canMessage) {
+                        <!-- Only when they take your messages (the header says so otherwise). -->
+                        <button
+                          type="button"
+                          class="cp__have"
+                          [attr.aria-label]="haveLabel(row.name, p.handle)"
+                          (click)="haveIt.emit({ row, opener: $event.currentTarget })"
+                        >
+                          I have it
+                        </button>
+                      }
+                    </li>
+                  }
+                </ul>
+              } @else {
+                <p class="cp__empty">
+                  Add the cards you want: collectors see them here when you show your wishlist.
+                </p>
+              }
+            </section>
+          }
         }
       }
     </div>

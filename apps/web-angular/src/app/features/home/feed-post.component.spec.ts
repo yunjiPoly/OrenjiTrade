@@ -103,7 +103,7 @@ describe('FeedPostComponent (spec 5.2, board W1)', () => {
       'Any printing · NM only · 85% TCG',
     );
     const button = element.querySelector<HTMLButtonElement>('[data-testid="feed-have-it"]')!;
-    expect(button.getAttribute('aria-label')).toBe('I have Ash Blossom. Message maya_k');
+    expect(button.getAttribute('aria-label')).toBe('I have it: Ash Blossom. Message maya_k');
     button.click();
     expect(offer).toHaveBeenCalledWith(
       'u1',

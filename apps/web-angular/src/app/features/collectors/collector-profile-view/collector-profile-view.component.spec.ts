@@ -102,7 +102,7 @@ describe('CollectorProfileViewComponent (spec 11, boards W23 and W23b)', () => {
     expect(wishes.textContent).toContain('LEDE-EN010 · NM only');
     expect(wishes.textContent).toContain('Fictional note');
     const have = wishes.querySelector<HTMLButtonElement>('.cp__have')!;
-    expect(have.getAttribute('aria-label')).toBe('I have Fiendsmith Engraver. Message maya_k');
+    expect(have.getAttribute('aria-label')).toBe('I have it: Fiendsmith Engraver. Message maya_k');
     const asked: unknown[] = [];
     fixture.componentInstance.haveIt.subscribe((event) => asked.push(event.row.cardId));
     have.click();
@@ -132,9 +132,24 @@ describe('CollectorProfileViewComponent (spec 11, boards W23 and W23b)', () => {
     expect(element.textContent).toContain('Location settings');
   });
 
-  it('a blocked collector reads as blocked, with Unblock', () => {
+  it('a blocked collector reads as blocked, with Unblock, and no list or error under it (U2)', () => {
     render(false, { isBlocked: true, canMessage: false });
     expect(element.querySelector('.cp__blocked')?.textContent).toContain('You blocked maya_k.');
     expect(element.querySelector('.cp__primary')).toBeNull();
+    expect(element.querySelector('[data-testid="collector-blocked-lists"]')?.textContent).toContain(
+      'Their cards, binders and wishes stay hidden while you block maya_k.',
+    );
+    expect(element.querySelector('#collector-cards, #collector-binders')).toBeNull();
+    expect(element.textContent).not.toMatch(/could not load|Try again/);
+  });
+
+  it('no "I have it" when the collector doesn\'t take your messages (F3)', () => {
+    render(false, { canMessage: false });
+    expect(element.querySelector('.cp__note')?.textContent).toContain(
+      "maya_k doesn't take messages from you.",
+    );
+    const wishes = element.querySelector('[aria-label="Cards maya_k is looking for"]')!;
+    expect(wishes.textContent).toContain('Fiendsmith Engraver');
+    expect(wishes.querySelector('.cp__have')).toBeNull();
   });
 });

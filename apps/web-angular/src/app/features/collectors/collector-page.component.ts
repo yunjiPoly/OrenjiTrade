@@ -1,3 +1,4 @@
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { DOCUMENT } from '@angular/common';
 import {
   ChangeDetectionStrategy,
@@ -200,6 +201,7 @@ export class CollectorPageComponent {
   private readonly toasts = inject(ToastService);
   private readonly gameContext = inject(GameContext);
   private readonly iHaveIt = inject(IHaveIt);
+  private readonly announcer = inject(LiveAnnouncer);
   protected readonly starter = inject(ConversationStarterService);
   protected readonly drawer = inject(ChatDrawer);
 
@@ -263,6 +265,10 @@ export class CollectorPageComponent {
   private scrolled = false;
   /** The first cards of every game (before the Cards split by game). */
   private firstCards: PublicInventoryItem[] | null = null;
+  /** After Block or Unblock reloads the profile, the focus goes back to "⋯" (A3). */
+  private refocusMore = false;
+  /** "See all" or "Load more" was pressed: the focus goes to the first new card once in (A4). */
+  private focusCardAt: number | null = null;
 
   constructor() {
     effect(() => {
@@ -276,7 +282,10 @@ export class CollectorPageComponent {
     });
   }
 
-  /** "Report": the Report collector modal with the PROFILE context. */
+  /**
+   * "Report": the Report collector modal with the PROFILE context. It opens from the "⋯" menu,
+   * whose item is gone once it closes: the focus goes back to "⋯", never to the page (A3).
+   */
   protected async report(profile: CollectorProfileResponse): Promise<void> {
     await this.reports.report(
       {
@@ -287,20 +296,35 @@ export class CollectorPageComponent {
       },
       { source: 'PROFILE' },
     );
+    this.focusMore();
   }
 
-  /** "Block": confirmation + `POST /users/{id}/block`, then the profile reloads (blocked state). */
+  /**
+   * "Block": confirmation + `POST /users/{id}/block`, then the profile reloads (blocked state);
+   * the focus goes back to "⋯" either way (A3).
+   */
   protected async block(profile: CollectorProfileResponse): Promise<void> {
     if (await this.blocks.block({ id: profile.id, displayName: profile.handle })) {
+      this.refocusMore = true;
+      await this.load();
+    } else {
+      this.focusMore();
+    }
+  }
+
+  /** "Unblock": `DELETE /users/{id}/block`, then the profile reloads (the focus on "⋯"). */
+  protected async unblock(profile: CollectorProfileResponse): Promise<void> {
+    if (await this.blocks.unblock({ id: profile.id, displayName: profile.handle })) {
+      this.refocusMore = true;
       await this.load();
     }
   }
 
-  /** "Unblock": `DELETE /users/{id}/block`, then the profile reloads. */
-  protected async unblock(profile: CollectorProfileResponse): Promise<void> {
-    if (await this.blocks.unblock({ id: profile.id, displayName: profile.handle })) {
-      await this.load();
-    }
+  private focusMore(): void {
+    afterNextRender(
+      () => this.doc.querySelector<HTMLElement>('[data-testid="collector-more"]')?.focus(),
+      { injector: this.injector },
+    );
   }
 
   /** "Share profile": the browser's share sheet when it has one, else the link copied. */
@@ -406,8 +430,13 @@ export class CollectorPageComponent {
     }
   }
 
-  /** "See all" (pages of 24 from the start) and then "Load more". */
+  /**
+   * "See all" (pages of 24 from the start) and then "Load more". "See all" goes away and "Load
+   * more" waits disabled, so the focus moves to the first card not shown before, once in (A4), and
+   * screen readers hear "More cards are shown." (A6).
+   */
   protected moreCards(handle: string): void {
+    this.focusCardAt = this.publicItems()?.length ?? 0;
     if (!this.cardsExpanded()) {
       this.loadCards(handle, true);
     } else if (this.cardsHasMore() && !this.cardsLoadingMore()) {
@@ -446,8 +475,10 @@ export class CollectorPageComponent {
             this.firstCards = items;
             this.splitByGame(handle);
           }
+          this.focusNewCards();
         },
         error: () => {
+          this.focusCardAt = null;
           this.cardsLoadingMore.set(false);
           if (!append) {
             this.publicItems.set([]);
@@ -455,6 +486,22 @@ export class CollectorPageComponent {
           }
         },
       });
+  }
+
+  private focusNewCards(): void {
+    const index = this.focusCardAt;
+    if (index === null) {
+      return;
+    }
+    this.focusCardAt = null;
+    void this.announcer.announce('More cards are shown.', 'polite');
+    afterNextRender(
+      () => {
+        const links = this.doc.querySelectorAll<HTMLElement>('.cp__cards .cp__card-link');
+        links[Math.min(index, links.length - 1)]?.focus();
+      },
+      { injector: this.injector },
+    );
   }
 
   /**
@@ -497,6 +544,23 @@ export class CollectorPageComponent {
           this.cardGame.set(null);
           this.cardGames.set([]);
           this.firstCards = null;
+          if (this.refocusMore) {
+            this.refocusMore = false;
+            this.focusMore();
+          }
+          if (profile.isBlocked) {
+            // Blocked by you: their cards, binders and wishes are not read at all (the view says
+            // they stay hidden), never "could not load" with a Try again that cannot work (U2).
+            this.listingsSubscription?.unsubscribe();
+            this.cardsSubscription?.unsubscribe();
+            this.binders.set([]);
+            this.bindersFailed.set(false);
+            this.lookingFor.set([]);
+            this.publicItems.set([]);
+            this.publicItemCount.set(0);
+            this.cardsFailed.set(false);
+            return;
+          }
           this.loadListings(profile.handle);
           this.loadCards(profile.handle, false);
         },

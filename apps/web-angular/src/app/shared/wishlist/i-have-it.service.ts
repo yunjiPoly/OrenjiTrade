@@ -23,9 +23,12 @@ export function iHaveItDraft(cardName: string): string {
   return `Hi! I have ${cardName}.`;
 }
 
-/** "I have Ash Blossom & Joyous Spring. Message theo.duels" (the button's name). */
+/**
+ * "I have it: Ash Blossom & Joyous Spring. Message theo.duels" (the button's name): it starts with
+ * the visible words "I have it" (SC 2.5.3, label in name: "click I have it" finds it).
+ */
 export function iHaveItLabel(cardName: string, handle: string | null | undefined): string {
-  return handle ? `I have ${cardName}. Message ${handle}` : `I have ${cardName}`;
+  return handle ? `I have it: ${cardName}. Message ${handle}` : `I have it: ${cardName}`;
 }
 
 /**
