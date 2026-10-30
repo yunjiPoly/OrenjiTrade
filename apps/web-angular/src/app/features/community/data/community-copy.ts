@@ -6,6 +6,11 @@
  * meeting, and nothing promises protection. English only (owner, 2026-10-20).
  */
 
+/** A text read as a sentence: a full stop only when it does not end with its own. */
+function sentence(text: string): string {
+  return /[.!?…]$/.test(text.trim()) ? text.trim() : `${text.trim()}.`;
+}
+
 /** The inbox column: the region pill, the five rooms and the footnote. */
 export const ROOMS_COPY = {
   heading: 'Game rooms',
@@ -23,7 +28,7 @@ export const ROOMS_COPY = {
     unread: boolean;
   }) =>
     `${input.name} room${input.open ? ', open' : ''}. ${
-      input.preview ? `Last post, ${input.when}: ${input.preview}.` : 'No posts yet.'
+      input.preview ? `Last post, ${input.when}: ${sentence(input.preview)}` : 'No posts yet.'
     }${input.unread ? ' New posts.' : ''}`,
   loadError: 'The rooms could not load',
   emptyTitle: (region: string) => `No rooms in ${region} yet`,

@@ -69,6 +69,13 @@ describe('RoomListComponent (spec 10.7, board W22)', () => {
     );
     expect(rows[1].textContent).toContain('No posts yet. Say hi!');
     expect(rows[1].getAttribute('aria-label')).toBe('Pokémon room. No posts yet.');
+    // A last post ending with its own punctuation gets no second full stop.
+    rooms.update((list) => [
+      { ...list[0], lastPost: { ...list[0].lastPost!, body: 'Offers welcome!' } },
+      list[1],
+    ]);
+    fixture.detectChanges();
+    expect(rows[0].getAttribute('aria-label')).toMatch(/lucas\.tcg: Offers welcome!$/);
     expect(element.querySelector('.rl__foot')?.textContent).toContain(
       'Every collector in Americas (North) can read these rooms. Keep deals and addresses in private chats.',
     );
