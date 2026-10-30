@@ -30,7 +30,7 @@ export interface PhotoViewerData {
           </h2>
           <p class="pv__sub" id="photo-viewer-sub">{{ data.handle }} · {{ data.meta }}</p>
         </div>
-        <button type="button" class="pv__icon" [attr.aria-label]="copy.close" mat-dialog-close>
+        <button type="button" class="pv__icon" [aria-label]="copy.close" mat-dialog-close>
           <app-shell-icon name="close" [size]="20" [stroke]="2" />
         </button>
       </div>

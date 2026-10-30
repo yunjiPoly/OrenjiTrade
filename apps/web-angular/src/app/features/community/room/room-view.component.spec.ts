@@ -155,9 +155,9 @@ describe('RoomViewComponent (spec 10.7, board W22)', () => {
   it('posts the text and its card; a refusal stays under the box with the text kept', async () => {
     await render();
     const view = fixture.componentInstance as unknown as {
-      onPost(draft: { text: string; attachment: null }): Promise<void>;
+      onPost(draft: { text: string; attachments: [] }): Promise<void>;
     };
-    await view.onPost({ text: ' Hello room ', attachment: null });
+    await view.onPost({ text: ' Hello room ', attachments: [] });
     expect(api['createCommunityPost']).toHaveBeenCalledWith(
       { slug: 'americas-north-yugioh', createPostRequest: { body: 'Hello room' } },
       'body',
@@ -174,7 +174,7 @@ describe('RoomViewComponent (spec 10.7, board W22)', () => {
           }),
       ),
     );
-    await view.onPost({ text: 'Hello room', attachment: null });
+    await view.onPost({ text: 'Hello room', attachments: [] });
     fixture.detectChanges();
     expect(element.querySelector('[data-testid="room-post-error"]')?.textContent).toContain(
       'You already posted this.',

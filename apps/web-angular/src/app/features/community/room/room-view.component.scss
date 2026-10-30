@@ -15,12 +15,38 @@
 }
 
 .room__chat {
+  position: relative;
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
   background: var(--color-background);
+}
+
+/* "Skip to the message box" (WF review A5): hidden until focused, then over the banner. */
+.room__skip {
+  position: absolute;
+  top: 76px;
+  left: 50%;
+  z-index: 5;
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  white-space: nowrap;
+  transform: translate(-50%, 0);
+  clip-path: inset(50%);
+
+  &:focus,
+  &:focus-visible {
+    clip-path: none;
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: var(--focus-offset);
+  }
 }
 
 .room__head {

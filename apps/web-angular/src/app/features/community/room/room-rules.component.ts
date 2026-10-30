@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  inject,
+  input,
+  output,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import {
   ShellIconComponent,
@@ -226,6 +233,8 @@ const RULE_ICONS: readonly ShellIconName[] = ['heart', 'messageSquare', 'star', 
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RoomRulesComponent {
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+
   /** The heading's id (the pane or the drawer is named by it). */
   readonly titleId = input('room-rules-title');
   readonly blocked = input<readonly BlockedAuthor[]>([]);
@@ -234,4 +243,17 @@ export class RoomRulesComponent {
 
   protected readonly copy = RULES_COPY;
   protected readonly icons = RULE_ICONS;
+
+  /**
+   * After an "Unblock" left (WF review U7): the focus on the Unblock now at `index` (the next one),
+   * else the one before, else the rules' close button.
+   */
+  focusAfterUnblock(index: number): void {
+    const element = this.host.nativeElement;
+    const buttons = [...element.querySelectorAll<HTMLElement>('.rr__unblock')];
+    const target =
+      buttons[Math.min(index, buttons.length - 1)] ??
+      element.querySelector<HTMLElement>('[data-testid="room-rules-close"]');
+    target?.focus();
+  }
 }

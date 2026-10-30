@@ -39,6 +39,11 @@
       <app-shell-icon name="shieldCheck" [size]="16" [stroke]="2" />
       <span>{{ copy.banner }}</span>
     </p>
+    @if (store.status() === 'ready' && items().length > 0) {
+      <a class="room__skip" href="#" data-testid="room-skip" (click)="skipToComposer($event)">{{
+        copy.skipToComposer
+      }}</a>
+    }
 
     <div class="room__body" #scroller>
       @switch (store.status()) {
@@ -49,7 +54,7 @@
               retryLabel="Try again"
               [message]="store.errorMessage()"
               [requestId]="store.error()?.requestId ?? null"
-              (retry)="store.load()"
+              (retry)="reload()"
             />
           </div>
         }
@@ -77,6 +82,7 @@
             [class.room__log--empty]="items().length === 0"
             role="log"
             aria-relevant="additions"
+            [attr.aria-live]="quietLog() ? 'off' : null"
             [attr.aria-label]="copy.postsLabel(r.name)"
             data-testid="room-log"
           >
@@ -153,6 +159,7 @@
         [retryable]="!!refusal()?.retryable"
         (post)="onPost($event)"
         (retry)="retry()"
+        (edited)="onEdited()"
         (share)="openShare($event)"
       />
     }

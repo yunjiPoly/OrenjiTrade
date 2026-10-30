@@ -22,7 +22,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { Router } from '@angular/router';
 import type { CommunityChannel, PostResponse } from '@orenji/api-client';
 import { firstValueFrom } from 'rxjs';
-import { ToastService } from '../../../core/feedback/toast.service';
+import { ToastRef, ToastService } from '../../../core/feedback/toast.service';
 import { ShellIconComponent } from '../../../core/layout/shell-icon/shell-icon.component';
 import { ShellLayout } from '../../../core/layout/shell-layout.service';
 import { BlockActionsService } from '../../../shared/messaging/block-actions.service';
@@ -111,6 +111,7 @@ export class RoomViewComponent {
   private readonly scroller = viewChild<ElementRef<HTMLElement>>('scroller');
   private readonly composer = viewChild(RoomComposerComponent);
   private readonly postViews = viewChildren(RoomPostComponent);
+  private readonly rulesView = viewChild(RoomRulesComponent);
 
   readonly room = input.required<CommunityChannel>();
   /** "Americas (North)". */
@@ -126,8 +127,19 @@ export class RoomViewComponent {
   protected readonly now = signal(new Date());
   protected readonly refusal = signal<PostRefusal | null>(null);
   protected readonly blocked = signal<BlockedAuthor[]>([]);
+  /**
+   * The log's live updates are off while older posts are put above (WF review A3): a screen
+   * reader hears one summary, not every old post as if it had just arrived.
+   */
+  protected readonly quietLog = signal(false);
   private lastDraft: RoomDraft | null = null;
   private scrolledFor: string | null = null;
+  /** The log was at its end (the newest post in view) before its height changed. */
+  private pinned = true;
+  /** "Try again" after the posts failed: the focus goes to the message box once they are in. */
+  private focusAfterLoad = false;
+  /** The "{h} is blocked" toast of each author, until Undo or Unblock (WF review U7). */
+  private readonly blockToasts = new Map<string, ToastRef>();
 
   protected readonly rulesMode = computed<RulesMode>(() =>
     this.layout.narrow() ? 'sheet' : this.layout.medium() ? 'drawer' : 'pane',
@@ -156,6 +168,10 @@ export class RoomViewComponent {
       const slug = this.store.slug();
       const posts = this.store.posts();
       untracked(() => {
+        if (status === 'disabled') {
+          // The community was turned off: the rooms list says so too (WF review P2).
+          this.rooms.refresh();
+        }
         if (status !== 'ready' || !slug) {
           return;
         }
@@ -164,9 +180,36 @@ export class RoomViewComponent {
           this.scrolledFor = slug;
           this.scrollToEnd();
         }
+        if (this.focusAfterLoad) {
+          this.focusAfterLoad = false;
+          this.keepFocus(() => this.composer()?.focus());
+        }
       });
     });
-    // Rooms have no push: the open room reads its first page again every 15 s while on screen.
+    // The message box grows (a second line, a refusal): the newest post stays in view when the
+    // log was at its end (WF review U9).
+    effect((onCleanup) => {
+      const element = this.scroller()?.nativeElement;
+      const Observer = this.document.defaultView?.ResizeObserver;
+      if (!element) {
+        return;
+      }
+      const onScroll = () => (this.pinned = this.nearEnd());
+      element.addEventListener('scroll', onScroll, { passive: true });
+      const observer = Observer
+        ? new Observer(() => {
+            if (this.pinned) {
+              element.scrollTop = element.scrollHeight;
+            }
+          })
+        : null;
+      observer?.observe(element);
+      onCleanup(() => {
+        element.removeEventListener('scroll', onScroll);
+        observer?.disconnect();
+      });
+    });
+    // Rooms have no push: the open room reads its pages again every 15 s while on screen.
     const poll = setInterval(() => void this.poll(), ROOM_POLL_MS);
     const onVisible = () => {
       if (this.document.visibilityState === 'visible') {
@@ -195,7 +238,11 @@ export class RoomViewComponent {
   protected async loadOlder(): Promise<void> {
     const scroller = this.scroller()?.nativeElement;
     const before = scroller ? scroller.scrollHeight - scroller.scrollTop : 0;
+    const shown = new Set(this.store.posts().map((post) => post.id));
+    // Older posts are not news: the log is quiet while they are put above (WF review A3).
+    this.quietLog.set(true);
     await this.store.loadOlder();
+    const added = this.store.posts().filter((post) => !shown.has(post.id));
     // The posts already read stay where they were under the older ones.
     afterNextRender(
       () => {
@@ -203,9 +250,36 @@ export class RoomViewComponent {
         if (element) {
           element.scrollTop = element.scrollHeight - before;
         }
+        // The last "Show older posts" left with the focus: the first post it showed takes it
+        // (WF review A2).
+        const first = added.at(-1);
+        if (first) {
+          this.keepFocus(() =>
+            this.postViews()
+              .find((view) => view.post().id === first.id)
+              ?.focusHandle(),
+          );
+        }
+        // Live again once the older posts are in, then one summary.
+        setTimeout(() => this.quietLog.set(false));
+        if (added.length > 0) {
+          void this.announcer.announce(ROOM_COPY.olderShown(added.length), 'polite');
+        }
       },
       { injector: this.injector },
     );
+  }
+
+  /** "Try again" after the posts failed to load. */
+  protected reload(): void {
+    this.focusAfterLoad = true;
+    this.store.load();
+  }
+
+  /** "Skip to the message box" (WF review A5): past the posts in one key. */
+  protected skipToComposer(event: Event): void {
+    event.preventDefault();
+    this.composer()?.focus();
   }
 
   private async poll(): Promise<void> {
@@ -219,6 +293,14 @@ export class RoomViewComponent {
       if (atEnd) {
         this.scrollToEnd();
       }
+    }
+  }
+
+  /** After a control that held the focus left the page: `move` gives it a stable place. */
+  private keepFocus(move: () => void): void {
+    const active = this.document.activeElement;
+    if (!active || active === this.document.body || !active.isConnected) {
+      move();
     }
   }
 
@@ -252,10 +334,18 @@ export class RoomViewComponent {
 
   // --- posting -------------------------------------------------------------------------------
 
+  /** The text changed: a refusal of the earlier text no longer applies (WF review F4). */
+  protected onEdited(): void {
+    if (this.refusal()) {
+      this.refusal.set(null);
+      this.lastDraft = null;
+    }
+  }
+
   protected async onPost(draft: RoomDraft): Promise<void> {
     this.refusal.set(null);
     this.lastDraft = draft;
-    const refusal = await this.store.create(postRequest(draft.text, draft.attachment));
+    const refusal = await this.store.create(postRequest(draft.text, draft.attachments));
     if (refusal) {
       this.refusal.set(refusal);
       return;
@@ -372,6 +462,7 @@ export class RoomViewComponent {
       sub: ROOM_BLOCK_COPY.doneSub,
       action: ROOM_BLOCK_COPY.undo,
     });
+    this.blockToasts.set(author.id, toast);
     toast.onAction().subscribe(() => void this.unblock(author));
   }
 
@@ -381,7 +472,11 @@ export class RoomViewComponent {
     ) {
       return;
     }
+    const index = this.blocked().findIndex((item) => item.id === author.id);
     this.blocked.update((list) => list.filter((item) => item.id !== author.id));
+    // The block's "Undo" no longer applies once unblocked from Room rules (WF review U7).
+    this.blockToasts.get(author.id)?.dismiss();
+    this.blockToasts.delete(author.id);
     this.toasts.show({
       title: ROOM_BLOCK_COPY.unblocked(author.handle),
       sub: ROOM_BLOCK_COPY.unblockedSub,
@@ -389,6 +484,11 @@ export class RoomViewComponent {
     // Their posts come back: the room and the list are read again.
     this.store.load();
     this.rooms.refresh();
+    // The "Unblock" pressed left: the next one, else the rules' close button (WF review U7).
+    afterNextRender(
+      () => this.keepFocus(() => this.rulesView()?.focusAfterUnblock(Math.max(index, 0))),
+      { injector: this.injector },
+    );
   }
 
   private async delete(post: PostResponse): Promise<void> {

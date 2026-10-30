@@ -127,7 +127,17 @@ export function reportPostExcerpt(text: string): string {
       </mat-dialog-actions>
     } @else {
       @if (data.post) {
-        <h2 mat-dialog-title>Report this post</h2>
+        <!-- Board W22: the header's Close beside the title (WF review U11). -->
+        <h2 mat-dialog-title class="title--closable">Report this post</h2>
+        <button
+          type="button"
+          class="close"
+          aria-label="Close"
+          mat-dialog-close
+          data-testid="report-close"
+        >
+          <mat-icon aria-hidden="true">close</mat-icon>
+        </button>
       } @else {
         <h2 mat-dialog-title>Report {{ data.target.handle || data.target.displayName }}</h2>
       }
@@ -171,6 +181,7 @@ export function reportPostExcerpt(text: string): string {
           @if (reasons.reasons(); as options) {
             <mat-radio-group
               class="reasons"
+              [class.reasons--lines]="!!data.post"
               [formControl]="reason"
               [attr.aria-labelledby]="ids.question"
               required
@@ -225,8 +236,13 @@ export function reportPostExcerpt(text: string): string {
 
           <p class="privacy">
             <mat-icon aria-hidden="true">lock</mat-icon>
-            Reports are confidential and reviewed by the OrenjiTrade moderation team. False reports
-            can lead to action on your own account.
+            @if (data.post) {
+              Reports are confidential: they are never told who reported them. False reports can
+              lead to action on your own account.
+            } @else {
+              Reports are confidential and reviewed by the OrenjiTrade moderation team. False
+              reports can lead to action on your own account.
+            }
           </p>
 
           @if (problem(); as problem) {
@@ -249,6 +265,50 @@ export function reportPostExcerpt(text: string): string {
     }
   `,
   styles: `
+    :host {
+      position: relative;
+      display: block;
+    }
+    .title--closable {
+      padding-right: 64px;
+    }
+    .close {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      display: grid;
+      place-items: center;
+      width: 36px;
+      height: 36px;
+      border: 0;
+      border-radius: 50%;
+      background: none;
+      color: var(--color-ink);
+      cursor: pointer;
+    }
+    .close:hover {
+      background: var(--color-surface-variant);
+    }
+    .close:focus-visible {
+      outline: var(--focus-width) solid var(--color-focus-ring);
+      outline-offset: -2px;
+    }
+    /* A post's report (board W22): compact rows divided by lines, no boxes. */
+    .reasons--lines {
+      gap: 0;
+    }
+    .reasons--lines .reason,
+    .reasons--lines .reason:hover,
+    .reasons--lines .reason--on {
+      padding: 2px 0 6px;
+      border: 0;
+      border-top: 1px solid var(--color-border);
+      border-radius: 0;
+      background: none;
+    }
+    .reasons--lines .reason:first-child {
+      border-top: 0;
+    }
     .hint {
       margin-right: auto;
       color: var(--color-text-muted);

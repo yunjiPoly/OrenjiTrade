@@ -3,6 +3,7 @@ import {
   AdminCommunityService,
   CommunityService,
   CreatePostRequest,
+  CursorPagePostResponse,
   PostResponse,
 } from '@orenji/api-client';
 import { Subscription, firstValueFrom } from 'rxjs';
@@ -10,7 +11,19 @@ import { SessionService } from '../../../core/auth/session.service';
 import { ApiError, toApiError } from '../../../core/http/api-error';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
 import { silentErrors } from '../../../core/http/http-context';
-import { POSTS_PAGE, isRetryable, mergePosts, postErrorMessage } from './community-rules';
+import {
+  POSTS_PAGE,
+  comparePosts,
+  isRetryable,
+  mergePosts,
+  postErrorMessage,
+} from './community-rules';
+
+/**
+ * At most this many pages are read again on a refresh (600 posts): older pages shown beyond them
+ * stay as they were until the next load.
+ */
+export const REFRESH_MAX_PAGES = 20;
 
 export type RoomStatus = 'idle' | 'loading' | 'ready' | 'error' | 'not-found' | 'disabled';
 
@@ -23,9 +36,10 @@ export interface PostRefusal {
 /**
  * One community room (stage WF, spec 10.7, board W22): its posts newest first in cursor pages
  * (`GET /community/channels/{slug}/posts`; blocks both ways, suspended authors, removed and
- * deleted posts are left out by the API), older pages on request, the first page read again while
- * the room is on screen (rooms have no push: the phone asks every 15 s too), and the writes: a
- * post, an edit, a delete, a moderator's removal. No reply threads (spec 10.7).
+ * deleted posts are left out by the API), older pages on request, every page shown read again
+ * while the room is on screen (rooms have no push: the phone's infinite query reads its pages again
+ * every 15 s too; WF review P1), and the writes: a post, an edit, a delete, a moderator's removal.
+ * No reply threads (spec 10.7).
  *
  * Provided by the room view.
  */
@@ -45,6 +59,8 @@ export class RoomStore {
   private readonly postingState = signal(false);
   private nextCursor: string | null = null;
   private request: Subscription | null = null;
+  /** Counts the changes made here (a page, a post, a block): a refresh read before one is dropped. */
+  private changes = 0;
 
   readonly slug = this.slugState.asReadonly();
   /** Newest first, as the API pages them. */
@@ -79,6 +95,7 @@ export class RoomStore {
       return;
     }
     this.request?.unsubscribe();
+    this.changes++;
     this.postsState.set([]);
     this.nextCursor = null;
     this.hasOlderState.set(false);
@@ -108,40 +125,62 @@ export class RoomStore {
   }
 
   /**
-   * Reads the first page again and merges it (posts made meanwhile appear at the bottom; a post
-   * deleted, removed or hidden by a block since leaves when it was on that page). Quiet: keeps
-   * what is shown on failure. Resolves whether something changed.
+   * Reads again every page shown, newest first, following the cursors down to the oldest post
+   * shown (as the phone's infinite query does), and replaces the list: posts made meanwhile
+   * appear at the bottom, and a post deleted, removed, hidden by a block (made here or elsewhere,
+   * either way) or by its author's suspension leaves, on whichever page it was (WF review P1).
+   * Quiet: keeps what is shown on failure, and drops a read that a change made here overtook (the
+   * next one applies). Resolves whether something changed.
    */
   async refresh(): Promise<boolean> {
     const slug = this.slugState();
-    if (!slug || this.statusState() !== 'ready') {
+    if (!slug || this.statusState() !== 'ready' || this.loadingOlderState()) {
       return false;
     }
+    const changes = this.changes;
+    const shown = this.postsState();
+    const oldestShown = shown.at(-1) ?? null;
     try {
-      const page = await firstValueFrom(
-        this.api.listCommunityPosts({ slug, limit: POSTS_PAGE }, 'body', false, {
-          context: silentErrors(),
-        }),
-      );
-      if (slug !== this.slugState()) {
-        return false;
+      const read: PostResponse[] = [];
+      let cursor: string | null = null;
+      let more = false;
+      let covered = false;
+      for (let pages = 0; pages < REFRESH_MAX_PAGES; pages++) {
+        const page: CursorPagePostResponse = await firstValueFrom(
+          this.api.listCommunityPosts(
+            cursor ? { slug, limit: POSTS_PAGE, cursor } : { slug, limit: POSTS_PAGE },
+            'body',
+            false,
+            { context: silentErrors() },
+          ),
+        );
+        if (slug !== this.slugState() || changes !== this.changes) {
+          return false;
+        }
+        const items = page.items ?? [];
+        read.push(...items);
+        cursor = page.nextCursor ?? null;
+        more = !!page.hasMore && !!cursor;
+        const last = items.at(-1);
+        // Done once the room has no more, or the read reached the oldest post shown.
+        if (!more || !last || !oldestShown || comparePosts(last, oldestShown) >= 0) {
+          covered = true;
+          break;
+        }
       }
-      const fresh = page.items ?? [];
-      const freshIds = new Set(fresh.map((post) => post.id));
-      const oldest = fresh.at(-1)?.createdAt ?? '';
-      // The first page replaces what it covers; the older pages already shown stay.
-      const older = this.postsState().filter(
-        (post) => !freshIds.has(post.id) && !!page.hasMore && post.createdAt < oldest,
-      );
-      const before = this.postsState()
-        .map((post) => post.id + (post.editedAt ?? ''))
-        .join();
-      const next = mergePosts(older, fresh);
+      const lastRead = read.at(-1);
+      // Past the pages read again (a very long scroll back), the posts shown stay as they were.
+      const beyond =
+        covered || !lastRead ? [] : shown.filter((post) => comparePosts(post, lastRead) > 0);
+      const next = mergePosts(beyond, read);
+      const signature = (posts: readonly PostResponse[]) =>
+        posts.map((post) => `${post.id}:${post.editedAt ?? ''}`).join();
+      const changed = signature(shown) !== signature(next);
       this.postsState.set(next);
-      if (!page.hasMore) {
-        this.setCursor(null, false);
+      if (covered) {
+        this.setCursor(cursor, more);
       }
-      return before !== next.map((post) => post.id + (post.editedAt ?? '')).join();
+      return changed;
     } catch (error) {
       if (toApiError(error).errorCode === 'FEATURE_DISABLED') {
         this.statusState.set('disabled');
@@ -157,6 +196,7 @@ export class RoomStore {
     }
     this.loadingOlderState.set(true);
     this.olderFailedState.set(false);
+    this.changes++;
     try {
       const page = await firstValueFrom(
         this.api.listCommunityPosts(
@@ -192,6 +232,7 @@ export class RoomStore {
         }),
       );
       if (slug === this.slugState()) {
+        this.changes++;
         this.postsState.update((posts) => mergePosts(posts, [post]));
       }
       return null;
@@ -211,6 +252,7 @@ export class RoomStore {
           context: silentErrors(),
         }),
       );
+      this.changes++;
       this.postsState.update((posts) => posts.map((item) => (item.id === post.id ? post : item)));
       return null;
     } catch (error) {
@@ -248,10 +290,12 @@ export class RoomStore {
 
   /** The posts of a collector the caller just blocked leave the room at once. */
   hideAuthor(authorId: string): void {
+    this.changes++;
     this.postsState.update((posts) => posts.filter((post) => post.author.id !== authorId));
   }
 
   private drop(id: string): void {
+    this.changes++;
     this.postsState.update((posts) => posts.filter((post) => post.id !== id));
   }
 

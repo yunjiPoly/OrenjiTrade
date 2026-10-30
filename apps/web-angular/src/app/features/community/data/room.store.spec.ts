@@ -2,7 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { AdminCommunityService, CommunityService } from '@orenji/api-client';
-import { of, throwError } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
 import { SessionService } from '../../../core/auth/session.service';
 import { fixturePost } from '../testing/community-fixtures';
 import { POSTS_PAGE } from './community-rules';
@@ -92,11 +92,15 @@ describe('RoomStore (web WF)', () => {
     expect(store.status()).toBe('error');
   });
 
-  it('reads the first page again: new posts join, older pages stay, and reports a change', async () => {
+  it('reads the first page again: new posts join, a post gone leaves, and reports a change', async () => {
     store.open('americas-north-yugioh');
     api['listCommunityPosts'].mockReturnValue(
       of({
-        items: [fixturePost('c', '2026-10-30T12:00:00Z'), fixturePost('b', '2026-10-30T10:00:00Z')],
+        items: [
+          fixturePost('c', '2026-10-30T12:00:00Z'),
+          fixturePost('b', '2026-10-30T10:00:00Z'),
+          fixturePost('a', '2026-10-30T09:00:00Z'),
+        ],
         hasMore: true,
         nextCursor: 'x',
       }),
@@ -110,6 +114,70 @@ describe('RoomStore (web WF)', () => {
     );
     expect(await store.refresh()).toBe(true);
     expect(store.posts().map((post) => post.id)).toEqual(['c']);
+    expect(store.hasOlder()).toBe(false);
+  });
+
+  it('reads every page shown again: a post gone from an older page leaves (WF review P1)', async () => {
+    store.open('americas-north-yugioh');
+    api['listCommunityPosts'].mockReturnValue(
+      of({
+        items: [
+          fixturePost('old2', '2026-10-29T09:00:00Z'),
+          fixturePost('old1', '2026-10-29T08:00:00Z'),
+        ],
+        nextCursor: 'older-2',
+        hasMore: true,
+      }),
+    );
+    await store.loadOlder();
+    expect(store.posts().map((post) => post.id)).toEqual(['b', 'a', 'old2', 'old1']);
+    // Meanwhile a moderator removed old2, and the author of a blocked the reader elsewhere.
+    api['listCommunityPosts'].mockImplementation((request: { cursor?: string }) =>
+      of(
+        request.cursor === 'p2'
+          ? {
+              items: [fixturePost('old1', '2026-10-29T08:00:00Z')],
+              nextCursor: 'p3',
+              hasMore: true,
+            }
+          : { items: [fixturePost('b', '2026-10-30T10:00:00Z')], nextCursor: 'p2', hasMore: true },
+      ),
+    );
+    expect(await store.refresh()).toBe(true);
+    const calls = api['listCommunityPosts'].mock.calls.slice(-2).map((call) => call[0]);
+    expect(calls).toEqual([
+      { slug: 'americas-north-yugioh', limit: POSTS_PAGE },
+      { slug: 'americas-north-yugioh', limit: POSTS_PAGE, cursor: 'p2' },
+    ]);
+    expect(store.posts().map((post) => post.id)).toEqual(['b', 'old1']);
+    // "Show older posts" goes on from the last page read again.
+    expect(store.hasOlder()).toBe(true);
+    api['listCommunityPosts'].mockReturnValue(of({ items: [], hasMore: false }));
+    await store.loadOlder();
+    expect(api['listCommunityPosts']).toHaveBeenLastCalledWith(
+      { slug: 'americas-north-yugioh', limit: POSTS_PAGE, cursor: 'p3' },
+      'body',
+      false,
+      expect.anything(),
+    );
+  });
+
+  it('drops a read that a change made here overtook (the next refresh applies)', async () => {
+    store.open('americas-north-yugioh');
+    let answer!: (page: unknown) => void;
+    api['listCommunityPosts'].mockReturnValue(
+      new Observable((subscriber) => {
+        answer = (page) => {
+          subscriber.next(page);
+          subscriber.complete();
+        };
+      }),
+    );
+    const pending = store.refresh();
+    expect(await store.create({ body: 'Hello' })).toBeNull();
+    answer({ items: [fixturePost('b', '2026-10-30T10:00:00Z')], hasMore: false });
+    expect(await pending).toBe(false);
+    expect(store.posts().map((post) => post.id)).toEqual(['mine', 'b', 'a']);
   });
 
   it('a post joins the room; a refusal says why, and only a network error is retried', async () => {

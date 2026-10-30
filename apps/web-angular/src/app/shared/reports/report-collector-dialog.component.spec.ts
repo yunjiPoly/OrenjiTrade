@@ -146,6 +146,14 @@ describe('ReportCollectorDialogComponent', () => {
     expect(preview.textContent).toContain('Ontario · 9:31 AM');
     expect(preview.textContent).toContain('Sorted my trade binder last night.');
     expect(element.textContent).toContain('Why are you reporting it?');
+    // Board W22 (WF review U11): Close in the header, rows divided by lines, its own words.
+    const close = element.querySelector<HTMLButtonElement>('[data-testid="report-close"]')!;
+    expect(close.getAttribute('aria-label')).toBe('Close');
+    expect(close.hasAttribute('mat-dialog-close')).toBe(true);
+    expect(element.querySelector('.reasons')?.classList).toContain('reasons--lines');
+    expect(element.querySelector('.privacy')?.textContent).toContain(
+      'Reports are confidential: they are never told who reported them.',
+    );
     await choose('SPAM');
     await confirm();
     const [request] = reportCollector.mock.calls[0];

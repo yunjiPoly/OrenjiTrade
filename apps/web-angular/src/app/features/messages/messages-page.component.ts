@@ -1,11 +1,17 @@
+import { DOCUMENT } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
+  Injector,
+  afterNextRender,
   computed,
   effect,
   inject,
   input,
+  signal,
+  untracked,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -71,6 +77,8 @@ import { RealtimeStatusComponent } from './realtime-status/realtime-status.compo
           [class.messages--chat]="layout.inChat()"
           [split]="split()"
           [conversationId]="id() ?? null"
+          [focusChat]="chatFocus()"
+          (chatFocused)="chatFocus.set(null)"
           (openedChange)="onOpened($event)"
         >
           <header inboxHeader class="inbox-head">
@@ -177,6 +185,14 @@ export class MessagesPageComponent {
   private readonly unread = inject(UnreadChats);
   private readonly region = inject(RegionContext);
   private readonly game = inject(GameContext);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
+  private readonly document = inject(DOCUMENT);
+
+  /** A chat opened from a community room: it takes the focus once on screen (WF review A2). */
+  protected readonly chatFocus = signal<string | null>(null);
+  /** Whether Community was shown (`undefined`: nothing yet). */
+  private shownCommunity: boolean | undefined = undefined;
 
   /** `:id` route parameter (withComponentInputBinding). */
   readonly id = input<string | undefined>();
@@ -231,6 +247,37 @@ export class MessagesPageComponent {
       ),
     );
     inject(DestroyRef).onDestroy(() => this.layout.setChatOpen(false));
+    // Chats | Community swap the whole column, the tabs with it: the focus would fall to the page
+    // (WF review U8). It goes to the tab now active, or to the chat a room's "Message {h}" opened.
+    effect(() => {
+      const community = this.showCommunity();
+      untracked(() => {
+        const previous = this.shownCommunity;
+        this.shownCommunity = community;
+        if (previous === undefined || previous === community) {
+          return;
+        }
+        const id = this.id();
+        if (!community && id) {
+          this.chatFocus.set(id);
+          return;
+        }
+        afterNextRender(
+          () => {
+            const active = this.document.activeElement;
+            if (active && active !== this.document.body && active.isConnected) {
+              return;
+            }
+            this.host.nativeElement
+              .querySelector<HTMLElement>(
+                `[data-testid="tab-link-${community ? 'community' : 'chats'}"]`,
+              )
+              ?.focus();
+          },
+          { injector: this.injector },
+        );
+      });
+    });
   }
 
   protected onOpened(id: string | null): void {

@@ -6,8 +6,10 @@ import {
   inject,
   input,
   output,
+  signal,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { KeyboardPrefs } from '../../../core/keyboard/keyboard-prefs.service';
 import { RegionPillComponent } from '../../../core/layout/region-pill/region-pill.component';
 import { ShellIconComponent } from '../../../core/layout/shell-icon/shell-icon.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
@@ -33,7 +35,8 @@ interface RoomRow {
  * "Game rooms" and the five rooms of the region (64 rows: a 38 tile, the game, the last post and
  * its time; bold with an orange dot while someone else posted since the last visit in this
  * browser), then the footnote "Every collector in {region} can read these rooms…". Skeleton rows,
- * an error with "Try again", "The community is closed right now". ↑ and ↓ move between rooms.
+ * an error with "Try again", "The community is closed right now". The list is one Tab stop (a
+ * roving tabindex, as the Chats list): ↑ ↓, j k, Home and End move between the rooms (WF review A4).
  */
 @Component({
   selector: 'app-room-list',
@@ -54,7 +57,6 @@ interface RoomRow {
         @case ('error') {
           <div class="rl__pad">
             <app-error-state
-              compact
               [title]="copy.loadError"
               retryLabel="Try again"
               (retry)="retry.emit()"
@@ -86,9 +88,10 @@ interface RoomRow {
                     [attr.aria-current]="row.open ? 'page' : null"
                     [attr.aria-label]="row.label"
                     [attr.data-room]="row.slug"
+                    [attr.tabindex]="row.slug === tabStop() ? 0 : -1"
                     data-testid="room-row"
-                    (keydown.arrowdown)="move(i + 1, $event)"
-                    (keydown.arrowup)="move(i - 1, $event)"
+                    (focus)="roving.set(row.slug)"
+                    (keydown)="onKeydown($event, i)"
                   >
                     @if (row.game) {
                       <app-game-monogram class="rl__tile" [game]="row.game" [size]="38" />
@@ -137,6 +140,7 @@ interface RoomRow {
 export class RoomListComponent {
   protected readonly store = inject(CommunityRoomsStore);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly prefs = inject(KeyboardPrefs);
 
   /** The open room's slug (`null`: none). */
   readonly openSlug = input<string | null>(null);
@@ -180,6 +184,19 @@ export class RoomListComponent {
     });
   });
 
+  /** The row that last had the focus (the arrows and j k move it). */
+  protected readonly roving = signal<string | null>(null);
+  /** The list's one Tab stop: the row last focused, else the open room's, else the first. */
+  protected readonly tabStop = computed(() => {
+    const rows = this.rows();
+    for (const slug of [this.roving(), this.openSlug()]) {
+      if (slug && rows.some((row) => row.slug === slug)) {
+        return slug;
+      }
+    }
+    return rows[0]?.slug ?? null;
+  });
+
   /** The focus on a room's row (the open one by default; Esc in a room comes back here). */
   focusRow(slug?: string | null): boolean {
     const rows = [...this.host.nativeElement.querySelectorAll<HTMLElement>('.rl__row')];
@@ -189,12 +206,25 @@ export class RoomListComponent {
     return !!row;
   }
 
-  protected move(index: number, event: Event): void {
-    const rows = [...this.host.nativeElement.querySelectorAll<HTMLElement>('.rl__row')];
-    const row = rows[index];
-    if (row) {
-      event.preventDefault();
-      row.focus();
+  protected onKeydown(event: KeyboardEvent, index: number): void {
+    // j and k are single-key shortcuts: off with Settings › Appearance's switch (decision 24).
+    const letters = this.prefs.singleKeys();
+    const down = event.key === 'ArrowDown' || (letters && event.key === 'j');
+    const up = event.key === 'ArrowUp' || (letters && event.key === 'k');
+    if (!down && !up && event.key !== 'Home' && event.key !== 'End') {
+      return;
     }
+    if (event.ctrlKey || event.metaKey || event.altKey) {
+      return;
+    }
+    const rows = [...this.host.nativeElement.querySelectorAll<HTMLElement>('.rl__row')];
+    event.preventDefault();
+    const next =
+      event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? rows.length - 1
+          : Math.min(rows.length - 1, Math.max(0, index + (down ? 1 : -1)));
+    rows[next]?.focus();
   }
 }

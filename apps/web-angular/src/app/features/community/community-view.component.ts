@@ -2,6 +2,7 @@ import { DOCUMENT } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   Injector,
   afterNextRender,
   computed,
@@ -18,7 +19,7 @@ import { EmptyStateComponent } from '../../shared/ui/empty-state/empty-state.com
 import { SkeletonComponent } from '../../shared/ui/skeleton/skeleton.component';
 import { ROOM_COPY, ROOMS_COPY } from './data/community-copy';
 import { CommunityRoomsStore } from './data/community-rooms.store';
-import { gameOfSlug, regionOfSlug, roomSlug } from './data/community-rules';
+import { ROOM_POLL_MS, gameOfSlug, regionOfSlug, roomSlug } from './data/community-rules';
 import { RoomListComponent } from './room-list/room-list.component';
 import { RoomViewComponent } from './room/room-view.component';
 
@@ -37,13 +38,24 @@ import { RoomViewComponent } from './room/room-view.component';
   providers: [CommunityRoomsStore],
   template: `
     <div class="cv" [class.cv--split]="split()">
-      @if (split() || !slug()) {
+      @if (split() || !slug() || store.status() === 'disabled') {
         <div class="cv__list">
           <ng-content select="[inboxHeader]" />
           <app-room-list [openSlug]="slug()" [regionName]="regionName()" (retry)="reload()" />
         </div>
       }
-      @if (slug(); as current) {
+      @if (store.status() === 'disabled') {
+        @if (split()) {
+          <!-- The community is closed: the room pane says so too (WF review A6). -->
+          <div class="cv__room cv__missing" data-testid="community-closed-pane">
+            <app-empty-state
+              icon="speaker_notes_off"
+              [title]="roomsCopy.closedTitle"
+              [description]="roomsCopy.closedBody"
+            />
+          </div>
+        }
+      } @else if (slug(); as current) {
         @if (room(); as r) {
           <app-room-view
             class="cv__room"
@@ -57,6 +69,19 @@ import { RoomViewComponent } from './room/room-view.component';
           <div class="cv__room cv__missing" aria-busy="true">
             <span class="visually-hidden">{{ roomCopy.loading }}</span>
             <div class="cv__pad"><app-skeleton variant="list" lines="4" /></div>
+          </div>
+        } @else if (store.status() === 'error') {
+          <!-- The rooms could not load: the room pane is not left blank (WF review U10). -->
+          <div class="cv__room cv__missing" data-testid="room-list-failed">
+            <app-empty-state
+              icon="forum"
+              [title]="roomsCopy.waitTitle"
+              [description]="roomsCopy.waitBody"
+            >
+              <button actions type="button" class="cv__outline" (click)="reload()">
+                Try again
+              </button>
+            </app-empty-state>
           </div>
         } @else if (store.status() === 'ready') {
           <div class="cv__room cv__missing" data-testid="room-not-found">
@@ -85,11 +110,23 @@ import { RoomViewComponent } from './room/room-view.component';
         }
       } @else if (split()) {
         <div class="cv__room cv__missing">
-          <app-empty-state
-            icon="forum"
-            [title]="roomsCopy.chooseTitle"
-            [description]="roomsCopy.chooseBody"
-          />
+          @if (store.status() === 'error') {
+            <app-empty-state
+              icon="forum"
+              [title]="roomsCopy.waitTitle"
+              [description]="roomsCopy.waitBody"
+            >
+              <button actions type="button" class="cv__outline" (click)="reload()">
+                Try again
+              </button>
+            </app-empty-state>
+          } @else {
+            <app-empty-state
+              icon="forum"
+              [title]="roomsCopy.chooseTitle"
+              [description]="roomsCopy.chooseBody"
+            />
+          }
         </div>
       }
     </div>
@@ -220,6 +257,16 @@ export class CommunityViewComponent {
         }
       });
     });
+    // Rooms have no push: the list (the last posts, the dots) is read again every 15 s while the
+    // page is on screen, and at once when it comes back (WF review F6, U5 and P1); a failed read
+    // keeps what is shown.
+    const poll = setInterval(() => this.refreshRooms(), ROOM_POLL_MS);
+    const onVisible = () => this.refreshRooms();
+    this.document.addEventListener('visibilitychange', onVisible);
+    inject(DestroyRef).onDestroy(() => {
+      clearInterval(poll);
+      this.document.removeEventListener('visibilitychange', onVisible);
+    });
     // One pane per route below 960: the focus goes to the room's Back, or back to its row.
     effect(() => {
       const shown = this.room()?.slug ?? null;
@@ -250,6 +297,12 @@ export class CommunityViewComponent {
 
   protected reload(): void {
     this.store.load(this.region.current(), true);
+  }
+
+  private refreshRooms(): void {
+    if (this.document.visibilityState !== 'hidden') {
+      this.store.refresh();
+    }
   }
 
   protected toList(): void {
