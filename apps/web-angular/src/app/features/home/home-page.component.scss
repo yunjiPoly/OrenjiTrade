@@ -259,22 +259,34 @@
   text-align: center;
 }
 
-.home__empty-icon {
+// The round icons of the empty states and the end.
+.home__empty-icon,
+.home__end-check {
   display: grid;
   place-items: center;
+  border-radius: 50%;
+}
+
+.home__empty-icon {
   width: 56px;
   height: 56px;
   margin-bottom: 8px;
-  border-radius: 50%;
   background: var(--color-surface-variant);
   color: var(--color-text-secondary);
 }
 
-.home__empty-title {
+// The display titles of the states, the end and the guest card.
+.home__empty-title,
+.home__end-title,
+.home__guest-title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 19px;
+  font-size: 17px;
   font-weight: var(--font-weight-bold);
+}
+
+.home__empty-title {
+  font-size: 19px;
 }
 
 .home__empty-text {
@@ -303,20 +315,14 @@
 }
 
 .home__end-check {
-  display: grid;
-  place-items: center;
   width: 40px;
   height: 40px;
-  border-radius: 50%;
   background: var(--color-accent-tint);
   color: var(--color-accent);
 }
 
 .home__end-title {
-  margin: 8px 0 0;
-  font-family: var(--font-display);
-  font-size: 17px;
-  font-weight: var(--font-weight-bold);
+  margin-top: 8px;
 }
 
 .home__end-text {
@@ -386,13 +392,6 @@
   margin-top: 0;
 }
 
-.home__guest-title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 17px;
-  font-weight: var(--font-weight-bold);
-}
-
 .home__guest-text {
   margin: 6px 0 0;
   color: var(--color-text-secondary);
@@ -418,9 +417,10 @@
   color: inherit;
 }
 
-// A narrow feed (the chat drawer open beside it at lg, or md): the chips keep one row that
-// scrolls sideways and "Updated 5 min ago" gives up its room, so the toolbar stays 56 tall (U6).
-@container home-feed (max-width: 600px) {
+// A narrow feed (below 960, where it is at most 640, or beside the chat drawer at lg): the chips
+// keep one row that scrolls sideways, the refresh button at its end, and "Updated 5 min ago"
+// gives up its room, so the toolbar stays 56 tall (U6).
+@container home-feed (max-width: 660px) {
   .home__chips {
     flex: 1;
     flex-wrap: nowrap;
@@ -446,22 +446,5 @@
 
   .home__title {
     font-size: 24px;
-  }
-
-  // The chips scroll sideways inside their row; the refresh button stays at its end.
-  .home__chips {
-    flex: 1;
-    flex-wrap: nowrap;
-    min-width: 0;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .home__chip {
-    flex: none;
-  }
-
-  .home__updated-text {
-    display: none;
   }
 }

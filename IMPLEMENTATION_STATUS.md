@@ -13297,7 +13297,8 @@ the phone's checks ran. Free for all (ADR 0019), deals ship by mail (ADR 0018), 
   message from Deleted collector" and the body "Deleted collector {phrase}.", and in their
   `WISHLIST_ALERT` rows about its listing (`data.collectorId`) "listed by Deleted collector in" and
   `data.collectorHandle`. Rows naming it without its id (a rating's or a sale's handle) keep their
-  words. `DeletedCollectorNotificationsIT` runs the real deletion job (no-op identity client).
+  words (review fix 1 renames them too: see "Review fix 1" below). `DeletedCollectorNotificationsIT`
+  runs the real deletion job (no-op identity client).
 
 **What a collector can now do (and what to click to see it)**
 
@@ -13443,6 +13444,83 @@ walk used seed accounts read-only and two throw-away accounts of my own on the w
 **Could not verify**: the Android run could not be verified (no Android SDK on this Mac; the
 phone's code is unchanged, its generated types gained the optional `previews` parameter).
 
+### Review fix 1 (2026-10-30)
+
+The four reviewers (functional, product and UX, privacy, accessibility) sent 33 findings (6
+major). Each is fixed at its cause with a test that would have caught it, or answered below. One
+API change (the account deletion, no DTO, OpenAPI, schema or migration change: the next is still
+**V135**); the rest is web.
+
+- **The bell's popover and the keyboard (F1, U1, A2, A7; major):** the popover is a modal dialog
+  (`aria-modal`, `cdkTrapFocus`) that takes the focus as it opens: Enter on the bell lands on
+  "Notifications", Tab on "Mark all as read", Tab never leaves it, Esc gives the focus back to the
+  bell (at 390 the sheet too). Its head and foot are plain blocks, no second page banner or
+  footer. A unit test and the E2E (Enter, Tab, twelve more Tabs inside, Esc).
+- **Guests on the web's six pictures (P1, major):** GeoPrivacyContractTest reads, signed out,
+  every region, game and chip with `previews=6` (and asserts it met posts with 5 or 6 pictures);
+  FeedIT reads a 5-picture post signed out with every collector field null. The reviewer's mutant
+  (who posted shown on posts with more than 4 pictures) now fails both.
+- **Shift+Tab under Home's toolbar (A1, major):** the page's scroll padding clears the bar and
+  the sticky toolbar (148, 176 while "New posts · Show" shows; `html:has(...)` in `styles.scss`).
+  Walked at 1440, 1024, 390 and 720×450 (200 percent): 0 px over the toolbar at the first three,
+  2.5 px of a card tile at 720×450 (partly, never hidden). The E2E Shift+Tabs up the feed.
+- **Rules no test protected (F2, major):** tests for the 5-minute check (none sooner, none while
+  the tab is hidden, one when it comes back; fake interval and clock), a pushed chat notice never
+  prepended on `/notifications`, a shared card's phrase kept by the deletion's rename, and "What
+  others see" without the city while it is hidden. The reviewers' mutants M7, M8, M20, A1 and M22
+  fail them (the API ones re-run here).
+- **A deletion and the rating and sale notifications (P2):** the job hands every deletion
+  participant the account's handle taken before `anonymise()` (`DeletionParticipant.purge(userId,
+  handle)`, a default method); the notifications step rewrites the other collectors'
+  `RATING_RECEIVED` rows (`data.raterHandle`: title, body, handle) and `SALE_RECORDED` rows
+  (`data.sellerHandle`: title, handle) to "Deleted collector". `DeletedCollectorDealNotificationsIT`
+  runs the real job with a sale and a rating, another seller's kept; walked with throw-away
+  accounts (the bell: "Deleted collector rated you 5 stars").
+- **Profiles:** a blocked collector's cards, binders and wishes are not read (one line "Their
+  cards, binders and wishes stay hidden while you block {handle}.", no error with Try again, U2);
+  "I have it" only when the collector takes your messages (F3; Home's feed carries no such flag,
+  so a refused chat still answers there); "I have it" is named "I have it: {card}. Message
+  {handle}" (label in name, U4, A5); after Report or Block from "⋯" (sent, cancelled or Esc) the
+  focus is back on "⋯" (U3, A3); "See all" and "Load more" send the focus to the first new card and
+  say "More cards are shown." (A4, A6).
+- **Home:** the map card frames the whole browsed region with your province outlined (U8, board
+  W1); a failed counts read says "Couldn't load the map." with Try again, a skeleton line while
+  loading, never "No public binders here yet" (F5); one feed read on a bare `/` (the same query in
+  flight is shared, U7); the rail sticks at 144 (spec 5.3) and scrolls on its own when taller than
+  the window, so the map card and its links are reachable (F4); beside the chat drawer the chips
+  keep one sideways row and "Updated" gives up its room, the toolbar stays 56 (U6, a container
+  query); screen readers hear "New posts are available." once and a chip's or a refresh's result
+  (A6); "Hide these steps" sends the focus to the map card's "Explore the map", Try again to the
+  heading (A4).
+- **"I have it" into an older chat (F7, U5; a product call):** with no public copy of yours to
+  pin, the drawer shows "About their wish: {card}. The pinned card is from before." over the chat's
+  earlier pinned card (one chat per pair stays the model; the server's subject is unchanged).
+- **Notifications:** page rows stay about 72 tall (the time, the dot and "Mark as read" on one
+  line, U12); a row's "Mark as read" sends the focus to the next unread row's (the heading after
+  the last), "Mark all as read" keeps it (`aria-disabled`), "Still have them" sends it to the row's
+  "Confirmed. They stay in search." even as the row moves to Earlier (A4).
+- **Settings:** Location's "What others see" follows the form (U9) and, while you are hidden from
+  the map, says "While you are hidden from the map, nobody sees your state, province or city." with
+  no rows (P3); board W25's words: the Region hint, "Only on your profile, and only if you show it.
+  Never used to locate you.", the city switch's line ("Your profile shows Montréal, Quebec.
+  Everywhere else shows Quebec only."), "Choose your country and state or province first. You need
+  a location to show on the map."; Region on its own row, then Country | State (U9, F6); Profile's
+  bio placeholder "What you collect and trade" (U10), hints that never cover the next label at 390
+  (U11); the Push row's "The website sends no push notifications." (F6). Onboarding (stage WG)
+  keeps its fields: Settings opts in (`settingsLayout`). The map switch, Save location and Save
+  preferences keep the focus while disabled (`disabledInteractive`); after "Remove my location" the
+  focus goes to the line saying you have none (A4).
+- **Contrast (A8, A9; older than WE):** a switch turned off has its outline and handle in
+  textMuted (6 to 7.6:1 in both themes, was 1.3 to 1.7:1); Account's danger text is a darker red
+  on its tinted box in light (5.2:1, was 4.46:1).
+- **Kept as recorded spec points (F6):** Blocked's and My reports' counts in the Settings nav, and
+  Languages in a profile's About (the public profile carries none), stay left out, as the builder
+  recorded.
+
+**Checks of review fix 1** (retries off):
+
+CHECKS_TABLE_FIX1
+
 ## NEXT TASK
 
 > **The web resumes (owner, 2026-10-28): stages WA to WH2 of the web redesign**, one at a time
@@ -13501,8 +13579,12 @@ phone's code is unchanged, its generated types gained the optional `previews` pa
 > day one, "I have it", Get started or the guest card and a static SVG map card; profiles (W23,
 > W23b); the bell's popover and `/notifications` without chats, reminders answered in place, old
 > deals as history; Settings' grouped nav, Location with "Show me on the map" and what others see,
-> Appearance tiles, Settings › Legal. **Next for WE: its reviewers** (functional verifier, product
-> and UX, privacy), at most two fix rounds, then its pull request after WD's (#99) is merged.
+> Appearance tiles, Settings › Legal. Its four reviewers sent 33 findings: **review fix 1 is
+> done** (section "Review fix 1" in the WE section: the bell's popover takes and keeps the focus, a
+> deletion renames others' rating and sale notifications, guests on `previews=6` tested, Shift+Tab
+> never under Home's toolbar, Location's what others see follows the form and the hidden state).
+> **Next for WE: the reviewers' round 2** (at most one more fix round), then its pull request
+> after WD's (#99) is merged.
 >
 > **The exact next stage after WE's pull request: stage WF of the web redesign, Messages ›
 > Community (board W22; spec section 10.7; decision 11; after phone R11)**, from the latest

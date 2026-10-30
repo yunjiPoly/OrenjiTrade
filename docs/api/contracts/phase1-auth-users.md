@@ -139,7 +139,8 @@ inventory hidden (participants), collector removed from map.
 `POST /internal/jobs/account-deletion` (service token / OIDC; also `@Scheduled` under `local`)
 processes due requests: anonymise account (`deleted+<id>@anonymized.invalid`, display name
 "Deleted collector"), delete profile/tags/location/settings/avatar, call every
-`DeletionParticipant.purge(userId)`, delete Firebase user, keep consents/audit/ledger, write
+`DeletionParticipant.purge(userId, handle)` (the handle before anonymising; by default
+`purge(userId)`), delete Firebase user, keep consents/audit/ledger, write
 audit entry, status COMPLETED.
 
 ## Admin (ADMIN, SUPER_ADMIN; audit every write)

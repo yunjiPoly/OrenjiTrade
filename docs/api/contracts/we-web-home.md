@@ -54,7 +54,24 @@ deletion job) deletes the account's own notifications, as before, and now also:
   (`data.collectorId`), "listed by @{handle} in" becomes "listed by Deleted collector in" and
   `data.collectorHandle` becomes "Deleted collector".
 
-Rows that name the account without its id (a rating's `raterHandle`, a sale's `sellerHandle`) keep
-the words they were written with. No DTO, OpenAPI or schema change. `DeletedCollectorNotificationsIT`
-runs the real deletion job (with the no-op identity client) and checks that no stored notification
-keeps the deleted collector's handle.
+Review fix 1 (P2): the rows that name the account by its handle only are renamed too. The job
+hands every deletion participant the account's handle as it was before `anonymise()`
+(`DeletionParticipant.purge(userId, handle)`, a default method that falls back on
+`purge(userId)`), and the notifications step also rewrites:
+
+- the other collectors' `RATING_RECEIVED` rows whose `data.raterHandle` is that handle: the title
+  "New rating from Deleted collector", the body "Deleted collector rated you {n}/5." and
+  `data.raterHandle` "Deleted collector";
+- the other collectors' `SALE_RECORDED` rows whose `data.sellerHandle` is that handle: the handle
+  starting the title ("Deleted collector marked {card} as sold to you") and `data.sellerHandle`
+  "Deleted collector".
+
+Both clients render these rows from `raterHandle` and `sellerHandle`, so the bell, `/notifications`
+and the phone say "Deleted collector rated you 5 stars". A row written under an older handle of
+the account (before a handle change) keeps its words. No DTO, OpenAPI or schema change.
+`DeletedCollectorNotificationsIT` (messages, a shared card's phrase, wishlist alerts) and
+`DeletedCollectorDealNotificationsIT` (a sale and a rating, another seller's kept) run the real
+deletion job (with the no-op identity client) and check that no stored notification keeps the
+deleted collector's name or handle. Still open, not notifications: the chat's SALE system message
+and the inbox preview say "{handle} marked {card} as sold to {buyer}." (messaging and deals, older
+than WE).
