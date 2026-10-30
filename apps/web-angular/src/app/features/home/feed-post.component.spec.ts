@@ -45,7 +45,7 @@ describe('FeedPostComponent (spec 5.2, board W1)', () => {
   let guest: ReturnType<typeof fakeGuestActions>;
 
   function render(post: Partial<FeedPost>): void {
-    guest = fakeGuestActions();
+    guest = fakeGuestActions(vi.fn);
     message = vi.fn(async () => undefined);
     offer = vi.fn(async () => undefined);
     TestBed.configureTestingModule({

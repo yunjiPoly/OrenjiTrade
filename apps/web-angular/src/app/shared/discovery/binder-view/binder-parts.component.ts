@@ -61,6 +61,17 @@ export function ownerLine(
             <a class="own__handle own__handle--link" [routerLink]="['/collectors', o?.handle]">{{
               o?.handle
             }}</a>
+          } @else if (!o?.handle && !card() && linked()) {
+            <!-- A guest: "A collector" asks to sign in, then opens the profile (spec 14). -->
+            <button
+              type="button"
+              class="own__handle own__handle--link own__handle--button"
+              aria-label="A collector. Sign in to see collector profiles"
+              data-testid="owner-guest-profile"
+              (click)="askProfile.emit($event.currentTarget)"
+            >
+              A collector
+            </button>
           } @else {
             <span class="own__handle">{{ o?.handle ?? 'A collector' }}</span>
           }
@@ -154,6 +165,18 @@ export function ownerLine(
     }
     .own__profile:hover {
       text-decoration: underline;
+    }
+    .own__handle--button {
+      padding: 0;
+      border: 0;
+      background: none;
+      font: inherit;
+      font-weight: var(--font-weight-semibold);
+      cursor: pointer;
+    }
+    .own__handle--button:focus-visible {
+      outline: var(--focus-width) solid var(--color-focus-ring);
+      outline-offset: var(--focus-offset);
     }
     .own__profile--button {
       padding: 4px 0;

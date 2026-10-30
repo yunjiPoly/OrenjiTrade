@@ -38,16 +38,20 @@ test.describe('acceptance: registration', () => {
     await expect(
       page.getByRole('heading', { level: 1, name: 'Create your account' }),
     ).toBeVisible();
+    await page.getByLabel('Display name').fill(displayName);
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password', { exact: true }).fill(TEST_PASSWORD);
-    await page.getByRole('button', { name: 'Create account' }).click();
-    await expect(page.getByText('Please accept every document to continue.')).toBeVisible();
+    // "Create account" waits until every box is ticked, one reason line under it (spec 14).
+    await page.getByRole('button', { name: 'Create account' }).click({ force: true });
+    await expect(page.locator('#su-why')).toHaveText(
+      'Accept the documents and confirm your age to continue.',
+    );
     await page.getByRole('checkbox', { name: 'Accept all' }).check();
     // The 18+ confirmation is a separate, explicit statement that "Accept all" never ticks.
-    await expect(
-      page.getByText('You must confirm that you are 18 years of age or older to use OrenjiTrade.'),
-    ).toBeVisible();
-    await page.getByRole('checkbox', { name: /I confirm I am 18 years of age or older/ }).check();
+    await expect(page.locator('#su-why')).toHaveText(
+      'Confirm that you are 18 or older to continue.',
+    );
+    await page.getByRole('checkbox', { name: 'I confirm I am 18 years of age or older' }).check();
     await page.getByRole('button', { name: 'Create account' }).click();
 
     // --- Verify the email ------------------------------------------------------------------------
@@ -59,10 +63,12 @@ test.describe('acceptance: registration', () => {
     // --- Create the profile ------------------------------------------------------------------------
     await expect(page).toHaveURL(/\/onboarding/, { timeout: 20_000 });
     await page.getByLabel('Handle').fill(handle);
-    await page.getByLabel('Display name').fill(displayName);
-    await page.getByLabel('Bio').fill('Fictional collector registered by the acceptance suite.');
+    await expect(page.getByLabel('Display name')).toHaveValue(displayName);
+    await page
+      .getByLabel('Bio (optional)')
+      .fill('Fictional collector registered by the acceptance suite.');
     const next = page.getByRole('button', { name: 'Continue', exact: true });
-    await next.filter({ visible: true }).click();
+    await next.click();
 
     await expect(page.getByRole('heading', { name: 'What do you collect?' })).toBeVisible();
     const pokemon = page
@@ -70,10 +76,10 @@ test.describe('acceptance: registration', () => {
       .getByRole('button', { name: 'Pokémon' });
     await pokemon.click();
     await expect(pokemon).toHaveAttribute('aria-pressed', 'true');
-    await next.filter({ visible: true }).click();
+    await next.click();
 
-    // --- Where are you? -------------------------------------------------------------------------
-    await expect(page.getByRole('heading', { name: 'Where are you?' })).toBeVisible();
+    // --- Where do you ship from? -----------------------------------------------------------------
+    await expect(page.getByRole('heading', { name: 'Where do you ship from?' })).toBeVisible();
     await expect(page.locator('.leaflet-container')).toHaveCount(0);
     const city = cityToken();
     privacy.registerCity(handle, city);

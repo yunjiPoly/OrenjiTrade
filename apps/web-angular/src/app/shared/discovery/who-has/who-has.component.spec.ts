@@ -43,7 +43,7 @@ describe('WhoHasComponent (spec 7.3 and 7.4)', () => {
   let message: ReturnType<typeof vi.fn>;
   let cores: ReturnType<typeof vi.fn>;
   const authenticated = signal(true);
-  let guest = fakeGuestActions();
+  let guest = fakeGuestActions(vi.fn);
 
   async function render(
     rows: unknown[],
@@ -99,7 +99,7 @@ describe('WhoHasComponent (spec 7.3 and 7.4)', () => {
 
   beforeEach(() => {
     authenticated.set(true);
-    guest = fakeGuestActions();
+    guest = fakeGuestActions(vi.fn);
   });
 
   it("asks for the holders by province without a deck core's cards, and shows no count", async () => {

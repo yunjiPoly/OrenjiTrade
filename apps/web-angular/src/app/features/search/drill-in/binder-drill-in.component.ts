@@ -184,6 +184,7 @@ import { ReportActionsService } from '../../../shared/reports/report-actions.ser
                   [owner]="binder.owner"
                   [rating]="rating()"
                   [binderCount]="binder.ownerPublicBinderCount"
+                  (askProfile)="askProfile(binder, $event)"
                 />
                 <label class="di__search">
                   <app-shell-icon class="di__muted" name="search" [size]="18" />

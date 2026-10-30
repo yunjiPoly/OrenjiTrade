@@ -42,7 +42,7 @@ describe('CardPageComponent', () => {
       options.failWishlist ? throwError(() => new Error('offline')) : wishlist$,
     );
     open = vi.fn(() => ({ closed$: new Subject<void>() }));
-    guest = fakeGuestActions();
+    guest = fakeGuestActions(vi.fn);
     TestBed.configureTestingModule({
       imports: [CardPageComponent],
       providers: [

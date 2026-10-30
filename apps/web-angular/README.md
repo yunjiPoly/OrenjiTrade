@@ -170,6 +170,53 @@ Boards W1, W2 and W23 to W25; spec sections 5, 11, 12 and 13; decisions 13 and 1
   "Single-key shortcuts" switch; the environment line only off production. Legal: the documents
   (the payment policies hidden while `protectedPayments` is off) and Trading safely.
 
+## Sign-in, the welcome and guests (web redesign WG)
+
+Spec section 14, decision 4, boards W26 and W27; the phone's R12 and R15. Contract:
+`docs/api/contracts/wg-web-sign-in-guests.md`.
+
+- **Pages of their own** (`data.shell.bare`): `/auth/**` and `/onboarding` show neither the top
+  bar, the rail, the tab bar nor the footer.
+- **The sign-in steps** (`features/auth`, `AuthLayoutComponent`): a form panel (a 400 column) with
+  "Not now, keep browsing" (back to `?returnUrl=`, forgetting a guest's pending action), the
+  wordmark, the page's title and "Terms, privacy and community guidelines"; at 960 and wider the
+  right panel (`AuthArtComponent`): "Who in my region has this card?", three lines and a decorative
+  choropleth of Americas (North) drawn from the bundled boundaries in a fixed pattern
+  (`aria-hidden`, no API read). **Sign in** (email, password with Show, "Forgot your password?",
+  [Sign in], "or", [Continue with Google], "New to OrenjiTrade? Create an account"); **Create your
+  account** (display name, email, password, the documents card with "Accept all" and "Read" for
+  each, the 18+ line in its own card, never ticked by "Accept all", English only; "Create account"
+  waits, `aria-disabled`, with one reason line under it that turns amber after a press:
+  `sign-up-rules.ts`); **Reset your password** and **Check your inbox**; **Verify your email** (the
+  mail tile, [I have verified my email], [Resend email] then "Resend in 30 s", "Do this later").
+  Native inputs with their labels above, 48 tall; the orange 52 and outline 52 buttons
+  (`auth-form.scss`).
+- **The account states** (centred 480 cards): Review our terms (`/auth/consent`, the documents due
+  and the age, alone with "Please confirm your age to keep using OrenjiTrade." for an older
+  account: the welcome never asks it), suspended (the end date, the appeal line, Community
+  guidelines, Sign out) or scheduled for deletion ([Cancel deletion], "Download my data") at
+  `/auth/suspended`, and "We could not load your account" with [Try again] at
+  `/auth/unavailable` (right after a sign-in and on account pages; public pages keep the session
+  banner).
+- **The welcome** (`/onboarding`, a centred 560 card, "Step n of 3", a 3-part bar, Back and
+  Continue 52): "Who are you?" (the handle's live check "@sam_trades is free", the display name
+  typed at sign-up, an optional bio), "What do you collect?" (the games as 96 tiles, "Opens first"
+  on the first picked game that has cards, coming-soon games dimmed; languages and tags), "Where do
+  you ship from?" ("We never use GPS and never ask for your address.", country, state or province,
+  an optional city, "Show me on the map" off). Finishing opens the first game and goes Home, or
+  back to where a guest was (`welcome-rules.ts`).
+- **Guests** (signed out): Home, Search (Cards and Binders), a card, a set, a binder or deck core,
+  Legal and Settings › Appearance and Legal are open; collectors read "A collector", a plain avatar
+  and the province (the API sends no one: R15). Inventory, Messages and Profile show the guest
+  page (`shared/guest/guest-page.component.ts`: a 64 tile, the title, [Create account] and [Sign
+  in] back to the very page; Profile lists Appearance, Trading safely and Legal). Every action that
+  needs an account opens the sign-in dialog (`core/guest`: `GuestActions.ask`, a lazy 440 dialog
+  with the card or "A collector" it is about); Create account and Sign in keep the action (its
+  listing or card, never a collector) and it finishes once the account is ready and the guest is
+  back on the page (`guest-finish.ts`, a lazy chunk: `GET /listings/owner`, then the chat drawer,
+  "I have it", the profile, the wish dialog or Report; the card page and the set page take their
+  own Add actions).
+
 ## Run
 
 ```bash
@@ -286,8 +333,10 @@ arrays as `Set`, which `HttpClient` would serialise as `{}`; use `roleList()` to
   or Google), `getIdToken(forceRefresh)`, sign-out, `ready()` for guards.
 - **`SessionService`**: `GET /api/v1/me` for the signed-in user, reloaded on user switch;
   statuses `anonymous | loading | ready | consent-required | suspended | deletion-pending |
-error` (error = retryable; the shell shows a banner with Retry). Exposes roles,
-  `needsOnboarding`, `canAccessAdmin`.
+error` (error = retryable; the shell shows a banner with Retry; account pages show "We could not
+  load your account"). `consent-required` also covers an account that never confirmed being 18 or
+  older (web WG, as the phone). Exposes roles, `needsOnboarding` (profile and interests),
+  `canAccessAdmin`.
 - **Guards** (`core/auth/auth.guards.ts`): `authGuard`, `accountGuard` (terms accepted, not
   suspended), `onboardingGuard` (public pages: visitors pass, signed-in collectors must have
   finished onboarding), `accountStateGuard`, `adminGuard` (ADMIN/SUPER_ADMIN everywhere,
@@ -297,7 +346,8 @@ error` (error = retryable; the shell shows a banner with Retry). Exposes roles,
 Routes: `/auth/sign-in`, `/auth/sign-up` (required legal documents from
 `GET /public/legal/documents`, consents recorded, verification email), `/auth/verify-email`,
 `/auth/reset-password`, `/auth/consent`, `/auth/suspended` (suspension or pending deletion with
-cancel + export), `/onboarding` (profile, interests, "Where are you?"), `/settings/{profile,
+cancel + export), `/auth/unavailable` (web WG), `/onboarding` (the welcome's three steps, web WG),
+`/settings/{profile,
 privacy, notifications, location, account, appearance}` (`/settings/trading-area` redirects), `/collectors/:handle`,
 `/admin` (dashboard), `/admin/users`, `/admin/users/:id`, `/admin/audit-logs`; Phase 2 adds
 `/cards`, `/cards/:id`, `/sets/:id`, `/admin/games`, `/admin/cards[/:id]`,

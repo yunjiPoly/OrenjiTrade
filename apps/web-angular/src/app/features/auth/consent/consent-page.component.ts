@@ -13,6 +13,7 @@ import { Router } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 import { SessionService } from '../../../core/auth/session.service';
 import { isApiError } from '../../../core/http/api-error';
+import { ToastService } from '../../../core/feedback/toast.service';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
 import { ShellIconComponent } from '../../../core/layout/shell-icon/shell-icon.component';
 import {
@@ -35,6 +36,7 @@ export const CONSENT_COPY = {
   intro: 'Please accept the current versions of these documents to keep using OrenjiTrade.',
   ageOnlyIntro: 'Please confirm your age to keep using OrenjiTrade.',
   missing: 'Accept every document and confirm your age to continue.',
+  welcomeBack: 'Thanks for confirming. Welcome back!',
 } as const;
 
 /**
@@ -122,6 +124,7 @@ export const CONSENT_COPY = {
 export class ConsentPageComponent {
   private readonly fb = inject(NonNullableFormBuilder);
   private readonly router = inject(Router);
+  private readonly toasts = inject(ToastService);
   private readonly auth = inject(AuthService);
   private readonly legal = inject(LegalDocumentsStore);
   private readonly legalTexts = inject(LegalTextsService);
@@ -206,7 +209,12 @@ export class ConsentPageComponent {
       if (agePending && age) {
         consents.push({ documentType: AGE_CONFIRMATION_TYPE, version: age.version });
       }
+      const ageOnly = this.items().length === 0;
       await this.session.acceptConsents(consents);
+      if (ageOnly) {
+        // Only the age was asked (an account from before the 18+ rule): the phone's words.
+        this.toasts.show({ title: CONSENT_COPY.welcomeBack });
+      }
       await this.continue();
     } catch (error) {
       this.error.set(isApiError(error) ? friendlyMessage(error) : 'Please try again.');

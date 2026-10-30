@@ -156,6 +156,7 @@
                 [owner]="binder.owner"
                 [rating]="rating()"
                 [binderCount]="binder.ownerPublicBinderCount"
+                (askProfile)="askProfile(binder, $event)"
               />
             </div>
             <div class="bnd__actions">

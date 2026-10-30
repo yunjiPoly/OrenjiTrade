@@ -278,6 +278,18 @@
 // The display titles of the states, the end and the guest card.
 .home__empty-title,
 .home__end-title,
+// The guest card's 40 tile (board W26), a person with a plus.
+.home__guest-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 12px;
+  border-radius: 12px;
+  background: var(--color-primary-tint);
+  color: var(--app-primary-text, var(--color-primary));
+}
+
 .home__guest-title {
   margin: 0;
   font-family: var(--font-display);

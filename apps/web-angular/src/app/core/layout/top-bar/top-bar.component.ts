@@ -1,6 +1,8 @@
 import { DOCUMENT } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { NavigationEnd, Router, RouterLink } from '@angular/router';
+import { filter, map } from 'rxjs';
 import { WordmarkComponent } from '../../../shared/ui/wordmark/wordmark.component';
 import { AuthService } from '../../auth/auth.service';
 import { SessionService } from '../../auth/session.service';
@@ -89,7 +91,12 @@ import { ShellLayout } from '../shell-layout.service';
             <app-account-menu />
           }
         } @else if (auth.authState() !== 'loading') {
-          <a class="bar__signin" routerLink="/auth/sign-in" data-testid="top-bar-sign-in"
+          <!-- Back to this very page after signing in ("Not now" too; spec 14). -->
+          <a
+            class="bar__signin"
+            routerLink="/auth/sign-in"
+            [queryParams]="{ returnUrl: returnUrl() }"
+            data-testid="top-bar-sign-in"
             >Sign in</a
           >
         }
@@ -237,6 +244,15 @@ import { ShellLayout } from '../shell-layout.service';
 export class TopBarComponent {
   protected readonly layout = inject(ShellLayout);
   protected readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
+  /** The page's address: "Sign in" comes back to it. */
+  protected readonly returnUrl = toSignal(
+    this.router.events.pipe(
+      filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+      map((event) => event.urlAfterRedirects),
+    ),
+    { initialValue: this.router.url },
+  );
   private readonly session = inject(SessionService);
   private readonly game = inject(GameContext);
   protected readonly searchId = GLOBAL_SEARCH_ID;
