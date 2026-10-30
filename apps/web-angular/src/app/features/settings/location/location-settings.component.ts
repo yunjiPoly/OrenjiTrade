@@ -1,4 +1,13 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  Injector,
+  afterNextRender,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
@@ -11,6 +20,7 @@ import { isApiError } from '../../../core/http/api-error';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
 import { ShellIconComponent } from '../../../core/layout/shell-icon/shell-icon.component';
 import { LocationFieldsComponent } from '../../../shared/location/location-fields/location-fields.component';
+import { RegionsStore } from '../../../shared/regions/regions.store';
 import {
   LocationDraft,
   MyLocationStore,
@@ -72,7 +82,8 @@ import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.componen
             <span class="loc__map-title" id="location-map-label">Show me on the map</span>
             <span class="loc__map-line" id="location-map-line">
               @if (!store.location()?.location) {
-                Choose your state or province below first.
+                Choose your country and state or province first. You need a location to show on the
+                map.
               } @else if (store.location()?.discoverable) {
                 Collectors see you in {{ store.location()?.location?.label }}. Visitors without an
                 account see your cards, never your name.
@@ -82,9 +93,12 @@ import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.componen
               }
             </span>
           </div>
+          <!-- disabledInteractive: the switch keeps the focus while it saves (A4). -->
           <mat-slide-toggle
+            data-testid="location-map-switch"
             [checked]="!!store.location()?.discoverable"
             [disabled]="mapBusy() || !store.privacy()"
+            disabledInteractive
             aria-labelledby="location-map-label"
             aria-describedby="location-map-line"
             (change)="setDiscoverable($event.checked, $event.source)"
@@ -114,7 +128,7 @@ import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.componen
               {{ store.location()?.discoverable ? 'Visible on the map' : 'Hidden from the map' }}
             </span>
           } @else {
-            <p class="section-muted" data-testid="location-none">
+            <p class="section-muted" data-testid="location-none" tabindex="-1">
               You have not said where you are yet, so you do not appear on the map.
             </p>
           }
@@ -122,39 +136,46 @@ import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.componen
 
         <h3 class="loc__label">Where you ship from</h3>
         <app-location-fields
+          settingsLayout
+          [onMap]="!!store.location()?.discoverable"
           [value]="draft()"
           [showErrors]="submitted()"
           (valueChange)="edited.set($event)"
         />
 
-        @if (store.location()?.location; as location) {
+        @if (preview(); as place) {
           <h3 class="loc__label">What others see</h3>
-          <ul class="loc__others" aria-label="What others see">
-            <li>
-              <span class="loc__who">
-                <span class="loc__name">{{ session.handle() }}</span>
-                <span class="loc__place">{{ location.subdivisionName }}</span>
-              </span>
-              <span class="loc__where">Members, in search, binders and chats</span>
-            </li>
-            <li>
-              <span class="loc__who">
-                <span class="loc__name">{{ session.displayName() }}</span>
-                <span class="loc__place"
-                  >{{ location.showCity && location.city ? location.city + ', ' : ''
-                  }}{{ location.subdivisionName }}</span
-                >
-              </span>
-              <span class="loc__where">Your profile</span>
-            </li>
-            <li>
-              <span class="loc__who">
-                <span class="loc__name">A collector</span>
-                <span class="loc__place">{{ location.subdivisionName }}</span>
-              </span>
-              <span class="loc__where">Visitors without an account</span>
-            </li>
-          </ul>
+          @if (place.hidden) {
+            <p class="loc__hidden" data-testid="location-others-hidden">
+              While you are hidden from the map, nobody sees your state, province or city.
+            </p>
+          } @else {
+            <ul class="loc__others" aria-label="What others see" data-testid="location-others">
+              <li>
+                <span class="loc__who">
+                  <span class="loc__name">{{ session.handle() }}</span>
+                  <span class="loc__place">{{ place.subdivisionName }}</span>
+                </span>
+                <span class="loc__where">Members, in search, binders and chats</span>
+              </li>
+              <li>
+                <span class="loc__who">
+                  <span class="loc__name">{{ session.displayName() }}</span>
+                  <span class="loc__place" data-testid="location-others-profile">{{
+                    place.profilePlace
+                  }}</span>
+                </span>
+                <span class="loc__where">Your profile</span>
+              </li>
+              <li>
+                <span class="loc__who">
+                  <span class="loc__name">A collector</span>
+                  <span class="loc__place">{{ place.subdivisionName }}</span>
+                </span>
+                <span class="loc__where">Visitors without an account</span>
+              </li>
+            </ul>
+          }
         }
 
         <section class="loc__protect" aria-labelledby="location-protect">
@@ -198,6 +219,7 @@ import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.componen
             type="button"
             data-testid="location-save"
             [disabled]="busy() !== null || !dirty()"
+            disabledInteractive
             (click)="save()"
           >
             @if (busy() === 'save') {
@@ -311,6 +333,14 @@ import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.componen
       color: var(--color-text-secondary);
       font-size: 13px;
     }
+    .loc__hidden {
+      margin: 0;
+      padding: 12px 16px;
+      border: 1px solid var(--color-border);
+      border-radius: 14px;
+      color: var(--color-text-secondary);
+      font-size: 14px;
+    }
     .loc__protect {
       margin-top: 24px;
       padding: 16px 20px;
@@ -370,6 +400,9 @@ export class LocationSettingsComponent {
   private readonly dialog = inject(MatDialog);
   protected readonly store = inject(MyLocationStore);
   protected readonly session = inject(SessionService);
+  private readonly regions = inject(RegionsStore);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
   protected readonly mapBusy = signal(false);
   protected readonly mapError = signal<string | null>(null);
 
@@ -383,6 +416,29 @@ export class LocationSettingsComponent {
   protected readonly dirty = computed(() => {
     const edited = this.edited();
     return !!edited && !sameLocation(edited, this.saved());
+  });
+
+  /**
+   * "What others see", following the form (an unsaved state shows what saving it would show): your
+   * handle with the state or province (members), your name with the city only while you show it
+   * (your profile), "A collector" with the state (visitors). While you are hidden from the map, no
+   * one sees any of it (the API returns no place: P3), said in one line instead.
+   */
+  protected readonly preview = computed(() => {
+    const draft = this.draft();
+    const entry = this.regions.subdivision(draft?.subdivisionCode);
+    if (!draft || !entry) {
+      return null;
+    }
+    const subdivisionName = entry.subdivision.wholeCountry
+      ? entry.country.name
+      : entry.subdivision.name;
+    const city = draft.city.trim();
+    return {
+      hidden: !this.store.location()?.discoverable,
+      subdivisionName,
+      profilePlace: draft.showCity && city ? `${city}, ${subdivisionName}` : subdivisionName,
+    };
   });
 
   constructor() {
@@ -470,6 +526,14 @@ export class LocationSettingsComponent {
       await this.store.removeLocation();
       this.edited.set(null);
       this.snackBar.open('Your location was removed.', 'OK', { duration: 4000 });
+      // "Remove my location" goes away with the location: the focus moves to the line saying so.
+      afterNextRender(
+        () =>
+          this.host.nativeElement
+            .querySelector<HTMLElement>('[data-testid="location-none"]')
+            ?.focus(),
+        { injector: this.injector },
+      );
     } catch (error) {
       this.error.set(isApiError(error) ? friendlyMessage(error) : 'Please try again.');
     } finally {

@@ -102,7 +102,8 @@ describe('LocationSettingsComponent', () => {
     );
     expect(element.textContent).toContain('Americas (North)');
     expect(element.textContent).toContain('Visible on the map');
-    expect(saveButton().disabled).toBe(true);
+    // Nothing to save: aria-disabled (it keeps the focus, A4), never a native disabled.
+    expect(saveButton().getAttribute('aria-disabled')).toBe('true');
     expect(element.textContent).not.toMatch(/\d+\.\d{3,}|\bkm\b/);
   });
 
@@ -153,7 +154,7 @@ describe('LocationSettingsComponent', () => {
       showCity: false,
     });
     fixture.detectChanges();
-    expect(saveButton().disabled).toBe(false);
+    expect(saveButton().getAttribute('aria-disabled')).toBeNull();
     saveButton().click();
     await settle();
     expect(store.saveLocation).toHaveBeenCalledWith({
@@ -185,5 +186,95 @@ describe('LocationSettingsComponent', () => {
     fixture.detectChanges();
     expect(store.removeLocation).toHaveBeenCalled();
     expect(element.querySelector('[data-testid="location-none"]')).not.toBeNull();
+  });
+
+  function othersRows(): string[] {
+    return [...element.querySelectorAll('.loc__others li')].map((row) =>
+      [...row.querySelectorAll('.loc__name, .loc__place')]
+        .map((part) => part.textContent?.trim())
+        .join(' '),
+    );
+  }
+
+  it('with "Show my city" off, your profile shows the province only (F2, M22)', async () => {
+    await mount({ ...SAVED, location: { ...SAVED.location!, showCity: false } });
+    const rows = othersRows();
+    expect(rows[1]).toBe('Sam Tremblay Quebec');
+    expect(element.querySelector('.loc__others')?.textContent).not.toContain('Montréal');
+  });
+
+  it('follows the form: an unsaved state and city switch show what saving them would show (U9)', async () => {
+    await mount(SAVED);
+    fields().valueChange.emit({
+      countryCode: 'CA',
+      subdivisionCode: 'CA-ON',
+      city: 'Ottawa',
+      showCity: true,
+    });
+    fixture.detectChanges();
+    expect(othersRows()).toEqual([
+      'sam_trades Ontario',
+      'Sam Tremblay Ottawa, Ontario',
+      'A collector Ontario',
+    ]);
+    fields().valueChange.emit({
+      countryCode: 'CA',
+      subdivisionCode: 'CA-ON',
+      city: 'Ottawa',
+      showCity: false,
+    });
+    fixture.detectChanges();
+    expect(othersRows()[1]).toBe('Sam Tremblay Ontario');
+  });
+
+  it('hidden from the map: one line says nobody sees your place, no rows (P3)', async () => {
+    await mount({ ...SAVED, discoverable: false });
+    expect(element.querySelector('.loc__others')).toBeNull();
+    expect(element.querySelector('[data-testid="location-others-hidden"]')?.textContent).toContain(
+      'While you are hidden from the map, nobody sees your state, province or city.',
+    );
+    expect(element.textContent).not.toContain('Montréal, Quebec');
+    expect(element.querySelector('[data-testid="location-show-city-line"]')?.textContent).toContain(
+      'While you are hidden from the map, your profile shows no place.',
+    );
+  });
+
+  it('without a location, "Show me on the map" says to choose one first (board W25)', async () => {
+    await mount({ discoverable: false });
+    expect(element.querySelector('#location-map-line')?.textContent).toContain(
+      'Choose your country and state or province first. You need a location to show on the map.',
+    );
+  });
+
+  it('the map switch keeps the focus while it saves (aria-disabled, never disabled; A4)', async () => {
+    await mount(SAVED);
+    let finish: () => void = () => undefined;
+    store.savePrivacy.mockImplementationOnce(
+      () => new Promise<void>((resolve) => (finish = resolve)),
+    );
+    const toggle = element.querySelector<HTMLButtonElement>(
+      '[data-testid="location-discoverable"] button[role="switch"]',
+    )!;
+    toggle.focus();
+    toggle.click();
+    fixture.detectChanges();
+    expect(toggle.disabled).toBe(false);
+    expect(toggle.getAttribute('aria-disabled')).toBe('true');
+    expect(document.activeElement).toBe(toggle);
+    finish();
+    await settle();
+  });
+
+  it('the city switch says what each place shows (board W25)', async () => {
+    await mount(SAVED);
+    expect(element.querySelector('[data-testid="location-show-city-line"]')?.textContent).toContain(
+      'Your profile shows Montréal, Quebec. Everywhere else shows Quebec only.',
+    );
+    expect(element.textContent).toContain(
+      'Only on your profile, and only if you show it. Never used to locate you.',
+    );
+    expect(element.textContent).toContain(
+      'Cards ship within a region. Home, Search and the map open on it.',
+    );
   });
 });

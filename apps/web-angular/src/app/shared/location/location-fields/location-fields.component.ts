@@ -55,8 +55,17 @@ const EMPTY_DRAFT: LocationDraft = {
         <app-skeleton height="56px" />
       </div>
     } @else {
-      <div class="location-fields" role="group" aria-label="Your location">
-        <mat-form-field appearance="outline">
+      <div
+        class="location-fields"
+        [class.location-fields--settings]="settingsLayout()"
+        role="group"
+        aria-label="Your location"
+      >
+        <mat-form-field
+          appearance="outline"
+          class="location-fields__region"
+          [subscriptSizing]="settingsLayout() ? 'dynamic' : 'fixed'"
+        >
           <mat-label>Region</mat-label>
           <mat-select
             data-testid="location-region"
@@ -67,6 +76,9 @@ const EMPTY_DRAFT: LocationDraft = {
               <mat-option [value]="option.code">{{ option.name }}</mat-option>
             }
           </mat-select>
+          @if (settingsLayout()) {
+            <mat-hint>Cards ship within a region. Home, Search and the map open on it.</mat-hint>
+          }
         </mat-form-field>
 
         <mat-form-field appearance="outline">
@@ -100,7 +112,11 @@ const EMPTY_DRAFT: LocationDraft = {
           </mat-form-field>
         }
 
-        <mat-form-field appearance="outline" class="location-fields__city">
+        <mat-form-field
+          appearance="outline"
+          class="location-fields__city"
+          [subscriptSizing]="settingsLayout() ? 'dynamic' : 'fixed'"
+        >
           <mat-label>City (optional)</mat-label>
           <input
             matInput
@@ -110,18 +126,35 @@ const EMPTY_DRAFT: LocationDraft = {
             [value]="draft().city"
             (input)="onCity($event)"
           />
-          <mat-hint>Only shown on your profile, never used to locate you.</mat-hint>
+          @if (settingsLayout()) {
+            <mat-hint
+              >Only on your profile, and only if you show it. Never used to locate you.</mat-hint
+            >
+          } @else {
+            <mat-hint>Only shown on your profile, never used to locate you.</mat-hint>
+          }
           <mat-hint align="end">{{ draft().city.length }} / {{ cityMax }}</mat-hint>
         </mat-form-field>
 
-        <mat-slide-toggle
-          class="location-fields__show-city"
-          data-testid="location-show-city"
-          [checked]="draft().showCity"
-          (change)="onShowCity($event.checked)"
-        >
-          Show my city on my profile
-        </mat-slide-toggle>
+        <div class="location-fields__show-city">
+          <mat-slide-toggle
+            data-testid="location-show-city"
+            [checked]="draft().showCity"
+            [aria-describedby]="cityLine() ? 'location-show-city-line' : ''"
+            (change)="onShowCity($event.checked)"
+          >
+            Show my city on my profile
+          </mat-slide-toggle>
+          @if (cityLine(); as line) {
+            <p
+              class="location-fields__show-city-line"
+              id="location-show-city-line"
+              data-testid="location-show-city-line"
+            >
+              {{ line }}
+            </p>
+          }
+        </div>
 
         @if (showErrors() && missing(); as message) {
           <p class="location-fields__error" role="alert">{{ message }}</p>
@@ -143,6 +176,23 @@ const EMPTY_DRAFT: LocationDraft = {
       grid-column: 1 / -1;
       margin-top: var(--spacing-2);
     }
+    .location-fields__show-city-line {
+      margin: 4px 0 0 52px;
+      color: var(--color-text-secondary);
+      font-size: 13px;
+    }
+    /* Settings › Location (board W25): Region on its own row, then Country | State. */
+    .location-fields--settings {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .location-fields--settings .location-fields__region {
+      grid-column: 1 / -1;
+    }
+    @media (max-width: 599.98px) {
+      .location-fields--settings {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
     .location-fields__loading {
       display: grid;
       gap: var(--spacing-3);
@@ -163,6 +213,13 @@ export class LocationFieldsComponent {
   readonly value = input<LocationDraft | null>(null);
   /** Show "choose a country / state" messages (after a save attempt). */
   readonly showErrors = input(false, { transform: booleanAttribute });
+  /**
+   * Settings › Location's layout and words (board W25): Region on its own row with its hint, then
+   * Country | State, the city's "only if you show it" and the line under the city switch.
+   */
+  readonly settingsLayout = input(false, { transform: booleanAttribute });
+  /** Whether the collector shows on the map (hidden: the profile shows no place at all, P3). */
+  readonly onMap = input(true);
   readonly valueChange = output<LocationDraft>();
 
   protected readonly cityMax = CITY_MAX_LENGTH;
@@ -196,6 +253,35 @@ export class LocationFieldsComponent {
       return 'Choose your state or province.';
     }
     return null;
+  });
+
+  /** The draft's state or province as places show it (a whole country by its own name). */
+  private readonly placeName = computed(() => {
+    const entry = this.regions.subdivision(this.draft().subdivisionCode);
+    if (!entry) {
+      return null;
+    }
+    return entry.subdivision.wholeCountry ? entry.country.name : entry.subdivision.name;
+  });
+  /** The line under "Show my city on my profile" (Settings only; board W25). */
+  protected readonly cityLine = computed(() => {
+    if (!this.settingsLayout()) {
+      return null;
+    }
+    const place = this.placeName();
+    if (!place) {
+      return null;
+    }
+    if (!this.onMap()) {
+      return 'While you are hidden from the map, your profile shows no place.';
+    }
+    const city = this.draft().city.trim();
+    if (!city) {
+      return `Without a city, every place shows ${place} only.`;
+    }
+    return this.draft().showCity
+      ? `Your profile shows ${city}, ${place}. Everywhere else shows ${place} only.`
+      : `Your profile shows ${place} only, as everywhere else.`;
   });
 
   constructor() {
