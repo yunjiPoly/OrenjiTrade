@@ -13136,7 +13136,7 @@ Leaflet only in its lazy chunk; `test:e2e` **89 / 89** twice (1m 29s on the fina
 `format:check` clean, `test:mobile` **1,782 tests in 128 suites**, `expo export` for ios, android
 and web into the scratch folder passed, `test:mobile:e2e` **66 / 66** (`--stack-only`, the served
 bundle names `localhost:8090` and never `localhost:8080`, `--reuse-running`, `--stop`);
-`test:mobile:maestro -- --platform ios` MAESTRO_RESULT; `test:scripts` **166 / 166**; `audit:gate`
+`test:mobile:maestro -- --platform ios` **44 / 44 flows** on the owner's iPhone 18 Pro (71m 04s; the simulator left booted, light and large text as found); `test:scripts` **166 / 166**; `audit:gate`
 passed. Walks on the walk stack (API 8580, `orenjitrade_wd_check`, Redis db 6, web 4400): a real
 mouse click on Ontario coming from the outlined Quebec landed in its binders in dark and light,
 one tooltip at a time, one Tab from the map reached "Show my province"; the deck core panel 591
