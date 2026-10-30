@@ -16,6 +16,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.ObjectNode;
 
 /**
  * Owner decision of 2026-10-28, review fix 1 (P1, F2): a suspension leaves the login on, so the
@@ -117,14 +118,35 @@ class RefusedAccountBrowsesAsGuestIT extends AbstractSearchIT {
     private void assertReadsLikeAGuest(
             Collector viewer, List<String> routes, Collector holder, String name) {
         for (String route : routes) {
-            JsonNode guest = get(null, 200, route);
-            JsonNode refused = get(viewer.uid(), 200, route);
+            JsonNode guest = withoutAgeLabels(get(null, 200, route));
+            JsonNode refused = withoutAgeLabels(get(viewer.uid(), 200, route));
+            if (!refused.equals(guest)) {
+                // Another test of the suite may write a binder of the state between the two reads:
+                // the guest's read made right after the account's must then match it.
+                guest = withoutAgeLabels(get(null, 200, route));
+            }
             assertThat(refused).as("%s for the refused account", route).isEqualTo(guest);
             assertThat(refused.toString()).as(route).doesNotContain(name);
             if (!route.contains(holder.handle())) {
                 assertThat(refused.toString()).as(route).doesNotContain(holder.handle());
             }
         }
+    }
+
+    /**
+     * A copy without the freshness labels ("Updated just now", "Updated 1 minute ago"): they are
+     * worded from the age at the moment of the read, so a binder another test wrote about a minute
+     * earlier reads "just now" to the first call and "1 minute ago" to the second (seen in the full
+     * suite, 2026-10-30); the dates themselves stay compared.
+     */
+    private static JsonNode withoutAgeLabels(JsonNode node) {
+        JsonNode copy = node.deepCopy();
+        for (JsonNode freshness : copy.findParents("confirmedAt")) {
+            if (freshness instanceof ObjectNode object) {
+                object.remove("label");
+            }
+        }
+        return copy;
     }
 
     private static void assertNobody(JsonNode person, String context) {
