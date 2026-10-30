@@ -85,6 +85,7 @@ import { RatingSummaryComponent } from './rating-summary.component';
                 <app-empty-state
                   icon="star_outline"
                   title="No ratings yet"
+                  [level]="3"
                   [description]="
                     isOwn()
                       ? 'Collectors can rate you after a deal or a real conversation.'

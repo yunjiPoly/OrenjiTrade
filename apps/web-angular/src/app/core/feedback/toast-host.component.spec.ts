@@ -25,6 +25,16 @@ describe('ToastHostComponent (spec 4.8)', () => {
     expect(host.getAttribute('aria-live')).toBe('polite');
   });
 
+  it('reads a toast once: no status inside the live region, an error is an alert (WE review A11)', async () => {
+    const host = await render();
+    service.show({ title: 'Everything is marked as read.' });
+    service.show({ title: 'Could not save.', tone: 'error' });
+    TestBed.tick();
+    const toasts = [...host.querySelectorAll('[data-testid="toast"]')];
+    expect(toasts.map((toast) => toast.getAttribute('role'))).toEqual([null, 'alert']);
+    expect(host.querySelectorAll('[role="status"]')).toHaveLength(0);
+  });
+
   it('rises above a bulk dock by its measured lift, and drops back without one (WD R1-3)', async () => {
     const host = await render();
     const layout = TestBed.inject(ShellLayout);

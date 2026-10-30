@@ -100,6 +100,7 @@ type ViewState =
           <app-empty-state
             icon="lock_person"
             title="Sign in to see collector profiles"
+            [level]="1"
             description="It's free. When you're done, you come right back here."
           >
             <a actions matButton="filled" routerLink="/auth/sign-in" [queryParams]="{ returnUrl }">
@@ -119,6 +120,7 @@ type ViewState =
           <app-empty-state
             icon="person_off"
             title="This collector is not available"
+            [level]="1"
             description="The profile does not exist, is private, or is no longer active."
           >
             <a actions matButton="filled" routerLink="/">Back to Home</a>
@@ -412,7 +414,9 @@ export class CollectorPageComponent {
 
   protected scrollToRatings(): void {
     const section = this.doc.getElementById('collector-ratings');
-    section?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // No smooth scroll for a collector who asked for less motion (WE review A11, SC 2.3.3).
+    const reduce = this.doc.defaultView?.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    section?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
     section?.querySelector<HTMLElement>('h2')?.focus({ preventScroll: true });
   }
 

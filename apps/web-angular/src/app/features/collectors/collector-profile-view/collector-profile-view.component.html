@@ -46,15 +46,15 @@
               (location.city ? ', ' : '') + (location.subdivisionName || location.countryName)
             }}</span></span
           >
-          <span aria-hidden="true"> · </span>
+          <span aria-hidden="true"> · </span><span class="visually-hidden">, </span>
         } @else if (isOwn()) {
           <!-- Your own profile: why no place shows (others see nothing here). -->
           <span>Not on the map</span>
-          <span aria-hidden="true"> · </span>
+          <span aria-hidden="true"> · </span><span class="visually-hidden">, </span>
         }
         <span>Member since {{ p.memberSince | date: 'y' }}</span>
         @if (activeLabel(); as active) {
-          <span aria-hidden="true"> · </span>
+          <span aria-hidden="true"> · </span><span class="visually-hidden">, </span>
           <span>{{ active }}</span>
         }
       </p>
@@ -78,7 +78,7 @@
             type="button"
             class="cp__primary"
             [disabled]="messaging()"
-            [attr.aria-label]="'Message ' + p.handle"
+            [attr.aria-label]="messaging() ? 'Opening the chat with ' + p.handle : 'Message ' + p.handle"
             (click)="messageRequested.emit()"
           >
             <app-shell-icon name="messages" [size]="18" />
