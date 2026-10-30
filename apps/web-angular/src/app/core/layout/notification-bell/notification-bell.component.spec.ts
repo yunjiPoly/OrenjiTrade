@@ -169,4 +169,60 @@ describe('NotificationBellComponent', () => {
     await vi.waitFor(() => expect(center['markAllRead']).toHaveBeenCalled());
     bell().click();
   });
+
+  it('the open popover takes the focus and keeps Tab inside it; Esc gives it back (F1, A2)', async () => {
+    unreadCount.set(1);
+    bell().focus();
+    const popover = await openPopover();
+    await vi.waitFor(() => {
+      TestBed.tick();
+      expect(popover.querySelector('[data-testid="bell-mark-all"]')).not.toBeNull();
+    });
+    // The dialog itself is focused (a modal dialog named "Notifications").
+    await vi.waitFor(() => expect(document.activeElement).toBe(popover));
+    expect(popover.getAttribute('role')).toBe('dialog');
+    expect(popover.getAttribute('aria-modal')).toBe('true');
+    // No page landmarks inside it (A7): no header or footer elements.
+    expect(popover.querySelector('header, footer')).toBeNull();
+    // The focus trap's two live anchors around the dialog wrap Tab inside it (the E2E presses Tab).
+    const anchors = [...popover.parentElement!.children].filter((child) =>
+      child.classList.contains('cdk-focus-trap-anchor'),
+    );
+    expect(anchors.map((anchor) => anchor.getAttribute('tabindex'))).toEqual(['0', '0']);
+    expect(anchors[0].nextElementSibling).toBe(popover);
+    // Esc closes it and the bell has the focus again.
+    document.activeElement!.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+    );
+    await vi.waitFor(() =>
+      expect(document.querySelector('[data-testid="notification-popover"]')).toBeNull(),
+    );
+    expect(document.activeElement).toBe(bell());
+  });
+
+  it('Mark all as read keeps the focus once nothing is unread (aria-disabled, A4)', async () => {
+    unreadCount.set(1);
+    (center['markAllRead'] as ReturnType<typeof vi.fn>).mockImplementation(async () => {
+      unreadCount.set(0);
+      return 1;
+    });
+    const popover = await openPopover();
+    await vi.waitFor(() => {
+      TestBed.tick();
+      expect(popover.querySelector('[data-testid="bell-mark-all"]')).not.toBeNull();
+    });
+    const mark = popover.querySelector<HTMLButtonElement>('[data-testid="bell-mark-all"]')!;
+    mark.focus();
+    mark.click();
+    await vi.waitFor(() => {
+      TestBed.tick();
+      expect(mark.getAttribute('aria-disabled')).toBe('true');
+    });
+    expect(mark.disabled).toBe(false);
+    expect(document.activeElement).toBe(mark);
+    // Pressed again: nothing to mark, no second call.
+    mark.click();
+    expect(center['markAllRead']).toHaveBeenCalledTimes(1);
+    bell().click();
+  });
 });

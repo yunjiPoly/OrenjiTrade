@@ -1,4 +1,13 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { CdkTrapFocus } from '@angular/cdk/a11y';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  afterNextRender,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type { NotificationResponse } from '@orenji/api-client';
 import { AuthService } from '../../auth/auth.service';
@@ -21,17 +30,25 @@ import { ShellIconComponent } from '../shell-icon/shell-icon.component';
  */
 @Component({
   selector: 'app-notification-popover',
-  imports: [RouterLink, NotificationRowComponent, ShellIconComponent],
+  imports: [CdkTrapFocus, RouterLink, NotificationRowComponent, ShellIconComponent],
   template: `
-    <section class="np" role="dialog" aria-labelledby="np-title" data-testid="notification-popover">
-      <header class="np__head">
+    <section
+      class="np"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="np-title"
+      tabindex="-1"
+      cdkTrapFocus
+      data-testid="notification-popover"
+    >
+      <div class="np__head">
         <h2 class="np__title" id="np-title">Notifications</h2>
         @if (center.active()) {
           <button
             type="button"
             class="np__mark"
             data-testid="bell-mark-all"
-            [disabled]="center.unreadCount() === 0 || marking()"
+            [attr.aria-disabled]="markDisabled() ? 'true' : null"
             (click)="markAll()"
           >
             Mark all as read
@@ -45,7 +62,7 @@ import { ShellIconComponent } from '../shell-icon/shell-icon.component';
             <app-shell-icon name="settings" [size]="18" />
           </a>
         }
-      </header>
+      </div>
       <div class="np__body">
         @if (!center.active()) {
           <p class="np__note">Sign in to hear about wishlist alerts, sales and ratings.</p>
@@ -111,11 +128,11 @@ import { ShellIconComponent } from '../shell-icon/shell-icon.component';
         }
       </div>
       @if (center.active()) {
-        <footer class="np__foot">
+        <div class="np__foot">
           <a routerLink="/notifications" data-testid="bell-see-all" (click)="ref.close(false)"
             >See all notifications</a
           >
-        </footer>
+        </div>
       }
     </section>
   `,
@@ -125,6 +142,7 @@ import { ShellIconComponent } from '../shell-icon/shell-icon.component';
     }
     .np {
       display: flex;
+      outline: none;
       flex-direction: column;
       max-height: min(560px, calc(100dvh - 88px));
       overflow: hidden;
@@ -154,7 +172,7 @@ import { ShellIconComponent } from '../shell-icon/shell-icon.component';
       font-weight: var(--font-weight-semibold);
       cursor: pointer;
     }
-    .np__mark:disabled {
+    .np__mark[aria-disabled='true'] {
       color: var(--color-text-disabled);
       cursor: default;
     }
@@ -286,8 +304,21 @@ export class NotificationPopoverComponent {
   protected readonly now = new Date();
   protected readonly marking = signal(false);
   protected readonly sections = computed(() => bellSections(this.center.recent() ?? []));
+  /**
+   * Nothing to mark: `aria-disabled`, never `disabled`, so the focus stays on the button once
+   * everything is read (a disabled button drops it to the page, A4).
+   */
+  protected readonly markDisabled = computed(
+    () => this.center.unreadCount() === 0 || this.marking(),
+  );
 
   constructor() {
+    // The dialog takes the focus as it opens (the trap keeps Tab inside; Esc gives it back to the
+    // bell): a keyboard user lands on "Notifications", and the next Tab on "Mark all as read".
+    const host = inject<ElementRef<HTMLElement>>(ElementRef);
+    afterNextRender(() =>
+      host.nativeElement.querySelector<HTMLElement>('[role="dialog"]')?.focus(),
+    );
     if (this.auth.isAuthenticated()) {
       void this.center.loadRecent().then(() => {
         if ((this.center.recent() ?? []).some((n) => isFreshnessRow(n))) {
@@ -308,6 +339,9 @@ export class NotificationPopoverComponent {
   }
 
   protected async markAll(): Promise<void> {
+    if (this.markDisabled()) {
+      return;
+    }
     this.marking.set(true);
     try {
       await this.center.markAllRead();
