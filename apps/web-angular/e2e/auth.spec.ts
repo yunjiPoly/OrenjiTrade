@@ -106,7 +106,7 @@ test.describe('authentication and onboarding', () => {
     await page.getByRole('switch', { name: 'Show me on the map' }).click();
     await page.getByRole('button', { name: 'Finish' }).click();
 
-    await expect(page).toHaveURL(/:\d+\/(\?region=[a-z-]+)?$/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/:\d+\/(\?region=[a-z-]+(&game=[a-z-]+)?)?$/, { timeout: 20_000 });
     await expect(page.getByText('Welcome to OrenjiTrade! Your profile is ready.')).toBeVisible();
 
     // --- Account menu shows the new identity; sign out ---------------------------------------
@@ -127,7 +127,7 @@ test.describe('authentication and onboarding', () => {
     await expect(page.getByLabel('Handle')).not.toBeVisible();
     await page.getByRole('checkbox', { name: /I confirm I am 18 years of age or older/ }).check();
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
-    await expect(page).toHaveURL(/:\d+\/(\?region=[a-z-]+)?$/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/:\d+\/(\?region=[a-z-]+(&game=[a-z-]+)?)?$/, { timeout: 20_000 });
     await expect(page.getByText('Thanks for confirming. Welcome back!')).toBeVisible();
     await openAccountMenu(page);
     await expect(page.getByTestId('account-menu-name')).toHaveText('Maïka Tremblay');

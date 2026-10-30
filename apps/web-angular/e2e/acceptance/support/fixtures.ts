@@ -137,13 +137,24 @@ export function escapeRegExp(text: string): string {
  * its binder panel, once its heading ("Arkansas, United States") is shown.
  */
 export async function openState(page: Page, place: Place): Promise<Locator> {
-  await page.goto(`/?region=${place.regionCode}&state=${place.subdivisionCode}`);
-  const panel = page.getByTestId('subdivision-panel');
-  await expect(panel.getByRole('heading', { name: place.label })).toBeVisible({ timeout: 20_000 });
+  // Web stage WE: Home is the feed; a state's binders are listed by Search › Binders (spec 6.3).
+  await page.goto(`/search?tab=binders&region=${place.regionCode}&state=${place.subdivisionCode}`);
+  const chip = page.getByTestId('state-chip');
+  await expect(chip).toHaveAttribute(
+    'aria-label',
+    new RegExp(`^Showing ${place.label.split(',')[0]}`),
+    {
+      timeout: 20_000,
+    },
+  );
+  const panel = page.locator('.bp');
+  await expect(
+    panel.getByTestId('binder-row').first().or(panel.getByTestId('binders-empty')),
+  ).toBeVisible({ timeout: 20_000 });
   return panel;
 }
 
 /** The binder card of a state panel holding `binderName`. */
 export function stateBinder(panel: Locator, binderName: string): Locator {
-  return panel.getByRole('listitem').filter({ hasText: binderName });
+  return panel.getByTestId('binder-row').filter({ hasText: binderName });
 }

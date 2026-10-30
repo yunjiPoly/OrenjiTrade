@@ -433,7 +433,7 @@ test.describe('inventory (web WB)', () => {
     const watcher = watchCoordinates(page);
     await signInThroughUi(page, viewer.email, viewer.password);
 
-    // The collector profile lists the public binder and enables "View public binder".
+    // The collector profile lists the public binder (web stage WE, board W23: Binders opens it).
     await page.goto(`/collectors/${owner.handle}`);
     await expect(page.getByRole('heading', { level: 1, name: owner.displayName })).toBeVisible();
     const binders = page.getByRole('list', { name: 'Public binders' });
@@ -441,7 +441,7 @@ test.describe('inventory (web WB)', () => {
     await expect(page.getByRole('list', { name: 'Public cards' })).toContainText(
       'Azure-Eyes Sky Dragon',
     );
-    await page.getByRole('link', { name: 'View public binder' }).click();
+    await binders.getByRole('link', { name: 'E2E public binder' }).click();
 
     await expect(page).toHaveURL(new RegExp(`/binders/${binder.id}$`));
     await expect(page.getByRole('heading', { level: 1, name: 'E2E public binder' })).toBeVisible();

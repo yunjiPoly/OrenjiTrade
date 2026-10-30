@@ -82,7 +82,7 @@ test.describe('acceptance: registration', () => {
     await chooseOption(page, 'State or province', 'Brittany');
     await page.getByLabel('City (optional)').fill(city);
     await page.getByRole('button', { name: 'Finish' }).click();
-    await expect(page).toHaveURL(/:\d+\/(\?region=[a-z-]+)?$/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/:\d+\/(\?region=[a-z-]+(&game=[a-z-]+)?)?$/, { timeout: 20_000 });
     await expect(page.getByText('Welcome to OrenjiTrade! Your profile is ready.')).toBeVisible();
 
     // The server stored the declared place (codes and the city text only, never a coordinate).
@@ -116,10 +116,10 @@ test.describe('acceptance: registration', () => {
     await expect(page.getByText('You are signed out. See you soon!')).toBeVisible();
 
     await signIn(page, { email, password: TEST_PASSWORD });
-    await expect(page).toHaveURL(/:\d+\/(\?region=[a-z-]+)?$/);
+    await expect(page).toHaveURL(/:\d+\/(\?region=[a-z-]+(&game=[a-z-]+)?)?$/);
     // Signed in: the home region is browsed.
     await page.goto('/');
-    await expect(page).toHaveURL(/:\d+\/\?region=europe$/);
+    await expect(page).toHaveURL(/:\d+\/\?region=europe&game=[a-z-]+$/);
     await expect(page.getByTestId('region-pill')).toContainText('Europe');
     await openAccountMenu(page);
     await expect(page.getByTestId('account-menu-handle')).toHaveText(`@${handle}`);

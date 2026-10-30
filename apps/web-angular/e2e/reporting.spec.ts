@@ -64,7 +64,8 @@ test.describe('collector reporting', () => {
       await expect(
         page.getByRole('heading', { level: 1, name: reported.displayName }),
       ).toBeVisible();
-      await page.getByRole('button', { name: `Report ${reported.displayName}` }).click();
+      await page.getByRole('button', { name: `More for ${reported.handle}` }).click();
+      await page.getByRole('menuitem', { name: `Report ${reported.handle}` }).click();
 
       const dialog = page.getByRole('dialog', { name: /^Report / });
       await expect(dialog).toBeVisible();
@@ -100,7 +101,8 @@ test.describe('collector reporting', () => {
       await expect(sent).toBeHidden();
 
       // The same collector again while the first report is open: refused inline (409).
-      await page.getByRole('button', { name: `Report ${reported.displayName}` }).click();
+      await page.getByRole('button', { name: `More for ${reported.handle}` }).click();
+      await page.getByRole('menuitem', { name: `Report ${reported.handle}` }).click();
       const again = page.getByRole('dialog', { name: /^Report / });
       await again.getByRole('radio', { name: 'Harassment' }).check();
       await again.getByRole('button', { name: 'Send report' }).click();
@@ -203,7 +205,7 @@ test.describe('collector reporting', () => {
       // --- The reporter is told, without specifics -------------------------------------------
       await page.goto('/notifications');
       await expect(page.getByRole('heading', { level: 1, name: 'Notifications' })).toBeVisible();
-      await expect(page.getByText('Your report was reviewed').first()).toBeVisible({
+      await expect(page.getByText('Report reviewed:').first()).toBeVisible({
         timeout: 15_000,
       });
       await page.goto('/settings/reports');

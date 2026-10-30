@@ -43,7 +43,7 @@ test.describe('the web redesign shell (WA)', () => {
   }
 
   const AREAS: [string, RegExp][] = [
-    ['Home', /:\d+\/(\?region=[a-z-]+)?$/],
+    ['Home', /:\d+\/(\?region=[a-z-]+(&game=[a-z-]+)?)?$/],
     // Search writes the browsed region and game into its URL (web stage WD).
     ['Search', /\/search(\?region=[a-z-]+&game=[a-z]+)?$/],
     ['Inventory', /\/inventory$/],

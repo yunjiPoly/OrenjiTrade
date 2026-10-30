@@ -284,17 +284,16 @@ test.describe('wishlist and notifications', () => {
         await page.evaluate(() => (window as unknown as { e2eNoReload?: boolean }).e2eNoReload),
       ).toBe(true);
 
-      // The bell menu shows the alert; opening it marks it read and opens the card page with the
-      // wish's printing.
+      // The bell's popover (board W24) shows the alert: "{card} from your wishlist was listed in
+      // {province}" over "{handle} · {price}"; opening it marks it read and opens the card page
+      // with the wish's printing.
       await bell.click();
-      const menu = page.getByRole('menu', { name: 'Notifications' });
-      const entry = menu.getByRole('menuitem', {
-        name: new RegExp(`Wishlist alert: ${WISHED_CARD}`),
-      });
-      await expect(entry).toContainText(
-        `${WISHED_CARD} ${WISHED_PRINTING} Common was just listed by @${b.handle} in Montevideo, Uruguay.`,
-      );
-      await expect(entry).not.toContainText(/\bkm\b|CAD/);
+      const menu = page.getByTestId('notification-popover');
+      const row = menu.getByTestId('notification-row').filter({ hasText: WISHED_CARD });
+      await expect(row).toContainText(`${WISHED_CARD} from your wishlist was listed in Montevideo`);
+      await expect(row).toContainText(`${b.handle} · `);
+      await expect(row).not.toContainText(/\bkm\b|CAD|Uruguay/);
+      const entry = row.getByRole('link');
       await entry.click();
       await expect(page).toHaveURL(new RegExp(`/cards/${wishedCardId}\\?printing=${printingId}$`));
       await expect(page.getByRole('heading', { level: 1, name: WISHED_CARD })).toBeVisible();
@@ -305,7 +304,7 @@ test.describe('wishlist and notifications', () => {
       await expect(page.getByRole('heading', { level: 1, name: 'Notifications' })).toBeVisible();
       const today = page.getByRole('list', { name: 'Today notifications' });
       await expect(today.getByRole('listitem')).toHaveCount(1);
-      await expect(today).toContainText(`Wishlist alert: ${WISHED_CARD}`);
+      await expect(today).toContainText(`${WISHED_CARD} from your wishlist was listed in`);
 
       // One switch in the notification settings turns wishlist alerts off.
       await page.goto('/settings/notifications');
@@ -318,9 +317,9 @@ test.describe('wishlist and notifications', () => {
       await page.goto(`/collectors/${a.handle}`);
       const lookingFor = page.getByRole('list', { name: 'Cards you are looking for' });
       await expect(lookingFor).toContainText(WISHED_CARD);
-      await expect(lookingFor).toContainText(`${WISHED_PRINTING} · Common`);
+      // Board W23b: the terms on one line ("{code} · NM only · 85% TCG") and the note under it.
+      await expect(lookingFor).toContainText(`${WISHED_PRINTING} · NM only`);
       await expect(lookingFor).toContainText('Fictional E2E wish.');
-      await expect(lookingFor).toContainText('Near Mint only');
       await expect(lookingFor).toContainText('85% TCG');
       // The profile never scrolls sideways on a phone-sized screen.
       await page.setViewportSize({ width: 375, height: 812 });
@@ -443,22 +442,21 @@ test.describe('wishlist and notifications', () => {
       // the bell menu (the place is never cut off), on a wide and on a phone-sized screen.
       await listCopy(request, b, binder.id, unlimited.id, { condition: 'NEAR_MINT', price: 12.5 });
       await expect(page.getByTestId('notification-badge')).toBeVisible({ timeout: 20_000 });
-      const menu = page.getByRole('menu', { name: 'Notifications' });
-      const entry = menu.getByRole('menuitem', {
-        name: new RegExp(`Wishlist alert: ${SHARED_CODE_CARD}`),
-      });
+      const menu = page.getByTestId('notification-popover');
+      const row = menu.getByTestId('notification-row').filter({ hasText: SHARED_CODE_CARD });
+      const entry = row.getByRole('link');
       for (const viewport of [
         { width: 1280, height: 720 },
         { width: 375, height: 812 },
       ]) {
         await page.setViewportSize(viewport);
         await bell.click();
-        await expect(entry).toContainText(
-          `${SHARED_CODE_CARD} ${SHARED_CODE} Super Rare was just listed by @${b.handle} in Montevideo, Uruguay.`,
+        await expect(row).toContainText(
+          `${SHARED_CODE_CARD} from your wishlist was listed in Montevideo`,
         );
-        const cut = await entry
-          .locator('.ne__body')
-          .evaluate((body) => body.scrollHeight > body.clientHeight + 1);
+        const cut = await row
+          .locator('.nr__link')
+          .evaluate((text) => text.scrollWidth > text.clientWidth + 1);
         expect(cut, `alert text cut off at ${viewport.width} px`).toBe(false);
         if (viewport.width > 375) {
           await page.keyboard.press('Escape');

@@ -275,7 +275,7 @@ test.describe('private messaging', () => {
 
     await page.goto(`/collectors/${b.handle}`);
     await expect(page.getByRole('heading', { level: 1, name: b.displayName })).toBeVisible();
-    await page.getByRole('button', { name: `Message ${b.displayName}` }).click();
+    await page.getByRole('button', { name: `Message ${b.handle}` }).click();
     await page.getByTestId('chat-drawer').getByTestId('open-in-messages').click();
     await expect(page).toHaveURL(/\/messages\/[0-9a-f-]{36}$/);
     const thread = page.getByRole('region', { name: `Chat with ${b.handle}` });

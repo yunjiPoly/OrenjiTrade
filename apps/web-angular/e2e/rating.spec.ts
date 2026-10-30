@@ -125,7 +125,7 @@ test.describe('ratings and references', () => {
 
     // --- Rate from the profile -------------------------------------------------------------
     await page.goto(`/collectors/${ratee.handle}`);
-    const section = page.getByRole('region', { name: 'Ratings & references' });
+    const section = page.getByRole('region', { name: 'All ratings and references' });
     await expect(section).toContainText('No ratings yet');
     await expect(page.getByTestId('profile-rating')).toHaveText('No ratings yet.');
     await section.getByRole('button', { name: 'Rate this collector' }).click();
@@ -215,7 +215,7 @@ test.describe('ratings and references', () => {
     // --- An unrelated collector --------------------------------------------------------------
     const other = await openSignedIn(browser, stranger);
     await other.goto(`/collectors/${ratee.handle}`);
-    const theirSection = other.getByRole('region', { name: 'Ratings & references' });
+    const theirSection = other.getByRole('region', { name: 'All ratings and references' });
     await expect(theirSection.getByTestId('rating-average')).toHaveText('4.0');
     await expect(theirSection.getByTestId('rating-hint')).toContainText(
       `You can rate ${ratee.displayName} after a deal with them`,
