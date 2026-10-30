@@ -125,6 +125,7 @@ type ViewState =
         @case ('error') {
           <app-error-state
             title="We could not load this profile"
+            retryLabel="Try again"
             [message]="errorMessage()"
             [requestId]="errorRequestId()"
             (retry)="load()"

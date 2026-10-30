@@ -59,7 +59,8 @@ import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.componen
     @if (!loaded() && store.error(); as error) {
       <app-error-state
         title="We could not load your location"
-        [message]="error.message"
+        retryLabel="Try again"
+        [message]="loadErrorMessage(error)"
         [requestId]="error.requestId"
         (retry)="load()"
       />
@@ -404,6 +405,10 @@ export class LocationSettingsComponent {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
   protected readonly mapBusy = signal(false);
+  /** The load error in plain words, never the server's own text (WE review F9). */
+  protected loadErrorMessage(error: unknown): string {
+    return isApiError(error) ? friendlyMessage(error) : 'Please try again.';
+  }
   protected readonly mapError = signal<string | null>(null);
 
   protected readonly loaded = signal(false);

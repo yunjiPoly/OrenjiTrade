@@ -38,7 +38,7 @@ describe('LocationSettingsComponent', () => {
   let element: HTMLElement;
   let store: {
     location: ReturnType<typeof signal<MyLocationResponse | null>>;
-    error: ReturnType<typeof signal<null>>;
+    error: ReturnType<typeof signal<ApiError | null>>;
     load: ReturnType<typeof vi.fn>;
     saveLocation: ReturnType<typeof vi.fn>;
     removeLocation: ReturnType<typeof vi.fn>;
@@ -47,11 +47,11 @@ describe('LocationSettingsComponent', () => {
   };
   let confirm: boolean;
 
-  async function mount(saved: MyLocationResponse): Promise<void> {
+  async function mount(saved: MyLocationResponse, failure: ApiError | null = null): Promise<void> {
     store = {
-      location: signal<MyLocationResponse | null>(saved),
-      error: signal(null),
-      load: vi.fn(async () => true),
+      location: signal<MyLocationResponse | null>(failure ? null : saved),
+      error: signal<ApiError | null>(failure),
+      load: vi.fn(async () => !failure),
       saveLocation: vi.fn(async () => saved),
       removeLocation: vi.fn(async () => store.location.set({ discoverable: false })),
       privacy: signal<Record<string, unknown> | null>({ discoverable: true }),
@@ -94,6 +94,24 @@ describe('LocationSettingsComponent', () => {
   function saveButton(): HTMLButtonElement {
     return element.querySelector<HTMLButtonElement>('[data-testid="location-save"]')!;
   }
+
+  it('a load error reads in plain words with "Try again", never the server\'s text (WE review F9)', async () => {
+    await mount(
+      { discoverable: false },
+      new ApiError({
+        status: 500,
+        errorCode: 'INTERNAL_ERROR',
+        message: 'relation "user_location" does not exist',
+        requestId: 'req-f9',
+        fieldErrors: {},
+      }),
+    );
+    const text = element.textContent ?? '';
+    expect(text).toContain('We could not load your location');
+    expect(text).not.toContain('user_location');
+    const buttons = [...element.querySelectorAll('button')].map((b) => b.textContent ?? '');
+    expect(buttons.some((label) => label.includes('Try again'))).toBe(true);
+  });
 
   it('shows what others see, without any coordinate', async () => {
     await mount(SAVED);

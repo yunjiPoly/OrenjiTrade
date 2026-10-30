@@ -161,7 +161,7 @@ describe('CollectorRatingsSectionComponent', () => {
     await create(true);
     expect(eligibility).not.toHaveBeenCalled();
     expect(element.textContent).toContain('Ratings could not load');
-    button('Retry')?.click();
+    button('Try again')?.click();
     await fixture.whenStable();
     expect(element.textContent).toContain('No ratings yet');
     expect(button('Rate this collector')).toBeUndefined();
