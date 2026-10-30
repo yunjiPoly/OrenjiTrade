@@ -9,9 +9,9 @@ import {
 } from './support/stack';
 
 /**
- * Card catalog (Phase 2) against the real local stack: top-bar autocomplete to the card detail,
- * schema-driven attributes and printings, set pages, filters kept in the URL, and printing-code
- * search. Uses the fictional seed catalog imported at API startup (`db/seed/catalog/*.json`).
+ * Card catalog (Phase 2; the card and set pages of web stage WD) against the real local stack:
+ * top-bar autocomplete to Who has this card (no card text or market price, the printing picker,
+ * the wishlist toggle), set pages, filters kept in the URL, and printing-code search. Uses the fictional seed catalog imported at API startup (`db/seed/catalog/*.json`).
  *
  * The catalog is public; most tests still sign in a fresh collector so their API calls count
  * against that account's rate limit instead of the anonymous per-IP budget the whole suite shares.
@@ -59,93 +59,94 @@ test.describe('card catalog', () => {
       page.getByRole('heading', { level: 1, name: 'Azure-Eyes Sky Dragon' }),
     ).toBeVisible();
     await expect(page).toHaveTitle('Azure-Eyes Sky Dragon · OrenjiTrade');
-    await expect(page.getByText('Monster · Normal')).toBeVisible();
-
-    // Attributes are rendered from the Yu-Gi-Oh! schema (labels, number formatting).
-    const attributes = page.getByRole('region', { name: 'Attributes' });
-    await expect(attributes.locator('[data-key="atk"]')).toContainText('ATK');
-    await expect(attributes.locator('[data-key="atk"]')).toContainText('3,000');
-    await expect(attributes.locator('[data-key="attribute"]')).toContainText('LIGHT');
-
-    // Selected printing (first one) with its market price.
-    const selected = page.getByRole('region', { name: 'Selected printing' });
-    await expect(selected.getByRole('list', { name: 'Printing details' })).toContainText(
-      'AZR-EN001',
-    );
-    await expect(selected).toContainText('Ultra Rare');
-    await expect(selected).toContainText('1st Edition');
-    await expect(page.getByTestId('selected-price')).toContainText('42.00 CAD');
-    // The price says what it is (the fictional sample catalog here); its source is a tooltip.
-    await expect(page.getByTestId('selected-price-source')).toHaveText('Sample market price');
-
-    // Printings table: pick the French printing.
-    const printings = page.getByRole('table', { name: 'Printings of Azure-Eyes Sky Dragon' });
-    await expect(printings.getByRole('row')).toHaveCount(3);
-    await expect(printings).toContainText('French');
-    await printings.getByRole('button', { name: 'Show printing AZR-FR001' }).click();
-    await expect(page).toHaveURL(/printing=[0-9a-f-]{36}/);
-    await expect(page.getByTestId('selected-price')).toContainText('33.60 CAD');
-    await expect(selected).toContainText('Unlimited');
-
-    // "Who has this in my region" opens the card holders of the browsed region (ADR 0017).
-    await expect(page.getByRole('link', { name: 'Who has this in my region' })).toHaveAttribute(
+    // Who has this card (spec 7, board W7): no card text, no attributes and no market price
+    // (decision 10); "Check TCGplayer price" is a plain link to a search, nothing fetched.
+    await expect(page.getByText('Monster · Normal')).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'Attributes' })).toHaveCount(0);
+    await expect(page.getByRole('main')).not.toContainText(/42\.00 CAD|market price/i);
+    await expect(page.getByTestId('tcgplayer-link')).toHaveAttribute(
       'href',
-      /^\/search\?card=[0-9a-f-]{36}$/,
+      'https://www.tcgplayer.com/search/yugioh/product?q=Azure-Eyes%20Sky%20Dragon',
     );
-    // "Add to wishlist" opens the wishlist dialog on this card with the chosen printing checked
-    // in the printing picker.
-    await page.getByRole('button', { name: 'Add to wishlist' }).click();
-    const wishDialog = page.getByRole('dialog', { name: 'Add to wishlist' });
+    await expect(page.getByTestId('tcgplayer-link')).toHaveAttribute('target', '_blank');
+    await expect(
+      page.getByRole('heading', { level: 2, name: /Who has this card in Americas \(North\)/ }),
+    ).toBeVisible();
+    await expect(page.getByText('First printed in Azure Dawn')).toBeVisible();
+
+    // "Any printing ▾": a listbox with a filter and rarity chips, no counts; picking the French
+    // printing changes the art and the list.
+    const pill = page.getByTestId('printing-pill');
+    await expect(pill).toHaveText(/Any printing/);
+    await pill.click();
+    const picker = page.getByRole('dialog', { name: 'Which printing' });
+    await expect(picker.getByRole('option')).toHaveCount(3);
+    await expect(picker).not.toContainText(/\d+ (holders|copies|listings)/);
+    await picker.getByRole('searchbox', { name: 'Set code or set name' }).fill('fr001');
+    await expect(picker.getByRole('option')).toHaveCount(2);
+    await picker
+      .getByRole('option', { name: /AZR-FR001 · Azure Dawn · 2024 · Ultra Rare/ })
+      .click();
+    await expect(picker).toBeHidden();
+    await expect(page).toHaveURL(/printing=[0-9a-f-]{36}/);
+    await expect(pill).toHaveText(/AZR-FR001/);
+    await expect(pill).toBeFocused();
+    await expect(page.getByText('AZR-FR001 only.', { exact: false })).toBeVisible();
+
+    // The wishlist toggle: off, "Add to wishlist" adds an "Any printing" wish at once; on, a
+    // second click opens Edit wish.
+    const toggle = page.getByTestId('card-wish-toggle');
+    await expect(toggle).toHaveText(/Add to wishlist/);
+    await toggle.click();
+    await expect(toggle).toHaveText(/On your wishlist/);
+    // Once on, it opens Edit wish (a dialog), not a pressed state.
+    await expect(toggle).toHaveAttribute('aria-haspopup', 'dialog');
+    await toggle.click();
+    const wishDialog = page.getByRole('dialog', { name: 'Edit wish' });
     await expect(wishDialog.getByTestId('wish-card')).toContainText('Azure-Eyes Sky Dragon');
-    await expect(wishDialog.getByRole('radio', { name: /^AZR-FR001,/ })).toBeChecked();
-    await expect(wishDialog.getByRole('radio', { name: /^Any printing/ })).not.toBeChecked();
+    await expect(wishDialog.getByRole('combobox', { name: 'Which copy' })).toContainText(
+      'Any printing',
+    );
+    await expect(wishDialog).not.toContainText(/≈|\d+\.\d\d (CAD|USD)/);
     await wishDialog.getByRole('button', { name: 'Cancel' }).click();
     await expect(wishDialog).toBeHidden();
+    // Edit wish removes it, after "You stop getting alerts for it." (spec 6.6).
+    await toggle.click();
+    await wishDialog.getByRole('button', { name: 'Remove from wishlist' }).click();
+    const confirmRemove = page.getByRole('dialog', { name: 'Remove Azure-Eyes Sky Dragon?' });
+    await expect(confirmRemove).toContainText('You stop getting alerts for it.');
+    await confirmRemove.getByRole('button', { name: 'Remove from wishlist' }).click();
+    await expect(wishDialog).toBeHidden();
+    await expect(toggle).toHaveText(/Add to wishlist/);
 
-    // A wishlist alert for "any printing in a rarity" links with `?rarity=`: the page says so and
-    // picks no printing silently; "Add to wishlist" starts on the same choice.
+    // A wishlist alert for "any printing in a rarity" links with `?rarity=`: the pill says so.
     const cardPath = new URL(page.url()).pathname;
     await page.goto(`${cardPath}?rarity=Ultra%20Rare`);
-    const anyInRarity = page.getByRole('region', { name: 'Any printing in Ultra Rare' });
-    await expect(anyInRarity).toContainText('2 printings of this card in Ultra Rare');
-    await expect(anyInRarity).toContainText('AZR-EN001 · 1st Edition · English');
-    await expect(anyInRarity).toContainText('AZR-FR001 · Unlimited · French');
-    await expect(page.getByRole('region', { name: 'Selected printing' })).toHaveCount(0);
-    await expect(page.getByTestId('selected-price')).toHaveCount(0);
-    await page.getByRole('button', { name: 'Add to wishlist' }).click();
-    await expect(wishDialog.getByTestId('wish-card')).toContainText('Azure-Eyes Sky Dragon');
-    await expect(wishDialog.getByRole('radio', { name: /^Any printing/ })).toBeChecked();
-    await expect(wishDialog).toContainText('Any printing in Ultra Rare');
-    await wishDialog.getByRole('button', { name: 'Cancel' }).click();
-    await expect(wishDialog).toBeHidden();
-    // Choosing one printing replaces the rarity in the URL.
-    await printings.getByRole('button', { name: 'Show printing AZR-FR001' }).click();
-    await expect(page).toHaveURL(/\?printing=[0-9a-f-]{36}$/);
-    await expect(selected).toContainText('Unlimited');
+    await expect(pill).toHaveText(/Any Ultra Rare/);
+    await expect(page.getByText('Every Ultra Rare printing.', { exact: false })).toBeVisible();
 
-    // The hero picture is a real API placeholder image.
-    const hero = page.getByRole('img', { name: /Azure-Eyes Sky Dragon, printing AZR-FR001/ });
+    // The picture is a real API placeholder image, at most 160 CSS pixels wide (ADR 0015).
+    const hero = page.getByRole('img', { name: 'Azure-Eyes Sky Dragon' }).first();
     const src = await hero.getAttribute('src');
     expect(src).toContain(`${API_URL}/api/v1/public/placeholder-images/yugioh/`);
+    expect((await hero.boundingBox())!.width).toBeLessThanOrEqual(160);
     // Sent with the collector's token so it counts against the account, not the shared
     // anonymous per-IP budget.
     const image = await request.get(src!, { headers: authHeader(collector.idToken) });
     expect(image.ok()).toBeTruthy();
     expect(image.headers()['content-type']).toContain('image/svg+xml');
 
-    // The set page lists the set's cards and its checklist.
-    await selected.getByRole('link', { name: 'Azure Dawn (AZR)' }).click();
+    // The set page (spec 7.5): the code, the name, the release and the printings; a tile opens
+    // the card page on that printing.
+    await page.getByRole('link', { name: 'Azure Dawn' }).first().click();
     await expect(page).toHaveURL(/\/sets\/[0-9a-f-]{36}$/);
     await expect(page.getByRole('heading', { level: 1, name: 'Azure Dawn' })).toBeVisible();
     await expect(page).toHaveTitle('Azure Dawn · OrenjiTrade');
-    await expect(
-      page.getByRole('list', { name: 'Cards in this set' }).getByRole('link', {
-        name: 'Lantern Fox Spirit',
-      }),
-    ).toBeVisible();
-    const checklist = page.getByRole('table', { name: 'Azure Dawn checklist' });
-    await expect(checklist).toContainText('AZR-EN011');
-    await checklist.getByRole('link', { name: 'Azure-Eyes Sky Dragon' }).first().click();
+    await expect(page.getByText(/Released .* · \d+ printings/)).toBeVisible();
+    const tiles = page.getByRole('list', { name: 'Printings of this set' });
+    await expect(tiles).toContainText('AZR-EN011');
+    await tiles.getByRole('link', { name: /^Azure-Eyes Sky Dragon, AZR-EN001/ }).click();
+    await expect(page).toHaveURL(/\/cards\/[0-9a-f-]{36}\?printing=[0-9a-f-]{36}$/);
     await expect(
       page.getByRole('heading', { level: 1, name: 'Azure-Eyes Sky Dragon' }),
     ).toBeVisible();
@@ -253,28 +254,35 @@ test.describe('card catalog', () => {
       page.getByRole('option', { name: /Search binders and deck cores for ‘sky dragon’/ }),
     ).toBeVisible();
     await search.press('Enter');
-    // Free text opens Search › Cards (spec 4.4).
-    await expect(page).toHaveURL(/\/search\?tab=cards&q=sky(%20|\+)dragon$/);
-    await expect(page.getByRole('heading', { name: 'Cards for “sky dragon”' })).toBeVisible();
+    // Free text opens Search › Cards (spec 4.4) with the text in its field and the same results.
+    await expect(page).toHaveURL(/\/search\?tab=cards&q=sky(%20|\+)dragon/);
+    const pane = page.getByRole('combobox', { name: 'Search Yu-Gi-Oh! cards by name or code' });
+    await expect(pane).toHaveValue('sky dragon');
+    await expect(page.getByRole('option', { name: /Azure-Eyes Sky Dragon/ }).first()).toBeVisible();
 
-    // The Search tab shows the first matching cards.
+    // The Search tab shows the first matching cards; Enter opens the first one.
     await page.goto('/search?q=lantern');
-    await expect(page.getByRole('heading', { name: 'Cards for “lantern”' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Lantern Fox Spirit' })).toBeVisible();
+    await expect(page.getByRole('option', { name: 'Lantern Fox Spirit' }).first()).toBeVisible();
+    await pane.press('Enter');
+    await expect(page.getByRole('heading', { level: 1, name: 'Lantern Fox Spirit' })).toBeVisible();
 
     // An unknown set gets a not-found state with a way back.
     await page.goto('/sets/not-a-set');
-    await expect(page.getByRole('heading', { name: 'Set not found' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: "This set isn't in the catalogue" }),
+    ).toBeVisible();
   });
 
   test('signed-out visitors get a friendly not-found state for an unknown card', async ({
     page,
   }) => {
     await page.goto('/cards/00000000-0000-4000-8000-000000000000');
-    await expect(page.getByRole('heading', { name: 'Card not found' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Browse the catalog' })).toHaveAttribute(
+    await expect(
+      page.getByRole('heading', { name: "This card isn't in the catalogue" }),
+    ).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Search cards' })).toHaveAttribute(
       'href',
-      '/cards',
+      '/search?tab=cards',
     );
   });
 });

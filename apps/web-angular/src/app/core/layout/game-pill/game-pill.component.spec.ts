@@ -1,6 +1,6 @@
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { InventoryService } from '@orenji/api-client';
+import { CatalogService, InventoryService, ProfileService } from '@orenji/api-client';
 import { of } from 'rxjs';
 import { SessionService, SessionStatus } from '../../auth/session.service';
 import { GameContext } from '../../game/game-context.service';
@@ -28,11 +28,22 @@ describe('the game pill and "Choose a game" (spec 4.5, web WA)', () => {
   beforeEach(async () => {
     status.set('anonymous');
     summary = vi.fn(() => of({ byGame: { yugioh: 17, pokemon: 3 } }));
+    // GET /games (stage G's hasCards): One Piece and Riftbound have no cards yet.
+    const games = [
+      { slug: 'yugioh', status: 'ACTIVE', hasCards: true },
+      { slug: 'pokemon', status: 'ACTIVE', hasCards: true },
+      { slug: 'mtg', status: 'ACTIVE', hasCards: true },
+      { slug: 'onepiece', status: 'ACTIVE', hasCards: false },
+      { slug: 'riftbound', status: 'ACTIVE', hasCards: false },
+    ];
+    localStorage.clear();
     await TestBed.configureTestingModule({
       imports: [GamePillComponent],
       providers: [
-        { provide: SessionService, useValue: { status } },
+        { provide: SessionService, useValue: { status, me: signal(null) } },
         { provide: InventoryService, useValue: { getInventorySummary: summary } },
+        { provide: CatalogService, useValue: { listGames: () => of(games) } },
+        { provide: ProfileService, useValue: { getMyProfile: () => of({ games: [] }) } },
         { provide: ShellLayout, useValue: { narrow: signal(false) } },
       ],
     }).compileComponents();
@@ -58,7 +69,7 @@ describe('the game pill and "Choose a game" (spec 4.5, web WA)', () => {
     expect(tile.getAttribute('style')).toContain('--game-tile-yugioh-background');
   });
 
-  it('lists every game; until web WD only Yu-Gi-Oh! can be picked, the rest "Cards coming soon"', async () => {
+  it('lists every game; the games without cards are "Cards coming soon" (stage WD)', async () => {
     const rows = await open();
     expect(rows.map((row) => row.querySelector('.pop__name')?.textContent)).toEqual([
       'Yu-Gi-Oh!',
@@ -69,19 +80,26 @@ describe('the game pill and "Choose a game" (spec 4.5, web WA)', () => {
     ]);
     expect(rows.map((row) => row.getAttribute('aria-disabled'))).toEqual([
       null,
-      'true',
-      'true',
+      null,
+      null,
       'true',
       'true',
     ]);
-    expect(rows.slice(1).every((row) => row.textContent?.includes('Cards coming soon'))).toBe(true);
+    expect(rows.slice(3).every((row) => row.textContent?.includes('Cards coming soon'))).toBe(true);
     // A guest has no cards of their own: no count, and no call for one.
     expect(rows[0].querySelector('.pop__line')).toBeNull();
     expect(summary).not.toHaveBeenCalled();
-    rows[1].click();
+    // A game without cards cannot be picked: the popover stays.
+    rows[3].click();
     await settle(fixture);
     expect(TestBed.inject(GameContext).current()).toBe('yugioh');
     expect(document.querySelector('.app-popover')).not.toBeNull();
+    // Pokémon can: the pill shows it, and this browser keeps it (spec 4.5).
+    rows[1].click();
+    await settle(fixture);
+    expect(TestBed.inject(GameContext).current()).toBe('pokemon');
+    expect(pill().getAttribute('aria-label')).toBe('Game: Pokémon. Change game');
+    expect(localStorage.getItem('orenji.game.guest')).toBe('pokemon');
   });
 
   it('tells a signed-in collector how many of their cards each game has', async () => {

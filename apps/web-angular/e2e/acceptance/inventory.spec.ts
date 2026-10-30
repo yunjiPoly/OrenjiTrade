@@ -14,10 +14,6 @@ import { placeOf } from './support/places';
 
 const CARD = 'Azure-Eyes Sky Dragon';
 
-function card(page: Page, name: string) {
-  return page.getByRole('article', { name, exact: true });
-}
-
 /** A row of Inventory's table (web WB). */
 function row(page: Page, name: string) {
   return page.locator('[role="row"][data-item-id]', { hasText: name });
@@ -121,10 +117,13 @@ test.describe('acceptance: inventory', () => {
     const other = await actors.open(viewer);
     await other.goto(`/binders/${binderId}`);
     await expect(other.getByRole('heading', { level: 1, name: binderName })).toBeVisible();
-    const listed = card(other, CARD);
-    await expect(listed).toContainText('Lightly played, sleeved.');
-    await expect(listed.getByTestId('item-price')).toHaveText('$45.00');
-    await expect(other.getByTestId('owner-public-label')).toContainText(placeOf('inventory').label);
+    // The binder page's cards (web stage WD, board W9): the name, the price as typed and ×n; the
+    // owner row names the province.
+    const listed = other.getByTestId('binder-card').filter({ hasText: CARD });
+    await expect(listed).toContainText('$45.00');
+    await expect(other.getByTestId('owner-public-label')).toContainText(
+      placeOf('inventory').label.split(',')[0],
+    );
     await expect(other.getByTestId('owner-distance')).toHaveCount(0);
   });
 });

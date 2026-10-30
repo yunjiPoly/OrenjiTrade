@@ -58,7 +58,7 @@ describe('GlobalSearchComponent (spec 4.4, board W3)', () => {
       imports: [GlobalSearchComponent],
       providers: [
         provideRouter([]),
-        { provide: CatalogService, useValue: { suggestCards } },
+        { provide: CatalogService, useValue: { suggestCards, listGames: () => of([]) } },
         { provide: SearchService, useValue: { searchCollectorsByName: searchCollectors } },
         { provide: SessionService, useValue: { status, me: signal(null) } },
         { provide: AuthService, useValue: { user: signal({ uid: 'u-me' }) } },

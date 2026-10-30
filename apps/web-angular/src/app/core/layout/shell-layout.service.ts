@@ -57,6 +57,18 @@ export function shellDataOf(snapshot: ActivatedRouteSnapshot | null): Required<S
   return merged;
 }
 
+/** The gap between a bulk dock and the toasts above it. */
+export const DOCK_TOAST_GAP = 12;
+
+/**
+ * The toasts' lift above the window's bottom edge for a dock whose top is at `dockTop` (window
+ * coordinates): its distance to the bottom plus the gap; 0 when the dock is out of view below.
+ */
+export function dockLiftOf(viewportHeight: number, dockTop: number): number {
+  const above = viewportHeight - dockTop;
+  return above > 0 ? Math.round(above + DOCK_TOAST_GAP) : 0;
+}
+
 /** Below this width the browser shows the phone's design (spec 3 and 16). */
 export const NARROW_QUERY = '(max-width: 959.98px)';
 /** md, 960 to 1279: compact pills, a 320 search field, overlaying drawers (spec 3). */
@@ -77,6 +89,7 @@ export class ShellLayout {
   private readonly mediumState = signal(false);
   private readonly skipMapState = signal<string | null>(null);
   private readonly chatOpenState = signal(false);
+  private readonly dockLiftState = signal(0);
 
   readonly data = this.dataState.asReadonly();
   readonly area = computed(() => this.dataState().area);
@@ -141,6 +154,66 @@ export class ShellLayout {
   /** The Messages page shows a chat (`true`) or the inbox (`false`; also when it leaves). */
   setChatOpen(open: boolean): void {
     this.chatOpenState.set(open);
+  }
+
+  /**
+   * How far above the window's bottom edge the toasts keep clear of a bulk dock at the bottom of a
+   * list pane (Search › Wishlist): from the dock's top as measured, plus a 12 px gap; 0 without a
+   * dock. The dock grows with its error line and moves with the list, so it is measured, not
+   * assumed (WD review U15 and R1-3).
+   */
+  readonly dockLift = this.dockLiftState.asReadonly();
+  readonly dockOpen = computed(() => this.dockLiftState() > 0);
+  private dockElement: HTMLElement | null = null;
+  private dockObserver: ResizeObserver | null = null;
+  private dockFrame = 0;
+  private readonly onDockMove = () => {
+    const view = this.document.defaultView;
+    if (!view || this.dockFrame) {
+      return;
+    }
+    this.dockFrame = view.requestAnimationFrame(() => {
+      this.dockFrame = 0;
+      this.measureDock();
+    });
+  };
+
+  /**
+   * A list pane's bulk dock while it shows (`null` when it goes): its top is measured now, when it
+   * changes size (an error line), on a scroll of any pane or the page and on a resize; the pane
+   * calls `measureDock()` after it rendered (the list above it changed).
+   */
+  trackDock(element: HTMLElement | null): void {
+    if (element === this.dockElement) {
+      this.measureDock();
+      return;
+    }
+    const view = this.document.defaultView;
+    if (this.dockElement) {
+      this.dockObserver?.disconnect();
+      this.dockObserver = null;
+      view?.removeEventListener('scroll', this.onDockMove, true);
+      view?.removeEventListener('resize', this.onDockMove);
+    }
+    this.dockElement = element;
+    if (element && view) {
+      if (typeof view.ResizeObserver === 'function') {
+        this.dockObserver = new view.ResizeObserver(this.onDockMove);
+        this.dockObserver.observe(element);
+      }
+      view.addEventListener('scroll', this.onDockMove, true);
+      view.addEventListener('resize', this.onDockMove);
+    }
+    this.measureDock();
+  }
+
+  /** Measures the tracked dock again (after its pane rendered). */
+  measureDock(): void {
+    const view = this.document.defaultView;
+    const element = this.dockElement;
+    this.dockLiftState.set(
+      element && view ? dockLiftOf(view.innerHeight, element.getBoundingClientRect().top) : 0,
+    );
   }
 
   /** A page that shows the map registers the element after it; `null` when it leaves. */

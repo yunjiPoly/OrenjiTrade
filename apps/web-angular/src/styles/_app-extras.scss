@@ -6,9 +6,11 @@
 
 // Leaflet containers take the token font and a focus ring consistent with the app. The region
 // map has no tiles (ADR 0017): the container colour is the sea.
-.leaflet-container {
+// Doubled class: Leaflet's own stylesheet (loaded later, with the map) sets a grey sea.
+.leaflet-container.leaflet-container {
   font-family: var(--font-body);
-  background: var(--color-surface-variant);
+  // No tiles (spec 6.4): the map sits on the page's background.
+  background: var(--color-background);
 
   &:focus-visible {
     outline: var(--focus-width) solid var(--color-focus-ring);
@@ -16,15 +18,46 @@
   }
 }
 
-// Tooltips of the region map's states and provinces.
+// Tooltips of the region map's states and provinces (spec 6.4: `surfaceElevated`, radius 12).
 .leaflet-tooltip.orenji-boundary-tooltip {
-  padding: 4px 8px;
+  padding: 8px 12px;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm, 6px);
+  border-radius: var(--radius-input, 12px);
   background: var(--color-surface-elevated);
   color: var(--color-ink);
   box-shadow: var(--elevation-menu);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-meta);
+  line-height: 20px;
+
+  strong {
+    font-size: var(--font-size-sm);
+  }
+}
+
+.orenji-boundary-tooltip__swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  border-radius: 3px;
+  background: var(--color-map-step0);
+  vertical-align: -1px;
+
+  &[data-level='1'] {
+    background: var(--color-map-step1);
+  }
+
+  &[data-level='2'] {
+    background: var(--color-map-step2);
+  }
+
+  &[data-level='3'] {
+    background: var(--color-map-step3);
+  }
+
+  &[data-level='4'] {
+    background: var(--color-map-step4);
+  }
 }
 
 .leaflet-tooltip.orenji-boundary-tooltip::before {

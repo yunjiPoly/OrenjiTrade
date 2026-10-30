@@ -17,6 +17,7 @@ import { SearchSuggestion } from '@orenji/api-client';
 import { SessionService } from '../../core/auth/session.service';
 import { ShellLayout } from '../../core/layout/shell-layout.service';
 import { friendlyMessage } from '../../core/http/api-error-messages';
+import { GameContext } from '../../core/game/game-context.service';
 import { RegionContext } from '../../core/region/region-context.service';
 import { REGION_CODE, RegionsStore, subdivisionLabel } from '../../shared/regions/regions.store';
 import { holdersParams, suggestionPage } from '../../shared/search/suggestions';
@@ -64,6 +65,7 @@ export class MapPageComponent {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly session = inject(SessionService);
+  private readonly gameContext = inject(GameContext);
 
   // Query parameters (withComponentInputBinding on Home; passed by Search when embedded).
   readonly region = input<string | undefined>();
@@ -133,6 +135,8 @@ export class MapPageComponent {
     effect(() => {
       const requested = this.region();
       const current = this.context.current();
+      // Home is scoped by the game pill too (decision 7): only the browsed game's binders count.
+      const game = this.gameContext.current();
       untracked(() => {
         if (requested && requested !== this.appliedRequest && REGION_CODE.test(requested)) {
           this.appliedRequest = requested;
@@ -141,7 +145,7 @@ export class MapPageComponent {
             return;
           }
         }
-        this.store.setRegion(current);
+        this.store.setRegion(current, game);
         if (requested !== current) {
           this.appliedRequest = current;
           this.navigate(current, null, true);

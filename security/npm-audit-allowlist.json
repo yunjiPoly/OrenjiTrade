@@ -21,6 +21,13 @@
       "addedOn": "2026-10-23",
       "expires": "2026-11-30",
       "reason": "The workspace's own zod is 4.6.6 (patched). The vulnerable copy is zod 3.25.76, which @expo/cli 57 requires (^3.25.76) and keeps in node_modules/@expo/cli/node_modules: no patched zod 3 release exists (the advisory's fix is 4.6.6 only), and forcing zod 4 on @expo/cli would break the Expo CLI, which imports the v3 API. It is Expo build and dev-server tooling: it is not in the app bundle, the Java API or the web bundle, and it validates the developer's own configuration, not user input. Re-check when @expo/cli moves to zod 4 or a patched zod 3 appears."
+    },
+    {
+      "id": "GHSA-qr28-fpjm-wq7f",
+      "package": "decode-uri-component <= 0.5.0 (0.2.2 under expo-router -> query-string 7)",
+      "addedOn": "2026-10-29",
+      "expires": "2026-11-30",
+      "reason": "The only fixed release, decode-uri-component 0.5.1, is an ES module only; query-string 7.1.3, which expo-router 57 pins, loads it with require() and calls the default export, so an override would break the phone's router (Metro, Jest and Node interop return a module namespace, not the function). The latest query-string drops the dependency but is ESM only, and expo-router 57 requires query-string 7. The exposure is the phone client decoding its own route URLs and deep links (a quadratic slowdown on a crafted percent-encoded link): not in the web bundle (apps/web-angular does not use query-string) or the Java API. Re-check when expo-router moves off query-string 7 or a CommonJS fix appears."
     }
   ]
 }

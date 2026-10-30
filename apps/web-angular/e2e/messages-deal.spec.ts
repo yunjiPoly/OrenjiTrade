@@ -151,7 +151,7 @@ test.describe('Messages: the deal beside the chat (web WC)', () => {
     const buyerSide = await openSignedIn(browser, buyer);
     const buyerPage = buyerSide.page;
     const watchBuyer = watchCoordinates(buyerPage);
-    await buyerPage.goto(`/search?card=${cardId}`);
+    await buyerPage.goto(`/cards/${cardId}`);
     const message = buyerPage.getByRole('button', {
       name: `Message ${seller.handle} about ${cardName}`,
     });
@@ -333,7 +333,7 @@ test.describe('Messages: the deal beside the chat (web WC)', () => {
     test.setTimeout(120_000);
     const { seller, buyer, cardId, cardName } = await createDeal(request);
     const { page } = await openSignedIn(browser, buyer, { width: 390, height: 844 });
-    await page.goto(`/search?card=${cardId}`);
+    await page.goto(`/cards/${cardId}`);
     await page.getByRole('button', { name: `Message ${seller.handle} about ${cardName}` }).click();
     await expect(page).toHaveURL(/\/messages\/[0-9a-f-]{36}$/);
     await expect(page.getByTestId('chat-drawer')).toHaveCount(0);
@@ -367,7 +367,7 @@ test.describe('Messages: the deal beside the chat (web WC)', () => {
     test.setTimeout(120_000);
     const { seller, buyer, cardId, cardName } = await createDeal(request);
     const { page } = await openSignedIn(browser, buyer, { width: 1024, height: 768 });
-    await page.goto(`/search?card=${cardId}`);
+    await page.goto(`/cards/${cardId}`);
     const message = page.getByRole('button', {
       name: `Message ${seller.handle} about ${cardName}`,
     });
@@ -409,7 +409,7 @@ test.describe('Messages: the deal beside the chat (web WC)', () => {
     test.setTimeout(120_000);
     const { seller, buyer, cardId, cardName } = await createDeal(request);
     const { page } = await openSignedIn(browser, buyer);
-    await page.goto(`/search?card=${cardId}`);
+    await page.goto(`/cards/${cardId}`);
     await page.getByRole('button', { name: `Message ${seller.handle} about ${cardName}` }).click();
     const drawer = page.getByTestId('chat-drawer');
     await drawer.getByRole('button', { name: 'Send “Is it still available?”' }).click();

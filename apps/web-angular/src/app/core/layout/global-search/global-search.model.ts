@@ -98,12 +98,25 @@ export function searchOptions(
   cards: readonly CardSuggestion[],
   collectors: readonly CollectorByName[],
 ): SearchOption[] {
-  const shownCards = dedupeCards(cards).slice(0, SEARCH_CARD_ROWS);
-  const options: SearchOption[] = shownCards.map((card, index) => ({
+  const unique = dedupeCards(cards);
+  // Two printings of one code (a 1st Edition and an Unlimited) open the same page ("Any
+  // printing"): one row for them, never two identical ones (WD review U12).
+  const seen = new Set<string>();
+  const shown = unique
+    .map((card) => ({ card, ...cardTarget(card, unique) }))
+    .filter((entry) => {
+      const key = `${entry.card.kind}|${entry.card.id}|${codeKey(entry.card.printingCode)}|${JSON.stringify(entry.queryParams)}`;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    })
+    .slice(0, SEARCH_CARD_ROWS);
+  const options: SearchOption[] = shown.map((entry, index) => ({
     kind: 'card',
     id: `gs-opt-card-${index}`,
-    card,
-    ...cardTarget(card, shownCards),
+    ...entry,
   }));
   collectors.slice(0, SEARCH_COLLECTOR_ROWS).forEach((collector, index) =>
     options.push({
@@ -134,4 +147,12 @@ function dedupeCards(cards: readonly CardSuggestion[]): CardSuggestion[] {
     seen.add(key);
     return true;
   });
+}
+
+/** What one query found: the cards (and whether their call failed) and the collectors. */
+export interface SearchResults {
+  query: string;
+  cards: CardSuggestion[];
+  collectors: CollectorByName[];
+  failed: boolean;
 }

@@ -26,8 +26,8 @@ export const COMING_SOON = 'Cards coming soon';
 /**
  * "Choose a game" (spec 4.5, board W3): every game with its monogram; the games the web can
  * browse with "{n} of your cards" for a signed-in collector (`GET /inventory/summary`), the
- * others dimmed with "Cards coming soon" and `aria-disabled`. Until web stage WD the web browses
- * Yu-Gi-Oh! only. Arrow keys move, Enter picks and closes, Esc closes. Lazy chunk of the game pill.
+ * games without cards yet (`hasCards`) dimmed with "Cards coming soon" and `aria-disabled` (web
+ * stage WD). Arrow keys move, Enter picks and closes, Esc closes. Lazy chunk of the game pill.
  */
 @Component({
   selector: 'app-game-popover',

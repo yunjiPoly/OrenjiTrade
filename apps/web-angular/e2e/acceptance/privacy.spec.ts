@@ -129,29 +129,28 @@ test.describe('acceptance: privacy', () => {
     await expect(stateBinder(panel, binder.name)).toBeVisible();
     await collect(stateAnswers);
     expect(await privacy.scanDom(pageV)).toBeGreaterThan(100);
-    // Card holders and unified search, profile, public binder.
-    await pageV.goto(`/cards/${await api.cardId(viewer.idToken, card)}`);
+    // Who has this card (web stage WD), collectors by name in Search, profile, public binder.
     const holdersAnswers = await recordAnswers<ListAnswer>(
       pageV,
       /\/api\/v1\/search\/card-holders(\?|$)/,
     );
-    await pageV.getByRole('link', { name: 'Who has this in my region' }).click();
-    await expect(
-      pageV.getByRole('list', { name: 'Card holders in your region' }).getByRole('article').first(),
-    ).toBeVisible();
+    await pageV.goto(`/cards/${await api.cardId(viewer.idToken, card)}`);
+    await expect(pageV.getByTestId('holder-row').first()).toBeVisible();
     await collect(holdersAnswers);
-    await pageV.goto(`/search?q=${encodeURIComponent(seller.displayName)}&tab=collectors`);
-    await expect(pageV.getByRole('main')).toContainText(seller.displayName);
+    await pageV.goto(`/search?tab=cards&q=${encodeURIComponent(seller.handle)}`);
+    await expect(
+      pageV.getByRole('option', { name: new RegExp(`^${escapeRegExp(seller.handle)}, `) }),
+    ).toBeVisible();
     await pageV.goto(`/collectors/${seller.handle}`);
     await expect(pageV.getByTestId('collector-public-label')).toContainText(place.label);
     await expect(pageV.getByTestId('collector-city')).toHaveText(city);
     await pageV.goto(`/binders/${binder.id}`);
-    await expect(pageV.getByTestId('owner-public-label')).toContainText(place.label);
+    await expect(pageV.getByTestId('owner-public-label')).toContainText(place.label.split(',')[0]);
     await expect(pageV.getByRole('main')).not.toContainText(city);
     // Wishlist: a copy published while the viewer is connected reaches the viewer as a realtime
     // wishlist alert (a STOMP frame, scanned too) naming the seller's state and country.
-    await pageV.goto('/wishlist');
-    const wish = pageV.locator('[data-wish]').filter({ hasText: card });
+    await pageV.goto('/search?tab=wishlist');
+    const wish = pageV.getByTestId('wish-row').filter({ hasText: card });
     await expect(wish).toHaveCount(1);
     const bell = pageV.getByTestId('notification-bell');
     await expect(bell).toHaveAttribute('data-realtime', 'connected', { timeout: 20_000 });

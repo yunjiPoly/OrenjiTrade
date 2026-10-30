@@ -272,7 +272,9 @@ export async function createOnboardedCollector(
       handle,
       displayName,
       bio: 'Fictional E2E collector.',
-      games: ['pokemon'],
+      // Yu-Gi-Oh! first: the web browses a collector's first profile game that has cards (the
+      // phone's rule, web stage WD), and the suites search the Yu-Gi-Oh! seed catalog.
+      games: ['yugioh', 'pokemon'],
       languages: ['en'],
     },
   });

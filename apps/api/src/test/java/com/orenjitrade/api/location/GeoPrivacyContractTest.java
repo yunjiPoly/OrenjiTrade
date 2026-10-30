@@ -243,7 +243,16 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
                     JsonNode detail = fetch("/api/v1/public/binders/" + id, caller);
                     assertThat(detail.path("owner").path("place").path("label").asString())
                             .isEqualTo(PLACES.get(handle));
+                    // The seller row's rating comes with the binder for members only (R15).
+                    if (caller == null) {
+                        assertThat(detail.path("ownerRating").isNull()).isTrue();
+                    } else {
+                        assertThat(detail.path("ownerRating").has("count")).isTrue();
+                    }
+                    // Every order of the items (web stage WD: "Recently added" is the web's).
                     fetch("/api/v1/public/binders/" + id + "/items?size=100", caller);
+                    fetch("/api/v1/public/binders/" + id + "/items?size=100&sort=recent", caller);
+                    fetch("/api/v1/public/binders/" + id + "/items?size=100&sort=price", caller);
                     publicBinders++;
                 }
             }

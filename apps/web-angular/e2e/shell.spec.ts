@@ -44,7 +44,8 @@ test.describe('the web redesign shell (WA)', () => {
 
   const AREAS: [string, RegExp][] = [
     ['Home', /:\d+\/(\?region=[a-z-]+)?$/],
-    ['Search', /\/search$/],
+    // Search writes the browsed region and game into its URL (web stage WD).
+    ['Search', /\/search(\?region=[a-z-]+&game=[a-z]+)?$/],
     ['Inventory', /\/inventory$/],
     ['Messages', /\/messages$/],
     ['Profile', /\/profile$/],
@@ -185,7 +186,7 @@ test.describe('the web redesign shell (WA)', () => {
     await blurFocus(page);
     await page.keyboard.press('/');
     await expect(
-      page.getByRole('combobox', { name: 'Search cards, collectors and binders' }),
+      page.getByRole('combobox', { name: 'Search Yu-Gi-Oh! cards by name or code' }),
     ).toBeFocused();
     await expect(page.locator('#global-search-input')).toHaveCount(0);
     // Ctrl/Cmd+K on a page without its own search: the top bar's.
@@ -403,11 +404,12 @@ test.describe('the web redesign shell (WA)', () => {
     const cases: [string, RegExp][] = [
       [
         '/map?region=europe&subdivision=FR-IDF',
-        /\/search\?tab=binders&region=europe&state=FR-IDF$/,
+        // Search mirrors the browsed game into the URL (web stage WD).
+        /\/search\?tab=binders&region=europe&state=FR-IDF(&game=[a-z]+)?$/,
       ],
-      ['/cards?q=Lantern', /\/search\?tab=cards&q=Lantern$/],
-      ['/wishlist', /\/search\?tab=wishlist$/],
-      ['/wishlist/w-1', /\/search\?tab=wishlist$/],
+      ['/cards?q=Lantern', /\/search\?tab=cards&q=Lantern(&region=[a-z-]+)?(&game=[a-z]+)?$/],
+      ['/wishlist', /\/search\?tab=wishlist(&region=[a-z-]+)?(&game=[a-z]+)?$/],
+      ['/wishlist/w-1', /\/search\?tab=wishlist(&region=[a-z-]+)?(&game=[a-z]+)?$/],
       ['/community', /\/messages(\?tab=community|\/community\/[\w-]+)$/],
       ['/community/looking-for', /\/messages\/community\/looking-for$/],
       ['/settings/offers', /\/settings\/profile$/],

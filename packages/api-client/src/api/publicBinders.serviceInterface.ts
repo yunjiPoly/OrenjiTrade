@@ -45,6 +45,7 @@ export interface ListPublicBinderItemsRequestParams {
     availability?: 'COLLECTION_ONLY' | 'TRADE' | 'SALE' | 'TRADE_OR_SALE' | 'NOT_AVAILABLE';
     page?: number;
     size?: number;
+    sort?: 'name' | 'recent' | 'price';
 }
 
 

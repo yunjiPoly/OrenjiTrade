@@ -9040,6 +9040,8 @@ export interface components {
              * @example 2
              */
             ownerPublicBinderCount?: number;
+            /** @description The owner's rating summary for the seller row (web stage WD: no profile read for it); null for a signed-out caller (stage R15) */
+            ownerRating?: components["schemas"]["CollectorRating"];
         };
         /** @description Offset-paginated list */
         PageResponsePublicInventoryItem: {
@@ -24224,6 +24226,8 @@ export interface operations {
                 availability?: "COLLECTION_ONLY" | "TRADE" | "SALE" | "TRADE_OR_SALE" | "NOT_AVAILABLE";
                 page?: number;
                 size?: number;
+                /** @description name (by card name, the default) | recent (the newest first) | price (the lowest amount first, then a price that is no plain amount, then no price). Web stage WD's sort pill; a 400 for any other value */
+                sort?: "name" | "recent" | "price";
             };
             header?: never;
             path: {

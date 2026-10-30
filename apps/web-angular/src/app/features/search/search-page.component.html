@@ -1,0 +1,142 @@
+@let u = url();
+<div
+  class="sx"
+  [class.sx--drill]="!!openId() && !xl()"
+  [class.sx--three]="!!openId() && xl()"
+  [class.sx--narrow]="layout.narrow()"
+  [class.sx--narrow-map]="layout.narrow() && u.tab === 'binders' && narrowView() === 'map'"
+  [class.sx--narrow-cards]="narrowCardsMap()"
+>
+  <section class="sx__list" aria-labelledby="search-title">
+    <!-- The head stays above an open binder (board W5): a tab is one click away. -->
+    <header class="sx__head">
+      <h1 class="sx__title" id="search-title" appShellTabTitle>Search</h1>
+      <app-underline-tabs label="Search" [tabs]="tabs()" />
+      @if (regionContext.browsingAway()) {
+        <p class="sx__away" data-testid="search-away">
+          Not your region.
+          <button type="button" class="sx__away-back" (click)="backHome()">
+            Back to {{ homeRegionName() }}
+          </button>
+        </p>
+      }
+      @if (layout.narrow() && (u.tab === 'binders' || narrowCardsMap())) {
+        <app-segmented
+          class="sx__narrow-toggle"
+          label="Show"
+          size="sm"
+          [options]="narrowViews"
+          [value]="u.tab === 'binders' ? narrowView() : 'map'"
+          (valueChange)="chooseNarrowView($event)"
+        />
+      }
+    </header>
+    @if (openId() && !xl()) {
+      <!-- "Skip the map" lands on the open binder while it replaces the list. -->
+      <div class="sx__pane sx__pane--drill" [id]="listId" tabindex="-1">
+        <app-binder-drill-in
+          class="sx__drill"
+          [binderId]="openId()!"
+          [where]="openWhere()"
+          (back)="closeBinder()"
+        />
+      </div>
+    } @else {
+      <div class="sx__pane" [id]="listId" tabindex="-1">
+        @switch (u.tab) {
+          @case ('cards') {
+            <app-cards-pane
+              [q]="u.q"
+              [game]="gameCode()"
+              [gameName]="gameName()"
+              [region]="regionCode()"
+              [set]="u.set"
+              (qChange)="setQ($event)"
+              (setCleared)="clearSet()"
+            />
+          }
+          @case ('binders') {
+            @if (!layout.narrow() || narrowView() === 'list') {
+              <app-binders-pane
+                [regionCode]="regionCode()"
+                [region]="platformRegion()"
+                [game]="gameCode()"
+                [gameName]="gameName()"
+                [q]="u.q"
+                [state]="u.state"
+                [stateName]="stateName()"
+                [kind]="u.kind"
+                [counts]="mapStore.countByCode()"
+                [deckCores]="mapStore.deckCoreByCode()"
+                [total]="mapStore.total()"
+                [deckCoreTotal]="mapStore.counts()?.deckCoreTotal ?? 0"
+                [home]="home()"
+                [openId]="openId()"
+                (qChange)="setQ($event)"
+                (stateChange)="setState($event)"
+                (kindChange)="setKind($event)"
+                (pickOnMap)="pickOnMap()"
+                (highlight)="highlight.set($event)"
+                (opened)="openBinder($event)"
+              />
+            }
+          }
+          @case ('wishlist') {
+            <app-wishlist-pane
+              [region]="regionCode()"
+              [game]="gameCode()"
+              [gameName]="gameName()"
+              [selectedId]="u.wish"
+              (chosen)="chooseWish($event)"
+            />
+          }
+        }
+      </div>
+    }
+  </section>
+
+  @if (openId() && xl()) {
+    <section class="sx__middle" aria-label="Opened binder">
+      <app-binder-drill-in [binderId]="openId()!" [where]="openWhere()" (back)="closeBinder()" />
+    </section>
+  }
+
+  @if (holderPane()) {
+    @if (!layout.narrow()) {
+      <section class="sx__map sx__map--holders" aria-label="Who has your wish">
+        <app-wish-holders
+          [wish]="chosenWish()"
+          [region]="regionCode()"
+          [regionName]="regionName()"
+          [viewer]="viewer.place()"
+          (edit)="editWish($event)"
+        />
+      </section>
+    }
+  } @else if (
+    !layout.narrow() || (u.tab === 'binders' && narrowView() === 'map') || narrowCardsMap()
+  ) {
+    <section class="sx__map" aria-label="Map">
+      @if (mapStore.countsError()) {
+        <div class="sx__map-error" role="alert">
+          Binder counts could not load.
+          <button type="button" (click)="mapStore.loadCounts()">Try again</button>
+        </div>
+      }
+      <app-search-map
+        class="sx__map-canvas"
+        [region]="regionCode()"
+        [regionName]="regionName()"
+        [gameName]="gameName()"
+        [counts]="mapStore.countByCode()"
+        [deckCores]="mapStore.deckCoreByCode()"
+        [names]="names()"
+        [selected]="u.state && u.state !== 'all' ? u.state : null"
+        [home]="home()"
+        [highlight]="highlight()"
+        [stateCard]="layout.narrow()"
+        (picked)="onMapPick($event)"
+      />
+    </section>
+  }
+</div>

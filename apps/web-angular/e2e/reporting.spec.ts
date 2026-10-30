@@ -305,10 +305,10 @@ test.describe('collector reporting', () => {
       await fromPost.getByRole('button', { name: 'Cancel' }).click();
       await expect(fromPost).toBeHidden();
 
-      // Public binder owner card: this one is sent (BINDER context).
+      // A public binder's "⋯" menu (web stage WD, board W9): this one is sent (BINDER context).
       await page.goto(`/binders/${binder.id}`);
-      const ownerCard = page.getByRole('region', { name: 'Owner' });
-      await ownerCard.getByRole('button', { name: `Report ${other.displayName}` }).click();
+      await page.getByRole('button', { name: 'More actions' }).click();
+      await page.getByRole('menuitem', { name: /^Report / }).click();
       const fromBinder = page.getByRole('dialog', { name: /^Report / });
       await fromBinder.getByRole('radio', { name: 'Misleading listings' }).check();
       await fromBinder.getByRole('button', { name: 'Send report' }).click();

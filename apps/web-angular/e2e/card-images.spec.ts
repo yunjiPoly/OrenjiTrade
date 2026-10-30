@@ -151,22 +151,20 @@ test.describe('card pictures', () => {
     await expectPictures(page.getByRole('main'), 4, 6);
     await expectNoProviderSources(page);
 
-    // Card detail: the hero (eager), the printings table and the provider attribution.
+    // Who has this card (web stage WD): the art (eager, 160 wide at most) and the attribution.
     await page.getByRole('link', { name: 'Azure-Eyes Sky Dragon' }).first().click();
     await expect(
       page.getByRole('heading', { level: 1, name: 'Azure-Eyes Sky Dragon' }),
     ).toBeVisible();
-    const hero = page.getByTestId('card-hero-image');
-    await expectPictures(hero.locator('xpath=..'), 1, 1);
+    const hero = page.getByRole('complementary', { name: 'The card' }).locator('app-card-image');
+    await expectPictures(page.getByRole('complementary', { name: 'The card' }), 1, 1);
     await expect(hero.locator('img')).toHaveAttribute('loading', 'eager');
-    await expect(hero.locator('img')).toHaveAttribute('alt', /^Azure-Eyes Sky Dragon, printing /);
+    await expect(hero.locator('img')).toHaveAttribute('alt', 'Azure-Eyes Sky Dragon');
     const box = await hero.boundingBox();
-    expect(box && box.width > 100 && box.height > box.width, 'card-shaped hero').toBeTruthy();
-    await expectPictures(
-      page.getByRole('table', { name: 'Printings of Azure-Eyes Sky Dragon' }),
-      2,
-      2,
-    );
+    expect(
+      box && box.width > 100 && box.width <= 160 && box.height > box.width,
+      'card-shaped art, 160 wide at most',
+    ).toBeTruthy();
     await expect(page.getByRole('main').getByTestId('card-data-attribution')).toContainText(
       'Card data and images courtesy of YGOPRODeck',
     );
@@ -179,14 +177,10 @@ test.describe('card pictures', () => {
     );
     await expectNoProviderSources(page);
 
-    // The set page: its cards and the checklist.
-    await page
-      .getByRole('region', { name: 'Selected printing' })
-      .getByRole('link', { name: 'Azure Dawn (AZR)' })
-      .click();
+    // The set page: its printings.
+    await page.getByRole('link', { name: 'Azure Dawn' }).first().click();
     await expect(page.getByRole('heading', { level: 1, name: 'Azure Dawn' })).toBeVisible();
-    await expectPictures(page.getByRole('list', { name: 'Cards in this set' }), 2, 4);
-    await expectPictures(page.getByRole('table', { name: 'Azure Dawn checklist' }), 2, 4);
+    await expectPictures(page.getByRole('list', { name: 'Printings of this set' }), 4, 12);
     await expectNoProviderSources(page);
 
     await guard.verify();
@@ -259,14 +253,13 @@ test.describe('card pictures', () => {
     await expectPictures(page.getByRole('list', { name: 'Public cards' }), 2, 2);
     await expectNoProviderSources(page);
 
-    // The wishlist.
-    await page.goto('/wishlist');
-    await expect(page.locator('[data-wish]')).toHaveCount(1);
-    await expectPictures(page.locator('[data-wish]'), 1, 1);
-    await expect(page.locator('[data-wish] app-card-image img')).toHaveAttribute(
-      'alt',
-      'Lantern Fox Spirit',
-    );
+    // Search › Wishlist (web stage WD): the wish's picture is decorative beside its name.
+    await page.goto('/search?tab=wishlist&game=yugioh');
+    const wishRow = page.getByTestId('wish-row');
+    await expect(wishRow).toHaveCount(1);
+    await expectPictures(wishRow, 1, 1);
+    await expect(wishRow.locator('app-card-image img')).toHaveAttribute('alt', '');
+    await expect(wishRow).toHaveAccessibleName(/^Lantern Fox Spirit, /);
     await expectNoProviderSources(page);
 
     await guard.verify();

@@ -18000,6 +18000,23 @@
               "maximum": 100,
               "minimum": 1
             }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "name (by card name, the default) | recent (the newest first) | price (the lowest amount first, then a price that is no plain amount, then no price). Web stage WD's sort pill; a 400 for any other value",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "name",
+              "enum": [
+                "name",
+                "recent",
+                "price"
+              ],
+              "maxLength": 16,
+              "minLength": 0
+            }
           }
         ],
         "responses": {
@@ -36828,6 +36845,11 @@
             "format": "int32",
             "description": "The owner's public binders, deck cores included (the seller row of a deck core page)",
             "example": 2
+          },
+          "ownerRating": {
+            "type": "null",
+            "$ref": "#/components/schemas/CollectorRating",
+            "description": "The owner's rating summary for the seller row (web stage WD: no profile read for it); null for a signed-out caller (stage R15)"
           }
         },
         "required": [

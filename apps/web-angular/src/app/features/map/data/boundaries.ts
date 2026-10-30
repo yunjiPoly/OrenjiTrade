@@ -99,6 +99,20 @@ export const REGION_VIEW: Readonly<Record<string, [[number, number], [number, nu
   ],
 };
 
+/**
+ * The map's tooltip line (spec 6.4): "4 binders · 1 deck core", only the non-zero parts, or "No
+ * public binders here yet". `total` counts the deck cores too (`binderCount` of the API).
+ */
+export function mapCountLine(total: number | undefined, deckCores: number | undefined): string {
+  const cores = Math.max(0, deckCores ?? 0);
+  const binders = Math.max(0, (total ?? 0) - cores);
+  const parts = [
+    binders > 0 ? `${binders} ${binders === 1 ? 'binder' : 'binders'}` : null,
+    cores > 0 ? `${cores} ${cores === 1 ? 'deck core' : 'deck cores'}` : null,
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(' · ') : 'No public binders here yet';
+}
+
 /** "1 public binder" / "3 public binders" / "No public binders". */
 export function binderCountLabel(count: number | undefined): string {
   if (!count) {

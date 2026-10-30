@@ -28,6 +28,27 @@ import { ThreadViewComponent } from '../thread/thread-view.component';
  * drawer at md is one), a menu that is not closing, an open list (a select's or a field's
  * suggestions) or a popover.
  */
+/** A text field when an Esc reached it: its value, and whether its suggestions list was open. */
+interface EscapeSnapshot {
+  target: Element | null;
+  value: string;
+  listOpen: boolean;
+}
+
+/**
+ * The state of a field an Esc may change: its text, and for a combobox whether its list is open
+ * (`aria-expanded`, as Material's autocomplete and the app's own comboboxes set it).
+ */
+export function escapeSnapshot(target: Element | null): EscapeSnapshot {
+  const value =
+    target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement
+      ? target.value
+      : (target?.textContent ?? '');
+  const listOpen =
+    target?.getAttribute('role') === 'combobox' && target.getAttribute('aria-expanded') === 'true';
+  return { target, value, listOpen };
+}
+
 const ON_TOP = [
   '[role="dialog"][aria-modal="true"]',
   '[role="alertdialog"]',
@@ -273,6 +294,9 @@ export class ChatDrawerComponent {
    * browser's own clear (WC review R2-1). At lg and xl the drawer pushes the page instead, so
    * nothing lies under it and Esc on the page leaves it open.
    */
+  /** The text field an Esc on the page started in, as it was before any handler ran. */
+  private fieldEscape: EscapeSnapshot | null = null;
+
   private onPageEscape(event: KeyboardEvent, beforePage: boolean): void {
     if (event.key !== 'Escape' || hasModifierKey(event) || !this.layout.medium()) {
       return;
@@ -288,11 +312,32 @@ export class ChatDrawerComponent {
     const field = isEditableTarget(event.target);
     if (beforePage) {
       if (field) {
+        this.fieldEscape = escapeSnapshot(target);
         return;
       }
       event.preventDefault();
       event.stopPropagation();
-    } else if (!field || event.defaultPrevented) {
+    } else if (!field) {
+      return;
+    } else if (event.defaultPrevented) {
+      // A combobox (a Material autocomplete) may prevent every Esc, even with its list closed
+      // (WC review V3-2): once its list was closed and the Esc changed nothing, the Esc was unused
+      // and the drawer closes; while the list was open, that Esc closed the list.
+      const before = this.fieldEscape;
+      this.fieldEscape = null;
+      if (!before || before.target !== target || before.listOpen) {
+        return;
+      }
+      const state = this.drawer.state();
+      setTimeout(() => {
+        if (
+          escapeSnapshot(target).value === before.value &&
+          !escapeSnapshot(target).listOpen &&
+          this.drawer.state() === state
+        ) {
+          this.drawer.close(false);
+        }
+      });
       return;
     } else if (target instanceof HTMLInputElement && target.type === 'search' && target.value) {
       // The browser clears a search field on Esc after every handler, without flagging the event

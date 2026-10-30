@@ -67,11 +67,15 @@ test.describe('acceptance: map', () => {
     await expect(pageB).toHaveURL(/:\d+\/\?region=americas-north$/);
     const shape = pageB.locator(`.leaflet-overlay-pane path[data-code="${place.subdivisionCode}"]`);
     await expect(shape).toBeAttached({ timeout: 20_000 });
+    // Shaded with a map step (spec 6.4's `map.step1–4`), not the empty step.
+    const empty = await pageB.evaluate(() =>
+      getComputedStyle(document.documentElement).getPropertyValue('--color-map-step0').trim(),
+    );
     await expect
-      .poll(async () => Number(await shape.getAttribute('fill-opacity')), {
+      .poll(async () => (await shape.getAttribute('fill'))?.toLowerCase(), {
         message: "A's state is shaded",
       })
-      .toBeLessThan(1);
+      .not.toBe(empty.toLowerCase());
     await expect(pageB.locator('.leaflet-tile-pane img')).toHaveCount(0);
     expect(await privacy.scanDom(pageB), 'DOM attributes checked').toBeGreaterThan(100);
 
@@ -94,7 +98,7 @@ test.describe('acceptance: map', () => {
     await expect(pageB).toHaveURL(new RegExp(`/binders/${binder.id}$`));
     await expect(pageB.getByRole('heading', { level: 1, name: binder.name })).toBeVisible();
     await expect(pageB.getByRole('main')).toContainText('Lantern Fox Spirit');
-    await expect(pageB.getByTestId('owner-public-label')).toContainText(place.label);
+    await expect(pageB.getByTestId('owner-public-label')).toContainText(place.label.split(',')[0]);
     await expect(pageB.getByRole('main')).not.toContainText(city);
 
     await privacy.settle();

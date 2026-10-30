@@ -1,6 +1,6 @@
 import { Overlay, OverlayRef } from '@angular/cdk/overlay';
 import { ComponentPortal } from '@angular/cdk/portal';
-import { Injectable, Injector, Type, inject } from '@angular/core';
+import { Injectable, Injector, StaticProvider, Type, inject } from '@angular/core';
 import { Subject, filter } from 'rxjs';
 import { ShellLayout } from '../shell-layout.service';
 
@@ -37,6 +37,8 @@ export interface PopoverOptions {
   panelClass?: string;
   /** Align the panel's end with the anchor's end (the account menu side). */
   alignEnd?: boolean;
+  /** What the content injects besides its `PopoverRef` (the card page's printing picker). */
+  providers?: StaticProvider[];
 }
 
 /**
@@ -121,7 +123,7 @@ export class Popovers {
       });
     const injector = Injector.create({
       parent: this.injector,
-      providers: [{ provide: PopoverRef, useValue: ref }],
+      providers: [{ provide: PopoverRef, useValue: ref }, ...(options.providers ?? [])],
     });
     overlayRef.attach(new ComponentPortal(component, null, injector));
     return ref;

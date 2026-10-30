@@ -37,10 +37,6 @@ function suffix(): string {
   return Math.random().toString(36).slice(2, 7);
 }
 
-function escape(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 /** A 48×48 PNG (fictional test picture). */
 const TEST_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAIAAADYYG7QAAAAT0lEQVR42u3WsQ0AIAgEQMZxJmdyZ11ASmPxl1CScNXztee4z2rm8X4BAQHlgT4d7vaBgIACQZIaCAhIH/I6gID0IUkNBASkD3kdQEDJoAMWbGrTipIFrAAAAABJRU5ErkJggg==',
@@ -116,15 +112,18 @@ test.describe('private messaging', () => {
       () => ((window as unknown as { e2eNoReload: boolean }).e2eNoReload = true),
     );
 
-    // A finds B's binder in Wyoming on the region map, opens B's profile and presses Message.
+    // A finds B's binder in Wyoming in Search › Binders (web stage WD), opens it beside the list
+    // and goes to B's profile from its owner row, then presses Message.
     const pageA = await openSignedIn(browser, a);
     const watchA = watchCoordinates(pageA);
-    await pageA.goto('/map?region=americas-north&subdivision=US-WY');
-    const statePanel = pageA.getByTestId('subdivision-panel');
-    await expect(statePanel.getByRole('heading', { name: 'Wyoming, United States' })).toBeVisible();
-    const binderCard = statePanel.getByRole('listitem').filter({ hasText: binderName });
-    await expect(binderCard).toBeVisible({ timeout: 20_000 });
-    await binderCard.getByRole('link', { name: new RegExp(escape(b.displayName)) }).click();
+    await pageA.goto('/search?tab=binders&region=americas-north&state=US-WY');
+    await expect(pageA.getByTestId('state-chip')).toContainText('Wyoming');
+    const binderRow = pageA.getByTestId('binder-row').filter({ hasText: binderName });
+    await expect(binderRow).toBeVisible({ timeout: 20_000 });
+    await binderRow.click();
+    const drillIn = pageA.getByTestId('binder-drill-in');
+    await expect(drillIn.getByRole('heading', { name: binderName })).toBeVisible();
+    await drillIn.getByRole('link', { name: b.handle, exact: true }).click();
     await expect(pageA).toHaveURL(new RegExp(`/collectors/${b.handle}$`));
     await pageA.getByRole('button', { name: `Message ${b.displayName}` }).click();
 

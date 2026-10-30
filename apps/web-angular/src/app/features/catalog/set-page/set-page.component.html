@@ -1,0 +1,169 @@
+<div class="sp" [class.sp--adding]="adding()">
+  @if (notFound()) {
+    <div class="sp__state" role="status">
+      <h1 class="sp__state-title">This set isn't in the catalogue</h1>
+      <p class="sp__state-text">It may have been removed, or the link is incomplete.</p>
+      <a class="sp__outline" routerLink="/search" [queryParams]="{ tab: 'cards' }">Search cards</a>
+    </div>
+  } @else if (error() && printings().length === 0) {
+    <div class="sp__state" role="alert">
+      <h1 class="sp__state-title">This set could not load</h1>
+      <p class="sp__state-text">{{ errorMessage() }}</p>
+      <button type="button" class="sp__outline" (click)="reload()">Try again</button>
+    </div>
+  } @else {
+    <header class="sp__head">
+      @if (set(); as set) {
+        <div class="sp__titles">
+          <p class="sp__game">{{ gameLabel() }}</p>
+          <p class="sp__code">{{ set.code }}</p>
+          <h1 class="sp__name">{{ set.name }}</h1>
+          <p class="sp__meta">{{ metaLine() }}</p>
+        </div>
+        <div class="sp__actions">
+          <a class="sp__outline" routerLink="/search" [queryParams]="whoHasQuery()"
+            >Who has cards of this set</a
+          >
+          <button
+            type="button"
+            class="sp__toggle"
+            data-testid="add-from-set"
+            (click)="toggleAdding()"
+          >
+            <app-shell-icon [name]="adding() ? 'close' : 'plus'" [size]="18" />
+            {{ adding() ? 'Stop adding' : 'Add from this set' }}
+          </button>
+        </div>
+      } @else {
+        <div class="sp__titles" aria-busy="true">
+          <span class="visually-hidden" role="status">Loading the set</span>
+          <span class="sp__bone sp__bone--code" aria-hidden="true"></span>
+          <span class="sp__bone sp__bone--name" aria-hidden="true"></span>
+        </div>
+      }
+    </header>
+    @if (adding()) {
+      <p class="sp__hint" role="note">
+        Choose how many of each you have with − and +, then add them to your inventory at once.
+      </p>
+    }
+
+    @if (loading()) {
+      <ul class="sp__grid" aria-hidden="true">
+        @for (bone of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]; track bone) {
+          <li class="sp__tile"><span class="sp__art sp__art--bone"></span></li>
+        }
+      </ul>
+    } @else if (printings().length === 0) {
+      <p class="sp__empty">This set has no printings in the catalogue yet.</p>
+    } @else {
+      <ul class="sp__grid" aria-label="Printings of this set" (focusin)="onGridFocus($event)">
+        @for (printing of printings(); track printing.id) {
+          @let copies = count(printing);
+          <li class="sp__tile" [class.sp__tile--chosen]="copies > 0">
+            <a
+              class="sp__link"
+              [routerLink]="['/cards', printing.cardId]"
+              [queryParams]="{ printing: printing.id }"
+              [attr.aria-label]="tileLabel(printing)"
+            >
+              <!-- The link names the card, its code, rarity and edition: the art adds nothing. -->
+              <app-card-image class="sp__art" [src]="image(printing)" alt="" [game]="set()?.game" />
+              <span class="sp__tile-code">{{ code(printing) }}</span>
+              @if (printing.rarity) {
+                <span class="sp__tile-rarity">{{ printing.rarity }}</span>
+              }
+              @if (distinction(printing); as distinction) {
+                <span class="sp__tile-rarity" data-testid="set-tile-edition">{{
+                  distinction
+                }}</span>
+              }
+            </a>
+            @if (adding()) {
+              <div
+                class="sp__stepper"
+                role="group"
+                [attr.aria-label]="'I have ' + tileLabel(printing)"
+              >
+                <button
+                  type="button"
+                  class="sp__step"
+                  [attr.aria-label]="stepLabel('One fewer', printing)"
+                  [disabled]="copies === 0 || saving()"
+                  (click)="step(printing, -1)"
+                >
+                  <app-shell-icon name="minus" [size]="16" />
+                </button>
+                <span class="sp__step-value" aria-live="polite">
+                  <span class="visually-hidden">I have </span>{{ copies }}
+                </span>
+                <button
+                  type="button"
+                  class="sp__step"
+                  [attr.aria-label]="stepLabel('One more', printing)"
+                  [disabled]="saving()"
+                  (click)="step(printing, 1)"
+                >
+                  <app-shell-icon name="plus" [size]="16" />
+                </button>
+              </div>
+            }
+          </li>
+        }
+      </ul>
+      @if (hasMore()) {
+        <button
+          type="button"
+          class="sp__outline sp__more"
+          [disabled]="loadingMore()"
+          (click)="loadMore()"
+        >
+          {{ loadingMore() ? 'Loading…' : 'Load more' }}
+        </button>
+      }
+      @if (error() && printings().length > 0) {
+        <p class="sp__error" role="alert">
+          More printings could not load.
+          <button type="button" class="sp__retry" (click)="loadMore()">Try again</button>
+        </p>
+      }
+    }
+    @if (set(); as set) {
+      <app-card-data-attribution class="sp__credit" [game]="set.game" />
+    }
+  }
+</div>
+
+@if (adding()) {
+  <div class="sp__foot" role="region" aria-label="Add from this set" data-testid="set-add-footer">
+    <span class="sp__foot-count" aria-live="polite">{{ cardsLabel(chosen()) }}</span>
+    <app-segmented
+      label="Who sees them"
+      size="sm"
+      [options]="visibilityOptions"
+      [value]="visibility()"
+      (valueChange)="visibility.set($event)"
+    />
+    <label class="sp__binder">
+      <span class="visually-hidden">Binder</span>
+      <select class="sp__select" [value]="binderId() ?? ''" (change)="onBinder($event)">
+        <option value="">No binder</option>
+        @for (binder of gameBinders(); track binder.id) {
+          <option [value]="binder.id">{{ binder.name }}</option>
+        }
+      </select>
+    </label>
+    @if (saveError(); as message) {
+      <span class="sp__foot-error" role="alert">{{ message }}</span>
+    }
+    <button
+      type="button"
+      class="sp__add"
+      data-testid="set-add-submit"
+      [disabled]="chosen() === 0 || saving()"
+      (click)="add()"
+    >
+      {{ saving() ? 'Adding…' : 'Add ' + cardsLabel(chosen()) }}
+    </button>
+  </div>
+}

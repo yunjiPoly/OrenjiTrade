@@ -1,13 +1,6 @@
 import { requireStack } from '../support/stack';
 import { suffix } from './support/api';
-import {
-  dialogReady,
-  escapeRegExp,
-  expect,
-  expectRealtime,
-  signIn,
-  test,
-} from './support/fixtures';
+import { escapeRegExp, expect, expectRealtime, signIn, test } from './support/fixtures';
 import { cityToken, placeOf } from './support/places';
 
 /**
@@ -60,19 +53,15 @@ test.describe('acceptance: wishlist', () => {
     await signIn(page, a);
     await page.goto(`/cards/${cardId}`);
     await expect(page.getByRole('heading', { level: 1, name: CARD })).toBeVisible();
-    await page.getByRole('button', { name: 'Add to wishlist' }).click();
-    const dialog = await dialogReady(page.getByRole('dialog', { name: 'Add to wishlist' }));
-    await expect(dialog.getByTestId('wish-card')).toContainText(CARD);
-    await expect(dialog.getByRole('slider')).toHaveCount(0);
-    await expect(dialog.getByRole('radio', { name: /^Any printing/ })).toBeChecked();
-    await dialog.getByRole('button', { name: 'Add to wishlist' }).click();
-    await expect(dialog).toBeHidden();
-    await expect(page.getByText(`${CARD} is on your wishlist`)).toBeVisible();
+    // Who has this card's wishlist toggle adds an "Any printing" wish at once (spec 7.2).
+    const toggle = page.getByTestId('card-wish-toggle');
+    await toggle.click();
+    await expect(toggle).toHaveText(/On your wishlist/);
 
-    await page.goto('/wishlist');
-    const wish = page.locator('[data-wish]').filter({ hasText: CARD });
+    await page.goto('/search?tab=wishlist');
+    const wish = page.getByTestId('wish-row').filter({ hasText: CARD });
     await expect(wish).toHaveCount(1);
-    await expect(wish.getByTestId('wish-copy')).toHaveText('Any printing');
+    await expect(wish).toContainText('Any printing');
     await expectRealtime(page);
     await page.evaluate(() => ((window as unknown as { e2eNoReload: boolean }).e2eNoReload = true));
 
@@ -103,8 +92,7 @@ test.describe('acceptance: wishlist', () => {
     // The wish is for any printing: the link says so and the card page picks no printing.
     await expect(page).toHaveURL(new RegExp(`/cards/${cardId}\\?printing=any$`));
     await expect(page.getByRole('heading', { level: 1, name: CARD })).toBeVisible();
-    await expect(page.getByTestId('selected-any')).toContainText('Any printing');
-    await expect(page.getByRole('heading', { name: 'Selected printing' })).toHaveCount(0);
+    await expect(page.getByTestId('printing-pill')).toHaveText(/Any printing/);
 
     // The notification is in A's notification centre as well, once.
     const types = (await api.notifications(a)).map((notification) => notification.type);

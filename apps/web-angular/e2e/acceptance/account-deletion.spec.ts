@@ -60,7 +60,8 @@ test.describe('acceptance: account deletion', () => {
     const before = await openState(pageV, place);
     await expect(stateBinder(before, binder.name)).toBeVisible();
     await pageV.goto(`/binders/${binder.id}`);
-    await expect(pageV.getByRole('article', { name: card, exact: true })).toBeVisible();
+    // The binder page's cards (web stage WD, board W9).
+    await expect(pageV.getByTestId('binder-card').filter({ hasText: card })).toBeVisible();
 
     // --- The collector requests the deletion (re-authentication with the password) -----------
     const pageD = await actors.open(doomed);
@@ -79,9 +80,9 @@ test.describe('acceptance: account deletion', () => {
     // --- The inventory disappears publicly ----------------------------------------------------------
     await pageV.reload();
     await expect(
-      pageV.getByRole('heading', { name: 'This binder is not available' }),
+      pageV.getByRole('heading', { name: "This binder isn't public anymore." }),
     ).toBeVisible();
-    await expect(pageV.getByRole('article', { name: card, exact: true })).toHaveCount(0);
+    await expect(pageV.getByTestId('binder-card')).toHaveCount(0);
     await pageV.goto(`/collectors/${doomed.handle}`);
     await expect(
       pageV.getByRole('heading', { name: 'This collector is not available' }),

@@ -11,6 +11,7 @@ import { BinderKeyCard } from './binderKeyCard';
 import { PublicBinderOwner } from './publicBinderOwner';
 import { BinderImage } from './binderImage';
 import { Freshness } from './freshness';
+import { CollectorRating } from './collectorRating';
 
 
 /**
@@ -57,6 +58,10 @@ export interface PublicBinderResponse {
      * The owner\'s public binders, deck cores included (the seller row of a deck core page)
      */
     ownerPublicBinderCount?: number;
+    /**
+     * The owner\'s rating summary for the seller row (web stage WD: no profile read for it); null for a signed-out caller (stage R15)
+     */
+    ownerRating?: CollectorRating;
 }
 export enum PublicBinderResponseKindEnum {
     Collection = 'COLLECTION',
