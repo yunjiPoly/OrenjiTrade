@@ -321,6 +321,17 @@ app-deal-panel .deal__top {
   }
 }
 
+// A post's "⋯" below 960 is a bottom sheet at full width (spec 16; WF review U6).
+.mat-mdc-menu-panel.app-more-menu.app-menu--sheet {
+  width: 100%;
+  min-width: 0;
+  padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+
+  .mat-mdc-menu-item {
+    min-height: 48px;
+  }
+}
+
 // Menus of Inventory and Import (web WB): a game's head, a binder with its hint, "Newest".
 .mat-mdc-menu-panel {
   .menu-head {
