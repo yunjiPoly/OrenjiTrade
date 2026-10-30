@@ -13519,7 +13519,42 @@ API change (the account deletion, no DTO, OpenAPI, schema or migration change: t
 
 **Checks of review fix 1** (retries off):
 
-CHECKS_TABLE_FIX1
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | passed |
+| `npm run test:api` | run 1: 1312 tests, 1 failed (the new guest check found no 5-picture post on the first page: the suite's own newer posts push the seed's past it; the test now pages through, `e8e246c7`); run 2 on the final API tree: 1312 tests, 1 failed, `RefusedAccountBrowsesAsGuestIT` (it compares two reads of Quebec's binders while other classes write binders; untouched by this fix), which passes alone; GeoPrivacyContractTest, FeedIT and both deletion ITs passed |
+| Mutants (scratch, reverted) | API: the guest leak on 5 or 6 pictures (M6), the lost message phrase (A1) and a missing sale rename fail the new tests; web: M7 (check while hidden), M8 (1 minute), M20 (chat pushes prepended) and M22 (city shown while hidden) fail them |
+| `(cd apps/api && ./gradlew exportOpenApi)` then `npm run generate:api` | no change (no DTO change); the tree stays clean |
+| `npm run lint -w apps/web-angular`, `npm run format:check -w apps/web-angular` | passed |
+| `npm test -w apps/web-angular` / `npm run test:web` | 954 tests in 187 files, 0 failed |
+| `npm run build -w apps/web-angular` | passed, no warning (Home's component style back under its 6 kB budget) |
+| `npm run build:prod -w apps/web-angular` | passed, no warning; **initial total 760.36 kB** (budget 900 kB); Home's lazy chunk 60.6 kB |
+| `npm run test:e2e -- --retries=0` | **92 passed, 0 failed** (1 min 21 s), with the bell's keyboard and Home's Shift+Tab steps |
+| `npm run typecheck`, `lint`, `format:check -w apps/mobile` | passed |
+| `npm run test:mobile` | 1782 tests in 128 suites and the 34 guard tests, 0 failed |
+| `npx expo export --platform ios / android / web` (scratch folders) | all three passed |
+| `npm run test:mobile:e2e -- --retries=0` (`--stack-only`, the served bundle names `localhost:8090` twice and never 8080, then `--reuse-running`, then `--stop`) | 66 passed, 0 failed |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro, under the simulator lock; `apps/api` changed) | MAESTRO_RESULT_FIX1 |
+| `npm run test:scripts` | 166 passed, 0 failed |
+| `npm run audit:gate` | OK (no unreviewed high or critical advisory) |
+
+**The walk** (API 8580 on `orenjitrade_we_check`, web 4400, Playwright's Chromium): the bell with
+Enter, Tab and Esc at 1440 and 390; Shift+Tab up Home at 1440, 1024, 390 and 720×450; the rail at
+1440×760 and 1440×900; one feed read on `/` and on rail › Home; the chat drawer beside the feed;
+"I have it" after an earlier Message; the map card with its counts failing (500) and Try again; a
+blocked profile (no list read), a profile that takes no messages, Report and Block closed with
+Esc; Location while hidden; Settings › Profile at 390; `/notifications` rows and Mark as read;
+"Still have them" with the keyboard; the deletion of a throw-away seller through the real job.
+Five throw-away accounts of my own (`we-fix1-*-1@example.test`) on the walk database, deleted from
+the Auth emulator afterwards; seed accounts only read (their consents recorded in the walk
+database). Found and fixed in the walk: "Still have them" lost the focus as the read row moved to
+Earlier; 2.5 px of the toolbar's padding at 720×450 (a card tile partly under it, never hidden).
+The AFTER screenshots are refreshed (92, and 12 `fix1-*` of the fixes) in
+`.local-dev/we-notes/pr-shots/after/`.
+
+**Could not verify**: the Android run could not be verified (no Android SDK on this Mac; the
+phone's code is unchanged; the API change renames notification rows the phone reads with the
+same fields).
 
 ## NEXT TASK
 
