@@ -77,6 +77,27 @@ test.describe('web stage WE: Home, notifications and settings', () => {
     await expect(page.locator('.home__toolbar')).not.toContainText(/\d+ posts?/);
     await expect(page.getByRole('main')).not.toContainText(/Your desk|\bkm\b/);
 
+    // Shift+Tab back up the feed: a focused post control stops below the sticky toolbar, never
+    // under it (SC 2.4.11, WE review A1).
+    await page.getByTestId('home-end').getByRole('link', { name: 'Explore the map' }).focus();
+    for (let step = 0; step < 10; step++) {
+      await page.keyboard.press('Shift+Tab');
+      const spot = await page.evaluate(() => {
+        const focused = document.activeElement as HTMLElement;
+        const toolbar = document.querySelector('.home__toolbar')!.getBoundingClientRect();
+        return {
+          inFeed: !!focused.closest('.home__list'),
+          top: focused.getBoundingClientRect().top,
+          toolbarBottom: toolbar.bottom,
+        };
+      });
+      if (spot.inFeed) {
+        expect(spot.top, `step ${step}: under the toolbar`).toBeGreaterThanOrEqual(
+          spot.toolbarBottom - 1,
+        );
+      }
+    }
+
     // "I have it" opens the chat drawer to the wisher with the draft, nothing sent.
     const wish = posts.filter({ hasText: 'wants a card' }).first();
     const card = (await wish.locator('.fp__name').innerText()).trim();
@@ -142,8 +163,26 @@ test.describe('web stage WE: Home, notifications and settings', () => {
     const bell = page.getByTestId('notification-bell');
     // Other suites list the same card in the same region at the same time: at least this alert.
     await expect(bell).toHaveAccessibleName(/^Notifications, [1-9]\d* new$/, { timeout: 30_000 });
-    await bell.click();
+    // The keyboard (WE review F1, A2): Enter opens the popover with the focus in it, Tab never
+    // leaves it, Esc closes it with the focus back on the bell.
     const popover = page.getByTestId('notification-popover');
+    await bell.focus();
+    await page.keyboard.press('Enter');
+    await expect(popover).toBeFocused();
+    await expect(popover.getByTestId('notification-row').first()).toBeVisible();
+    await page.keyboard.press('Tab');
+    await expect(popover.getByTestId('bell-mark-all')).toBeFocused();
+    for (let step = 0; step < 12; step++) {
+      await page.keyboard.press(step % 4 === 3 ? 'Shift+Tab' : 'Tab');
+      expect(
+        await popover.evaluate((dialog) => dialog.contains(document.activeElement)),
+        `step ${step}: the focus is in the popover`,
+      ).toBe(true);
+    }
+    await page.keyboard.press('Escape');
+    await expect(popover).toHaveCount(0);
+    await expect(bell).toBeFocused();
+    await bell.click();
     await expect(popover.getByRole('heading', { name: 'New' })).toBeVisible();
     const row = popover.getByTestId('notification-row').filter({ hasText: seller.handle });
     await expect(row).toHaveCount(1);
