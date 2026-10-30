@@ -1,0 +1,208 @@
+// A notification row (spec 12, board W24): 72 tall, a 36 kind tile, the text (14, the subject
+// bold), the sub-line (13), the time (12) and an unread dot.
+:host {
+  display: block;
+}
+
+.nr {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  min-height: 72px;
+  padding: 14px 20px;
+}
+
+.nr--unread {
+  background: color-mix(in srgb, var(--color-primary) 7%, transparent);
+}
+
+.nr__tile {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--color-surface-variant);
+  color: var(--color-text-secondary);
+}
+
+.nr__tile[data-tone='wish'] {
+  background: var(--color-primary-tint);
+  color: var(--app-primary-text);
+}
+
+.nr__tile[data-tone='sale'] {
+  background: var(--color-notification-kind-sale-background);
+  color: var(--color-notification-kind-sale-foreground);
+}
+
+.nr__tile[data-tone='star'] {
+  background: var(--color-notification-kind-rating-background);
+  color: var(--color-notification-kind-rating-foreground);
+}
+
+.nr__tile[data-tone='remind'] {
+  background: var(--color-notification-kind-reminder-background);
+  color: var(--color-notification-kind-reminder-foreground);
+}
+
+.nr__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.nr__link,
+.nr__plain {
+  display: block;
+  margin: 0;
+  color: var(--color-ink);
+  font-size: 14px;
+  line-height: 20px;
+  text-decoration: none;
+}
+
+.nr__link::after {
+  // The whole row opens the target (the answers stay above it).
+  position: absolute;
+  inset: 0;
+  content: '';
+}
+
+.nr__link:hover {
+  text-decoration: underline;
+}
+
+.nr__link:focus-visible {
+  outline: none;
+}
+
+.nr__link:focus-visible::after {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: calc(var(--focus-width) * -1);
+  border-radius: 12px;
+}
+
+.nr__sub {
+  margin: 2px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.nr__time {
+  margin: 2px 0 0;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.nr--unread .nr__time {
+  color: var(--app-primary-text);
+}
+
+.nr__answers {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.nr__still,
+.nr__review {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  font: inherit;
+  font-size: 13px;
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.nr__still {
+  border: 0;
+  background: var(--color-primary-tint);
+  color: var(--app-primary-text);
+}
+
+.nr__review {
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-ink);
+}
+
+.nr__review:hover {
+  background: var(--color-surface-variant);
+}
+
+.nr__confirmed {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 0;
+  color: var(--color-accent);
+  font-size: 13px;
+  font-weight: var(--font-weight-semibold);
+}
+
+.nr__card {
+  flex: none;
+  width: 40px;
+  height: 56px;
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+.nr__card app-card-image {
+  width: 40px;
+  height: 56px;
+}
+
+.nr__side {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  min-width: 8px;
+}
+
+.nr__time--side {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.nr__dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--color-primary);
+}
+
+.nr--page {
+  padding: 16px 20px;
+}
+
+.nr__read {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.nr__read:hover {
+  background: var(--color-surface-variant);
+  color: var(--color-ink);
+}

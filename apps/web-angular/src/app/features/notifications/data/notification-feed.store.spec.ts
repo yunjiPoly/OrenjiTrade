@@ -37,16 +37,19 @@ async function flush(): Promise<void> {
 }
 
 describe('groupByDay', () => {
-  it('splits notifications into today, yesterday, this week and older (local time)', () => {
+  it('splits notifications into today, yesterday, this week, last week and months (board W24)', () => {
     const now = new Date(2026, 8, 30, 15, 0).getTime();
-    const at = (day: number, hour: number) => new Date(2026, 8, day, hour).toISOString();
+    const at = (month: number, day: number, hour: number) =>
+      new Date(2026, month, day, hour).toISOString();
     const groups = groupByDay(
       [
-        notification('a', at(30, 9)),
-        notification('b', at(29, 23)),
-        notification('c', at(26, 8)),
-        notification('d', at(10, 8)),
-        notification('e', 'not a date'),
+        notification('a', at(8, 30, 9)),
+        notification('b', at(8, 29, 23)),
+        notification('c', at(8, 26, 8)),
+        notification('d', at(8, 20, 8)),
+        notification('e', at(7, 10, 8)),
+        notification('f', new Date(2025, 11, 2, 8).toISOString()),
+        notification('g', 'not a date'),
       ],
       now,
     );
@@ -54,7 +57,10 @@ describe('groupByDay', () => {
       ['Today', ['a']],
       ['Yesterday', ['b']],
       ['Earlier this week', ['c']],
-      ['Older', ['d', 'e']],
+      ['Last week', ['d']],
+      ['August', ['e']],
+      ['December 2025', ['f']],
+      ['Older', ['g']],
     ]);
     expect(groupByDay([], now)).toEqual([]);
   });
