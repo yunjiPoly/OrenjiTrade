@@ -208,7 +208,7 @@ describe('FeedPostComponent (spec 5.2, board W1)', () => {
       },
     });
     const have = element.querySelector<HTMLButtonElement>('[data-testid="feed-have-it"]')!;
-    expect(have.getAttribute('aria-label')).toBe('I have Ash Blossom. Needs an account');
+    expect(have.getAttribute('aria-label')).toBe('I have it: Ash Blossom. Needs an account');
     have.click();
     expect(offer).not.toHaveBeenCalled();
     expect(guest.ask).toHaveBeenCalledWith(

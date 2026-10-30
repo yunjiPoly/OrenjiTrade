@@ -1,5 +1,6 @@
 import {
   GUEST_ASK_TITLES,
+  GUEST_COPY,
   askTitle,
   cardSubject,
   finishedByPage,
@@ -57,6 +58,11 @@ describe("a guest's actions (spec 14, decision 4)", () => {
     expect(isStepPage('/onboarding')).toBe(true);
     expect(isStepPage('/authors')).toBe(false);
     expect(isStepPage('/')).toBe(false);
+  });
+
+  it("names a guest's buttons with their visible words first (SC 2.5.3, WG review A6)", () => {
+    expect(GUEST_COPY.haveLabel('Ash Blossom')).toBe('I have it: Ash Blossom. Needs an account');
+    expect(GUEST_COPY.messageLabel('Ash Blossom')).toMatch(/^Message /);
   });
 
   it('shows places only: "A collector · Quebec · $24.00", "Wanted by a collector · Ontario"', () => {

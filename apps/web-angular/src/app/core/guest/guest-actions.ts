@@ -80,7 +80,8 @@ export const GUEST_COPY = {
   /** The buttons' and rows' spoken names for a guest (the board's labels). */
   needsAccount: 'Needs an account',
   messageLabel: (card: string) => `Message this collector about ${card}. Needs an account`,
-  haveLabel: (card: string) => `I have ${card}. Needs an account`,
+  // It starts with the visible "I have it" (SC 2.5.3, as the members' label: WG review A6).
+  haveLabel: (card: string) => `I have it: ${card}. Needs an account`,
   moreLabel: (count: number) =>
     `${count} more ${count === 1 ? 'card' : 'cards'} from this collector. Needs an account`,
   whoLabel: (summary: string) => `${summary}. Sign in to see collector profiles`,
