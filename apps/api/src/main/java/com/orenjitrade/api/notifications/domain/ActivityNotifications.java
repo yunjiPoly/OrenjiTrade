@@ -132,7 +132,7 @@ public class ActivityNotifications {
                 new NotificationRequest(
                         recipientId,
                         NotificationType.MESSAGE,
-                        "New message from " + sender,
+                        messageTitle(sender),
                         sender + " " + messagePhrase(kind) + ".",
                         data,
                         dedupKey));
@@ -289,7 +289,24 @@ public class ActivityNotifications {
             case "BINDER_LINK" -> "shared a binder with you";
             case "IMAGE" -> "sent you a photo";
             case "OFFER_LINK" -> "sent you an offer";
-            default -> "sent you a message";
+            default -> PLAIN_MESSAGE_PHRASE;
         };
+    }
+
+    /** The plain message's phrase (also the fallback of a renamed row). */
+    static final String PLAIN_MESSAGE_PHRASE = "sent you a message";
+
+    /** Every phrase a MESSAGE row's body can end with (a deleted sender's rows keep theirs). */
+    static final List<String> MESSAGE_PHRASES =
+            List.of(
+                    "shared a card with you",
+                    "shared a binder with you",
+                    "sent you a photo",
+                    "sent you an offer",
+                    PLAIN_MESSAGE_PHRASE);
+
+    /** A MESSAGE row's title: "New message from {sender}". */
+    static String messageTitle(String sender) {
+        return "New message from " + sender;
     }
 }

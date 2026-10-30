@@ -58,6 +58,10 @@ public class NotificationService {
     static final String NOT_FOUND = "Notification not found";
 
     private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
+
+    /** How a deleted account reads everywhere (the users module's anonymised display name). */
+    static final String DELETED_COLLECTOR = "Deleted collector";
+
     private static final TypeReference<Map<String, Object>> MAP = new TypeReference<>() {};
 
     private final NotificationRepository repository;
@@ -344,9 +348,22 @@ public class NotificationService {
         return result;
     }
 
+    /**
+     * The account deletion job: the account's own notifications go, and the other collectors' rows
+     * that name it say "Deleted collector" as the chat does (a message's title and body, a wishlist
+     * alert's handle; WC review V3-1). Rows naming it without its id (a rating's or a sale's
+     * handle) keep the text they were written with.
+     */
     @Transactional
     public void purge(UUID userId) {
         repository.deleteByUser(userId);
+        repository.renameMessageSender(
+                userId,
+                ActivityNotifications.messageTitle(DELETED_COLLECTOR),
+                DELETED_COLLECTOR,
+                ActivityNotifications.MESSAGE_PHRASES,
+                ActivityNotifications.PLAIN_MESSAGE_PHRASE);
+        repository.renameWishlistCollector(userId, DELETED_COLLECTOR);
     }
 
     NotificationView view(Row row) {

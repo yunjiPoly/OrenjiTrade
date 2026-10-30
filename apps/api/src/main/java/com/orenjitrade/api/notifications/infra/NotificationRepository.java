@@ -231,6 +231,43 @@ public class NotificationRepository {
                 .update();
     }
 
+    /**
+     * The other collectors' MESSAGE rows sent by a deleted account: the sender's name in the title
+     * and at the start of the body becomes {@code name} (the body keeps its phrase, one of {@code
+     * phrases}, else the plain message phrase). Returns the rows changed.
+     */
+    public int renameMessageSender(
+            UUID senderId, String title, String name, List<String> phrases, String fallback) {
+        // The phrases are plain words ("sent you a photo"): no regular-expression character.
+        String pattern = "(" + String.join("|", phrases) + ")\\.$";
+        return jdbc.sql(
+                        "UPDATE notification SET title = :title, body = :name || ' ' ||"
+                                + " coalesce(substring(body from :pattern), :fallback) || '.'"
+                                + " WHERE type = 'MESSAGE' AND data->>'senderId' = :senderId")
+                .param("title", title)
+                .param("name", name)
+                .param("pattern", pattern)
+                .param("fallback", fallback)
+                .param("senderId", senderId.toString())
+                .update();
+    }
+
+    /**
+     * The other collectors' WISHLIST_ALERT rows about a deleted account's listing: the handle in
+     * the body ("listed by @handle in") and in {@code data.collectorHandle} becomes {@code name}.
+     */
+    public int renameWishlistCollector(UUID collectorId, String name) {
+        return jdbc.sql(
+                        "UPDATE notification SET body = regexp_replace(body, 'listed by @\\S+ in ',"
+                                + " 'listed by ' || :name || ' in '), data = jsonb_set(data,"
+                                + " '{collectorHandle}', to_jsonb(CAST(:name AS text)), false)"
+                                + " WHERE type = 'WISHLIST_ALERT' AND data->>'collectorId' ="
+                                + " :collectorId")
+                .param("name", name)
+                .param("collectorId", collectorId.toString())
+                .update();
+    }
+
     private static Row map(ResultSet rs, int rowNum) throws SQLException {
         Timestamp readAt = rs.getTimestamp("read_at");
         return new Row(
