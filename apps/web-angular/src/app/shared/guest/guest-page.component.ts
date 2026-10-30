@@ -7,7 +7,7 @@ import {
   ShellIconName,
 } from '../../core/layout/shell-icon/shell-icon.component';
 
-export type GuestPageKind = 'inventory' | 'messages' | 'profile';
+export type GuestPageKind = 'inventory' | 'messages' | 'profile' | 'collector' | 'notifications';
 
 /** The words of the guest pages (spec 14; the phone's R15 screens 72 to 75). English only. */
 export const GUEST_PAGES: Readonly<
@@ -31,6 +31,20 @@ export const GUEST_PAGES: Readonly<
     title: 'Your collector profile',
     text: 'Show your cards, binders and wishes, and build trust with ratings from the collectors you deal with.',
   },
+  // A collector's profile and the notifications, in place, as the guest pages and the sign-in
+  // dialog say it (WG review U5: [Create account] first, curly quotes).
+  collector: {
+    tab: 'Profile',
+    icon: 'profile',
+    title: 'Sign in to see collector profiles',
+    text: 'It’s free. When you’re done, you come right back here.',
+  },
+  notifications: {
+    tab: 'Notifications',
+    icon: 'bell',
+    title: 'Notifications are for members',
+    text: 'Sign in to get wishlist alerts, sales and ratings in one place.',
+  },
 };
 
 /** Profile's rows for a guest (spec 14: "also listing Appearance, Trading safely and Legal"). */
@@ -46,7 +60,8 @@ export const GUEST_PROFILE_ROWS: readonly {
 ];
 
 /**
- * The page a guest gets in place of Inventory, Messages or Profile (spec 14; the phone's R15): a
+ * The page a guest gets in place of Inventory, Messages or Profile (spec 14; the phone's R15), and
+ * in place of a collector's profile or the notifications: a
  * 520 column, a 64 icon tile, the title (Sora 30) and what an account gives, [Create account]
  * (orange) and [Sign in] (outline), both back to this very page after (its full address, a
  * community room's too: WF leftover U13). Profile also lists Appearance, Trading safely and

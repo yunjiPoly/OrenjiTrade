@@ -43,4 +43,26 @@ describe('GuestPageComponent: Inventory, Messages and Profile for a guest (spec 
     const rows = [...element.querySelectorAll('.guest__row')].map((a) => a.getAttribute('href'));
     expect(rows).toEqual(['/settings/appearance', '/legal/trading-safely', '/legal']);
   });
+
+  it("a collector's profile and the notifications, in place: [Create account] first (U5)", async () => {
+    let element = await render('collector', '/collectors/maya_k');
+    expect(element.querySelector('h1')?.textContent?.trim()).toBe(
+      'Sign in to see collector profiles',
+    );
+    expect(element.textContent).toContain('It’s free. When you’re done, you come right back here.');
+    const back = encodeURIComponent('/collectors/maya_k');
+    const links = () =>
+      [...element.querySelectorAll('a')].map((a) => [a.textContent?.trim(), a.className]);
+    expect(links()).toEqual([
+      ['Create account', 'guest__btn guest__btn--primary'],
+      ['Sign in', 'guest__btn guest__btn--outline'],
+    ]);
+    expect(element.querySelector('a')?.getAttribute('href')).toBe(
+      `/auth/sign-up?returnUrl=${back}`,
+    );
+    TestBed.resetTestingModule();
+    element = await render('notifications', '/notifications');
+    expect(element.querySelector('h1')?.textContent?.trim()).toBe('Notifications are for members');
+    expect(links().map(([text]) => text)).toEqual(['Create account', 'Sign in']);
+  });
 });

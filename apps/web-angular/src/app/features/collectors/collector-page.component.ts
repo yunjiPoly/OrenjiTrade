@@ -14,7 +14,7 @@ import {
   untracked,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
-import { Router, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { ShellIconComponent } from '../../core/layout/shell-icon/shell-icon.component';
 import {
   CollectorProfileResponse,
@@ -37,6 +37,7 @@ import { BlockActionsService } from '../../shared/messaging/block-actions.servic
 import { ChatDrawer } from '../../shared/messaging/chat-drawer.service';
 import { ConversationStarterService } from '../../shared/messaging/conversation-starter.service';
 import { ReportActionsService } from '../../shared/reports/report-actions.service';
+import { GuestPageComponent } from '../../shared/guest/guest-page.component';
 import { EmptyStateComponent } from '../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../shared/ui/error-state/error-state.component';
 import { SkeletonComponent } from '../../shared/ui/skeleton/skeleton.component';
@@ -82,6 +83,7 @@ type ViewState =
     CollectorProfileViewComponent,
     CollectorRatingsSectionComponent,
     EmptyStateComponent,
+    GuestPageComponent,
     ErrorStateComponent,
     SkeletonComponent,
   ],
@@ -97,24 +99,7 @@ type ViewState =
           </div>
         }
         @case ('members-only') {
-          <app-empty-state
-            icon="lock_person"
-            title="Sign in to see collector profiles"
-            [level]="1"
-            description="It's free. When you're done, you come right back here."
-          >
-            <a actions matButton="filled" routerLink="/auth/sign-in" [queryParams]="{ returnUrl }">
-              Sign in
-            </a>
-            <a
-              actions
-              matButton="outlined"
-              routerLink="/auth/sign-up"
-              [queryParams]="{ returnUrl }"
-            >
-              Create account
-            </a>
-          </app-empty-state>
+          <app-guest-page kind="collector" />
         }
         @case ('not-found') {
           <app-empty-state
@@ -259,7 +244,6 @@ export class CollectorPageComponent {
   private readonly wishlistApi = inject(WishlistService);
   private readonly auth = inject(AuthService);
   private readonly session = inject(SessionService);
-  private readonly router = inject(Router);
   private readonly reports = inject(ReportActionsService);
   private readonly blocks = inject(BlockActionsService);
   private readonly injector = inject(Injector);
@@ -321,10 +305,6 @@ export class CollectorPageComponent {
     const state = this.state();
     return state.kind === 'error' ? state.error.requestId : null;
   });
-  protected get returnUrl(): string {
-    return this.router.url;
-  }
-
   private subscription: Subscription | null = null;
   private listingsSubscription: Subscription | null = null;
   private cardsSubscription: Subscription | null = null;
