@@ -7,6 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
+**Last updated:** 2026-10-30 (stage WE merged into `main` as #100, merge commit `7b360a02`, after one Trivy exception, CVE-2026-118664, the `decode-uri-component` advisory of WD's npm allowlist entry, same reason and expiry; `origin/main` merged into WF's branch at `13a6e72e`; WF's check of review fix 2 approved it, its first round's 11 nits carried into stage WG; see NEXT TASK).
 **Last updated:** 2026-10-30 (stage WF of the web redesign, builder: Messages › Community on the R11 rooms (board W22): the five game rooms of the browsed region with Community's own region pill beside the open room, posts read like a chat with a shared card, deck core or binder and a phone's photos read only, the "⋯" menu (Message, Report this post, Block), the message box with "+" (Share a card, Share a binder or deck core), Room rules as the third pane, a drawer at md and a sheet below 960; WE's R2-1 and nits fixed first; one additive API change (`raterId` and `sellerId` in rating and sale notifications, the deletion matching on them); no migration; see "Web redesign WF: Messages > Community (2026-10-30)").
 **Last updated:** 2026-10-30 (stage WE of the web redesign, builder: Home's feed with the chips, "New posts · Show" without a number, the end, day one, "I have it" with its draft, Get started or the guest card and a static SVG map card; profiles (W23, W23b); the bell's popover and `/notifications` without chats, reminders answered in place; Settings' grouped nav, Location, Appearance tiles, Legal; WD's R2-1 and nits and WC's V3-1 fixed first; additive API: `previews` on `GET /feed` and the deletion renaming the deleted collector in others' notifications; no migration; see "Web redesign WE: Home, profiles, notifications and settings (2026-10-29)").
 **Last updated:** 2026-10-29 (stage WC's review fix 3, targeted, R2-2 and R2-1: an account deletion now gives every conversation whose last message it erased the newest message left as its last one, or none, so no inbox preview keeps the erased text (an address or an e-Transfer email included); at md a search field with text keeps its Esc for the browser's own clear and the chat drawer stays, the next Esc closes it; an API fix with no DTO, OpenAPI, schema or migration change, the web drawer and their tests; see "Review fix 3 (targeted, R2-2 and R2-1)" in the WC section).
@@ -14052,6 +14053,28 @@ light, 1024, 390), `community-share-binder` (1440 dark and light, 1024, 390) and
 150 fictional posts added in the One Piece room, Redis db 6, web 4400) was dropped and flushed
 after.
 
+**Left open by the verifier of fix 2 (round 2 approved; carried into stage WG, which fixes them
+first):** no blocker, major or minor. The first round's 11 nits, which the fix rounds were not
+given (some may already be gone: F8 through fix 1's F1, which removed the unused pickers; F9 partly
+through fix 1's P2 and A6): the old card and binder link pickers are unused (F8,
+`shared/links/card-link-picker.component.ts`, `binder-link-picker.component.ts`); with Community
+switched off (`publicChat` off) a room's address shows the Chats inbox after a reload and the room
+list keeps its rooms (F9: replace the URL with `/messages`, mark the rooms store disabled with the
+room); Room rules' "You blocked {h}" Unblock row lasts only for the current page view (F10: say so in
+the rules, or read `GET /users/blocked` when Room rules opens); the region popover opened from
+Community says only "Home, Search and the map show one region at a time" though the rooms follow it
+too (U12); a guest on a room link signs in back to `/messages`, not to the room (U13, stage WG's own
+scope: pass the current URL as `returnUrl`); phone photos the web now shows are public, cached for a
+year as immutable and name the author's account id in their URL (P4: R11's existing media rule,
+newly shown on the web; for the API owner, a shorter cache or a path without the id); Room rules'
+markup nests a complementary landmark in the room's region, gives an `aside` `role=dialog` and its
+toggle both pressed and expanded states (A7, axe's `landmark-complementary-is-top-level` and
+`aria-allowed-role`); a refusal is not in the message box's `aria-describedby`, and the last post
+ends partly under the taller box (A8); saving an edited post announces nothing (A9: "Post saved",
+polite); below 960 a room page has no h1 (A10, axe's `page-has-heading-one`); the light theme's
+unread dot is 2.74:1 (A11, SC 1.4.11, not the only cue: use the darker accent). The native suite was
+not re-run after fix 2, which changed no shared code (last 44/44 at `eb3c0fef`).
+
 ## NEXT TASK
 
 > **The web resumes (owner, 2026-10-28): stages WA to WH2 of the web redesign**, one at a time
@@ -14119,10 +14142,12 @@ after.
 > `/notifications` keeps the focus in the popover; web only). The check of review fix 2 approved
 > it, with one minor (R2-1, the focus after "Still have them" in the Unread view) and nits left
 > open: stage WF fixes them first (the WE section's "Left open by the verifier of fix 2").
-> **Next for WE: its pull request against `main`, merged on green.**
+> **WE is merged into `main`** (#100, merge commit `7b360a02`, 2026-10-30). On the way CI's Trivy
+> gate needed one exception in `.trivyignore`, CVE-2026-118664: the `decode-uri-component` advisory
+> that WD allowlisted for `npm audit` (GHSA-qr28-fpjm-wq7f), same reason and expiry (2026-11-30).
 >
-> **Stage WF (Messages › Community) is built** on `feature/wf-community`, stacked on WE
-> (`feature/we-home-profiles`, #100; section "Web redesign WF: Messages > Community (2026-10-30)"
+> **Stage WF (Messages › Community) is built** on `feature/wf-community`, made on WE (#100,
+> merged; `origin/main` merged in at `13a6e72e`, which brought only the Trivy exception; section "Web redesign WF: Messages > Community (2026-10-30)"
 > above; contract `docs/api/contracts/wf-web-community.md`; no migration, the next is still
 > **V135**): WE's R2-1 and nits fixed first (R2-2 with the additive `raterId` and `sellerId` in
 > rating and sale notifications); the five game rooms of the browsed region with Community's own
@@ -14136,8 +14161,10 @@ after.
 > focus and live regions). Round 2 of its reviewers found one major and three minors: **review fix
 > 2 is done** (section "Review fix 2 (round 2 of 2)" in the WF section: a room's refresh adds new
 > posts only, "Try again" posts the box as it is, every public binder in the picker, the post's
-> report fits 1440x900; web only). **Next for WF: its pull request against `main`** once WE (#100)
-> is merged and `origin/main` is merged into the branch, merged on green.
+> report fits 1440x900; web only). The check of review fix 2 approved it with nothing above a nit
+> open: the first round's 11 nits go into stage WG, which fixes them first (the WF section's "Left
+> open by the verifier of fix 2"). **Next for WF: its pull request against `main`, merged on
+> green.**
 >
 > **The exact next stage after WF's pull request: stage WG of the web redesign, Sign-in, welcome
 > and guests (boards W26 and W27; spec section 14; decision 4; the guest parts after phone R15,
