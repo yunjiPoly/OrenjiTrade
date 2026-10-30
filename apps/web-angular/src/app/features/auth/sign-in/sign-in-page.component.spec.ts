@@ -1,3 +1,5 @@
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
@@ -21,15 +23,23 @@ describe('SignInPageComponent', () => {
       imports: [SignInPageComponent],
       providers: [
         provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
         {
           provide: AuthService,
-          useValue: { available: signal(true), signInWithEmail, signInWithGoogle: vi.fn() },
+          useValue: {
+            available: signal(true),
+            signInWithEmail,
+            signInWithGoogle: vi.fn(),
+            isAuthenticated: signal(false),
+          },
         },
         {
           provide: SessionService,
           useValue: {
             ensureLoaded: async () => status,
             needsOnboarding: () => needsOnboarding,
+            status: signal('anonymous'),
           },
         },
       ],
@@ -77,6 +87,32 @@ describe('SignInPageComponent', () => {
     fill('maika@example.test', 'secret-pass');
     await submit();
     expect(TestBed.inject(Router).navigate).toHaveBeenCalledWith(['/onboarding'], {
+      queryParams: { returnUrl: '/settings/privacy' },
+    });
+  });
+
+  it('is board W27: "Not now, keep browsing" back to the page, the h1 for screen readers', () => {
+    const close = element.querySelector('[data-testid="auth-close"]');
+    expect(close?.textContent).toContain('Not now, keep browsing');
+    expect(close?.getAttribute('href')).toBe('/settings/privacy');
+    expect(element.querySelector('h1')?.textContent?.trim()).toBe('Sign in to OrenjiTrade');
+    expect(element.textContent).toContain('Forgot your password?');
+    expect(element.textContent).toContain('Continue with Google');
+    expect(element.querySelector('#si-email')?.getAttribute('aria-invalid')).toBeNull();
+  });
+
+  it('a problem marks its field and describes it', async () => {
+    await submit();
+    const email = element.querySelector('#si-email')!;
+    expect(email.getAttribute('aria-invalid')).toBe('true');
+    expect(email.getAttribute('aria-describedby')).toBe('si-email-error');
+  });
+
+  it('sends an account that could not load to "We could not load your account"', async () => {
+    status = 'error';
+    fill('maika@example.test', 'secret-pass');
+    await submit();
+    expect(TestBed.inject(Router).navigate).toHaveBeenCalledWith(['/auth/unavailable'], {
       queryParams: { returnUrl: '/settings/privacy' },
     });
   });

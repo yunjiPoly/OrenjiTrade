@@ -102,11 +102,12 @@ export class GuestActions {
     opener: EventTarget | null = null,
   ): Promise<GuestAskChoice> {
     const returnUrl = this.router.url;
+    const active = this.document.activeElement;
     this.opener =
       opener instanceof HTMLElement
         ? opener
-        : this.document.activeElement instanceof HTMLElement
-          ? this.document.activeElement
+        : active instanceof HTMLElement && active !== this.document.body
+          ? active
           : null;
     this.pendingState.set({ action, returnUrl });
     this.openingState.set(true);

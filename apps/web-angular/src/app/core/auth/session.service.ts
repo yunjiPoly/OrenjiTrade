@@ -252,7 +252,6 @@ export class SessionService {
       // Review our terms records the confirmation (alone when no document is due).
       this.statusState.set('consent-required');
       this.redirect('/auth/consent');
-      void this.load();
     }
   }
 

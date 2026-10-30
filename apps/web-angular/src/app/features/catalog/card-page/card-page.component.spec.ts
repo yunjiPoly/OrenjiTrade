@@ -5,6 +5,10 @@ import { provideRouter } from '@angular/router';
 import { CatalogService, WishlistService } from '@orenji/api-client';
 import { Subject, of, throwError } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
+import {
+  fakeGuestActions,
+  provideFakeGuestActions,
+} from '../../../core/guest/testing/fake-guest-actions';
 import { ToastService } from '../../../core/feedback/toast.service';
 import { GameContext } from '../../../core/game/game-context.service';
 import { Popovers } from '../../../core/layout/popover/popover.service';
@@ -29,6 +33,7 @@ describe('CardPageComponent', () => {
   let listWishlist: ReturnType<typeof vi.fn>;
   let open: ReturnType<typeof vi.fn>;
   let wishlist$: Subject<unknown[]>;
+  let guest: ReturnType<typeof fakeGuestActions>;
 
   async function render(options: { failWishlist?: boolean } = {}) {
     select = vi.fn(() => true);
@@ -37,6 +42,7 @@ describe('CardPageComponent', () => {
       options.failWishlist ? throwError(() => new Error('offline')) : wishlist$,
     );
     open = vi.fn(() => ({ closed$: new Subject<void>() }));
+    guest = fakeGuestActions();
     TestBed.configureTestingModule({
       imports: [CardPageComponent],
       providers: [
@@ -48,6 +54,7 @@ describe('CardPageComponent', () => {
           useValue: { select, canBrowse: (slug: string) => slug === 'pokemon' },
         },
         { provide: AuthService, useValue: { isAuthenticated: signal(true) } },
+        provideFakeGuestActions(guest),
         { provide: Popovers, useValue: { open } },
         { provide: ToastService, useValue: { show: vi.fn() } },
         { provide: LiveAnnouncer, useValue: { announce: vi.fn() } },

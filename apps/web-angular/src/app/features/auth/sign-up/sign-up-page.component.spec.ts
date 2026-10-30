@@ -1,10 +1,11 @@
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { LegalDocument } from '@orenji/api-client';
 import { AuthService } from '../../../core/auth/auth.service';
 import { SessionService } from '../../../core/auth/session.service';
-import { AGE_CONFIRMATION_ERROR } from '../../../shared/legal/age-confirmation-checkbox.component';
 import { LegalDocumentsStore } from '../data/legal-documents.store';
 import { SignUpPageComponent } from './sign-up-page.component';
 
@@ -28,21 +29,28 @@ describe('SignUpPageComponent', () => {
   let signUpWithEmail: ReturnType<typeof vi.fn>;
   let acceptConsents: ReturnType<typeof vi.fn>;
   let ageConfirmation: LegalDocument | null;
+  let updateDisplayName: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
     signUpWithEmail = vi.fn(async () => ({ uid: 'u-1' }));
+    updateDisplayName = vi.fn(async () => undefined);
     acceptConsents = vi.fn(async () => 'ready');
     ageConfirmation = AGE;
     TestBed.configureTestingModule({
       imports: [SignUpPageComponent],
       providers: [
         provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
         {
           provide: AuthService,
           useValue: {
             available: signal(true),
             user: signal(null),
             signUpWithEmail,
+            updateDisplayName,
+            getIdToken: vi.fn(async () => 'token'),
+            isAuthenticated: signal(false),
             sendEmailVerification: vi.fn(async () => undefined),
             signInWithGoogle: vi.fn(),
           },
@@ -71,22 +79,30 @@ describe('SignUpPageComponent', () => {
     element = fixture.nativeElement as HTMLElement;
   });
 
+  function type(id: string, value: string): void {
+    const input = element.querySelector<HTMLInputElement>(`#${id}`)!;
+    input.value = value;
+    input.dispatchEvent(new Event('input'));
+  }
+
   function fillAccount(): void {
-    const inputs = element.querySelectorAll<HTMLInputElement>('input');
-    inputs[0].value = 'newbie@example.test';
-    inputs[0].dispatchEvent(new Event('input'));
-    inputs[1].value = 'secret-pass-123';
-    inputs[1].dispatchEvent(new Event('input'));
+    type('su-name', 'New Bie');
+    type('su-email', 'newbie@example.test');
+    type('su-password', 'secret-pass-123');
   }
 
   function acceptDocuments(): void {
-    // "Accept all" is the first checkbox of the consent list.
-    element.querySelector<HTMLInputElement>('.consents__all input')!.click();
+    // "Accept all" is the first row of the documents card.
+    element.querySelector<HTMLInputElement>('.docs__row--all input')!.click();
     fixture.detectChanges();
   }
 
   function ageBox(): HTMLInputElement {
     return element.querySelector<HTMLInputElement>('[data-testid="age-confirmation"] input')!;
+  }
+
+  function reason(): string {
+    return element.querySelector('#su-why')?.textContent?.trim() ?? '';
   }
 
   async function submit(): Promise<void> {
@@ -95,25 +111,51 @@ describe('SignUpPageComponent', () => {
     fixture.detectChanges();
   }
 
-  it('shows an unticked 18+ checkbox that "Accept all" never ticks', () => {
+  it('shows an unticked 18+ checkbox, in English only, that "Accept all" never ticks', () => {
     expect(ageBox().checked).toBe(false);
     acceptDocuments();
     expect(ageBox().checked).toBe(false);
     expect(element.textContent).toContain('I confirm I am 18 years of age or older');
-    expect(element.textContent).toContain('Je confirme avoir 18 ans ou plus');
+    expect(element.textContent).not.toContain('Je confirme');
+    expect(element.textContent).toContain('I accept the Terms of Service');
+    const read = element.querySelector('.docs__read')!;
+    expect(read.getAttribute('aria-label')).toBe('Read the Terms of Service, opens in a new tab');
+    expect(read.getAttribute('target')).toBe('_blank');
   });
 
-  it('refuses to create the account until the age is confirmed', async () => {
+  it('"Create account" waits with the reason line until every box is ticked', async () => {
+    const button = element.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+    expect(button.getAttribute('aria-disabled')).toBe('true');
+    expect(reason()).toBe('Accept the documents and confirm your age to continue.');
     fillAccount();
-    acceptDocuments();
     await submit();
-
+    expect(signUpWithEmail).not.toHaveBeenCalled();
+    // The press turns the line amber; the fields are not judged yet (board W27).
+    expect(element.querySelector('.create__why--warn')).not.toBeNull();
+    expect(element.querySelector('.docs--warn')).not.toBeNull();
+    acceptDocuments();
+    expect(reason()).toBe('Confirm that you are 18 or older to continue.');
+    await submit();
     expect(signUpWithEmail).not.toHaveBeenCalled();
     expect(acceptConsents).not.toHaveBeenCalled();
-    expect(element.querySelector('[role="alert"]')?.textContent).toContain(AGE_CONFIRMATION_ERROR);
+    ageBox().click();
+    fixture.detectChanges();
+    expect(reason()).toBe('');
+    expect(button.getAttribute('aria-disabled')).toBeNull();
   });
 
-  it('records the documents and the age confirmation server-side after sign-up', async () => {
+  it('asks for a display name once every box is ticked', async () => {
+    acceptDocuments();
+    ageBox().click();
+    type('su-email', 'newbie@example.test');
+    type('su-password', 'secret-pass-123');
+    await submit();
+    expect(signUpWithEmail).not.toHaveBeenCalled();
+    expect(element.querySelector('#su-name-error')?.textContent).toContain('Enter a display name.');
+    expect(element.querySelector('#su-name')?.getAttribute('aria-invalid')).toBe('true');
+  });
+
+  it('creates the account with its display name, then records the documents and the age', async () => {
     fillAccount();
     acceptDocuments();
     ageBox().click();
@@ -121,6 +163,7 @@ describe('SignUpPageComponent', () => {
     await submit();
 
     expect(signUpWithEmail).toHaveBeenCalledWith('newbie@example.test', 'secret-pass-123');
+    expect(updateDisplayName).toHaveBeenCalledWith('New Bie');
     expect(acceptConsents).toHaveBeenCalledTimes(1);
     expect(acceptConsents).toHaveBeenCalledWith([
       { documentType: 'TERMS', version: '2026-09-01' },
