@@ -2,6 +2,7 @@ import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { CommunityChannel } from '@orenji/api-client';
+import { KeyboardPrefs } from '../../../core/keyboard/keyboard-prefs.service';
 import { RegionPillComponent } from '../../../core/layout/region-pill/region-pill.component';
 import { CommunityRoomsStore } from '../data/community-rooms.store';
 import { fixtureRoom } from '../testing/community-fixtures';
@@ -16,6 +17,7 @@ describe('RoomListComponent (spec 10.7, board W22)', () => {
   const status = signal<'loading' | 'ready' | 'error' | 'disabled'>('ready');
   const rooms = signal<CommunityChannel[]>([]);
   const unread = signal(new Set<string>());
+  const singleKeys = signal(true);
 
   function render(open: string | null = null): void {
     TestBed.configureTestingModule({
@@ -23,6 +25,7 @@ describe('RoomListComponent (spec 10.7, board W22)', () => {
       providers: [
         provideRouter([]),
         { provide: CommunityRoomsStore, useValue: { status, rooms, unread } },
+        { provide: KeyboardPrefs, useValue: { singleKeys } },
       ],
     });
     TestBed.overrideComponent(RoomListComponent, {
@@ -37,6 +40,7 @@ describe('RoomListComponent (spec 10.7, board W22)', () => {
   }
 
   beforeEach(() => {
+    singleKeys.set(true);
     status.set('ready');
     unread.set(new Set());
     rooms.set([
@@ -91,6 +95,36 @@ describe('RoomListComponent (spec 10.7, board W22)', () => {
     row.focus();
     row.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
     expect(document.activeElement?.getAttribute('data-room')).toBe('americas-north-pokemon');
+  });
+
+  it('the rooms are one Tab stop with ↑↓, j k, Home and End, as the Chats list (WF review A4)', () => {
+    rooms.update((list) => [...list, fixtureRoom('mtg', { name: 'Magic' })]);
+    render('americas-north-pokemon');
+    const rows = () => [...element.querySelectorAll<HTMLAnchorElement>('[data-testid="room-row"]')];
+    const key = (k: string) =>
+      (document.activeElement as HTMLElement).dispatchEvent(
+        new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }),
+      );
+    const focused = () => document.activeElement?.getAttribute('data-room');
+    // The open room's row is the one Tab stop.
+    expect(rows().map((row) => row.getAttribute('tabindex'))).toEqual(['-1', '0', '-1']);
+    rows()[1].focus();
+    key('j');
+    expect(focused()).toBe('americas-north-mtg');
+    fixture.detectChanges();
+    expect(rows().map((row) => row.getAttribute('tabindex'))).toEqual(['-1', '-1', '0']);
+    key('k');
+    expect(focused()).toBe('americas-north-pokemon');
+    key('Home');
+    expect(focused()).toBe('americas-north-yugioh');
+    key('End');
+    expect(focused()).toBe('americas-north-mtg');
+    key('ArrowUp');
+    expect(focused()).toBe('americas-north-pokemon');
+    // Single-key shortcuts off: j and k do nothing.
+    singleKeys.set(false);
+    key('j');
+    expect(focused()).toBe('americas-north-pokemon');
   });
 
   it('skeleton rows while loading, "Try again" on an error, closed while publicChat is off', () => {

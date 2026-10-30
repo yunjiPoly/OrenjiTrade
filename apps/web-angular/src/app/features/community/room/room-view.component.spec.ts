@@ -35,7 +35,12 @@ describe('RoomViewComponent (spec 10.7, board W22)', () => {
   let blocks: Record<string, ReturnType<typeof vi.fn>>;
   let reports: Record<string, ReturnType<typeof vi.fn>>;
   let starter: Record<string, ReturnType<typeof vi.fn>>;
-  let toasts: { show: ReturnType<typeof vi.fn>; action$: Subject<void> };
+  let toasts: {
+    show: ReturnType<typeof vi.fn>;
+    action$: Subject<void>;
+    dismissed: string[];
+  };
+  let announce: ReturnType<typeof vi.fn>;
   let rooms: Record<string, ReturnType<typeof vi.fn>>;
   const medium = signal(false);
 
@@ -60,7 +65,7 @@ describe('RoomViewComponent (spec 10.7, board W22)', () => {
         { provide: ReportActionsService, useValue: reports },
         { provide: ConversationStarterService, useValue: starter },
         { provide: ToastService, useValue: toasts },
-        { provide: LiveAnnouncer, useValue: { announce: vi.fn(async () => undefined) } },
+        { provide: LiveAnnouncer, useValue: { announce } },
         { provide: ChatDrafts, useValue: { get: () => '', set: vi.fn() } },
         { provide: AppConfigService, useValue: { apiBaseUrl: () => '' } },
       ],
@@ -102,12 +107,255 @@ describe('RoomViewComponent (spec 10.7, board W22)', () => {
     starter = { start: vi.fn(async () => ({ id: 'conv-1' })) };
     toasts = {
       action$: new Subject<void>(),
-      show: vi.fn(() => ({ onAction: () => toasts.action$.asObservable() })),
+      dismissed: [],
+      show: vi.fn((input: { title: string }) => ({
+        onAction: () => toasts.action$.asObservable(),
+        dismiss: () => toasts.dismissed.push(input.title),
+      })),
     };
+    announce = vi.fn(async () => undefined);
     rooms = { markVisited: vi.fn(), setLastPost: vi.fn(), refresh: vi.fn() };
   });
 
-  afterEach(() => localStorage.clear());
+  afterEach(() => {
+    localStorage.clear();
+    vi.useRealTimers();
+    delete (document as unknown as Record<string, unknown>)['visibilityState'];
+  });
+
+  /** The view's private steps, as the template calls them. */
+  function view(): {
+    onPost(draft: { text: string; attachments: [] }): Promise<void>;
+    onAction(event: { action: string; post: PostResponse; opener: null }): Promise<void>;
+    loadOlder(): Promise<void>;
+    unblock(author: { id: string; handle: string }): Promise<void>;
+  } {
+    return fixture.componentInstance as unknown as ReturnType<typeof view>;
+  }
+
+  function handles(): (string | undefined)[] {
+    return [...element.querySelectorAll('.post__handle')].map((node) => node.textContent?.trim());
+  }
+
+  function duplicate(): HttpErrorResponse {
+    return new HttpErrorResponse({
+      status: 409,
+      error: { errorCode: 'DUPLICATE_POST', message: 'dup', requestId: 'r' },
+    });
+  }
+
+  async function settle(): Promise<void> {
+    await fixture.whenStable();
+    fixture.detectChanges();
+    await new Promise((resolve) => setTimeout(resolve));
+    fixture.detectChanges();
+  }
+
+  function setVisibility(state: DocumentVisibilityState): void {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => state });
+  }
+
+  it('reads the room again every 15 s on screen, at once when the tab comes back, never after (WF review F2)', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    await render();
+    const reads = () => api['listCommunityPosts'].mock.calls.length;
+    const start = reads();
+    vi.advanceTimersByTime(14_999);
+    expect(reads()).toBe(start);
+    vi.advanceTimersByTime(1);
+    expect(reads()).toBe(start + 1);
+    await settle();
+    // A hidden tab reads nothing.
+    setVisibility('hidden');
+    vi.advanceTimersByTime(15_000);
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(reads()).toBe(start + 1);
+    // Back on screen: at once.
+    setVisibility('visible');
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(reads()).toBe(start + 2);
+    await settle();
+    // Gone: no more reads.
+    fixture.destroy();
+    vi.advanceTimersByTime(60_000);
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(reads()).toBe(start + 2);
+  });
+
+  it('a refusal leaves when the text changes, and when another room opens (WF review F4)', async () => {
+    await render();
+    api['createCommunityPost'].mockReturnValue(throwError(() => duplicate()));
+    await view().onPost({ text: 'Hello room', attachments: [] });
+    fixture.detectChanges();
+    const error = () => element.querySelector('[data-testid="room-post-error"]');
+    expect(error()?.textContent).toContain('You already posted this.');
+    const field = element.querySelector<HTMLTextAreaElement>('[data-testid="room-field"]')!;
+    field.value = 'Hello room, again';
+    field.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(error()).toBeNull();
+    // A network refusal's "Try again" leaves with it: it would post the old text.
+    api['createCommunityPost'].mockReturnValue(
+      throwError(() => new HttpErrorResponse({ status: 0 })),
+    );
+    await view().onPost({ text: 'Hello room, again', attachments: [] });
+    fixture.detectChanges();
+    expect(error()?.querySelector('button')?.textContent).toContain('Try again');
+    fixture.componentRef.setInput('room', fixtureRoom('pokemon', { name: 'Pokémon' }));
+    fixture.detectChanges();
+    await settle();
+    expect(error()).toBeNull();
+  });
+
+  it('the community turned off while open: the rooms list is read again (WF review P2)', async () => {
+    await render();
+    expect(rooms['refresh']).not.toHaveBeenCalled();
+    api['listCommunityPosts'].mockReturnValue(
+      throwError(
+        () =>
+          new HttpErrorResponse({
+            status: 404,
+            error: { errorCode: 'FEATURE_DISABLED', message: 'off', requestId: 'r' },
+          }),
+      ),
+    );
+    document.dispatchEvent(new Event('visibilitychange'));
+    await settle();
+    expect(element.textContent).toContain('The community is closed right now');
+    expect(rooms['refresh']).toHaveBeenCalled();
+  });
+
+  it('after a block the message box has the focus; Undo reads the room again (WF review)', async () => {
+    await render();
+    (document.activeElement as HTMLElement | null)?.blur();
+    await view().onAction({ action: 'block', post: posts[1], opener: null });
+    await settle();
+    expect(handles()).toEqual(['lucas.tcg']);
+    expect(document.activeElement?.getAttribute('data-testid')).toBe('room-field');
+    const reads = api['listCommunityPosts'].mock.calls.length;
+    toasts.action$.next();
+    await settle();
+    expect(api['listCommunityPosts'].mock.calls.length).toBe(reads + 1);
+    expect(handles()).toEqual(['maya_k', 'lucas.tcg']);
+  });
+
+  it('Unblock in Room rules: the focus to the next Unblock, then the close button; Undo leaves (WF review U7)', async () => {
+    await render();
+    await view().onAction({ action: 'block', post: posts[1], opener: null });
+    await view().onAction({ action: 'block', post: posts[0], opener: null });
+    await settle();
+    const unblocks = () =>
+      [...element.querySelectorAll<HTMLButtonElement>('.rr__unblock')].map((button) =>
+        button.getAttribute('aria-label'),
+      );
+    expect(unblocks()).toEqual(['Unblock maya_k', 'Unblock lucas.tcg']);
+    const press = (label: string) => {
+      const button = element.querySelector<HTMLButtonElement>(`[aria-label="${label}"]`)!;
+      button.focus();
+      button.click();
+    };
+    press('Unblock maya_k');
+    await settle();
+    expect(toasts.dismissed).toEqual(['maya_k is blocked']);
+    expect(document.activeElement?.getAttribute('aria-label')).toBe('Unblock lucas.tcg');
+    press('Unblock lucas.tcg');
+    await settle();
+    expect(document.activeElement?.getAttribute('data-testid')).toBe('room-rules-close');
+    expect(toasts.show).toHaveBeenCalledWith({
+      title: 'lucas.tcg is unblocked',
+      sub: 'Their posts show again.',
+    });
+  });
+
+  it('older posts come in quietly, with one summary; the focus to the first one shown (WF review A2, A3)', async () => {
+    api['listCommunityPosts'].mockReturnValue(
+      of({ items: posts, hasMore: true, nextCursor: 'c1' }),
+    );
+    await render();
+    const older = new Subject<unknown>();
+    api['listCommunityPosts'].mockReturnValue(older);
+    (document.activeElement as HTMLElement | null)?.blur();
+    const pending = view().loadOlder();
+    fixture.detectChanges();
+    const log = element.querySelector('[role="log"]')!;
+    expect(log.getAttribute('aria-live')).toBe('off');
+    older.next({
+      items: [
+        fixturePost('old2', new Date(2026, 9, 29, 9, 0).toISOString(), {
+          author: { id: 'theo-id', handle: 'theo', displayName: 'Theo' },
+        }),
+        fixturePost('old1', new Date(2026, 9, 29, 8, 0).toISOString(), {
+          author: { id: 'ana-id', handle: 'ana', displayName: 'Ana' },
+        }),
+      ],
+      hasMore: false,
+    });
+    older.complete();
+    await pending;
+    await settle();
+    expect(handles()).toEqual(['ana', 'theo', 'maya_k', 'lucas.tcg']);
+    expect(announce).toHaveBeenCalledWith('2 older posts shown', 'polite');
+    expect(document.activeElement?.textContent?.trim()).toBe('ana');
+    expect(log.getAttribute('aria-live')).toBeNull();
+  });
+
+  it('after "Try again" the posts are in and the message box has the focus (WF review A2)', async () => {
+    api['listCommunityPosts'].mockReturnValue(
+      throwError(() => new HttpErrorResponse({ status: 500 })),
+    );
+    await render();
+    api['listCommunityPosts'].mockReturnValue(of({ items: posts, hasMore: false }));
+    element.querySelector<HTMLButtonElement>('.error-state__retry')!.click();
+    await settle();
+    expect(handles()).toEqual(['maya_k', 'lucas.tcg']);
+    expect(document.activeElement?.getAttribute('data-testid')).toBe('room-field');
+  });
+
+  it('"Skip to the message box" is the first stop past the header (WF review A5)', async () => {
+    await render();
+    const skip = element.querySelector<HTMLAnchorElement>('[data-testid="room-skip"]')!;
+    expect(skip.textContent?.trim()).toBe('Skip to the message box');
+    skip.click();
+    expect(document.activeElement?.getAttribute('data-testid')).toBe('room-field');
+  });
+
+  it('the newest post stays in view when the message box grows (WF review U9)', async () => {
+    let resized: () => void = () => undefined;
+    const original = window.ResizeObserver;
+    window.ResizeObserver = class {
+      constructor(callback: () => void) {
+        resized = callback;
+      }
+      readonly observe = vi.fn();
+      readonly disconnect = vi.fn();
+      readonly unobserve = vi.fn();
+    } as unknown as typeof ResizeObserver;
+    try {
+      await render();
+      const body = element.querySelector<HTMLElement>('.room__body')!;
+      let top = 0;
+      let client = 300;
+      Object.defineProperty(body, 'scrollHeight', { configurable: true, get: () => 900 });
+      Object.defineProperty(body, 'clientHeight', { configurable: true, get: () => client });
+      Object.defineProperty(body, 'scrollTop', {
+        configurable: true,
+        get: () => top,
+        set: (value: number) => (top = value),
+      });
+      top = 600;
+      body.dispatchEvent(new Event('scroll'));
+      client = 240;
+      resized();
+      expect(top).toBe(900);
+      // Read further up: the log stays where the collector is.
+      top = 100;
+      body.dispatchEvent(new Event('scroll'));
+      resized();
+      expect(top).toBe(100);
+    } finally {
+      window.ResizeObserver = original;
+    }
+  });
 
   it('the header, the banner and the posts read like a chat, the room counting as seen', async () => {
     await render();

@@ -181,8 +181,11 @@ export class RoomViewComponent {
           this.scrollToEnd();
         }
         if (this.focusAfterLoad) {
+          // "Try again" left with the focus: the message box takes it (WF review A2).
           this.focusAfterLoad = false;
-          this.keepFocus(() => this.composer()?.focus());
+          afterNextRender(() => this.keepFocus(() => this.composer()?.focus()), {
+            injector: this.injector,
+          });
         }
       });
     });

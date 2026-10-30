@@ -1,3 +1,4 @@
+import { SHELL_ICONS } from '../shell-icon/shell-icon.component';
 import { MatTooltip } from '@angular/material/tooltip';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -150,6 +151,11 @@ describe('NotificationBellComponent', () => {
     const labels = [...popover.querySelectorAll('h3')].map((h) => h.textContent?.trim());
     expect(labels).toEqual(['New', 'Earlier']);
     expect(popover.textContent).toContain('See all notifications');
+    // The header's gear of board W24, not the sliders (WE F10, U14; WF review M47).
+    const gear = [...popover.querySelectorAll('.np__gear svg path')].map((path) =>
+      path.getAttribute('d'),
+    );
+    expect(gear).toEqual([...SHELL_ICONS.gear]);
     const link = popover.querySelector<HTMLAnchorElement>('.nr__link')!;
     link.click();
     expect(center['markRead']).toHaveBeenCalledWith(expect.objectContaining({ id: 'a' }));

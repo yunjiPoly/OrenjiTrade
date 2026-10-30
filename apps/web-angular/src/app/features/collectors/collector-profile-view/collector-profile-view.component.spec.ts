@@ -1,3 +1,4 @@
+import { SHELL_ICONS } from '../../../core/layout/shell-icon/shell-icon.component';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import type { CollectorProfileResponse } from '@orenji/api-client';
@@ -134,6 +135,11 @@ describe('CollectorProfileViewComponent (spec 11, boards W23 and W23b)', () => {
     expect(element.querySelector('a[href="/settings"]')?.getAttribute('aria-label')).toBe(
       'Settings',
     );
+    // The gear of spec 12 and board W23b, not the sliders (WE F10, U14; WF review M47).
+    const gear = [...element.querySelectorAll('a[href="/settings"] svg path')].map((path) =>
+      path.getAttribute('d'),
+    );
+    expect(gear).toEqual([...SHELL_ICONS.gear]);
     expect(element.querySelector('a[href="/inventory?add=new"]')?.textContent).toContain(
       'Add cards',
     );
