@@ -99,7 +99,9 @@ describe('FeedPostComponent (spec 5.2, board W1)', () => {
       } as FeedPost['wanted'],
     });
     expect(element.querySelector('.fp__verb')?.getAttribute('data-tone')).toBe('wanted');
-    expect(element.querySelector('.fp__line')?.textContent).toContain('Any printing · NM only · 85% TCG');
+    expect(element.querySelector('.fp__line')?.textContent).toContain(
+      'Any printing · NM only · 85% TCG',
+    );
     const button = element.querySelector<HTMLButtonElement>('[data-testid="feed-have-it"]')!;
     expect(button.getAttribute('aria-label')).toBe('I have Ash Blossom. Message maya_k');
     button.click();
@@ -137,7 +139,9 @@ describe('FeedPostComponent (spec 5.2, board W1)', () => {
       collector: GUEST,
       newCards: { total: 9, previews: ['1', '2', '3', '4', '5', '6'].map(preview) },
     });
-    expect(element.querySelector('.fp__title')?.textContent).toContain('A collector listed 9 cards');
+    expect(element.querySelector('.fp__title')?.textContent).toContain(
+      'A collector listed 9 cards',
+    );
     expect(element.querySelector('a[href^="/collectors"]')).toBeNull();
     expect(element.querySelector('.fp__avatar--guest')).not.toBeNull();
     expect(element.querySelector('.fp__meta')?.textContent).toContain('Quebec');

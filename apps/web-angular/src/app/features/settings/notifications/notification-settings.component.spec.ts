@@ -67,6 +67,24 @@ describe('NotificationSettingsComponent', () => {
     await fixture.whenStable();
   }
 
+  it('lists the web topics by App and Email; push is set on the phone; no offers or trades (spec 13)', async () => {
+    await create();
+    fixture.detectChanges();
+    const heads = [...element.querySelectorAll('.notif__table thead th')].map((th) =>
+      th.textContent?.trim(),
+    );
+    expect(heads).toEqual(['Topic', 'App', 'Email']);
+    const topics = [...element.querySelectorAll('.notif__table tbody th .section-row__label')].map(
+      (th) => th.textContent?.trim(),
+    );
+    expect(topics).not.toContain('Offers');
+    expect(topics).not.toContain('Trades');
+    expect(topics).toContain('Messages');
+    expect(element.querySelector('[data-testid="notif-push-phone"]')?.textContent).toBe(
+      'Set on your phone',
+    );
+  });
+
   it('turns wishlist alerts off with one switch (no per-channel row for them)', async () => {
     await create();
     const toggle = element.querySelector<HTMLButtonElement>(

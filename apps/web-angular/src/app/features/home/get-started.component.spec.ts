@@ -7,7 +7,10 @@ describe('GetStartedComponent (spec 5.3, board W2)', () => {
   let element: HTMLElement;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({ imports: [GetStartedComponent], providers: [provideRouter([])] });
+    TestBed.configureTestingModule({
+      imports: [GetStartedComponent],
+      providers: [provideRouter([])],
+    });
     fixture = TestBed.createComponent(GetStartedComponent);
     fixture.componentRef.setInput('steps', {
       province: { state: 'done', place: 'Quebec, Canada' },

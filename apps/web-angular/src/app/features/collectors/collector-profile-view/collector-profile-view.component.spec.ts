@@ -116,7 +116,9 @@ describe('CollectorProfileViewComponent (spec 11, boards W23 and W23b)', () => {
     expect(element.querySelector('a[href="/settings/profile"]')?.textContent).toContain(
       'Edit profile',
     );
-    expect(element.querySelector('a[href="/settings"]')?.getAttribute('aria-label')).toBe('Settings');
+    expect(element.querySelector('a[href="/settings"]')?.getAttribute('aria-label')).toBe(
+      'Settings',
+    );
     expect(element.querySelector('a[href="/inventory?add=new"]')?.textContent).toContain(
       'Add cards',
     );

@@ -40,7 +40,13 @@ describe('notification rows (spec 12, board W24)', () => {
 
   it('words a sale, a rating, a reminder and a report decision as the phone does', () => {
     expect(
-      rowText(notice(Type.SaleRecorded, { sellerHandle: 'lucas.tcg', itemName: 'Nibiru', hasTracking: false })),
+      rowText(
+        notice(Type.SaleRecorded, {
+          sellerHandle: 'lucas.tcg',
+          itemName: 'Nibiru',
+          hasTracking: false,
+        }),
+      ),
     ).toEqual({
       strong: 'lucas.tcg',
       rest: 'marked Nibiru as sold to you',
@@ -59,7 +65,9 @@ describe('notification rows (spec 12, board W24)', () => {
     expect(reminder.strong).toBe('Trade binder:');
     expect(reminder.rest).toBe('do you still have these 8 cards?');
     expect(reminder.sub).toBe('Confirm them, or they leave search on Oct 26.');
-    expect(rowText(notice(Type.ReportDecision, { status: 'ACTIONED' })).sub).toBe('We took action.');
+    expect(rowText(notice(Type.ReportDecision, { status: 'ACTIONED' })).sub).toBe(
+      'We took action.',
+    );
   });
 
   it('reads old offers, trades, payments and disputes as history that opens nothing', () => {

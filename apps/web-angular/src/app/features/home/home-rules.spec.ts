@@ -99,7 +99,7 @@ describe('Home rules (spec 5, boards W1 and W2)', () => {
     expect(mergePosts([a], [again, b]).map((p) => p.id)).toEqual(['a', 'b']);
   });
 
-  it("words a post's header, a guest's collector as \"A collector\" (R15)", () => {
+  it('words a post\'s header, a guest\'s collector as "A collector" (R15)', () => {
     const one = post('a', now.toISOString());
     expect(postVerb(one)).toEqual({ text: 'listed a card', tone: 'cards' });
     expect(postVerb({ kind: Kind.NewCards, newCards: { total: 12, previews: [] } })).toEqual({
@@ -174,10 +174,14 @@ describe('Home rules (spec 5, boards W1 and W2)', () => {
       done: 1,
     });
     expect(
-      getStartedSteps({ location: { ...location, discoverable: false }, publicCards: 2, wishes: 1 }),
+      getStartedSteps({
+        location: { ...location, discoverable: false },
+        publicCards: 2,
+        wishes: 1,
+      }),
     ).toEqual(expect.objectContaining({ province: { state: 'hidden' }, done: 2 }));
-    expect(getStartedSteps({ location: { discoverable: false }, publicCards: 1, wishes: 1 })).toEqual(
-      expect.objectContaining({ province: { state: 'todo' }, done: 2 }),
-    );
+    expect(
+      getStartedSteps({ location: { discoverable: false }, publicCards: 1, wishes: 1 }),
+    ).toEqual(expect.objectContaining({ province: { state: 'todo' }, done: 2 }));
   });
 });

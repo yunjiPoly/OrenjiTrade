@@ -39,14 +39,17 @@ describe('"I have it" (spec 5.2 and 11)', () => {
     const cores = new Set(['core']);
     expect(
       pickPublicCopy(
-        [copy('newest', { createdAt: '2026-10-20T00:00:00Z' }), copy('printing', { printing: 'p-1' })],
+        [
+          copy('newest', { createdAt: '2026-10-20T00:00:00Z' }),
+          copy('printing', { printing: 'p-1' }),
+        ],
         wish,
         cores,
       )?.id,
     ).toBe('printing');
-    expect(pickPublicCopy([copy('a'), copy('rare', { rarity: 'Ultra Rare' })], wish, cores)?.id).toBe(
-      'rare',
-    );
+    expect(
+      pickPublicCopy([copy('a'), copy('rare', { rarity: 'Ultra Rare' })], wish, cores)?.id,
+    ).toBe('rare');
     expect(
       pickPublicCopy(
         [copy('old'), copy('new', { createdAt: '2026-10-20T00:00:00Z' })],
@@ -58,7 +61,11 @@ describe('"I have it" (spec 5.2 and 11)', () => {
     expect(
       pickPublicCopy(
         [
-          copy('private', { printing: 'p-1', visibility: Visibility.Private, effectivePublic: false }),
+          copy('private', {
+            printing: 'p-1',
+            visibility: Visibility.Private,
+            effectivePublic: false,
+          }),
           copy('hidden', { printing: 'p-1', effectivePublic: false }),
           copy('in-core', { printing: 'p-1', binder: 'core' }),
         ],
@@ -70,7 +77,9 @@ describe('"I have it" (spec 5.2 and 11)', () => {
 
   it('words the draft and the button', () => {
     expect(iHaveItDraft('Ash Blossom')).toBe('Hi! I have Ash Blossom.');
-    expect(iHaveItLabel('Ash Blossom', 'theo.duels')).toBe('I have Ash Blossom. Message theo.duels');
+    expect(iHaveItLabel('Ash Blossom', 'theo.duels')).toBe(
+      'I have Ash Blossom. Message theo.duels',
+    );
     expect(iHaveItLabel('Ash Blossom', null)).toBe('I have Ash Blossom');
   });
 
