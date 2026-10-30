@@ -18,6 +18,8 @@
 
 .home__feed {
   min-width: 0;
+  // The toolbar follows the feed's own width (the chat drawer narrows it at lg, U6).
+  container: home-feed / inline-size;
 }
 
 .home__title {
@@ -354,14 +356,23 @@
   background: var(--color-primary-hover);
 }
 
-// The rail (320, sticky at top 144... under the bar and the header).
+// The rail (320, sticky at top 144: under the bar and the toolbar, spec 5.3). Taller than the
+// window (Get started over the map card at 900 or less), it scrolls on its own, so its map card
+// and footer are never out of reach until the feed ends (WE review F4).
 .home__rail {
   position: sticky;
-  top: 96px;
+  top: 144px;
   display: flex;
   flex-direction: column;
   gap: 16px;
   align-self: start;
+  max-height: calc(100dvh - 160px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  // Room for the focus rings of its controls inside the scrolled box.
+  padding: 2px;
+  margin: -2px;
 }
 
 .home__guest {
@@ -405,6 +416,24 @@
 
 .home__links a {
   color: inherit;
+}
+
+// A narrow feed (the chat drawer open beside it at lg, or md): the chips keep one row that
+// scrolls sideways and "Updated 5 min ago" gives up its room, so the toolbar stays 56 tall (U6).
+@container home-feed (max-width: 600px) {
+  .home__chips {
+    flex: 1;
+    flex-wrap: nowrap;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .home__chip {
+    flex: none;
+  }
+  .home__updated-text {
+    display: none;
+  }
 }
 
 // Below 960: the phone's Home (no sticky toolbar under a bar it does not have, the content
