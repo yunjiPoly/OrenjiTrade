@@ -11,7 +11,11 @@ import {
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
-import type { CollectorProfileResponse, RatingSummaryResponse } from '@orenji/api-client';
+import type {
+  CollectorProfileResponse,
+  RatingSummaryResponse,
+  ReferenceResponse,
+} from '@orenji/api-client';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
 import { RelativeTimePipe } from '../../../shared/pipes/relative-time.pipe';
 import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
@@ -48,7 +52,7 @@ import { RatingSummaryComponent } from './rating-summary.component';
     <section class="ratings" id="collector-ratings" aria-labelledby="collector-ratings-heading">
       <header class="ratings__head">
         <div>
-          <h2 id="collector-ratings-heading" tabindex="-1">Ratings &amp; references</h2>
+          <h2 id="collector-ratings-heading" tabindex="-1">All ratings and references</h2>
           <p class="ratings__muted">
             From collectors who traded, made a deal or had a real conversation with
             {{ isOwn() ? 'you' : p.displayName }}.
@@ -303,6 +307,8 @@ export class CollectorRatingsSectionComponent {
   readonly isOwn = input(false);
   /** The summary after every (re)load, for the profile header. */
   readonly summaryChange = output<RatingSummaryResponse>();
+  /** The latest references (the profile's side column shows the 2 newest, spec 11). */
+  readonly referencesChange = output<ReferenceResponse[]>();
 
   protected readonly errorMessage = computed(() => {
     const error = this.store.error();
@@ -345,6 +351,12 @@ export class CollectorRatingsSectionComponent {
       const summary = this.store.summary();
       if (summary && this.store.status() === 'ready') {
         untracked(() => this.summaryChange.emit(summary));
+      }
+    });
+    effect(() => {
+      const references = this.store.references();
+      if (references) {
+        untracked(() => this.referencesChange.emit(references.slice(0, 2)));
       }
     });
   }

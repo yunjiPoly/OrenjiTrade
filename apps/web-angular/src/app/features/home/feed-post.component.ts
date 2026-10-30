@@ -3,6 +3,7 @@ import { RouterLink } from '@angular/router';
 import type { FeedCardPreview, FeedPost } from '@orenji/api-client';
 import { ShellIconComponent } from '../../core/layout/shell-icon/shell-icon.component';
 import { ChatDrawer } from '../../shared/messaging/chat-drawer.service';
+import { MediaUrlPipe } from '../../shared/pipes/media-url.pipe';
 import { IHaveIt, iHaveItLabel } from '../../shared/wishlist/i-have-it.service';
 import { wishTerms } from '../../shared/wishlist/wishlist-labels';
 import { AvatarComponent } from '../../shared/ui/avatar/avatar.component';
@@ -25,7 +26,7 @@ import { itemPriceText } from '../inventory/data/item-price';
  */
 @Component({
   selector: 'app-feed-post',
-  imports: [RouterLink, AvatarComponent, CardImageComponent, ShellIconComponent],
+  imports: [RouterLink, AvatarComponent, CardImageComponent, MediaUrlPipe, ShellIconComponent],
   template: `
     @let p = post();
     @let handle = p.collector.handle;
@@ -149,7 +150,7 @@ import { itemPriceText } from '../inventory/data/item-price';
             <a class="fp__core" [routerLink]="['/binders', core.binderId]" data-testid="feed-deck-core">
               <span class="fp__band" aria-hidden="true">
                 @if (core.photoUrl) {
-                  <img class="fp__photo" [src]="core.photoUrl" alt="" loading="lazy" decoding="async" />
+                  <img class="fp__photo" [src]="core.photoUrl | mediaUrl" alt="" loading="lazy" decoding="async" />
                 } @else {
                   <span class="fp__fan">
                     @for (image of core.previewImages.slice(0, 3); track $index) {
