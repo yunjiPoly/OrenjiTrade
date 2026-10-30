@@ -268,6 +268,41 @@ public class NotificationRepository {
                 .update();
     }
 
+    /**
+     * The other collectors' RATING_RECEIVED rows from a deleted account, found by its handle
+     * ({@code data.raterHandle}): the title becomes {@code title}, the body's rater ("{name} rated
+     * you 5/5.") and {@code data.raterHandle} become {@code name}. Returns the rows changed.
+     */
+    public int renameRater(String handle, String title, String name) {
+        return jdbc.sql(
+                        "UPDATE notification SET title = :title, body = regexp_replace(body,"
+                                + " '^.* rated you ', :name || ' rated you '), data ="
+                                + " jsonb_set(data, '{raterHandle}', to_jsonb(CAST(:name AS"
+                                + " text)), false) WHERE type = 'RATING_RECEIVED' AND"
+                                + " data->>'raterHandle' = :handle")
+                .param("title", title)
+                .param("name", name)
+                .param("handle", handle)
+                .update();
+    }
+
+    /**
+     * The other collectors' SALE_RECORDED rows from a deleted account, found by its handle ({@code
+     * data.sellerHandle}): the handle starting the title ("{handle} marked … as sold to you") and
+     * {@code data.sellerHandle} become {@code name}. Returns the rows changed.
+     */
+    public int renameSeller(String handle, String name) {
+        return jdbc.sql(
+                        "UPDATE notification SET title = CASE WHEN left(title, length(:handle) +"
+                                + " 1) = :handle || ' ' THEN :name || substring(title from"
+                                + " length(:handle) + 1) ELSE title END, data = jsonb_set(data,"
+                                + " '{sellerHandle}', to_jsonb(CAST(:name AS text)), false) WHERE"
+                                + " type = 'SALE_RECORDED' AND data->>'sellerHandle' = :handle")
+                .param("name", name)
+                .param("handle", handle)
+                .update();
+    }
+
     private static Row map(ResultSet rs, int rowNum) throws SQLException {
         Timestamp readAt = rs.getTimestamp("read_at");
         return new Row(

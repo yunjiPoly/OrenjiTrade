@@ -908,6 +908,7 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
 
         java.util.Set<String> binderIds = new java.util.LinkedHashSet<>();
         int places = 0;
+        int widePosts = 0;
         for (String region : List.of("americas-north", "americas-south", "europe")) {
             for (String game : List.of("yugioh", "pokemon", "mtg", "onepiece", "riftbound")) {
                 JsonNode feed =
@@ -921,6 +922,26 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
             }
             for (String kind : List.of("NEW_CARDS", "WANTED", "DECK_CORES")) {
                 fetch("/api/v1/feed?limit=50&game=yugioh&region=" + region + "&kind=" + kind, null);
+            }
+            // The web's guest Home (stage WE): every game and chip with its 6 pictures per
+            // new-cards post, which only `previews` returns (WE review P1).
+            for (String game : List.of("yugioh", "pokemon", "mtg", "onepiece", "riftbound")) {
+                for (String kind : List.of("ALL", "NEW_CARDS", "WANTED", "DECK_CORES")) {
+                    JsonNode web =
+                            fetch(
+                                    "/api/v1/feed?limit=20&previews=6&region="
+                                            + region
+                                            + "&game="
+                                            + game
+                                            + "&kind="
+                                            + kind,
+                                    null);
+                    for (JsonNode post : web.path("items")) {
+                        if (post.path("newCards").path("previews").size() > 4) {
+                            widePosts++;
+                        }
+                    }
+                }
             }
             JsonNode counts = fetch("/api/v1/regions/" + region + "/binder-counts", null);
             for (JsonNode subdivision : counts.path("subdivisions")) {
@@ -992,6 +1013,9 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
             fetch("/api/v1/public/binders/" + binderId + "/items?size=100", null);
         }
         assertThat(places).as("places read by a guest").isPositive();
+        assertThat(widePosts)
+                .as("new-cards posts with 5 or 6 pictures read by a guest (previews=6)")
+                .isPositive();
 
         boolean itemPhotos = false;
         boolean binderPhotos = false;

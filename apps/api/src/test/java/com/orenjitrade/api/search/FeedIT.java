@@ -329,6 +329,25 @@ class FeedIT extends AbstractSearchIT {
         assertThat(webPreviews).hasSize(5);
         assertThat(webPreviews.get(0).path("itemId").asString()).isEqualTo(early.get(4));
         assertThat(webPreviews.get(4).path("itemId").asString()).isEqualTo(early.get(0));
+        // A signed-out visitor (the web's guest Home sends previews=6): the same five pictures,
+        // and still nobody's id, handle, name or avatar (R15; WE review P1).
+        JsonNode guestGroup =
+                findPost(
+                        everything(
+                                null,
+                                "region=" + REGION + "&game=yugioh&kind=NEW_CARDS&previews=6",
+                                50),
+                        group.path("id").asString());
+        assertThat(guestGroup.path("newCards").path("previews")).hasSize(5);
+        JsonNode nobody = guestGroup.path("collector");
+        for (String field : List.of("id", "handle", "displayName", "avatarUrl")) {
+            assertThat(nobody.has(field)).as("collector.%s is sent", field).isTrue();
+            assertThat(nobody.path(field).isNull()).as("collector.%s is null", field).isTrue();
+        }
+        assertThat(guestGroup.toString())
+                .doesNotContain(seller.id().toString())
+                .doesNotContain(seller.handle());
+        assertThat(guestGroup.path("place").path("label").asString()).isNotBlank();
         long groupHour = FeedRules.hourOf(hour);
         assertThat(group.path("id").asString())
                 .isEqualTo(FeedRules.cardsPostId(seller.id(), groupHour).toString());

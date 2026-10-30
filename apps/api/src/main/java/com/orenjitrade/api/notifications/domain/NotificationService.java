@@ -62,6 +62,11 @@ public class NotificationService {
     /** How a deleted account reads everywhere (the users module's anonymised display name). */
     static final String DELETED_COLLECTOR = "Deleted collector";
 
+    /**
+     * The start of a RATING_RECEIVED title ("New rating from {name}", the ratings module's words).
+     */
+    static final String RATING_TITLE_PREFIX = "New rating from ";
+
     private static final TypeReference<Map<String, Object>> MAP = new TypeReference<>() {};
 
     private final NotificationRepository repository;
@@ -349,13 +354,24 @@ public class NotificationService {
     }
 
     /**
-     * The account deletion job: the account's own notifications go, and the other collectors' rows
-     * that name it say "Deleted collector" as the chat does (a message's title and body, a wishlist
-     * alert's handle; WC review V3-1). Rows naming it without its id (a rating's or a sale's
-     * handle) keep the text they were written with.
+     * The account deletion job without the account's handle: {@link #purge(UUID, String)} without
+     * the rows that name it by its handle only.
      */
     @Transactional
     public void purge(UUID userId) {
+        purge(userId, null);
+    }
+
+    /**
+     * The account deletion job: the account's own notifications go, and the other collectors' rows
+     * that name it say "Deleted collector" as the chat does (a message's title and body, a wishlist
+     * alert's handle; WC review V3-1). With the account's {@code handle} (taken before the account
+     * was anonymised), the rows naming it by that handle only say it too: a rating's title, body
+     * and {@code raterHandle}, a sale's title and {@code sellerHandle} (WE review P2). A row
+     * written under an older handle of the account keeps its words.
+     */
+    @Transactional
+    public void purge(UUID userId, @Nullable String handle) {
         repository.deleteByUser(userId);
         repository.renameMessageSender(
                 userId,
@@ -364,6 +380,11 @@ public class NotificationService {
                 ActivityNotifications.MESSAGE_PHRASES,
                 ActivityNotifications.PLAIN_MESSAGE_PHRASE);
         repository.renameWishlistCollector(userId, DELETED_COLLECTOR);
+        if (handle != null && !handle.isBlank()) {
+            repository.renameRater(
+                    handle, RATING_TITLE_PREFIX + DELETED_COLLECTOR, DELETED_COLLECTOR);
+            repository.renameSeller(handle, DELETED_COLLECTOR);
+        }
     }
 
     NotificationView view(Row row) {

@@ -36,6 +36,13 @@ class DeletedCollectorNotificationsIT extends AbstractWishlistIT {
         send(leaving, fromLeaving, Map.of("kind", "TEXT", "body", "Still have the Azure?"));
         String fromStaying = conversation(staying, recipient);
         send(staying, fromStaying, Map.of("kind", "TEXT", "body", "Hello"));
+        // A shared card keeps its phrase once renamed (WE review F2: not the plain message's).
+        String cardFromLeaving = conversation(leaving, staying);
+        Map<String, Object> cardLink = new LinkedHashMap<>();
+        cardLink.put("kind", "CARD_LINK");
+        cardLink.put("body", "This one?");
+        cardLink.put("cardPrintingId", printing(AZURE).toString());
+        send(leaving, cardFromLeaving, cardLink);
         // The deleted account also received a message: its own row goes with it.
         send(recipient, fromLeaving, Map.of("kind", "TEXT", "body", "Hi"));
 
@@ -58,6 +65,12 @@ class DeletedCollectorNotificationsIT extends AbstractWishlistIT {
         assertThat(renamed.path("body").asString())
                 .isEqualTo("Deleted collector sent you a message.");
         assertThat(renamed.path("data").path("conversationId").asString()).isEqualTo(fromLeaving);
+        JsonNode sharedCard =
+                byConversation(notificationsOfType(staying, "MESSAGE"), cardFromLeaving);
+        assertThat(sharedCard.path("title").asString())
+                .isEqualTo("New message from Deleted collector");
+        assertThat(sharedCard.path("body").asString())
+                .isEqualTo("Deleted collector shared a card with you.");
         JsonNode kept = byConversation(messages, fromStaying);
         assertThat(kept.path("title").asString())
                 .as("another sender's row keeps its name")
