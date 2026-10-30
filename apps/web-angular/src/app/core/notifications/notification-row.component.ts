@@ -2,7 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
-  Injector,
+  EnvironmentInjector,
   afterNextRender,
   booleanAttribute,
   computed,
@@ -44,6 +44,7 @@ import { ReminderAnswers } from './reminder-answers.service';
       class="nr"
       [class.nr--unread]="!n.readAt"
       [class.nr--page]="page()"
+      [attr.data-notification-id]="n.id"
       data-testid="notification-row"
     >
       <span class="nr__tile" [attr.data-tone]="visual().tone" aria-hidden="true">
@@ -154,7 +155,8 @@ export class NotificationRowComponent {
   protected readonly answers = inject(ReminderAnswers);
   private readonly session = inject(SessionService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
-  private readonly injector = inject(Injector);
+  /** The app's: the row itself moves from New to Earlier (read) while it answers. */
+  private readonly environment = inject(EnvironmentInjector);
 
   protected readonly text = computed(() => rowText(this.notification()));
   protected readonly visual = computed(() => rowVisual(this.notification()));
@@ -175,17 +177,22 @@ export class NotificationRowComponent {
   });
 
   /**
-   * "Still have them": the button goes away with the answer, so the focus moves to the row's
-   * "Confirmed. They stay in search." (or back to the button when it failed), never to the page (A4).
+   * "Still have them": the button goes away with the answer, and the row, marked read, moves from
+   * New to Earlier (a new row element), so the focus moves to that row's "Confirmed. They stay in
+   * search." (or back to its button when it failed), never to the page (A4).
    */
   protected async confirm(): Promise<void> {
+    const id = this.notification().id;
+    const doc = this.host.nativeElement.ownerDocument;
     await this.answers.confirm(this.notification());
     afterNextRender(
-      () =>
-        this.host.nativeElement
-          .querySelector<HTMLElement>('.nr__confirmed, .nr__still')
-          ?.focus({ preventScroll: true }),
-      { injector: this.injector },
+      () => {
+        const row = doc.querySelector(`[data-notification-id="${id}"]`);
+        row
+          ?.querySelector<HTMLElement>('.nr__confirmed, .nr__still')
+          ?.focus({ preventScroll: true });
+      },
+      { injector: this.environment },
     );
   }
 }

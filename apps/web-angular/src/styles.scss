@@ -186,7 +186,7 @@ html {
 // Home: the bar and its sticky toolbar (64 + 56, with a 12 fade), and the "New posts · Show" pill
 // under them when it shows: a control reached with Shift+Tab stops below them (WE review A1).
 html:has(.home__toolbar) {
-  scroll-padding-top: 140px;
+  scroll-padding-top: 148px;
 }
 html:has(.home__newer-row) {
   scroll-padding-top: 176px;
