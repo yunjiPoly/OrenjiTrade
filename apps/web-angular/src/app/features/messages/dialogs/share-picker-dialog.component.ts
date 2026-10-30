@@ -48,9 +48,10 @@ export interface SharePickerData {
   /** The other collector's handle (a chat). */
   other: string;
   /**
-   * A community room instead of a chat (web WF, board W22): your public cards and binders of the
-   * room's game, chosen as a printing or a binder to share in a post; and below your cards, any
-   * card of the catalogue (`GET /cards/suggest`), as the phone and the web before WF (review F1).
+   * A community room instead of a chat (web WF, board W22): your public cards of the room's game,
+   * chosen as a printing to share in a post, and below them any card of the catalogue (`GET
+   * /cards/suggest`), as the phone and the web before WF (review F1); or every public binder and
+   * deck core, the room's game first (review R1-3).
    */
   room?: { name: string; game: string | null };
 }
@@ -507,7 +508,7 @@ export class SharePickerDialogComponent {
   protected readonly placeholder = this.room
     ? this.isCards
       ? ROOM_SHARE_COPY.cardSearch(this.room.name)
-      : ROOM_SHARE_COPY.binderSearch(this.room.name)
+      : ROOM_SHARE_COPY.binderSearch
     : this.isCards
       ? SHARE_COPY.cardSearch
       : SHARE_COPY.binderSearch;
@@ -570,37 +571,49 @@ export class SharePickerDialogComponent {
           : { kind: 'item', itemId: item.id, name: item.card.name },
       }));
     }
-    const game = this.room?.game ?? null;
+    const room = this.room;
     // Public binders whose name matches without case or accents (the web's binder picker before
-    // WF, removed with it).
-    return matchingBinders(this.allBinders(), this.query())
-      .filter((b) => !b.soldAt)
-      .filter((b) => !game || !b.game || b.game === game)
-      .map((b) => ({
-        id: b.id,
-        name: b.name,
-        // In a room, the board's "Public binder · Yu-Gi-Oh!" (W22); in a chat, "Binder".
-        line: this.room
-          ? `${b.sellsAsCore ? SHARE_COPY.deckCore : ROOM_SHARE_COPY.publicBinder} · ${this.room.name}`
-          : b.sellsAsCore
-            ? SHARE_COPY.deckCore
-            : SHARE_COPY.binder,
-        price: b.sellsAsCore ? (b.askingPriceText?.trim() ?? null) : null,
-        imageUrl: null,
-        game: b.game ?? null,
-        core: !!b.sellsAsCore,
-        choice: this.room
-          ? {
-              kind: 'binder',
-              binder: { binderId: b.id, name: b.name, itemCount: b.itemCount },
-              deckCore: !!b.sellsAsCore,
-              price: b.sellsAsCore ? (b.askingPriceText?.trim() ?? null) : null,
-            }
-          : {
-              kind: 'binder',
-              binder: { binderId: b.id, name: b.name, itemCount: b.itemCount },
-            },
-      }));
+    // WF, removed with it). In a room, every public binder as on the phone and the web before WF
+    // (a post may share a binder of any game), the room's game first (WF review R1-3).
+    const binders = matchingBinders(this.allBinders(), this.query()).filter((b) => !b.soldAt);
+    const roomGame = room?.game ?? null;
+    const ordered = roomGame
+      ? [
+          ...binders.filter((b) => !b.game || b.game === roomGame),
+          ...binders.filter((b) => b.game && b.game !== roomGame),
+        ]
+      : binders;
+    return ordered.map((b) => ({
+      id: b.id,
+      name: b.name,
+      // In a room, the board's "Public binder · Yu-Gi-Oh!" (W22), naming the binder's own game;
+      // in a chat, "Binder".
+      line: room
+        ? [
+            b.sellsAsCore ? SHARE_COPY.deckCore : ROOM_SHARE_COPY.publicBinder,
+            b.game ? gameInfo(b.game).shortLabel : '',
+          ]
+            .filter(Boolean)
+            .join(' · ')
+        : b.sellsAsCore
+          ? SHARE_COPY.deckCore
+          : SHARE_COPY.binder,
+      price: b.sellsAsCore ? (b.askingPriceText?.trim() ?? null) : null,
+      imageUrl: null,
+      game: b.game ?? null,
+      core: !!b.sellsAsCore,
+      choice: this.room
+        ? {
+            kind: 'binder',
+            binder: { binderId: b.id, name: b.name, itemCount: b.itemCount },
+            deckCore: !!b.sellsAsCore,
+            price: b.sellsAsCore ? (b.askingPriceText?.trim() ?? null) : null,
+          }
+        : {
+            kind: 'binder',
+            binder: { binderId: b.id, name: b.name, itemCount: b.itemCount },
+          },
+    }));
   });
 
   protected readonly emptyText = computed(() => {
@@ -610,11 +623,9 @@ export class SharePickerDialogComponent {
       if (q) {
         return this.isCards
           ? ROOM_SHARE_COPY.cardNoMatch(room.name, q)
-          : ROOM_SHARE_COPY.binderNoMatch(room.name, q);
+          : ROOM_SHARE_COPY.binderNoMatch(q);
       }
-      return this.isCards
-        ? ROOM_SHARE_COPY.cardEmpty(room.name)
-        : ROOM_SHARE_COPY.binderEmpty(room.name);
+      return this.isCards ? ROOM_SHARE_COPY.cardEmpty(room.name) : ROOM_SHARE_COPY.binderEmpty;
     }
     if (q) {
       return this.isCards ? SHARE_COPY.cardNoMatch(q) : SHARE_COPY.binderNoMatch(q);

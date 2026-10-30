@@ -170,7 +170,8 @@ export const ROOM_SHARE_COPY = {
   binderTitle: 'Share a binder or deck core',
   lead: 'Everyone in this room can see it and open it.',
   cardSearch: (room: string) => `Search your ${room} cards or any card`,
-  binderSearch: (room: string) => `Search your ${room} binders`,
+  /** Every public binder is listed, the room's game first (WF review R1-3): no game named. */
+  binderSearch: 'Search your binders',
   cardFoot: 'Cards in your public binders, then any card',
   allCards: 'All cards',
   allHint: 'Type two letters or more to find any card, even one you do not have.',
@@ -180,11 +181,10 @@ export const ROOM_SHARE_COPY = {
   cannotShare: 'This card cannot be shared right now. Try another printing.',
   binderFoot: 'Your public binders and deck cores',
   cardEmpty: (room: string) => `You have no public ${room} cards to share yet.`,
-  binderEmpty: (room: string) => `You have no public ${room} binders or deck cores yet.`,
+  binderEmpty: 'You have no public binders or deck cores yet.',
   cardNoMatch: (room: string, query: string) =>
     `None of your public ${room} cards match “${query}”.`,
-  binderNoMatch: (room: string, query: string) =>
-    `None of your public ${room} binders match “${query}”.`,
+  binderNoMatch: (query: string) => `None of your public binders match “${query}”.`,
   addCards: 'Add cards',
   yourBinders: 'Your binders',
   publicBinder: 'Public binder',

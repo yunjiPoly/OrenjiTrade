@@ -170,12 +170,28 @@ describe('SharePickerDialogComponent in a community room (web WF, board W22)', (
     expect(element.querySelector('[data-testid="share-all-cards"]')).toBeNull();
   });
 
-  it('"Share a binder or deck core": your public binders of the room\'s game, with the price', async () => {
-    await render({ mode: 'binder', other: '', room: { name: 'Yu-Gi-Oh!', game: 'yugioh' } });
-    const rows = [...element.querySelectorAll<HTMLButtonElement>('.sp__row')];
-    expect(rows.map((row) => row.getAttribute('aria-label'))).toEqual([
+  it('"Share a binder or deck core": every public binder, the room\'s game first, with the price (WF review R1-3)', async () => {
+    await render({ mode: 'binder', other: '', room: { name: 'Pokémon', game: 'pokemon' } });
+    const labels = () =>
+      [...element.querySelectorAll<HTMLButtonElement>('.sp__row')].map((row) =>
+        row.getAttribute('aria-label'),
+      );
+    // The room's game first, then the other public binders, each line naming its own game.
+    expect(labels()).toEqual([
+      'Pokémon binder, Public binder · Pokémon',
       'Snake-Eye core, Deck core · Yu-Gi-Oh!, $180',
     ]);
+    expect(element.querySelector('input')?.placeholder).toBe('Search your binders');
+    const search = element.querySelector('input')!;
+    search.value = 'Singles';
+    search.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(element.textContent).toContain('None of your public binders match “Singles”.');
+    search.value = 'snake';
+    search.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    const rows = [...element.querySelectorAll<HTMLButtonElement>('.sp__row')];
+    expect(labels()).toEqual(['Snake-Eye core, Deck core · Yu-Gi-Oh!, $180']);
     rows[0].click();
     expect(close).toHaveBeenCalledWith({
       kind: 'binder',
