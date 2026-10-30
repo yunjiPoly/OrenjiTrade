@@ -162,6 +162,71 @@ describe('RoomStore (web WF)', () => {
     );
   });
 
+  it('a refresh after a new post adds that post only: older pages wait for "Show older posts" (WF review R1-1)', async () => {
+    // A room of 150 posts paged as the API does: newest first, keyset cursors.
+    const minute = (n: number) => new Date(Date.UTC(2026, 9, 30, 0, n)).toISOString();
+    let room = Array.from({ length: 150 }, (_, n) =>
+      fixturePost(`p${String(n).padStart(3, '0')}`, minute(n)),
+    ).reverse();
+    api['listCommunityPosts'].mockImplementation((request: { cursor?: string; limit: number }) => {
+      const start = request.cursor ? room.findIndex((post) => post.id === request.cursor) + 1 : 0;
+      const items = room.slice(start, start + request.limit);
+      const hasMore = start + request.limit < room.length;
+      return of({ items, hasMore, nextCursor: hasMore ? items.at(-1)!.id : undefined });
+    });
+    store.open('americas-north-onepiece');
+    expect(store.posts()).toHaveLength(30);
+    const oldest = store.posts().at(-1)!.id;
+    expect(oldest).toBe('p120');
+    for (let n = 1; n <= 3; n++) {
+      room = [fixturePost(`new${n}`, minute(200 + n)), ...room];
+      const before = api['listCommunityPosts'].mock.calls.length;
+      expect(await store.refresh()).toBe(true);
+      // One more post shown each time, the oldest shown unchanged, nothing older read in.
+      expect(store.posts()).toHaveLength(30 + n);
+      expect(store.posts()[0].id).toBe(`new${n}`);
+      expect(store.posts().at(-1)!.id).toBe(oldest);
+      expect(store.hasOlder()).toBe(true);
+      // Two pages reach the oldest post shown; the reads do not grow with every poll.
+      expect(api['listCommunityPosts'].mock.calls.length - before).toBe(2);
+    }
+    // A quiet poll changes nothing and reads the same two pages.
+    const before = api['listCommunityPosts'].mock.calls.length;
+    expect(await store.refresh()).toBe(false);
+    expect(store.posts()).toHaveLength(33);
+    expect(api['listCommunityPosts'].mock.calls.length - before).toBe(2);
+    // "Show older posts" goes on just below the oldest post shown.
+    await store.loadOlder();
+    expect(api['listCommunityPosts']).toHaveBeenLastCalledWith(
+      { slug: 'americas-north-onepiece', limit: POSTS_PAGE, cursor: oldest },
+      'body',
+      false,
+      expect.anything(),
+    );
+    expect(store.posts()).toHaveLength(63);
+    expect(store.posts().at(-1)!.id).toBe('p090');
+  });
+
+  it('a room of 40 with 30 shown keeps "Show older posts" after a new post (WF review R1-1)', async () => {
+    const minute = (n: number) => new Date(Date.UTC(2026, 9, 30, 0, n)).toISOString();
+    let room = Array.from({ length: 40 }, (_, n) => fixturePost(`r${n}`, minute(n))).reverse();
+    api['listCommunityPosts'].mockImplementation((request: { cursor?: string; limit: number }) => {
+      const start = request.cursor ? room.findIndex((post) => post.id === request.cursor) + 1 : 0;
+      const items = room.slice(start, start + request.limit);
+      const hasMore = start + request.limit < room.length;
+      return of({ items, hasMore, nextCursor: hasMore ? items.at(-1)!.id : undefined });
+    });
+    store.open('americas-north-riftbound');
+    room = [fixturePost('fresh', minute(100)), ...room];
+    expect(await store.refresh()).toBe(true);
+    expect(store.posts()).toHaveLength(31);
+    expect(store.posts().at(-1)!.id).toBe('r10');
+    expect(store.hasOlder()).toBe(true);
+    await store.loadOlder();
+    expect(store.posts()).toHaveLength(41);
+    expect(store.hasOlder()).toBe(false);
+  });
+
   it('drops a read that a change made here overtook (the next refresh applies)', async () => {
     store.open('americas-north-yugioh');
     let answer!: (page: unknown) => void;

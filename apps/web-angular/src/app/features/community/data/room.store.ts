@@ -129,6 +129,7 @@ export class RoomStore {
    * shown (as the phone's infinite query does), and replaces the list: posts made meanwhile
    * appear at the bottom, and a post deleted, removed, hidden by a block (made here or elsewhere,
    * either way) or by its author's suspension leaves, on whichever page it was (WF review P1).
+   * Nothing older than the oldest post shown is added: those wait for "Show older posts" (R1-1).
    * Quiet: keeps what is shown on failure, and drops a read that a change made here overtook (the
    * next one applies). Resolves whether something changed.
    */
@@ -169,15 +170,21 @@ export class RoomStore {
         }
       }
       const lastRead = read.at(-1);
+      // Posts made meanwhile push the pages down, so the last page read again reaches past the
+      // oldest post shown: what it holds beyond that post stays for "Show older posts" and never
+      // joins the room (nor its live log) on a refresh, and the cursor stays where it was, so
+      // the room's size and the reads of a refresh grow only with the posts made (WF review R1-1).
+      const kept = oldestShown ? read.filter((post) => comparePosts(post, oldestShown) <= 0) : read;
+      const wentPast = kept.length < read.length;
       // Past the pages read again (a very long scroll back), the posts shown stay as they were.
       const beyond =
         covered || !lastRead ? [] : shown.filter((post) => comparePosts(post, lastRead) > 0);
-      const next = mergePosts(beyond, read);
+      const next = mergePosts(beyond, kept);
       const signature = (posts: readonly PostResponse[]) =>
         posts.map((post) => `${post.id}:${post.editedAt ?? ''}`).join();
       const changed = signature(shown) !== signature(next);
       this.postsState.set(next);
-      if (covered) {
+      if (covered && !wentPast) {
         this.setCursor(cursor, more);
       }
       return changed;
