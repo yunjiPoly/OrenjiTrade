@@ -8,6 +8,9 @@ import { REGION_VIEW, ShadeLevel, shadeLevel } from '../map/data/boundaries';
  * a pixel: the page carries drawing coordinates only, never a place's position.
  */
 
+/** The narrowest view around a province, in projected units (about 11 degrees of longitude). */
+const MIN_SPAN = 0.03;
+
 /** The card's drawing size (spec 5.3: 280×168). */
 export const MAP_CARD_SIZE = { width: 280, height: 168 } as const;
 
@@ -138,7 +141,14 @@ export function staticMap(
     : [];
   let view: View;
   if (homeFeatures.length > 0) {
-    const [minX, minY, maxX, maxY] = boundsOf(homeFeatures.flatMap(ringsOf));
+    let [minX, minY, maxX, maxY] = boundsOf(homeFeatures.flatMap(ringsOf));
+    // A small province (a capital district) still shows its neighbours: at least MIN_SPAN wide.
+    const grow = (low: number, high: number, span: number): [number, number] => {
+      const middle = (low + high) / 2;
+      return high - low >= span ? [low, high] : [middle - span / 2, middle + span / 2];
+    };
+    [minX, maxX] = grow(minX, maxX, MIN_SPAN);
+    [minY, maxY] = grow(minY, maxY, (MIN_SPAN * MAP_CARD_SIZE.height) / MAP_CARD_SIZE.width);
     view = fit(minX, minY, maxX, maxY, 0.35);
   } else {
     const box = REGION_VIEW[region] ?? REGION_VIEW['americas-north'];

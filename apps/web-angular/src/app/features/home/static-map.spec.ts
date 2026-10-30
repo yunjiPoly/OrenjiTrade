@@ -61,6 +61,29 @@ describe("Home's map card drawing (spec 5.3: static SVG, no Leaflet)", () => {
     expect(Math.max(...home)).toBeLessThanOrEqual(MAP_CARD_SIZE.width);
   });
 
+  it("keeps a small province's neighbours in view (never a single shape filling the card)", () => {
+    const tiny: BoundaryCollection = {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: { kind: 'subdivision', code: 'AR-C', country: 'AR' },
+          geometry: { type: 'Polygon', coordinates: square(-58.5, -34.7, 0.2) },
+        },
+        {
+          type: 'Feature',
+          properties: { kind: 'subdivision', code: 'AR-B', country: 'AR' },
+          geometry: { type: 'Polygon', coordinates: square(-61, -38, 3) },
+        },
+      ],
+    };
+    const map = staticMap(tiny, 'americas-south', new Map(), 'AR-C');
+    expect(map.shapes.map((shape) => shape.code)).toContain('AR-B');
+    const home = (map.home ?? '').match(/-?\d+(\.\d+)?/g)!.map(Number);
+    const xs = home.filter((_, i) => i % 2 === 0);
+    expect(Math.max(...xs) - Math.min(...xs)).toBeLessThan(MAP_CARD_SIZE.width / 4);
+  });
+
   it('shows the whole region when the viewer has no province in it', () => {
     const map = staticMap(COLLECTION, 'americas-north', new Map(), null);
     expect(map.home).toBeNull();

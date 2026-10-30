@@ -419,13 +419,11 @@
     font-size: 24px;
   }
 
-  .home__toolbar {
-    top: 0;
-    flex-wrap: wrap;
-  }
-
+  // The chips scroll sideways inside their row; the refresh button stays at its end.
   .home__chips {
+    flex: 1;
     flex-wrap: nowrap;
+    min-width: 0;
     overflow-x: auto;
     scrollbar-width: none;
   }
@@ -436,9 +434,5 @@
 
   .home__updated-text {
     display: none;
-  }
-
-  .home__newer-row {
-    top: 64px;
   }
 }

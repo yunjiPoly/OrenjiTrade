@@ -342,8 +342,13 @@ a.fp__handle:hover {
     height: 160px;
   }
 
+  // The action under the text, never squeezing the name.
   .fp__one {
     flex-wrap: wrap;
+  }
+
+  .fp__one-text {
+    flex-basis: calc(100% - 80px);
   }
 
   .fp__message,
