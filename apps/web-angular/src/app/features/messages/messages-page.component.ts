@@ -12,6 +12,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { FEATURE, FeatureFlagsService } from '../../core/feature-flags/feature-flags.service';
+import { GameContext } from '../../core/game/game-context.service';
+import { RegionContext } from '../../core/region/region-context.service';
 import { ShellLayout } from '../../core/layout/shell-layout.service';
 import { ShellTabTitleDirective } from '../../core/layout/shell-tab-title.directive';
 import { UnreadChats } from '../../core/layout/unread-chats/unread-chats';
@@ -173,6 +175,8 @@ export class MessagesPageComponent {
 
   private readonly flags = inject(FeatureFlagsService);
   private readonly unread = inject(UnreadChats);
+  private readonly region = inject(RegionContext);
+  private readonly game = inject(GameContext);
 
   /** `:id` route parameter (withComponentInputBinding). */
   readonly id = input<string | undefined>();
@@ -196,13 +200,22 @@ export class MessagesPageComponent {
         dot: unread > 0,
         dotLabel: unread > 0 ? `, ${unread} unread` : undefined,
       },
-      {
-        id: 'community',
-        label: 'Community',
-        commands: ['/messages'],
-        queryParams: { tab: 'community' },
-        active: this.showCommunity(),
-      },
+      // At 960 and wider Community opens the browsed game's room of the browsed region at once
+      // (spec 10.7); below, the list of the five rooms first, as on the phone.
+      this.split()
+        ? {
+            id: 'community',
+            label: 'Community',
+            commands: ['/messages', 'community', `${this.region.current()}-${this.game.current()}`],
+            active: this.showCommunity(),
+          }
+        : {
+            id: 'community',
+            label: 'Community',
+            commands: ['/messages'],
+            queryParams: { tab: 'community' },
+            active: this.showCommunity(),
+          },
     ];
   });
 
