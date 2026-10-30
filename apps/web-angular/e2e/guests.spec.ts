@@ -58,7 +58,10 @@ interface Seller {
   core: { id: string; name: string };
 }
 
-/** A discoverable collector (Prince Edward Island) with a public binder and a public deck core. */
+/**
+ * A discoverable collector (Prince Edward Island) with a public Pokémon binder and deck core (one
+ * card of the seed catalogue, SVX-001).
+ */
 async function createSeller(api: APIRequestContext): Promise<Seller> {
   const collector = await createOnboardedCollector(api, 'wgseller', {
     location: { countryCode: 'CA', subdivisionCode: 'CA-PE' },
@@ -70,7 +73,8 @@ async function createSeller(api: APIRequestContext): Promise<Seller> {
     kind: 'TRADE',
     description: 'Fictional binder for the WG E2E suite.',
   });
-  const fox = await printingIdOf(api, collector.idToken, 'AZR-EN011');
+  // A Pokémon card: the suite's Yu-Gi-Oh! Home keeps its seed window under one page (home-we).
+  const fox = await printingIdOf(api, collector.idToken, 'SVX-001');
   const item = (await apiCreateItem(api, collector.idToken, {
     printingId: fox,
     binderId: binder.id,
@@ -166,7 +170,7 @@ test.describe('web stage WG: browsing without an account', () => {
 
     await page.goto('/search');
     await expect(page.getByRole('heading', { level: 1, name: 'Search' })).toBeAttached();
-    await page.goto('/search?tab=binders&state=CA-PE');
+    await page.goto('/search?tab=binders&state=CA-PE&game=pokemon');
     await expect(page.getByText(seller.binder.name)).toBeVisible();
     await expectNoOne(page, people, bodies);
 
@@ -236,7 +240,8 @@ test.describe('web stage WG: browsing without an account', () => {
     };
 
     await page.goto(`/cards/${seller.cardId}`);
-    const row = page.getByTestId('holder-row').first();
+    // Other specs list this card too: a holder of the seller's province.
+    const row = page.getByTestId('holder-row').filter({ hasText: 'Prince Edward Island' }).first();
     await row.getByTestId('holder-message').click();
     const message = page.getByRole('dialog', { name: 'Sign in to message this collector' });
     await expect(message.getByTestId('sign-in-dialog-subject')).toContainText(
@@ -296,7 +301,12 @@ test.describe('web stage WG: browsing without an account', () => {
     const seller = await createSeller(request);
     const viewer = await createViewer(request);
     await page.goto(`/cards/${seller.cardId}`);
-    await page.getByTestId('holder-message').first().click();
+    await page
+      .getByTestId('holder-row')
+      .filter({ hasText: 'Prince Edward Island' })
+      .first()
+      .getByTestId('holder-message')
+      .click();
     await signInFromDialog(page, 'Sign in to message this collector', viewer);
     await expect(page).toHaveURL(new RegExp(`/cards/${seller.cardId}`), { timeout: 20_000 });
     const drawer = page.getByTestId('chat-drawer');
