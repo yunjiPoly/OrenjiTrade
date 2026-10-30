@@ -587,15 +587,41 @@ document; their shapes live in `core/realtime/realtime-events.ts` with runtime g
     your address or e-Transfer email. …" (decision 9), nothing to fill in.
 - **Blocks**: `shared/messaging/block-actions.service.ts` (confirmation + snack bar) from the thread
   menu and the community post menu; **Settings → Blocked users** (`GET /me/blocks`, Unblock).
-- **`/community`, `/community/:slug`** (`features/community`, behind `featureGuard('publicChat')`;
-  the nav link is hidden while the flag is off): `CommunityStore` (channels, feed with cursor
-  pages, reply threads, writes that resolve to the inline message of a refusal: 409
-  `DUPLICATE_POST`, 422 `POST_BLOCKED`, 429 with the wait), `ChannelSidebarComponent` (game
-  filter; groups by city, games, topics; collapses behind a button on narrow screens),
-  channel header, `PostComposerComponent` (1–2000 characters, card / public binder links,
-  Ctrl+Enter), `PostItemComponent` (edit in place, delete with confirmation, block the author,
-  moderator "Remove" with a required reason, "Report collector" (Phase 7)) and
-  `PostRepliesComponent` (inline replies, Enter sends, delete own, moderator remove).
+- **Messages › Community** (web redesign WF, spec 10.7 and 10.8, board W22; the phone's R11 rooms;
+  `features/community`; Community while `publicChat` is on; old `/community` links land there):
+  - **Routes**: `/messages?tab=community` (the list) and `/messages/community/:room` (a room, slug
+    `{region}-{game}`), served by the one Messages route (`messagesMatcher`, title "Community" in a
+    room) so Back below 960 gives the focus to the room's row. At 960 and wider the Community tab
+    opens the browsed game's room of the browsed region at once; a link to another region's room
+    browses that region; the region pill's switch opens the same game's room there.
+  - **Layout** (`community-view.component.ts`): the inbox column (340 at lg, 300 at md, with the
+    page's H1 and Chats | Community) beside the room; one pane per route below 960 (the room above
+    the tabs, with "Back to Community").
+  - **The inbox column** (`room-list/`, `CommunityRoomsStore`): Community's own region pill (the
+    top bar's `app-region-pill` with `wide`), "Game rooms", the five rooms of the region
+    (`GET /community/channels?region=`; the browsed game's first, then the order of `GET /games`;
+    a 38 tile, the game, "{handle}: {text}" or "You: …", the time; bold with an orange dot while
+    someone else posted since the last visit in this browser, kept per account under
+    `orenji.community.visits.{uid}` and removed on sign-out), ↑ ↓ between rooms, the footnote.
+    Skeleton rows, "Try again", "The community is closed right now".
+  - **A room** (`room/room-view`, `RoomStore`): the header (tile, name, "{region} · public room",
+    "Room rules" pressed while shown), the banner, the posts read like a chat (`role="log"`, newest
+    at the bottom, day separators, "Show older posts", the first page read again every 15 s while on
+    screen and on coming back to the tab), the message box. `room-post`: a 36 avatar, the handle
+    (the profile), "You", "{province} · {time}" (never a city), the text, a phone's photos read
+    only (the photo viewer: Previous, Next, ← →, Esc), a shared card ("View": Who has this card on
+    that printing), deck core ("Deck core", its price, "Open") or binder, "Binder no longer
+    available"; "⋯" on hover or focus with Message {h} (the chat in Messages), Report this post
+    (the report dialog shows the post), Block {h} (the board's confirmation, the posts gone at once,
+    Undo in the toast, "Unblock" in Room rules), Remove for moderators; Edit and Delete on one's
+    own. No reply threads. `room-composer`: "+" with "Share a card" (your public cards of the
+    room's game, `GET /inventory/items?game&markedPublic=true`) and "Share a binder or deck core"
+    (the share picker's room mode), the attachment above the field, the field 1 to 6 lines, Enter
+    posts, Shift+Enter a new line, the post button orange with text, the phone's refusals (the
+    room's 10 an hour, the same text twice, the rules, a network error with "Try again").
+  - **Room rules** (`room-rules`): the third pane (320) at 1280 and wider, shown or hidden and
+    remembered (`orenjitrade.community.rulesPanel`); a 360 drawer at md and a sheet below 960, Esc
+    closes, the focus back on "Room rules".
 - **Admin → Community** (`features/admin/community`, moderators and admins): channels (create,
   edit, archive/restore with `POST/PATCH /admin/community/channels`) and the automatic moderation
   flags (`GET /admin/moderation/flags` by state, resolve with an optional note); `?tab=flags`.
@@ -977,8 +1003,9 @@ src/app/
     messages/   /messages: data/ (ConversationsStore, ThreadStore, drafts, previews, thread
                 items), messenger, conversation list, thread (view, header, list, bubble),
                 composer, realtime status
-    community/  Messages › Community: data/ (CommunityStore, helpers), channel sidebar, post
-                composer, post item, replies, moderator remove dialog
+    community/  Messages › Community (stage WF): data/ (copy, rules, CommunityRoomsStore,
+                RoomStore), community view, room list, room (view, post, composer, rules, photo
+                viewer), moderator remove dialog
     search/     /search (Cards | Binders | Wishlist beside the map, stage WD): data/ (URL,
                 binder list), panes (cards, binders, state list, rows, wishlist, holder pane),
                 drill-in, map
@@ -1157,11 +1184,14 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
     (429, without the technical limit key) with the inline explanation and the focus back on the
     save button.
     No JSON response carries a coordinate.
-  - `e2e/community.spec.ts`: `/community` opens the channel of the browsed platform region (the
-    former city channels show as archived); a collector posts with a card link, is refused a duplicate (409) and a banned term
-    (422) inline, edits the post; a second collector replies inline; the author sees the reply
-    after a reload and deletes the post. A moderator removes a post with a required reason, then
-    resolves the flag a banned-term post raised in Admin → Community.
+  - `e2e/community.spec.ts` (stage WF): Messages › Community opens the Yu-Gi-Oh! room of the
+    region beside its five rooms and Room rules; a post with a shared card from "+", the duplicate
+    and the moderation refusals in the phone's words, the list's preview, another collector's "⋯"
+    (Message, Report this post, Block), edit and delete; Report this post (the dialog shows the
+    post) and Block (the posts leave at once and after a reload); the room's limit of 10 an hour;
+    Room rules as a drawer at md (Esc gives the focus back) and one pane per route at 390 (Back
+    gives the focus to the room's row); a moderator's removal with a required reason and the flag a
+    banned-term post raised in Admin → Community. No JSON response carries a coordinate.
   - `e2e/reporting.spec.ts`: a collector opens another collector's profile, presses Report, the
     "Report collector" popup asks "Why are you reporting this user?" with the seven reasons in
     order, Confirm is disabled until one is chosen, the report is confirmed; a second report is
