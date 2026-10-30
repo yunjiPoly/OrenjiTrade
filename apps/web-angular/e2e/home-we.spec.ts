@@ -140,11 +140,12 @@ test.describe('web stage WE: Home, notifications and settings', () => {
 
     await signInThroughUi(page, viewer.email, viewer.password);
     const bell = page.getByTestId('notification-bell');
-    await expect(bell).toHaveAccessibleName('Notifications, 1 new', { timeout: 30_000 });
+    // Other suites list the same card in the same region at the same time: at least this alert.
+    await expect(bell).toHaveAccessibleName(/^Notifications, [1-9]\d* new$/, { timeout: 30_000 });
     await bell.click();
     const popover = page.getByTestId('notification-popover');
     await expect(popover.getByRole('heading', { name: 'New' })).toBeVisible();
-    const row = popover.getByTestId('notification-row');
+    const row = popover.getByTestId('notification-row').filter({ hasText: seller.handle });
     await expect(row).toHaveCount(1);
     await expect(row).toContainText('from your wishlist was listed in Quebec');
     await expect(popover).not.toContainText(/New message|Hello from an E2E chat/);
@@ -157,7 +158,7 @@ test.describe('web stage WE: Home, notifications and settings', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Notifications' })).toBeVisible();
     await expect(page.getByRole('main')).toContainText('Chats are in');
     const today = page.getByRole('list', { name: 'Today notifications' });
-    await expect(today.getByRole('listitem')).toHaveCount(1);
+    await expect(today.getByRole('listitem').filter({ hasText: seller.handle })).toHaveCount(1);
     await expect(today).not.toContainText('New message');
     await page.getByRole('radio', { name: /^Unread/ }).click();
     await expect(page).toHaveURL(/unread=1/);

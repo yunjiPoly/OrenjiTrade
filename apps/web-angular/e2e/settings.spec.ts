@@ -79,7 +79,9 @@ test.describe('settings', () => {
     await expect(page.getByTestId('collector-city')).toHaveText('Toronto');
     await expect(page.getByRole('main')).not.toContainText(/\bkm\b/);
     // Phase 5: Devon accepts messages from members with a profile.
-    await expect(page.getByRole('button', { name: 'Message collector2' })).toBeEnabled();
+    await expect(
+      page.getByRole('button', { name: 'Message collector2', exact: true }),
+    ).toBeEnabled();
 
     await watcher.settle();
     expect(watcher.samples, 'lat/lng in a JSON answer').toEqual([]);

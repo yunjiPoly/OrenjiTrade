@@ -12,12 +12,9 @@ import type {
   WishlistSummaryEntry,
 } from '@orenji/api-client';
 import { ShellIconComponent } from '../../../core/layout/shell-icon/shell-icon.component';
-import { ShipNotesComponent } from '../../../shared/discovery/binder-view/ship-notes.component';
 import { gameInfo } from '../../../shared/domain/games';
 import { printingImageUrl } from '../../../shared/inventory/inventory-labels';
 import { LAST_ACTIVE_LABELS, LastActiveBucket } from '../../../shared/domain/location-labels';
-import { MediaUrlPipe } from '../../../shared/pipes/media-url.pipe';
-import { StarRatingComponent } from '../../../shared/ratings/star-rating.component';
 import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
 import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import { GameMonogramComponent } from '../../../shared/ui/game-monogram/game-monogram.component';
@@ -28,6 +25,8 @@ import {
 import { iHaveItLabel } from '../../../shared/wishlist/i-have-it.service';
 import { wishTerms } from '../../../shared/wishlist/wishlist-labels';
 import { itemPriceText } from '../../inventory/data/item-price';
+import { CollectorProfileSideComponent } from './collector-profile-side.component';
+import { ProfileBinderCardComponent } from './profile-binder-card.component';
 
 /** A row of "Looking for": a public wish of someone else, or one of your own (with its id). */
 export interface LookingForRow {
@@ -114,14 +113,13 @@ export const BINDERS_PREVIEW = 3;
     AvatarComponent,
     CardImageComponent,
     GameMonogramComponent,
-    MediaUrlPipe,
     SegmentedComponent,
     ShellIconComponent,
-    ShipNotesComponent,
-    StarRatingComponent,
+    CollectorProfileSideComponent,
+    ProfileBinderCardComponent,
   ],
   templateUrl: './collector-profile-view.component.html',
-  styleUrl: './collector-profile-view.component.scss',
+  styleUrls: ['./collector-profile-view.component.scss', './collector-profile-lists.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CollectorProfileViewComponent {
@@ -197,19 +195,6 @@ export class CollectorProfileViewComponent {
   /** The card's own photo first, else its printing's picture (from `/public/card-images`). */
   protected picture(item: PublicInventoryItem): string | null {
     return item.images[0]?.url ?? printingImageUrl(item.printing);
-  }
-
-  protected binderCover(binder: PublicBinderSummary): string | null {
-    return binder.photos?.[0]?.url ?? null;
-  }
-
-  protected binderArts(binder: PublicBinderSummary): string[] {
-    return (binder.previewImages ?? []).slice(0, 3);
-  }
-
-  protected binderLine(binder: PublicBinderSummary): string {
-    const count = `${binder.itemCount} ${binder.itemCount === 1 ? 'card' : 'cards'}`;
-    return binder.freshness?.label ? `${count} · ${binder.freshness.label}` : count;
   }
 
   protected toggleWishes(): void {

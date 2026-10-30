@@ -113,7 +113,8 @@
               }
               <app-ship-notes variant="panel" />
             </aside>
-            <div class="core__main">
+            <!-- order -1: the photos stay on the left (inline: the style budget is full). -->
+            <div class="core__main" style="order: -1">
               <app-deck-core-gallery [photos]="binder.photos ?? []" [name]="binder.name" />
               @if ((binder.keyCards ?? []).length > 0) {
                 <section class="core__keys" aria-labelledby="core-keys-title">

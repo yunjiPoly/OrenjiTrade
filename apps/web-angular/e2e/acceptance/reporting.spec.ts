@@ -30,7 +30,9 @@ test.describe('acceptance: collector reporting', () => {
     await signIn(page, reporter);
     await page.goto(`/collectors/${reported.handle}`);
     await expect(page.getByRole('heading', { level: 1, name: reported.displayName })).toBeVisible();
-    await page.getByRole('button', { name: `Report ${reported.displayName}` }).click();
+    // Board W23: Report is in the profile's "⋯" menu, named by the handle.
+    await page.getByRole('button', { name: `More for ${reported.handle}` }).click();
+    await page.getByRole('menuitem', { name: `Report ${reported.handle}` }).click();
     const dialog = await dialogReady(page.getByRole('dialog', { name: /^Report / }));
     await expect(dialog.getByText('Why are you reporting them?')).toBeVisible();
     const confirm = dialog.getByRole('button', { name: 'Send report' });

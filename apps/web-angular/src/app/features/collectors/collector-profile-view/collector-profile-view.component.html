@@ -243,47 +243,7 @@
             <ul class="cp__binders" aria-label="Public binders">
               @for (binder of shownBinders(); track binder.id) {
                 <li>
-                  <a class="cp__binder" [routerLink]="['/binders', binder.id]">
-                    <span class="cp__cover" aria-hidden="true">
-                      @if (binderCover(binder); as photo) {
-                        <img
-                          class="cp__cover-photo"
-                          [src]="photo | mediaUrl"
-                          alt=""
-                          loading="lazy"
-                        />
-                      } @else {
-                        <span class="cp__fan">
-                          @for (art of binderArts(binder); track $index) {
-                            <app-card-image
-                              class="cp__fan-card"
-                              [src]="art"
-                              [game]="binder.games[0]"
-                              alt=""
-                            />
-                          }
-                        </span>
-                      }
-                      @if (binder.sellsAsCore) {
-                        <span class="cp__core-tag"
-                          ><app-shell-icon name="layers" [size]="12" /> Deck core</span
-                        >
-                      }
-                      @if ((binder.photos?.length ?? 0) > 0) {
-                        <span class="cp__photos"
-                          ><app-shell-icon name="camera" [size]="12" /> {{ binder.photos!.length }}
-                          {{ binder.photos!.length === 1 ? 'photo' : 'photos' }}</span
-                        >
-                      }
-                    </span>
-                    <span class="cp__binder-row">
-                      <span class="cp__binder-name">{{ binder.name }}</span>
-                      @if (binder.askingPriceText) {
-                        <span class="cp__binder-price">{{ binder.askingPriceText }}</span>
-                      }
-                    </span>
-                    <span class="cp__binder-line">{{ binderLine(binder) }}</span>
-                  </a>
+                  <app-profile-binder-card [binder]="binder" />
                 </li>
               }
             </ul>
@@ -401,106 +361,14 @@
       }
     </div>
 
-    <aside class="cp__side" aria-label="About {{ p.handle }}">
-      <section class="cp__panel" aria-labelledby="collector-about">
-        <h2 class="cp__h2" id="collector-about">About</h2>
-        @if (p.bio) {
-          <p class="cp__bio">{{ p.bio }}</p>
-        } @else {
-          <p class="cp__muted">
-            {{ isOwn() ? 'Say what you collect and trade in Edit profile.' : 'No bio yet.' }}
-          </p>
-        }
-        @if (p.games.length > 0 || p.tags.length > 0) {
-          <dl class="cp__facts-list">
-            @if (p.games.length > 0) {
-              <dt>Games</dt>
-              <dd>
-                @for (game of p.games; track game) {
-                  <span class="cp__game"
-                    ><app-game-monogram [game]="game" [size]="16" /> {{ gameLabel(game) }}</span
-                  >
-                }
-              </dd>
-            }
-            @if (p.tags.length > 0) {
-              <dt>Tags</dt>
-              <dd>
-                @for (tag of p.tags; track tag.slug; let last = $last) {
-                  {{ tag.label }}{{ last ? '' : ' · ' }}
-                }
-              </dd>
-            }
-          </dl>
-        }
-      </section>
-
-      <div class="cp__panel">
-        <h2 class="cp__h2">Ratings &amp; references</h2>
-        @if (r.count > 0 && average(); as avg) {
-          <div class="cp__score" data-testid="profile-rating">
-            <span class="cp__avg">{{ avg }}</span>
-            <span class="cp__stars">
-              <app-star-rating [value]="r.average" size="sm" />
-              <span class="cp__muted"
-                >{{ r.count }} {{ r.count === 1 ? 'rating' : 'ratings' }}</span
-              >
-            </span>
-          </div>
-        } @else {
-          <p class="cp__muted" data-testid="profile-rating">No ratings yet.</p>
-        }
-        @if (references(); as refs) {
-          @if (refs.length > 0) {
-            <ul class="cp__refs" aria-label="Latest references">
-              @for (ref of refs; track ref.id) {
-                <li class="cp__ref">
-                  <app-avatar
-                    class="cp__ref-avatar"
-                    [src]="ref.author.avatarUrl"
-                    [name]="ref.author.displayName"
-                    [decorative]="true"
-                  />
-                  <span>
-                    <span class="cp__ref-who"
-                      ><a [routerLink]="['/collectors', ref.author.handle]">{{
-                        ref.author.handle
-                      }}</a>
-                      <span class="cp__muted"> · {{ ref.createdAt | date: 'MMM y' }}</span></span
-                    >
-                    <span class="cp__ref-body">{{ ref.body }}</span>
-                  </span>
-                </li>
-              }
-            </ul>
-          }
-        }
-        <button type="button" class="cp__text cp__text--block" (click)="ratingsRequested.emit()">
-          See all references
-        </button>
-      </div>
-
-      @if (isOwn()) {
-        <div class="cp__panel cp__panel--notes">
-          <p class="cp__note-row">
-            <app-shell-icon name="mail" [size]="18" />
-            <span
-              >Deals happen in the chat. Cards ship by mail, and the buyer pays by e-Transfer
-              outside OrenjiTrade.</span
-            >
-          </p>
-          <p class="cp__note-row">
-            <app-shell-icon class="cp__teal" name="lock" [size]="18" />
-            <span>
-              Your city is optional and only on your profile. Search, binders, chats and the map
-              never show it.
-              <a routerLink="/settings/location">Location settings</a>
-            </span>
-          </p>
-        </div>
-      } @else {
-        <app-ship-notes />
-      }
-    </aside>
+    <app-collector-profile-side
+      class="cp__side"
+      [profile]="p"
+      [isOwn]="isOwn()"
+      [rating]="r"
+      [average]="average()"
+      [references]="references()"
+      (ratingsRequested)="ratingsRequested.emit()"
+    />
   </div>
 </article>

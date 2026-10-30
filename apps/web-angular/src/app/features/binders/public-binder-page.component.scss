@@ -181,16 +181,7 @@
   align-items: start;
 }
 
-// The panel comes first in the DOM (its h1 before the photos, WD review A21): the photos stay on
-// the left.
-.core__main {
-  grid-row: 1;
-  grid-column: 1;
-}
-
 .core__panel {
-  grid-row: 1;
-  grid-column: 2;
   position: sticky;
   top: 88px;
   display: flex;
@@ -417,8 +408,6 @@
 
   // On the phone the name, the price and Message come right after the photos (board W8).
   .core__panel {
-    grid-row: auto;
-    grid-column: auto;
     position: static;
     order: 1;
   }
