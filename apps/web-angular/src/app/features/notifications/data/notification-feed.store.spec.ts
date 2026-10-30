@@ -159,6 +159,14 @@ describe('NotificationFeedStore', () => {
     expect(store.items().find((item) => item.id === 'b')?.readAt).toBe('yesterday');
   });
 
+  it('never prepends a pushed chat notice: chats are in Messages (spec 12, R9); a wishlist alert is', () => {
+    store.setFilter(false);
+    pushed$.next({ ...notification('chat'), type: Type.Message, title: 'New message from maya_k' });
+    expect(store.items().map((item) => item.id)).toEqual(['a', 'b']);
+    pushed$.next(notification('alert'));
+    expect(store.items().map((item) => item.id)).toEqual(['alert', 'a', 'b']);
+  });
+
   it('drops what became read from the unread view', () => {
     pages = [{ items: [notification('a'), notification('c')], hasMore: false }];
     store.setFilter(true);

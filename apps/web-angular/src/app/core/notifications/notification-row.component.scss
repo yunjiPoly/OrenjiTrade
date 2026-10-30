@@ -185,7 +185,19 @@
 }
 
 .nr--page {
-  padding: 16px 20px;
+  padding: 12px 20px;
+}
+
+// On the page the time, the unread dot and "Mark as read" sit on one line beside the text, so a
+// row stays about 72 tall (board W24), never a column of three.
+.nr--page .nr__side {
+  flex-direction: row;
+  align-items: center;
+  min-height: 32px;
+}
+
+.nr--page .nr__dot {
+  margin-top: 0;
 }
 
 .nr__read {

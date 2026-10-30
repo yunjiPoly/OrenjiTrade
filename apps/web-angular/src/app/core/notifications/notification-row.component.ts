@@ -1,6 +1,9 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
+  Injector,
+  afterNextRender,
   booleanAttribute,
   computed,
   inject,
@@ -68,7 +71,7 @@ import { ReminderAnswers } from './reminder-answers.service';
         @if (freshness()) {
           @switch (reminderState()) {
             @case ('confirmed') {
-              <p class="nr__confirmed" role="status">
+              <p class="nr__confirmed" role="status" tabindex="-1">
                 <app-shell-icon name="check" [size]="14" /> Confirmed. They stay in search.
               </p>
             }
@@ -150,6 +153,8 @@ export class NotificationRowComponent {
 
   protected readonly answers = inject(ReminderAnswers);
   private readonly session = inject(SessionService);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
 
   protected readonly text = computed(() => rowText(this.notification()));
   protected readonly visual = computed(() => rowVisual(this.notification()));
@@ -169,7 +174,18 @@ export class NotificationRowComponent {
     return { path, query: Object.fromEntries(new URLSearchParams(query)) };
   });
 
-  protected confirm(): void {
-    void this.answers.confirm(this.notification());
+  /**
+   * "Still have them": the button goes away with the answer, so the focus moves to the row's
+   * "Confirmed. They stay in search." (or back to the button when it failed), never to the page (A4).
+   */
+  protected async confirm(): Promise<void> {
+    await this.answers.confirm(this.notification());
+    afterNextRender(
+      () =>
+        this.host.nativeElement
+          .querySelector<HTMLElement>('.nr__confirmed, .nr__still')
+          ?.focus({ preventScroll: true }),
+      { injector: this.injector },
+    );
   }
 }

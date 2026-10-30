@@ -1,6 +1,9 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
+  Injector,
+  afterNextRender,
   computed,
   effect,
   inject,
@@ -9,6 +12,7 @@ import {
   untracked,
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import type { NotificationResponse } from '@orenji/api-client';
 import { AuthService } from '../../core/auth/auth.service';
 import { ToastService } from '../../core/feedback/toast.service';
 import { toApiError } from '../../core/http/api-error';
@@ -46,7 +50,7 @@ import { NotificationFeedStore } from './data/notification-feed.store';
       @if (auth.isAuthenticated()) {
         <header class="nf__head">
           <div class="nf__titles">
-            <h1 class="nf__title">Notifications</h1>
+            <h1 class="nf__title" tabindex="-1">Notifications</h1>
             <p class="nf__lead">
               Wishlist alerts, sales, ratings and reminders, for every game. Chats are in
               <a routerLink="/messages">Messages</a>.
@@ -90,13 +94,13 @@ import { NotificationFeedStore } from './data/notification-feed.store';
                     type="button"
                     class="nf__mark"
                     data-testid="notifications-mark-all"
-                    [disabled]="center.unreadCount() === 0 || marking()"
+                    [attr.aria-disabled]="markDisabled() ? 'true' : null"
                     (click)="markAll()"
                   >
                     Mark all as read
                   </button>
                 </div>
-                <ul class="nf__list" aria-label="New notifications">
+                <ul class="nf__list nf__list--new" aria-label="New notifications">
                   @for (n of store.fresh(); track n.id) {
                     <li>
                       <app-notification-row
@@ -104,7 +108,7 @@ import { NotificationFeedStore } from './data/notification-feed.store';
                         [notification]="n"
                         [now]="now"
                         (opened)="store.markRead($event)"
-                        (markRead)="store.markRead($event)"
+                        (markRead)="markOne($event)"
                       />
                     </li>
                   }
@@ -287,7 +291,7 @@ import { NotificationFeedStore } from './data/notification-feed.store';
       font-weight: var(--font-weight-semibold);
       cursor: pointer;
     }
-    .nf__mark:disabled {
+    .nf__mark[aria-disabled='true'] {
       color: var(--color-text-disabled);
       cursor: default;
     }
@@ -358,6 +362,8 @@ export class NotificationsPageComponent {
   private readonly router = inject(Router);
   private readonly toasts = inject(ToastService);
   private readonly answers = inject(ReminderAnswers);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
   protected readonly auth = inject(AuthService);
   protected readonly center = inject(NotificationCenter);
   protected readonly store = inject(NotificationFeedStore);
@@ -366,6 +372,10 @@ export class NotificationsPageComponent {
   readonly unread = input<string | undefined>();
 
   protected readonly marking = signal(false);
+  /** `aria-disabled`, so the focus stays on "Mark all as read" once everything is read (A4). */
+  protected readonly markDisabled = computed(
+    () => this.center.unreadCount() === 0 || this.marking(),
+  );
   protected readonly busy = computed(
     () => this.store.status() === 'loading' || this.store.loadingMore(),
   );
@@ -415,7 +425,28 @@ export class NotificationsPageComponent {
     void this.router.navigate([], { queryParams: { unread: null }, replaceUrl: true });
   }
 
+  /**
+   * A row's "Mark as read": the row leaves "New", so the focus goes to the next unread row's
+   * "Mark as read" (the one before it at the end), or to the page's heading when none is left (A4).
+   */
+  protected async markOne(notification: NotificationResponse): Promise<void> {
+    const index = this.store.fresh().findIndex((item) => item.id === notification.id);
+    await this.store.markRead(notification);
+    afterNextRender(
+      () => {
+        const root = this.host.nativeElement;
+        const marks = Array.from(root.querySelectorAll<HTMLElement>('.nf__list--new .nr__read'));
+        const next = marks[Math.min(Math.max(index, 0), marks.length - 1)];
+        (next ?? root.querySelector<HTMLElement>('.nf__title'))?.focus();
+      },
+      { injector: this.injector },
+    );
+  }
+
   protected async markAll(): Promise<void> {
+    if (this.markDisabled()) {
+      return;
+    }
     this.marking.set(true);
     try {
       await this.store.markAllRead();
