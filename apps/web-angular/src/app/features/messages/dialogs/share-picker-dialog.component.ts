@@ -36,6 +36,7 @@ import { RouterLink } from '@angular/router';
 import {
   type BinderLinkChoice,
   type CardLinkChoice,
+  matchingBinders,
   printingForSuggestion,
 } from '../../../shared/links/link-choices';
 import { ROOM_SHARE_COPY } from '../../community/data/community-copy';
@@ -569,12 +570,12 @@ export class SharePickerDialogComponent {
           : { kind: 'item', itemId: item.id, name: item.card.name },
       }));
     }
-    const needle = this.query().trim().toLowerCase();
     const game = this.room?.game ?? null;
-    return this.allBinders()
-      .filter((b) => b.effectivePublic && !b.soldAt)
+    // Public binders whose name matches without case or accents (the web's binder picker before
+    // WF, removed with it).
+    return matchingBinders(this.allBinders(), this.query())
+      .filter((b) => !b.soldAt)
       .filter((b) => !game || !b.game || b.game === game)
-      .filter((b) => !needle || b.name.toLowerCase().includes(needle))
       .map((b) => ({
         id: b.id,
         name: b.name,
