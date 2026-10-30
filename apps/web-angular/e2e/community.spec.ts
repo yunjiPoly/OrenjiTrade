@@ -100,11 +100,14 @@ test.describe('community rooms', () => {
       .getByRole('navigation', { name: 'Main' })
       .getByRole('link', { name: /^Messages/ })
       .click();
-    await page
+    // From the keyboard: the swap of Chats | Community keeps the focus on the tab (WF review U8).
+    const communityTab = page
       .getByRole('navigation', { name: 'Messages' })
-      .getByRole('link', { name: 'Community' })
-      .click();
+      .getByRole('link', { name: 'Community' });
+    await communityTab.focus();
+    await communityTab.press('Enter');
     await expect(page).toHaveURL(new RegExp(`/messages/community/${ROOM}$`));
+    await expect(communityTab).toBeFocused();
     const rooms = page.getByRole('list', { name: 'Game rooms in Americas (North)' });
     await expect(rooms.getByRole('link')).toHaveCount(5);
     await expect(rooms.getByRole('link').first()).toHaveAttribute('aria-current', 'page');
@@ -163,6 +166,30 @@ test.describe('community rooms', () => {
     await expect(room.getByRole('article').filter({ hasText: 'zorblax' })).toHaveCount(0);
     await field.fill('');
 
+    // "Share a card" also finds any card of the catalogue, one the poster does not own (WF
+    // review F1): a "Looking for" post.
+    const looking = `Looking for this printing in near mint ${suffix()}`;
+    await room.getByRole('button', { name: 'Add to your post' }).click();
+    await page.getByRole('menuitem', { name: 'Share a card' }).click();
+    const search = page.getByRole('dialog', { name: 'Share a card' });
+    await search.getByRole('searchbox').fill('Lantern');
+    await expect(search).toContainText('None of your public Yu-Gi-Oh! cards match “Lantern”.');
+    const all = search.getByRole('region', { name: 'All cards' });
+    await all
+      .getByRole('button', { name: /^Lantern Fox Spirit, Yu-Gi-Oh!/ })
+      .first()
+      .click();
+    await expect(box.getByRole('group', { name: 'Added to your post' })).toContainText(
+      'Lantern Fox Spirit',
+    );
+    await field.fill(looking);
+    await field.press('Enter');
+    const lookingPost = room.getByRole('article').filter({ hasText: looking });
+    await expect(
+      lookingPost.getByRole('link', { name: 'View Lantern Fox Spirit, who has this card' }),
+    ).toBeVisible();
+    const lookingId = (await lookingPost.getAttribute('data-post-id')) ?? '';
+
     // Another collector reads it: no "You", and the "⋯" of someone else's post.
     const other = await openSignedIn(browser, reader);
     await other.goto(`/messages/community/${ROOM}`);
@@ -176,8 +203,12 @@ test.describe('community rooms', () => {
       'Report this post',
       `Block ${author.handle}`,
     ]);
-    await other.keyboard.press('Escape');
+    // "Message {h}" opens the chat in Messages with the focus in its message box (WF review A2).
+    await other.getByRole('menuitem', { name: `Message ${author.handle}` }).click();
+    await expect(other).toHaveURL(/\/messages\/[0-9a-f-]{36}$/);
+    await expect(other.getByRole('textbox', { name: 'Message', exact: true })).toBeFocused();
     await other.context().close();
+    await apiDeletePost(request, author, lookingId);
 
     // Edit in place, then delete.
     await post.hover();
