@@ -13446,8 +13446,8 @@ phone's code is unchanged, its generated types gained the optional `previews` pa
 
 ### Review fix 1 (2026-10-30)
 
-The four reviewers (functional, product and UX, privacy, accessibility) sent 33 findings (6
-major). Each is fixed at its cause with a test that would have caught it, or answered below. One
+The four reviewers (functional, product and UX, privacy, accessibility) sent 31 findings (6
+major) and 13 nits. Each is fixed at its cause with a test that would have caught it, or answered below. One
 API change (the account deletion, no DTO, OpenAPI, schema or migration change: the next is still
 **V135**); the rest is web.
 
@@ -13698,7 +13698,7 @@ read." is announced twice and Message keeps its name while it opens (A11).
 > day one, "I have it", Get started or the guest card and a static SVG map card; profiles (W23,
 > W23b); the bell's popover and `/notifications` without chats, reminders answered in place, old
 > deals as history; Settings' grouped nav, Location with "Show me on the map" and what others see,
-> Appearance tiles, Settings › Legal. Its four reviewers sent 33 findings: **review fix 1 is
+> Appearance tiles, Settings › Legal. Its four reviewers sent 31 findings: **review fix 1 is
 > done** (section "Review fix 1" in the WE section: the bell's popover takes and keeps the focus, a
 > deletion renames others' rating and sale notifications, guests on `previews=6` tested, Shift+Tab
 > never under Home's toolbar, Location's what others see follows the form and the hidden state)
