@@ -44,9 +44,20 @@ const TOOLTIP_BELOW = 18;
 const TOOLTIP_GUESS = { width: 220, height: 50 };
 
 /**
+ * The corner the map's own controls take (container pixels): from `left` to the right edge, from
+ * the top down to `bottom`. A tooltip never sits under them (WD review R2-2).
+ */
+export interface KeepOutZone {
+  left: number;
+  bottom: number;
+}
+
+/**
  * Where a state's tooltip goes for a pointer at (x, y) on a map `mapWidth` wide (WD review R1-5):
  * above the pointer, slid sideways to stay inside the map near its left and right edges, and below
- * the pointer near its top edge. An unmeasured map (0 wide) keeps Leaflet's own placement.
+ * the pointer near its top edge. A tooltip that would sit under the top-right controls (`keepOut`)
+ * slides left of them, or, with no room there, below them (R2-2). An unmeasured map (0 wide) keeps
+ * Leaflet's own placement.
  */
 export function tooltipPlacement(
   x: number,
@@ -54,6 +65,7 @@ export function tooltipPlacement(
   mapWidth: number,
   tipWidth: number,
   tipHeight: number,
+  keepOut: KeepOutZone | null = null,
 ): TooltipPlacement {
   if (mapWidth <= 0 || tipWidth <= 0) {
     return { direction: 'top', offset: [0, 0] };
@@ -61,12 +73,26 @@ export function tooltipPlacement(
   const half = tipWidth / 2;
   const min = TOOLTIP_EDGE + half;
   const max = mapWidth - TOOLTIP_EDGE - half;
-  const centre = max < min ? mapWidth / 2 : Math.min(Math.max(x, min), max);
+  let centre = max < min ? mapWidth / 2 : Math.min(Math.max(x, min), max);
   // Leaflet's top tooltip sits 6 px above the pointer (its stylesheet's margin).
-  const below = y - tipHeight - 6 < TOOLTIP_EDGE;
+  let below = y - tipHeight - 6 < TOOLTIP_EDGE;
+  let offsetY = below ? TOOLTIP_BELOW : 0;
+  if (keepOut) {
+    const top = below ? y + offsetY : y - tipHeight - 6;
+    const under = centre + half > keepOut.left - TOOLTIP_EDGE && top < keepOut.bottom + TOOLTIP_EDGE;
+    if (under) {
+      const shifted = keepOut.left - TOOLTIP_EDGE - half;
+      if (shifted >= min) {
+        centre = shifted;
+      } else {
+        below = true;
+        offsetY = Math.max(TOOLTIP_BELOW, keepOut.bottom + TOOLTIP_EDGE - y);
+      }
+    }
+  }
   return {
     direction: below ? 'bottom' : 'top',
-    offset: [Math.round(centre - x), below ? TOOLTIP_BELOW : 0],
+    offset: [Math.round(centre - x), Math.round(offsetY)],
   };
 }
 
@@ -206,6 +232,11 @@ export class BoundaryMapComponent {
   readonly label = input('Map of states and provinces');
   /** Leaflet's own zoom buttons and credit (Home); Search draws its own overlays instead. */
   readonly controls = input(true);
+  /**
+   * The page's own controls over the map's top-right corner (Search's zoom buttons), measured on
+   * each hover: a tooltip never sits under them (WD review R2-2).
+   */
+  readonly keepOut = input<(() => DOMRect | null) | null>(null);
   readonly subdivisionSelected = output<string>();
 
   protected readonly status = signal<'loading' | 'ready' | 'error'>('loading');
@@ -246,6 +277,12 @@ export class BoundaryMapComponent {
       this.highlight();
       this.theme.resolved();
       untracked(() => this.restyle());
+    });
+    effect(() => {
+      // A state chosen elsewhere (a link's `state=`, the list) is brought into view when it lies
+      // off the map's view (WD review F17); a click on the map leaves the view as it is.
+      const selected = this.selected();
+      untracked(() => this.bringIntoView(selected));
     });
     effect(() => {
       const home = this.home();
@@ -358,7 +395,12 @@ export class BoundaryMapComponent {
     this.subdivisionFeatures = subdivisions;
     this.drawnRegion = region;
     const home = this.home();
-    if (home && this.layers.has(home)) {
+    const selected = this.selected();
+    if (selected && this.layers.has(selected)) {
+      // A link to a state (`state=`) opens the map on it (WD review F17).
+      this.fittedHome = true;
+      this.fitHome(selected);
+    } else if (home && this.layers.has(home)) {
       this.fittedHome = true;
       this.fitHome(home);
     } else {
@@ -452,12 +494,23 @@ export class BoundaryMapComponent {
       map.getSize().x,
       element?.offsetWidth || TOOLTIP_GUESS.width,
       element?.offsetHeight || TOOLTIP_GUESS.height,
+      this.keepOutZone(),
     );
     tooltip.options.direction = placement.direction;
     tooltip.options.offset = placement.offset;
     if (!event && tooltip.isOpen()) {
       tooltip.update();
     }
+  }
+
+  /** The page's controls over the map, in the map's own pixels (R2-2). */
+  private keepOutZone(): KeepOutZone | null {
+    const rect = this.keepOut()?.() ?? null;
+    if (!rect || rect.width === 0) {
+      return null;
+    }
+    const box = this.canvas().nativeElement.getBoundingClientRect();
+    return { left: rect.left - box.left, bottom: rect.bottom - box.top };
   }
 
   /** Esc on the map hides a hovered state's tooltip (SC 1.4.13); the next hover shows it again. */
@@ -494,11 +547,30 @@ export class BoundaryMapComponent {
   }
 
   private fitHome(code: string): void {
-    const L = this.L;
+    const bounds = this.boundsOf(code);
+    if (bounds) {
+      // The province and its neighbours (spec 6.4).
+      this.map?.fitBounds(bounds.pad(0.9), { animate: false });
+    }
+  }
+
+  /** Fits a state chosen off the map's view (its middle outside it); a visible one stays put. */
+  private bringIntoView(code: string | null): void {
     const map = this.map;
-    const paths = this.layers.get(code);
-    if (!L || !map || !paths?.length) {
+    const bounds = code ? this.boundsOf(code) : null;
+    if (!map || !bounds || this.status() !== 'ready') {
       return;
+    }
+    if (!map.getBounds().contains(bounds.getCenter())) {
+      this.fitHome(code as string);
+    }
+  }
+
+  private boundsOf(code: string): Leaflet.LatLngBounds | null {
+    const L = this.L;
+    const paths = this.layers.get(code);
+    if (!L || !paths?.length) {
+      return null;
     }
     let bounds: Leaflet.LatLngBounds | null = null;
     for (const path of paths) {
@@ -509,10 +581,7 @@ export class BoundaryMapComponent {
           : L.latLngBounds(own.getSouthWest(), own.getNorthEast());
       }
     }
-    if (bounds) {
-      // The province and its neighbours (spec 6.4).
-      map.fitBounds(bounds.pad(0.9), { animate: false });
-    }
+    return bounds;
   }
 
   /**

@@ -48,6 +48,7 @@ export function stateCardSubtitle(country: string, mine: boolean): string {
       [home]="home()"
       [highlight]="highlight()"
       [controls]="false"
+      [keepOut]="controlsRect"
       [label]="label()"
       (subdivisionSelected)="onPick($event)"
     />
@@ -385,6 +386,10 @@ export class SearchMapComponent {
       },
     });
   }
+
+  /** The zoom buttons (and "Show my province"): a state's tooltip never sits under them (R2-2). */
+  protected readonly controlsRect = (): DOMRect | null =>
+    this.host.nativeElement.querySelector<HTMLElement>('.sm__top')?.getBoundingClientRect() ?? null;
 
   protected line(code: string): string {
     return mapCountLine(this.counts().get(code), this.deckCores().get(code));

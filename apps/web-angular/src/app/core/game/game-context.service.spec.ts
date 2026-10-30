@@ -1,10 +1,11 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { CatalogService, ProfileService } from '@orenji/api-client';
+import { CatalogService, GameResponseStatusEnum, ProfileService } from '@orenji/api-client';
 import { Subject, of } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
 import { SessionService, SessionStatus } from '../auth/session.service';
-import { GameContext, browsableGames, resolveGame } from './game-context.service';
+import { ALL_GAMES } from '../../shared/domain/games';
+import { GameContext, browsableGames, gameOptions, resolveGame } from './game-context.service';
 
 const BROWSABLE = new Set(['yugioh', 'pokemon', 'mtg']);
 
@@ -123,5 +124,34 @@ describe('GameContext', () => {
     context.select('yugioh');
     expect(localStorage.getItem('orenji.game.fb-u3')).toBe('yugioh');
     expect(Object.keys(localStorage).filter((key) => key.includes('acc-3'))).toEqual([]);
+  });
+});
+
+describe('gameOptions (WD review F16)', () => {
+  it('lists the ACTIVE games of GET /games in its order, each available when it holds cards', () => {
+    const options = gameOptions(
+      [
+        { slug: 'pokemon', status: GameResponseStatusEnum.Active, hasCards: true },
+        { slug: 'yugioh', status: GameResponseStatusEnum.Active, hasCards: true },
+        { slug: 'riftbound', status: GameResponseStatusEnum.Hidden, hasCards: true },
+        { slug: 'onepiece', status: GameResponseStatusEnum.Active, hasCards: false },
+        { slug: 'lorcana', name: 'Disney Lorcana', status: GameResponseStatusEnum.Active },
+      ],
+      'yugioh',
+    );
+    expect(options.map((o) => [o.game.slug, o.available])).toEqual([
+      ['pokemon', true],
+      ['yugioh', true],
+      ['onepiece', false],
+      ['lorcana', false],
+    ]);
+    expect(options[1].game.label).toBe('Yu-Gi-Oh!');
+    expect(options[3].game.label).toBe('Disney Lorcana');
+  });
+
+  it('while the games load, lists the static games with only the browsed one available', () => {
+    const options = gameOptions(null, 'pokemon');
+    expect(options.map((o) => o.game.slug)).toEqual(ALL_GAMES.map((g) => g.slug));
+    expect(options.filter((o) => o.available).map((o) => o.game.slug)).toEqual(['pokemon']);
   });
 });

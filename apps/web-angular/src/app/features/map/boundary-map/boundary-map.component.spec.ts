@@ -243,6 +243,41 @@ describe('BoundaryMapComponent', () => {
     expect(tooltipPlacement(0, 0, 0, 220, 50)).toEqual({ direction: 'top', offset: [0, 0] });
   });
 
+  it('brings a state chosen off the view into it, and leaves a visible one (WD review F17)', async () => {
+    const map = (
+      fixture.componentInstance as unknown as {
+        map: { fitBounds: (...args: unknown[]) => unknown; getBounds: () => unknown };
+      }
+    ).map;
+    const fit = vi.spyOn(map, 'fitBounds');
+    const view = vi.spyOn(map, 'getBounds').mockReturnValue({ contains: () => false });
+    fixture.componentRef.setInput('selected', 'CA-ON');
+    fixture.detectChanges();
+    await settle();
+    expect(fit).toHaveBeenCalledTimes(1);
+    view.mockReturnValue({ contains: () => true });
+    fixture.componentRef.setInput('selected', 'CA-QC');
+    fixture.detectChanges();
+    await settle();
+    expect(fit).toHaveBeenCalledTimes(1);
+  });
+
+  it('never puts a tooltip under the zoom buttons at the top right (WD review R2-2)', () => {
+    const zone = { left: 900, bottom: 120 };
+    // By the right edge under the buttons: slid left of them, its right side 8 px clear.
+    const slid = tooltipPlacement(960, 140, 1000, 220, 50, zone);
+    expect(slid.direction).toBe('top');
+    expect(960 + slid.offset[0] + 110).toBe(900 - TOOLTIP_EDGE);
+    // Far below the buttons: as before.
+    expect(tooltipPlacement(960, 400, 1000, 220, 50, zone)).toEqual(
+      tooltipPlacement(960, 400, 1000, 220, 50),
+    );
+    // A narrow map with no room on their left: below them.
+    const narrow = tooltipPlacement(200, 60, 300, 220, 50, { left: 200, bottom: 100 });
+    expect(narrow.direction).toBe('bottom');
+    expect(60 + narrow.offset[1]).toBeGreaterThanOrEqual(100 + TOOLTIP_EDGE);
+  });
+
   it("draws the viewer's province with a teal dashed outline that takes no click", async () => {
     fixture.componentRef.setInput('home', 'CA-QC');
     fixture.detectChanges();
