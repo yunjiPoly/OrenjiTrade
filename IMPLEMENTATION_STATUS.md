@@ -13857,7 +13857,7 @@ its own "!" (unit test).
 
 ### Review fix 1 (2026-10-30)
 
-Round 1 of at most 2: 31 findings of the four reviewers (functional, product and UX, privacy,
+Round 1 of at most 2: 27 findings of the four reviewers (functional, product and UX, privacy,
 accessibility), each fixed at its cause with a test that would have caught it, or answered. No
 migration (the next is still **V135**), no API source change (two API tests), no DTO, OpenAPI or
 `packages/api-client` change; the phone's code is untouched.
@@ -13916,16 +13916,52 @@ migration (the next is still **V135**), no API source change (two API tests), no
     still scroll when they wrap.
 
 **Tests added or changed**: web unit `room.store.spec` (+2: every page read again, an overtaken
-read dropped), `room-view.component.spec` (+10), `community-view.component.spec` (+4),
+read dropped), `room-view.component.spec` (+9), `community-view.component.spec` (+4),
 `room-list.component.spec` (+1), `room-post.component.spec` (+3), `room-composer.component.spec`
 (+1), `community-rules.spec` (+1), `share-picker-dialog.component.spec` (+2),
 `photo-viewer-dialog.component.spec` (new, 2), `messages-page.component.spec` (new, 3),
 `report-collector-dialog.component.spec`, the gear in `collector-profile-view` and
-`notification-bell`; web E2E `community.spec.ts` (a card not owned, Message's focus, the tab's
+`notification-bell`, `link-choices.spec` (the binder search without case or accents moved to
+`link-choices.ts` with the removed binder picker's `matchingBinders`, which the share picker now
+uses); web E2E `community.spec.ts` (a card not owned, Message's focus, the tab's
 focus); API `DeletedCollectorDealNotificationsIT` and `GeoPrivacyContractTest` (above). Mutants
 re-run: A4 and P3's latitude now fail their tests.
 
-CHECKS_FIX1
+**Checks of review fix 1** (retries off, the real numbers; head before this table `3dce6e05`)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | clean |
+| `npm run test:api` | **209 classes / 1,313 tests** (`test`) and 13 (`catalogTest`), 0 failures, 4 min 38 s; targeted before: `DeletedCollectorDealNotificationsIT` 2/2, `GeoPrivacyContractTest` 18/18, and with mutants A4 and P3's latitude 1 failure each |
+| `exportOpenApi` then `generate:api` | nothing changed; git clean |
+| `npm run lint`, `format:check -w apps/web-angular` | clean |
+| `npm test -w apps/web-angular`, `npm run test:web` | **198 files / 1,032 tests** (WF build: 196 / 1,004) |
+| `npm run build -w apps/web-angular`, `build:prod` | initial total **763.73 kB** (budget 900 kB; WF build 763.51 kB), no warning |
+| `npm run test:e2e -- --retries=0` (8180/4300, under the lock) | **96 passed** (1.2 min); targeted before: community, acceptance community, reporting 8/8 |
+| `npm run typecheck`, `lint`, `format:check -w apps/mobile` | clean |
+| `npm run test:mobile` | **128 suites / 1,782 tests** |
+| `npx expo export` (scratch folders) | iOS 1,975 modules, Android 2,101 modules, web 1,596 modules and 68 static routes |
+| `npm run test:mobile:e2e -- --retries=0` (8090/19006, under the simulator lock) | `--stack-only` (the served bundle names `http://localhost:8090` only, by the harness and by hand), `--reuse-running`: **66 passed** (1.1 min), `--stop` |
+| `npm run test:mobile:maestro -- --platform ios` | **not run, not needed**: since the builder's 44/44 nothing the phone runs changed (this round touched API tests only, the web and the docs; no `apps/api` source, `apps/mobile` or shared package) |
+| `npm run test:scripts` | **165 / 165** |
+| `npm run audit:gate` | OK |
+
+**The walk of the fix** (walk stack: API 8580 with `orenjitrade_wf_check` and Redis db 6, web 4400;
+dropped and flushed after): the post with a card and a deck core, a Pokémon binder in the Yu-Gi-Oh!
+room ("Public binder"), "Share a card" with "Moth" (none of yours, "All cards" lists Verdant Moth
+Queen), a card and a binder in the message box, the post's "⋯" sheet at 390 (it found the sheet 240
+wide: fixed), Report this post, "Skip to the message box" (the next stop after Room rules, Enter
+lands in the field), the closed community and the failed list (routed answers); P1 live: 36 posts
+in the Riftbound room, "Show older posts", a moderator removes the oldest: gone after 13.2 s; the
+Yu-Gi-Oh! room's last post removed: the list's preview replaced after 13.2 s. No console error. AFTER
+screenshots in `.local-dev/wf-notes/pr-shots/after/` (`community-shares`, `community-share-card`,
+`community-share-card-all`, `community-composer-both`, `community-post-menu-390`,
+`community-report`, `community-skip`, `community-closed`, `community-list-error`).
+
+**Left open** (not among the findings of this round): axe's `landmark-complementary-is-top-level`
+and `aria-allowed-role` (A7) and `page-has-heading-one` below 960 (A10) that the accessibility
+reviewer listed among its checks; the Android run could not be verified (the stage touches no phone
+code).
 
 ## NEXT TASK
 
