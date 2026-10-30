@@ -104,7 +104,7 @@ export class GuestActions {
     // The account became ready while on a page: another page than the action's forgets it.
     effect(
       () => {
-        if (this.settled()) {
+        if (this.pendingState() && this.settled()) {
           untracked(() => this.review(this.urlState(), false));
         }
       },
