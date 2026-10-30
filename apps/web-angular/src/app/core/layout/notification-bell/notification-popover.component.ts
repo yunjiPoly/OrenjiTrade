@@ -60,7 +60,7 @@ import { ShellIconComponent } from '../shell-icon/shell-icon.component';
             aria-label="Notification settings"
             (click)="ref.close(false)"
           >
-            <app-shell-icon name="settings" [size]="18" />
+            <app-shell-icon name="gear" [size]="18" />
           </a>
         }
       </div>

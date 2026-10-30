@@ -15,6 +15,7 @@ import {
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { Router, RouterLink } from '@angular/router';
+import { ShellIconComponent } from '../../core/layout/shell-icon/shell-icon.component';
 import {
   CollectorProfileResponse,
   CollectorRating,
@@ -76,6 +77,7 @@ type ViewState =
   selector: 'app-collector-page',
   imports: [
     RouterLink,
+    ShellIconComponent,
     MatButtonModule,
     CollectorProfileViewComponent,
     CollectorRatingsSectionComponent,
@@ -133,6 +135,19 @@ type ViewState =
         }
         @case ('ready') {
           @if (profile(); as profile) {
+            <!-- "← Home › {handle}" above a collector's profile (board W23; WE review U15). -->
+            <nav class="crumbs" aria-label="Breadcrumb">
+              <ol class="crumbs__list">
+                <li class="crumbs__item">
+                  <a class="crumbs__home" routerLink="/">
+                    <app-shell-icon name="arrowLeft" [size]="18" [stroke]="2" />
+                    Home
+                  </a>
+                  <app-shell-icon class="crumbs__sep" name="chevronRight" [size]="16" [stroke]="2" />
+                </li>
+                <li class="crumbs__current" aria-current="page">{{ profile.handle }}</li>
+              </ol>
+            </nav>
             <app-collector-profile-view
               [profile]="profile"
               [isOwn]="isOwn()"
@@ -175,6 +190,49 @@ type ViewState =
     </div>
   `,
   styles: `
+    .crumbs {
+      max-width: 1120px;
+      margin: 0 auto 20px;
+    }
+    .crumbs__list {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 2px;
+      margin: 0 0 0 -8px;
+      padding: 0;
+      list-style: none;
+      font-size: var(--font-size-sm);
+      line-height: 20px;
+    }
+    .crumbs__item {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+    .crumbs__home {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      height: 36px;
+      padding: 0 10px 0 8px;
+      border-radius: var(--radius-pill);
+      color: var(--color-text-secondary);
+      font-weight: var(--font-weight-semibold);
+      text-decoration: none;
+    }
+    .crumbs__home:hover {
+      background: var(--color-surface-variant);
+      color: var(--color-ink);
+    }
+    .crumbs__sep {
+      color: var(--color-text-muted);
+    }
+    .crumbs__current {
+      padding: 0 10px;
+      overflow-wrap: anywhere;
+      color: var(--color-text-muted);
+    }
     .collector-ratings {
       display: block;
       max-width: 1120px;

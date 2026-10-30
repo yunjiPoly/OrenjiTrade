@@ -176,6 +176,10 @@
         }
       }
     </div>
+    @if (layout.medium()) {
+      <!-- At md the rail is gone: its links close the feed (WE review U17). -->
+      <ng-container *ngTemplateOutlet="footerLinks" />
+    }
   </div>
 
   @if (!layout.narrow() && !layout.medium()) {
@@ -197,17 +201,21 @@
         [countsLoading]="mapStore.countsLoading()"
         (retryCounts)="mapStore.loadCounts()"
       />
-      <p class="home__links">
-        <a routerLink="/legal/trading-safely">Trading safely</a> ·
-        <a routerLink="/legal">Legal</a> ·
-        <a routerLink="/legal" fragment="card-data-credits">Card data credits</a> · Made with
-        <a href="https://www.naturalearthdata.com/" target="_blank" rel="noopener noreferrer"
-          >Natural Earth</a
-        >
-      </p>
+      <ng-container *ngTemplateOutlet="footerLinks" />
     </aside>
   }
 </div>
+
+<ng-template #footerLinks>
+  <p class="home__links">
+    <a routerLink="/legal/trading-safely">Trading safely</a> ·
+    <a routerLink="/legal">Legal</a> ·
+    <a routerLink="/legal" fragment="card-data-credits">Card data credits</a> · Made with
+    <a href="https://www.naturalearthdata.com/" target="_blank" rel="noopener noreferrer"
+      >Natural Earth</a
+    >
+  </p>
+</ng-template>
 
 <ng-template #guestCard>
   <section class="home__guest" aria-labelledby="home-guest-title" data-testid="home-guest-card">

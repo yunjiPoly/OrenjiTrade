@@ -57,7 +57,7 @@ import { NotificationFeedStore } from './data/notification-feed.store';
             </p>
           </div>
           <a class="nf__outline" routerLink="/settings/notifications">
-            <app-shell-icon name="settings" [size]="18" />
+            <app-shell-icon name="gear" [size]="18" />
             Notification settings
           </a>
         </header>
