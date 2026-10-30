@@ -364,7 +364,8 @@
 
 // The rail (320, sticky at top 144: under the bar and the toolbar, spec 5.3). Taller than the
 // window (Get started over the map card at 900 or less), it scrolls on its own, so its map card
-// and footer are never out of reach until the feed ends (WE review F4).
+// and footer are never out of reach until the feed ends (WE review F4). Its overscroll chains:
+// the wheel over it scrolls the rail to its end, then the page (never `contain`, WE review R1-1).
 .home__rail {
   position: sticky;
   top: 144px;
@@ -374,7 +375,6 @@
   align-self: start;
   max-height: calc(100dvh - 160px);
   overflow-y: auto;
-  overscroll-behavior: contain;
   scrollbar-width: thin;
   // Room for the focus rings of its controls inside the scrolled box.
   padding: 2px;

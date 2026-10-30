@@ -129,6 +129,39 @@ test.describe('web stage WE: Home, notifications and settings', () => {
     expect(watcher.samples, 'lat/lng in a JSON answer').toEqual([]);
   });
 
+  test("the mouse wheel over Home's rail scrolls the rail, then the page (WE review R1-1)", async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(90_000);
+    // Get started over the map card: at 1440x900 the rail is taller than the window (F4).
+    const viewer = await createOnboardedCollector(request, 'homewheel', { location: true });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInThroughUi(page, viewer.email, viewer.password);
+    await page.goto('/?region=americas-north&game=yugioh');
+    await expect(page.getByTestId('feed-post').first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId('get-started')).toBeVisible();
+    const rail = page.locator('.home__rail');
+    const heading = page.getByRole('heading', { level: 1, name: 'What’s new' });
+    const headingTop = async (): Promise<number> => (await heading.boundingBox())!.y;
+    const before = await headingTop();
+    const box = (await rail.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + Math.min(box.height / 2, 300));
+    for (let turn = 0; turn < 6; turn++) {
+      await page.mouse.wheel(0, 300);
+    }
+    // The page moves under the pointer (the rail never keeps the wheel to itself), and a rail
+    // taller than the window was scrolled to its end first.
+    await expect.poll(headingTop, { timeout: 10_000 }).toBeLessThan(before - 300);
+    const end = await rail.evaluate((el) => ({
+      overflows: el.scrollHeight > el.clientHeight + 1,
+      atEnd: el.scrollTop + el.clientHeight >= el.scrollHeight - 1,
+    }));
+    if (end.overflows) {
+      expect(end.atEnd, 'the rail scrolled to its end first').toBe(true);
+    }
+  });
+
   test('the bell and /notifications leave chats out; Mark all as read empties the dot', async ({
     page,
     request,
