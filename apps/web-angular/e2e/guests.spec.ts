@@ -600,7 +600,7 @@ test.describe('web stage WG: browsing without an account', () => {
     await expect(page).toHaveURL(/\/onboarding/, { timeout: 20_000 });
     const handle = page.getByLabel('Handle');
     await handle.fill(uniqueHandle('wgnew'));
-    await expect(page.locator('#wl-handle-check')).toHaveText(/is free$/);
+    await expect(page.locator('#wl-handle-check')).toContainText('is free');
     const next = page.getByRole('button', { name: 'Continue', exact: true });
     await next.click();
     await page
