@@ -132,7 +132,8 @@ type Status = 'loading' | 'ready' | 'error';
                   (click)="onRowClick($event, result)"
                   (keydown.enter)="onRowEnter($event, result)"
                   (keydown.escape)="dismissTip($event, result)"
-                  (mouseleave)="tipOff.set(null)"
+                  (mouseenter)="hoveredTip = result.item.publicNotes ? result.item.id : null"
+                  (mouseleave)="hoveredTip = null; tipOff.set(null)"
                   (focusout)="tipOff.set(null)"
                 >
                   <span class="wh__avatar">
@@ -228,6 +229,7 @@ type Status = 'loading' | 'ready' | 'error';
     }
   `,
   styleUrl: './who-has.component.scss',
+  host: { '(document:keydown.escape)': 'onDocumentEscape()' },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class WhoHasComponent {
@@ -267,6 +269,8 @@ export class WhoHasComponent {
   protected readonly activeId = signal<string | null>(null);
   /** The row whose full-note tooltip Esc dismissed (until the pointer or the focus leaves). */
   protected readonly tipOff = signal<string | null>(null);
+  /** The row with a note under the pointer: its tooltip shows without the focus. */
+  protected hoveredTip: string | null = null;
   private readonly page = signal(0);
   private readonly totalPages = signal(0);
   private readonly error = signal<ApiError | null>(null);
@@ -429,6 +433,18 @@ export class WhoHasComponent {
       return;
     }
     this.openRow(result);
+  }
+
+  /**
+   * Esc anywhere hides the full-note tooltip of the row under the pointer, the focus wherever it
+   * is (SC 1.4.13; WD review R1-4). A focused row handles its own Esc first (`dismissTip`).
+   */
+  protected onDocumentEscape(): void {
+    const id = this.hoveredTip;
+    if (!id || this.tipOff() === id) {
+      return;
+    }
+    this.tipOff.set(id);
   }
 
   /** Esc hides the row's full-note tooltip; a second Esc goes on to the page (a drawer). */

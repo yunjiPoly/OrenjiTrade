@@ -30,6 +30,46 @@ import {
 type LeafletModule = typeof Leaflet;
 type GeoJsonInput = Parameters<LeafletModule['geoJSON']>[0];
 
+/** How a state's tooltip sits by the pointer (`direction` and `offset` of a Leaflet tooltip). */
+export interface TooltipPlacement {
+  direction: 'top' | 'bottom';
+  offset: [number, number];
+}
+
+/** The tooltip keeps this far inside the map's edges. */
+export const TOOLTIP_EDGE = 8;
+/** Below the pointer, the tooltip clears the cursor. */
+const TOOLTIP_BELOW = 18;
+/** The tooltip's size before its first draw ("Northwest Territories, Canada" and its line). */
+const TOOLTIP_GUESS = { width: 220, height: 50 };
+
+/**
+ * Where a state's tooltip goes for a pointer at (x, y) on a map `mapWidth` wide (WD review R1-5):
+ * above the pointer, slid sideways to stay inside the map near its left and right edges, and below
+ * the pointer near its top edge. An unmeasured map (0 wide) keeps Leaflet's own placement.
+ */
+export function tooltipPlacement(
+  x: number,
+  y: number,
+  mapWidth: number,
+  tipWidth: number,
+  tipHeight: number,
+): TooltipPlacement {
+  if (mapWidth <= 0 || tipWidth <= 0) {
+    return { direction: 'top', offset: [0, 0] };
+  }
+  const half = tipWidth / 2;
+  const min = TOOLTIP_EDGE + half;
+  const max = mapWidth - TOOLTIP_EDGE - half;
+  const centre = max < min ? mapWidth / 2 : Math.min(Math.max(x, min), max);
+  // Leaflet's top tooltip sits 6 px above the pointer (its stylesheet's margin).
+  const below = y - tipHeight - 6 < TOOLTIP_EDGE;
+  return {
+    direction: below ? 'bottom' : 'top',
+    offset: [Math.round(centre - x), below ? TOOLTIP_BELOW : 0],
+  };
+}
+
 /** Non-injected global style bundle emitted by angular.json (`bundleName: leaflet`). */
 const LEAFLET_CSS_HREF = 'leaflet.css';
 const CSS_MARKER_ATTR = 'data-orenji-leaflet-css';
@@ -140,6 +180,7 @@ interface Palette {
       color: var(--color-ink);
     }
   `,
+  host: { '(document:keydown.escape)': 'onDocumentEscape()' },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BoundaryMapComponent {
@@ -177,6 +218,10 @@ export class BoundaryMapComponent {
   private traceLayer: Leaflet.GeoJSON | null = null;
   private subdivisionFeatures: BoundaryFeature[] = [];
   private hovered: string | null = null;
+  /** The pointer on the map (container pixels, never a coordinate): where its tooltip goes. */
+  private pointer: Leaflet.Point | null = null;
+  /** The kind of the last press on the map: a touch tap leaves no tooltip behind (R1-5). */
+  private lastPointer = '';
   private fittedHome = false;
   private readonly layers = new Map<string, Leaflet.Path[]>();
   private drawnRegion: string | null = null;
@@ -256,6 +301,12 @@ export class BoundaryMapComponent {
       trace.setAttribute('aria-hidden', 'true');
       map.getPane('overlayPane')?.setAttribute('aria-hidden', 'true');
       this.map = map;
+      // Capture: before Leaflet's own handlers, whatever they stop.
+      this.canvas().nativeElement.addEventListener(
+        'pointerdown',
+        (event: PointerEvent) => (this.lastPointer = event.pointerType),
+        true,
+      );
       this.fitRegion(this.region());
       if (typeof ResizeObserver !== 'undefined') {
         this.resizeObserver = new ResizeObserver(() => this.map?.invalidateSize());
@@ -326,12 +377,25 @@ export class BoundaryMapComponent {
     const list = this.layers.get(code) ?? [];
     list.push(path);
     this.layers.set(code, list);
+    // Before the tooltip's own mouseover and mousemove handlers, which place it (the order of
+    // registration): the tooltip stays inside the map pane at its edges (WD review R1-5).
+    path.on('mouseover mousemove', (event) =>
+      this.placeTooltip(path, (event as Leaflet.LeafletMouseEvent).originalEvent),
+    );
     path.bindTooltip(() => this.tooltip(code), {
       sticky: true,
       direction: 'top',
       className: 'orenji-boundary-tooltip',
     });
-    path.on('click', () => this.subdivisionSelected.emit(code));
+    // Its first draw measured it: placed again with its real size.
+    path.on('tooltipopen', () => this.placeTooltip(path, null));
+    path.on('click', () => {
+      this.subdivisionSelected.emit(code);
+      // A tap has no pointer leaving: its tooltip would stay over the map and the state card.
+      if (this.lastPointer === 'touch') {
+        path.closeTooltip();
+      }
+    });
     path.on('mouseover', () => {
       this.hovered = code;
       this.drawTrace();
@@ -369,9 +433,46 @@ export class BoundaryMapComponent {
     return `<strong>${escaped}</strong><br><span class="orenji-boundary-tooltip__swatch" data-level="${level}"></span>${line}`;
   }
 
+  private placeTooltip(path: Leaflet.Path, event: MouseEvent | null): void {
+    const map = this.map;
+    const tooltip = path.getTooltip();
+    if (!map || !tooltip) {
+      return;
+    }
+    if (event) {
+      this.pointer = map.mouseEventToContainerPoint(event);
+    }
+    if (!this.pointer) {
+      return;
+    }
+    const element = tooltip.getElement();
+    const placement = tooltipPlacement(
+      this.pointer.x,
+      this.pointer.y,
+      map.getSize().x,
+      element?.offsetWidth || TOOLTIP_GUESS.width,
+      element?.offsetHeight || TOOLTIP_GUESS.height,
+    );
+    tooltip.options.direction = placement.direction;
+    tooltip.options.offset = placement.offset;
+    if (!event && tooltip.isOpen()) {
+      tooltip.update();
+    }
+  }
+
   /** Esc on the map hides a hovered state's tooltip (SC 1.4.13); the next hover shows it again. */
   protected closeTooltips(): void {
     this.shapes?.eachLayer((layer) => layer.closeTooltip());
+  }
+
+  /**
+   * Esc anywhere hides the tooltip of the state under the pointer, the focus wherever it is (SC
+   * 1.4.13; WD review R1-4).
+   */
+  protected onDocumentEscape(): void {
+    if (this.hovered) {
+      this.closeTooltips();
+    }
   }
 
   /** Zoom one step in or out (Search's own + and − buttons). */

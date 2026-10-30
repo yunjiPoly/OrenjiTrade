@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { BoundaryAssets, BoundaryCollection } from '../data/boundaries';
-import { BoundaryMapComponent } from './boundary-map.component';
+import { BoundaryMapComponent, TOOLTIP_EDGE, tooltipPlacement } from './boundary-map.component';
 
 const square = (x: number, y: number) => [
   [
@@ -198,6 +198,49 @@ describe('BoundaryMapComponent', () => {
       .dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     await settle();
     expect(element.querySelectorAll('.leaflet-tooltip')).toHaveLength(0);
+  });
+
+  it("Esc anywhere hides a hovered state's tooltip, the focus off the map (WD review R1-4)", async () => {
+    const quebec = paths()[0];
+    (document.activeElement as HTMLElement | null)?.blur();
+    quebec.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    await settle();
+    expect(element.querySelectorAll('.leaflet-tooltip')).toHaveLength(1);
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await settle();
+    expect(element.querySelectorAll('.leaflet-tooltip')).toHaveLength(0);
+  });
+
+  it('a touch tap picks the state and leaves no tooltip over the map (WD review R1-5)', async () => {
+    const ontario = paths()[1];
+    ontario.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' }));
+    ontario.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    ontario.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await settle();
+    expect(selected).toEqual(['CA-ON']);
+    expect(element.querySelectorAll('.leaflet-tooltip')).toHaveLength(0);
+    // A mouse click keeps the tooltip of the state under the pointer.
+    ontario.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' }));
+    ontario.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await settle();
+    expect(element.querySelectorAll('.leaflet-tooltip')).toHaveLength(1);
+  });
+
+  it('keeps a tooltip inside the map at its edges (WD review R1-5)', () => {
+    // Mid-map: above the pointer, centred on it, as Leaflet draws it.
+    expect(tooltipPlacement(500, 300, 1000, 220, 50)).toEqual({ direction: 'top', offset: [0, 0] });
+    // 30 px from the left edge: slid right, its left side 8 px inside the map.
+    const left = tooltipPlacement(30, 300, 1000, 220, 50);
+    expect(left.direction).toBe('top');
+    expect(30 + left.offset[0] - 110).toBe(TOOLTIP_EDGE);
+    // By the right edge: slid left.
+    const right = tooltipPlacement(990, 300, 1000, 220, 50);
+    expect(990 + right.offset[0] + 110).toBe(1000 - TOOLTIP_EDGE);
+    // By the top edge: below the pointer, clear of the cursor.
+    expect(tooltipPlacement(500, 20, 1000, 220, 50).direction).toBe('bottom');
+    expect(tooltipPlacement(500, 20, 1000, 220, 50).offset[1]).toBeGreaterThan(0);
+    // An unmeasured map keeps Leaflet's own placement.
+    expect(tooltipPlacement(0, 0, 0, 220, 50)).toEqual({ direction: 'top', offset: [0, 0] });
   });
 
   it("draws the viewer's province with a teal dashed outline that takes no click", async () => {

@@ -185,6 +185,24 @@ describe('WhoHasComponent (spec 7.3 and 7.4)', () => {
     expect(row.classList).not.toContain('wh__row--tip-off');
   });
 
+  it('Esc hides the tooltip of the row under the pointer, the focus elsewhere (WD review R1-4)', async () => {
+    await render([result('1', 'CA-QC', 'Quebec', 'a', 'NM, ships tracked')]);
+    const row = element.querySelector<HTMLElement>('[data-testid="holder-row"]')!;
+    (document.activeElement as HTMLElement | null)?.blur();
+    row.dispatchEvent(new MouseEvent('mouseenter'));
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    fixture.detectChanges();
+    expect(row.classList).toContain('wh__row--tip-off');
+    // The pointer leaves and comes back: the note shows again.
+    row.dispatchEvent(new MouseEvent('mouseleave'));
+    fixture.detectChanges();
+    expect(row.classList).not.toContain('wh__row--tip-off');
+    // An Esc with nothing hovered changes nothing.
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    fixture.detectChanges();
+    expect(row.classList).not.toContain('wh__row--tip-off');
+  });
+
   it('Message opens the chat drawer about this copy, labelled with the handle and the card', async () => {
     await render([result('1', 'CA-QC', 'Quebec', 'duelist.jp')]);
     const button = element.querySelector<HTMLButtonElement>('[data-testid="holder-message"]')!;
