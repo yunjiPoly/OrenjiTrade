@@ -32,7 +32,8 @@ describe('SetCardsComponent', () => {
           provide: CatalogService,
           useValue: {
             searchCards,
-            getSet: () => of({ set: { id: 's1', code: 'AZR', name: 'Azure Dawn', game: 'yugioh' } }),
+            getSet: () =>
+              of({ set: { id: 's1', code: 'AZR', name: 'Azure Dawn', game: 'yugioh' } }),
           },
         },
       ],

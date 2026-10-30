@@ -69,7 +69,9 @@ type Status = 'loading' | 'ready' | 'error';
       } @else if (cards().length === 0) {
         <p class="sc__empty" data-testid="set-cards-empty">
           @if (otherGame(); as other) {
-            {{ (set()?.code || 'This set') + ' is a ' + other + ' set, not a ' + gameName() + ' one.' }}
+            {{
+              (set()?.code || 'This set') + ' is a ' + other + ' set, not a ' + gameName() + ' one.'
+            }}
           } @else {
             {{
               q()
