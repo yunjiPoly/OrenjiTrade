@@ -117,6 +117,7 @@ class DeletedCollectorDealNotificationsIT extends AbstractDealsIT {
         // A row from before stage WF (no id) by the former holder, written a day earlier.
         UUID olderRow =
                 legacyRating(buyer, handle, "Collector " + handle, "now() - interval '1 day'");
+        UUID olderSaleRow = legacySale(buyer, handle, "now() - interval '1 day'");
 
         // The former holder takes another handle; a new account takes theirs.
         testUsers.update(
@@ -131,6 +132,7 @@ class DeletedCollectorDealNotificationsIT extends AbstractDealsIT {
         String leavingRating = rate(seller, buyer, 5);
         // An older row without an id from the leaving account (written once it existed).
         UUID leavingOlderRow = legacyRating(buyer, handle, "Collector " + handle, "now()");
+        UUID leavingOlderSaleRow = legacySale(buyer, handle, "now()");
 
         deleteThroughTheJob(seller);
 
@@ -145,6 +147,10 @@ class DeletedCollectorDealNotificationsIT extends AbstractDealsIT {
         assertThat(storedTitle(olderRow))
                 .as("an older row written before the deleted account existed keeps its name")
                 .isEqualTo("New rating from Collector " + handle);
+        assertThat(storedTitle(olderSaleRow))
+                .as("an older sale row written before the deleted account existed keeps its name")
+                .isEqualTo(handle + " marked Legacy card as sold to you");
+        assertThat(storedData(olderSaleRow, "sellerHandle")).isEqualTo(handle);
 
         JsonNode goneRating =
                 byData(notifications(buyer, "RATING_RECEIVED"), "ratingId", leavingRating);
@@ -159,6 +165,10 @@ class DeletedCollectorDealNotificationsIT extends AbstractDealsIT {
         assertThat(storedTitle(leavingOlderRow))
                 .as("an older row without an id, written once the account existed")
                 .isEqualTo("New rating from Deleted collector");
+        assertThat(storedTitle(leavingOlderSaleRow))
+                .as("an older sale row without an id, written once the account existed")
+                .isEqualTo("Deleted collector marked Legacy card as sold to you");
+        assertThat(storedData(leavingOlderSaleRow, "sellerHandle")).isEqualTo("Deleted collector");
     }
 
     /** A RATING_RECEIVED row as written before stage WF: the rater's handle, no rater id. */
@@ -178,6 +188,39 @@ class DeletedCollectorDealNotificationsIT extends AbstractDealsIT {
                 raterName + " rated you 4/5.",
                 raterHandle);
         return id;
+    }
+
+    /**
+     * A SALE_RECORDED row as written before stage WF (WF review F3): the seller's handle starting
+     * the title and in {@code sellerHandle}, no seller id.
+     */
+    private UUID legacySale(Collector buyer, String sellerHandle, String at) {
+        UUID id = UUID.randomUUID();
+        testUsers.update(
+                "INSERT INTO notification (id, user_id, type, title, body, data, dedup_key,"
+                        + " created_at) VALUES (?, ?, 'SALE_RECORDED', ?, ?,"
+                        + " jsonb_build_object('saleId', gen_random_uuid()::text,"
+                        + " 'conversationId', gen_random_uuid()::text, 'sellerHandle', ?::text,"
+                        + " 'itemName', 'Legacy card'),"
+                        + " 'legacy:' || gen_random_uuid(), "
+                        + at
+                        + ")",
+                id,
+                buyer.id(),
+                sellerHandle + " marked Legacy card as sold to you",
+                "Open the chat to see the details and rate each other.",
+                sellerHandle);
+        return id;
+    }
+
+    private String storedData(UUID notificationId, String key) {
+        return String.valueOf(
+                testUsers
+                        .query(
+                                "SELECT data->>'" + key + "' AS v FROM notification WHERE id = ?",
+                                notificationId)
+                        .get(0)
+                        .get("v"));
     }
 
     private String storedTitle(UUID notificationId) {
