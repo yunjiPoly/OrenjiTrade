@@ -25,6 +25,7 @@
             [attr.aria-pressed]="filter() === f"
             [attr.data-testid]="'home-chip-' + f"
             (click)="setFilter(f)"
+            (focus)="revealChip($event)"
           >
             @if (dot(f); as tone) {
               <span class="home__dot" [attr.data-tone]="tone" aria-hidden="true"></span>

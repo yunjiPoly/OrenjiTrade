@@ -154,6 +154,15 @@ describe('HomePageComponent (spec 5, boards W1 and W2)', () => {
     );
   });
 
+  it('a focused chip scrolls into the row\'s view (WE review R2-3)', async () => {
+    await render();
+    const chip = element.querySelector<HTMLButtonElement>('[data-testid="home-chip-DECK_CORES"]')!;
+    const scrollIntoView = vi.fn();
+    chip.scrollIntoView = scrollIntoView;
+    chip.dispatchEvent(new FocusEvent('focus'));
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest', inline: 'nearest' });
+  });
+
   it("a link's game waits for the games list, then is browsed (the URL keeps it meanwhile)", async () => {
     browsable.set(null);
     await render();
