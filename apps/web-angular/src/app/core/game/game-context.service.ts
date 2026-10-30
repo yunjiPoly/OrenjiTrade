@@ -117,6 +117,11 @@ export class GameContext {
     this.accountState() ? (this.profiles.profile()?.games ?? []) : [],
   );
 
+  /**
+   * The account whose kept game is browsed (`null` signed out). It changes with the game it brings
+   * back, so a page that let a link choose the game (Home's `?game=`) applies it again after it.
+   */
+  readonly account = this.accountState.asReadonly();
   /** The browsable slugs; `null` until `GET /games` answered. */
   readonly browsable = computed(() => browsableGames(this.gamesStore.games()));
   readonly current = computed(() =>

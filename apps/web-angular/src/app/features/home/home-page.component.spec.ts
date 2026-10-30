@@ -23,6 +23,8 @@ describe('HomePageComponent (spec 5, boards W1 and W2)', () => {
   const status = signal<'loading' | 'ready' | 'error'>('ready');
   const newer = signal(false);
   const signedIn = signal(true);
+  const browsable = signal<ReadonlySet<string> | null>(new Set(['yugioh']));
+  const select = vi.fn(() => true);
 
   async function render(): Promise<void> {
     store = {
@@ -61,8 +63,9 @@ describe('HomePageComponent (spec 5, boards W1 and W2)', () => {
           useValue: {
             current: signal('yugioh'),
             info: signal({ label: 'Yu-Gi-Oh!' }),
-            browsable: signal(new Set(['yugioh'])),
-            select: vi.fn(() => true),
+            browsable,
+            select,
+            account: signal('fb-1'),
           },
         },
         {
@@ -108,6 +111,8 @@ describe('HomePageComponent (spec 5, boards W1 and W2)', () => {
   }
 
   beforeEach(() => {
+    browsable.set(new Set(['yugioh']));
+    select.mockClear();
     status.set('ready');
     newer.set(false);
     signedIn.set(true);
@@ -140,6 +145,21 @@ describe('HomePageComponent (spec 5, boards W1 and W2)', () => {
       [],
       expect.objectContaining({ queryParams: { kind: 'wanted' } }),
     );
+  });
+
+  it("a link's game waits for the games list, then is browsed (the URL keeps it meanwhile)", async () => {
+    browsable.set(null);
+    await render();
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    fixture.componentRef.setInput('game', 'pokemon');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(select).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
+    browsable.set(new Set(['yugioh', 'pokemon']));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(select).toHaveBeenCalledWith('pokemon');
   });
 
   it('day one: "Nothing new in Americas (North) yet", and Get started in the rail', async () => {

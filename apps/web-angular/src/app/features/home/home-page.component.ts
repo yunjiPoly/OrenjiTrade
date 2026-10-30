@@ -165,6 +165,7 @@ export class HomePageComponent {
   /** Last `?region=` / `?game=` applied (a stale URL never overrides the pills). */
   private appliedRegion: string | null = null;
   private appliedGame: string | null = null;
+  private appliedAccount: string | null | undefined = undefined;
   private lastCheck = Date.now();
   private observer: IntersectionObserver | null = null;
 
@@ -181,7 +182,22 @@ export class HomePageComponent {
       const game = this.gameCode();
       const filter = this.filter();
       const browsable = this.gameContext.browsable();
+      // The account first: signing in resets the browsed game and region to the account's own,
+      // which would undo a link's choice applied before it (the walk's 1024 run).
+      const status = this.session.status();
+      // The game context's own account: it switches the browsed game when it changes.
+      const account = this.gameContext.account();
       untracked(() => {
+        if (status !== 'ready' && status !== 'anonymous') {
+          return;
+        }
+        // Another account (signing in or out) restores its own game and region: the URL's
+        // choice is applied again after it.
+        if (account !== this.appliedAccount) {
+          this.appliedAccount = account;
+          this.appliedRegion = null;
+          this.appliedGame = null;
+        }
         if (
           requestedRegion &&
           requestedRegion !== this.appliedRegion &&
@@ -193,9 +209,15 @@ export class HomePageComponent {
             return;
           }
         }
-        if (requestedGame && requestedGame !== this.appliedGame && browsable !== null) {
+        if (requestedGame && requestedGame !== this.appliedGame) {
+          if (browsable === null) {
+            // The games are not listed yet: the link's game waits for them (the URL stays).
+            return;
+          }
           this.appliedGame = requestedGame;
-          if (requestedGame !== game && this.gameContext.select(requestedGame)) {
+          // Picked even when it is already browsed: the account's profile game, read a moment
+          // later, must not replace the link's game.
+          if (this.gameContext.select(requestedGame) && requestedGame !== game) {
             return;
           }
         }
@@ -207,9 +229,15 @@ export class HomePageComponent {
       });
     });
 
-    // The feed of the browsed region, game and chip.
+    // The feed of the browsed region, game and chip (a link's game first, once the games are in).
     effect(() => {
       const query = { region: this.regionCode(), game: this.gameCode(), kind: this.filter() };
+      const linked = this.game()?.toLowerCase();
+      const status = this.session.status();
+      const settled = status === 'ready' || status === 'anonymous';
+      if (linked && linked !== query.game && (this.gameContext.browsable() === null || !settled)) {
+        return;
+      }
       untracked(() => {
         this.lastCheck = Date.now();
         void this.store.load(query);
