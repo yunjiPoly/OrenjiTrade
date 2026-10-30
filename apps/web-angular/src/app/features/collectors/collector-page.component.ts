@@ -145,7 +145,12 @@ type ViewState =
                     <app-shell-icon name="arrowLeft" [size]="18" [stroke]="2" />
                     Home
                   </a>
-                  <app-shell-icon class="crumbs__sep" name="chevronRight" [size]="16" [stroke]="2" />
+                  <app-shell-icon
+                    class="crumbs__sep"
+                    name="chevronRight"
+                    [size]="16"
+                    [stroke]="2"
+                  />
                 </li>
                 <li class="crumbs__current" aria-current="page">{{ profile.handle }}</li>
               </ol>

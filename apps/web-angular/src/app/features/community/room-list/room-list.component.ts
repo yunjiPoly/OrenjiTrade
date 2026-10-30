@@ -37,7 +37,13 @@ interface RoomRow {
  */
 @Component({
   selector: 'app-room-list',
-  imports: [RouterLink, ErrorStateComponent, GameMonogramComponent, RegionPillComponent, ShellIconComponent],
+  imports: [
+    RouterLink,
+    ErrorStateComponent,
+    GameMonogramComponent,
+    RegionPillComponent,
+    ShellIconComponent,
+  ],
   template: `
     <div class="rl">
       <div class="rl__top">

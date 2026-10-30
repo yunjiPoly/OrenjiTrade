@@ -1,6 +1,9 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { ShellIconComponent, ShellIconName } from '../../../core/layout/shell-icon/shell-icon.component';
+import {
+  ShellIconComponent,
+  ShellIconName,
+} from '../../../core/layout/shell-icon/shell-icon.component';
 import { RULES_COPY } from '../data/community-copy';
 
 /** A collector blocked from this page (their posts left every room; "Unblock" brings them back). */

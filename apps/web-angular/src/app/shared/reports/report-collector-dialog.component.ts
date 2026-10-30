@@ -149,19 +149,19 @@ export function reportPostExcerpt(text: string): string {
               </span>
             </div>
           } @else {
-          <div class="who">
-            <app-avatar
-              [src]="data.target.avatarUrl"
-              [name]="data.target.displayName"
-              [decorative]="true"
-            />
-            <span class="who__names">
-              <span class="who__name">{{ data.target.displayName }}</span>
-              @if (data.target.handle) {
-                <span class="who__handle">&#64;{{ data.target.handle }}</span>
-              }
-            </span>
-          </div>
+            <div class="who">
+              <app-avatar
+                [src]="data.target.avatarUrl"
+                [name]="data.target.displayName"
+                [decorative]="true"
+              />
+              <span class="who__names">
+                <span class="who__name">{{ data.target.displayName }}</span>
+                @if (data.target.handle) {
+                  <span class="who__handle">&#64;{{ data.target.handle }}</span>
+                }
+              </span>
+            </div>
           }
 
           <p class="question" [id]="ids.question">

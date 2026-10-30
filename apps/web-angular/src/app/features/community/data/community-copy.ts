@@ -166,7 +166,8 @@ export const ROOM_SHARE_COPY = {
   binderFoot: 'Your public binders and deck cores',
   cardEmpty: (room: string) => `You have no public ${room} cards to share yet.`,
   binderEmpty: (room: string) => `You have no public ${room} binders or deck cores yet.`,
-  cardNoMatch: (room: string, query: string) => `None of your public ${room} cards match “${query}”.`,
+  cardNoMatch: (room: string, query: string) =>
+    `None of your public ${room} cards match “${query}”.`,
   binderNoMatch: (room: string, query: string) =>
     `None of your public ${room} binders match “${query}”.`,
   addCards: 'Add cards',

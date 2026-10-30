@@ -18,12 +18,7 @@ import { ShellLayout } from '../../../core/layout/shell-layout.service';
 import { ChatDrafts } from '../../../shared/messaging/chat-drafts.service';
 import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import { ROOM_COMPOSER_COPY, ROOM_COPY } from '../data/community-copy';
-import {
-  POST_MAX_LENGTH,
-  POST_NEAR_LIMIT,
-  RoomAttachment,
-  canPost,
-} from '../data/community-rules';
+import { POST_MAX_LENGTH, POST_NEAR_LIMIT, RoomAttachment, canPost } from '../data/community-rules';
 
 /** What the message box hands to the room when the collector posts. */
 export interface RoomDraft {

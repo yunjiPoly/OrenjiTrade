@@ -84,9 +84,8 @@ export interface PostActionEvent {
             <span class="post__you">{{ copy.you }}</span>
           }
           <span class="post__meta">
-            {{ place() ? place() + ' · ' : '' }}<time [attr.datetime]="p.createdAt">{{
-              time()
-            }}</time>
+            {{ place() ? place() + ' · ' : ''
+            }}<time [attr.datetime]="p.createdAt">{{ time() }}</time>
             @if (p.editedAt) {
               · {{ copy.edited }}
             }
@@ -340,7 +339,11 @@ export class RoomPostComponent {
   }
 
   protected emit(action: PostAction): void {
-    this.action.emit({ action, post: this.post(), opener: this.moreButton()?.nativeElement ?? null });
+    this.action.emit({
+      action,
+      post: this.post(),
+      opener: this.moreButton()?.nativeElement ?? null,
+    });
   }
 
   protected startEdit(): void {

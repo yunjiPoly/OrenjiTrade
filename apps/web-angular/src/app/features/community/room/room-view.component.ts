@@ -376,7 +376,9 @@ export class RoomViewComponent {
   }
 
   protected async unblock(author: BlockedAuthor): Promise<void> {
-    if (!(await this.blocks.unblock({ id: author.id, displayName: author.handle }, { notify: false }))) {
+    if (
+      !(await this.blocks.unblock({ id: author.id, displayName: author.handle }, { notify: false }))
+    ) {
       return;
     }
     this.blocked.update((list) => list.filter((item) => item.id !== author.id));
@@ -407,9 +409,7 @@ export class RoomViewComponent {
       return;
     }
     const problem = await this.store.delete(post.id);
-    this.toasts.show(
-      problem ? { title: problem, tone: 'error' } : { title: ROOM_COPY.deleted },
-    );
+    this.toasts.show(problem ? { title: problem, tone: 'error' } : { title: ROOM_COPY.deleted });
     if (!problem) {
       this.syncList();
     }
@@ -428,9 +428,7 @@ export class RoomViewComponent {
       return;
     }
     const problem = await this.store.remove(post.id, reason);
-    this.toasts.show(
-      problem ? { title: problem, tone: 'error' } : { title: ROOM_COPY.removed },
-    );
+    this.toasts.show(problem ? { title: problem, tone: 'error' } : { title: ROOM_COPY.removed });
     if (!problem) {
       this.syncList();
     }

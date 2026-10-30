@@ -150,9 +150,7 @@ import { RatingSummaryComponent } from './rating-summary.component';
             <p class="ratings__muted">
               @if (store.referencesFailed()) {
                 References could not load.
-                <button matButton type="button" (click)="store.loadReferences()">
-                  Try again
-                </button>
+                <button matButton type="button" (click)="store.loadReferences()">Try again</button>
               } @else {
                 No references yet.
               }

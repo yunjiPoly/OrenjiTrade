@@ -40,11 +40,7 @@ import { RoomViewComponent } from './room/room-view.component';
       @if (split() || !slug()) {
         <div class="cv__list">
           <ng-content select="[inboxHeader]" />
-          <app-room-list
-            [openSlug]="slug()"
-            [regionName]="regionName()"
-            (retry)="reload()"
-          />
+          <app-room-list [openSlug]="slug()" [regionName]="regionName()" (retry)="reload()" />
         </div>
       }
       @if (slug(); as current) {

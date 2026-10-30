@@ -22,7 +22,7 @@ export interface PhotoViewerData {
   selector: 'app-photo-viewer-dialog',
   imports: [MatDialogModule, MediaUrlPipe, ShellIconComponent],
   template: `
-    <div class="pv" (keydown.arrowleft)="move(-1)" (keydown.arrowright)="move(1)">
+    <div class="pv" tabindex="-1" (keydown.arrowleft)="move(-1)" (keydown.arrowright)="move(1)">
       <div class="pv__head">
         <div>
           <h2 class="pv__title" mat-dialog-title id="photo-viewer-title">

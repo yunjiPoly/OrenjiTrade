@@ -214,8 +214,7 @@ export class MessagesPageComponent {
     // phone.
     effect(() =>
       this.layout.setChatOpen(
-        this.auth.isAuthenticated() &&
-          (this.showCommunity() ? !!this.room() : !!this.id()),
+        this.auth.isAuthenticated() && (this.showCommunity() ? !!this.room() : !!this.id()),
       ),
     );
     inject(DestroyRef).onDestroy(() => this.layout.setChatOpen(false));

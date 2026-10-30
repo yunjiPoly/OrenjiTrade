@@ -156,7 +156,7 @@ describe('HomePageComponent (spec 5, boards W1 and W2)', () => {
     );
   });
 
-  it('the rail\'s links close the feed at md, where the rail is gone (WE review U17)', async () => {
+  it("the rail's links close the feed at md, where the rail is gone (WE review U17)", async () => {
     await render();
     expect(element.querySelector('.home__feed .home__links')).toBeNull();
     expect(element.querySelector('.home__rail .home__links')?.textContent).toContain(
@@ -170,7 +170,7 @@ describe('HomePageComponent (spec 5, boards W1 and W2)', () => {
     expect(links?.textContent).toContain('Card data credits');
   });
 
-  it('a focused chip scrolls into the row\'s view (WE review R2-3)', async () => {
+  it("a focused chip scrolls into the row's view (WE review R2-3)", async () => {
     await render();
     const chip = element.querySelector<HTMLButtonElement>('[data-testid="home-chip-DECK_CORES"]')!;
     const scrollIntoView = vi.fn();

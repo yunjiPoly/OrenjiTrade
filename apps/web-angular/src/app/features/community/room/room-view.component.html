@@ -54,7 +54,11 @@
           </div>
         }
         @case ('not-found') {
-          <app-empty-state icon="speaker_notes_off" [title]="copy.notFoundTitle" [description]="copy.notFoundBody">
+          <app-empty-state
+            icon="speaker_notes_off"
+            [title]="copy.notFoundTitle"
+            [description]="copy.notFoundBody"
+          >
             <button actions type="button" class="room__outline" (click)="back.emit()">
               {{ copy.notFoundAction }}
             </button>
@@ -108,7 +112,9 @@
             }
             @for (item of items(); track item.key) {
               @if (item.kind === 'day') {
-                <div class="room__day"><span>{{ item.label }}</span></div>
+                <div class="room__day">
+                  <span>{{ item.label }}</span>
+                </div>
               } @else {
                 <app-room-post
                   [post]="item.post"
@@ -159,6 +165,7 @@
     }
     <aside
       id="room-rules"
+      tabindex="-1"
       class="rules-host"
       data-testid="room-rules"
       [class.rules-host--pane]="mode === 'pane'"

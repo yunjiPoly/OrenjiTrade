@@ -78,7 +78,9 @@
             type="button"
             class="cp__primary"
             [disabled]="messaging()"
-            [attr.aria-label]="messaging() ? 'Opening the chat with ' + p.handle : 'Message ' + p.handle"
+            [attr.aria-label]="
+              messaging() ? 'Opening the chat with ' + p.handle : 'Message ' + p.handle
+            "
             (click)="messageRequested.emit()"
           >
             <app-shell-icon name="messages" [size]="18" />

@@ -133,7 +133,9 @@ export class RoomStore {
       const older = this.postsState().filter(
         (post) => !freshIds.has(post.id) && !!page.hasMore && post.createdAt < oldest,
       );
-      const before = this.postsState().map((post) => post.id + (post.editedAt ?? '')).join();
+      const before = this.postsState()
+        .map((post) => post.id + (post.editedAt ?? ''))
+        .join();
       const next = mergePosts(older, fresh);
       this.postsState.set(next);
       if (!page.hasMore) {
