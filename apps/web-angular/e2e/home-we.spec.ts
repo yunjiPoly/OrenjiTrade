@@ -147,12 +147,14 @@ test.describe('web stage WE: Home, notifications and settings', () => {
     const before = await headingTop();
     const box = (await rail.boundingBox())!;
     await page.mouse.move(box.x + box.width / 2, box.y + Math.min(box.height / 2, 300));
+    // One notch at a time, as a mouse wheel turns (each its own scroll gesture).
     for (let turn = 0; turn < 6; turn++) {
       await page.mouse.wheel(0, 300);
+      await page.waitForTimeout(150);
     }
-    // The page moves under the pointer (the rail never keeps the wheel to itself), and a rail
-    // taller than the window was scrolled to its end first.
-    await expect.poll(headingTop, { timeout: 10_000 }).toBeLessThan(before - 300);
+    // The page moves under the pointer (the rail never keeps the wheel to itself: six notches of
+    // 300 move it far more than one), and a rail taller than the window reached its end first.
+    await expect.poll(headingTop, { timeout: 10_000 }).toBeLessThan(before - 900);
     const end = await rail.evaluate((el) => ({
       overflows: el.scrollHeight > el.clientHeight + 1,
       atEnd: el.scrollTop + el.clientHeight >= el.scrollHeight - 1,
