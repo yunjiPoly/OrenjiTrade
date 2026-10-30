@@ -1,3 +1,4 @@
+import { MatTooltip } from '@angular/material/tooltip';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -156,6 +157,16 @@ describe('NotificationBellComponent', () => {
       expect(document.querySelector('[data-testid="notification-popover"]')).toBeNull();
     });
     expect(navigate).toHaveBeenCalled();
+  });
+
+  it('its tooltip stays hidden while the popover is open (WE review U19)', async () => {
+    const tooltip = fixture.debugElement
+      .query((debug) => debug.attributes['data-testid'] === 'notification-bell')
+      .injector.get(MatTooltip);
+    expect(tooltip.disabled).toBe(false);
+    await openPopover();
+    TestBed.tick();
+    expect(tooltip.disabled).toBe(true);
   });
 
   it('marks everything read from the popover', async () => {

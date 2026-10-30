@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { AppConfigService } from '../config/app-config.service';
+import { GET_STARTED_HIDDEN_PREFIX, ROOM_VISITS_PREFIX } from './account-storage';
 import { AuthChange, AuthService } from './auth.service';
 import { FIREBASE_AUTH_PORT } from './firebase-auth.port';
 import { FakeFirebaseAuthPort } from './testing/fake-firebase-auth.port';
@@ -81,6 +82,25 @@ describe('AuthService', () => {
     expect(auth.user()).toBeNull();
     expect(await auth.getIdToken()).toBeNull();
     expect(changes.at(-1)?.user).toBeNull();
+  });
+
+  it('signing out removes the per-account keys of this browser, never the kept game (WE review P4)', async () => {
+    const auth = setup();
+    config.set({ firebaseAuthEmulatorHost: 'localhost:9099' });
+    await auth.init();
+    await auth.ready();
+    await auth.signInWithEmail('maika@example.test', 'secret-pass');
+    const uid = auth.user()!.uid;
+    localStorage.setItem(`${GET_STARTED_HIDDEN_PREFIX}${uid}`, 'hidden');
+    localStorage.setItem(`${ROOM_VISITS_PREFIX}${uid}`, '{}');
+    localStorage.setItem(`orenji.game.${uid}`, 'pokemon');
+
+    await auth.signOut();
+
+    expect(localStorage.getItem(`${GET_STARTED_HIDDEN_PREFIX}${uid}`)).toBeNull();
+    expect(localStorage.getItem(`${ROOM_VISITS_PREFIX}${uid}`)).toBeNull();
+    expect(localStorage.getItem(`orenji.game.${uid}`)).toBe('pokemon');
+    localStorage.clear();
   });
 
   it('re-authenticates with the password and refreshes the token', async () => {
