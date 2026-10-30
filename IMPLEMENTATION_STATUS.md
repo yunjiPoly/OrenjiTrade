@@ -13232,6 +13232,23 @@ wishlist dock floats about 60 px above the tab bar). Screen readers were not run
 could not be verified (no Android SDK on this Mac; the Android export built). A real hover on a
 touch-and-mouse laptop was not walked (the touch tap and the mouse hover were, separately).
 
+**Left open by the verifier of fix 2 (round 2 approved; carried into stage WE, which fixes them
+first):** one minor, R2-1: on Who has this card, with one note row focused by the keyboard and
+another hovered, each Esc hides one tooltip and brings the other back (`who-has.component.ts`
+keeps a single dismissed id). Nits: a tooltip slid inside the map's right edge can sit under the
+zoom buttons (R2-2); the narrow state card has no shade swatch (R2-3, board W29); a game switch
+sends one unused read with the new game and the old set (R2-4); the state chip's name says "Show
+the whole region" while its × goes to the state list (R2-5); and the first round's nits: the game
+pill's options come from the static list (only the availability from `GET /games`, F16), a link's
+state can be selected off-screen (F17), the Wishlist tab reads twice (F14), a guest's Wishlist
+shows the holder pane's "Pick a wish" line (F15), "catalogue" on two not-found pages, the short
+recent-searches footnote, the legend's None swatch in dark and the cut Binders placeholder at 1024
+(U18), Who has this card sends the card but no `game=` (P5, the card decides the game), and the
+heading order of the holder pane and the deck core page (A21). **Lead's calls, unchanged:** card
+suggestions read `GET /cards/suggest?game&q` without `region=` (F12: a catalogue read with nothing
+regional, as the phone's; spec 4.4 names `GET /search/suggest`); browser Back after opening a card
+of another game keeps the game its URL names (U19: the URL owns the game).
+
 ## NEXT TASK
 
 > **The web resumes (owner, 2026-10-28): stages WA to WH2 of the web redesign**, one at a time
@@ -13256,8 +13273,8 @@ touch-and-mouse laptop was not walked (the touch tap and the mouse hover were, s
 > fix 2 and a targeted review fix 3 are done** (see "Review fix 1", "Review fix 2" and "Review fix
 > 3 (targeted, R2-2 and R2-1)" in the WC section; fix 3: an account deletion no longer leaves an
 > inbox preview of the messages it erased (an API fix, no DTO, OpenAPI, schema or migration
-> change), and at md a search field's Esc with text is the field's). **Next for WC: its pull
-> request** (the lead opens it, against `main`), merged with a merge commit once CI is green.
+> change), and at md a search field's Esc with text is the field's). **WC is merged into `main`**
+> (#98, merge commit `31f53904`, 2026-10-29).
 >
 > **Stage WD (Search, Who has this card, sets, binders and deck cores) is built** on
 > `feature/wd-search-cards`, stacked on WC (#98; section "Web redesign WD: Search, Who has this card,
@@ -13276,8 +13293,10 @@ touch-and-mouse laptop was not walked (the touch tap and the mouse hover were, s
 > fix 2, round 2 of 2, is done** (section "Review fix 2" in the WD section: the set's cards follow
 > the game pill, a tap by the set page's footer lands, the toasts clear the wishlist dock as
 > measured, Esc hides a hovered tooltip with the focus anywhere, the narrow state card above the
-> tab bar as board W29; web only). **Next for WD: its pull request after #98**, merged with a merge
-> commit once CI is green.
+> tab bar as board W29; web only). `origin/main` with WC (#98) is merged into the branch at
+> `9ff27437`. **Next for WD: its pull request** (the lead opens it, against `main`), merged with a
+> merge commit once CI is green. Round 2 left one minor (R2-1) and some nits open: stage WE fixes
+> them first (the WD section's "Left open by the verifier of fix 2").
 >
 > **The exact next stage after WD's pull request: stage WE of the web redesign, Home, profiles,
 > notifications and settings (boards W1, W2 and W23 to W25; spec sections 5, 11, 12 and 13; decisions
