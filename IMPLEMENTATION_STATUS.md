@@ -13250,6 +13250,199 @@ suggestions read `GET /cards/suggest?game&q` without `region=` (F12: a catalogue
 regional, as the phone's; spec 4.4 names `GET /search/suggest`); browser Back after opening a card
 of another game keeps the game its URL names (U19: the URL owns the game).
 
+## Web redesign WE: Home, profiles, notifications and settings (2026-10-29)
+
+Stage WE of the web redesign: the owner's prompt of 2026-10-28
+([`docs/product/specs/2026-10-28-web-redesign-stages.md`](docs/product/specs/2026-10-28-web-redesign-stages.md),
+section "WE. Home, profiles, notifications and settings (W1, W2, W23 to W25)") and its spec
+([`docs/product/specs/2026-10-20-web-redesign.md`](docs/product/specs/2026-10-20-web-redesign.md),
+sections 5, 11, 12 and 13; decisions 13 and 16; sections 3, 4.11, 16 and 17 where they point),
+boards W1, W2, W23, W23b, W24 and W25 of the web mockup. Branch `feature/we-home-profiles`
+(worktree `OrenjiTrade-web`), made from `origin/main` and stacked on `feature/wd-search-cards`
+(WD, PR #99, not merged yet). Contract
+[`docs/api/contracts/we-web-home.md`](docs/api/contracts/we-web-home.md). **Two additive API
+changes, no migration** (the next free one stays **V135**; V124 and V128 stay unused), no ADR (an
+ADR would take 0022 or later), no token change: an optional `previews` (1 to 6) on `GET /feed`
+(the web's six tiles; the phone's 4 by default), and the account deletion's notifications step
+renaming the deleted collector in the other collectors' notifications (WC's V3-1). The web client
+now sends `excludeTypes` with the unread count (`web-omits.mjs` omits nothing) and types the feed's
+collector nullable (guests). `packages/api-client` and `packages/shared-types` were regenerated, so
+the phone's checks ran. Free for all (ADR 0019), deals ship by mail (ADR 0018), places only (ADR
+0017), English only (owner, 2026-10-20).
+
+**Carried over and fixed first.**
+
+- **WD's R2-1 (minor, SC 1.4.13):** on Who has this card, with one note row focused and another
+  hovered, one Esc now hides both tooltips (the dismissed tips are a set, each cleared on that row's
+  mouseleave or focusout; `who-has.component.ts`, a unit test for the two-row case).
+- **WD's nits:** the game pill lists the games of `GET /games` (ACTIVE, never HIDDEN, the API's
+  order; the static list only while it loads; `gameOptions`, F16); a state chosen by a link
+  (`state=`) or the list comes into view on Search's map, a visible one stays put (F17); a map
+  tooltip slides left of Search's zoom buttons, or below them, never under them (R2-2,
+  `tooltipPlacement`'s keep-out zone); the Wishlist tab reads "Available" once per set of wishes
+  (F14); a guest's Wishlist tab shows no "Pick a wish" line (F15: the holder pane already needs an
+  account since WD's fix 1, checked in the walk); "catalog" on the card and set not-found pages and
+  the set's empty line; the recent-searches footnote of Search's Cards pane says "You can turn this
+  off in Settings › Privacy."; the legend's None swatch has a strong border; the Binders field's
+  example drops at md so the placeholder is never cut (U18); the card holders and deck cores calls
+  send the card's own `game=` (P5); the holder pane's province headings are one level below "Who has
+  this card" (h4) and the deck core page's h1 comes before the gallery in the DOM, CSS keeping the
+  layout (A21); the narrow state card shows the state's shade swatch (R2-3, board W29); a game switch
+  sends no read with the new game and the old set (R2-4); the state chip is named "Showing Quebec.
+  Back to the list of states", "the whole region" worded on its own (R2-5). Each logic change has a
+  unit test.
+- **WC's V3-1 (minor, phone and web):** after an account deletion, the other collectors' message
+  notifications said "New message from {name}". The deletion's notifications step now rewrites, in
+  the other collectors' `MESSAGE` rows sent by the account (`data.senderId`), the title "New
+  message from Deleted collector" and the body "Deleted collector {phrase}.", and in their
+  `WISHLIST_ALERT` rows about its listing (`data.collectorId`) "listed by Deleted collector in" and
+  `data.collectorHandle`. Rows naming it without its id (a rating's or a sale's handle) keep their
+  words. `DeletedCollectorNotificationsIT` runs the real deletion job (no-op identity client).
+
+**What a collector can now do (and what to click to see it)**
+
+- **Home** (the wordmark or rail › Home, `/`): "What's new" with "Yu-Gi-Oh! · Americas (North) ·
+  last 30 days". The toolbar sticks under the top bar: the chips All, New cards (orange dot),
+  Wanted (teal), Deck cores (purple) in a "Show" group, written to the URL (`?kind=cards|wanted|
+  deckcores`), "Updated 5 min ago" and a refresh button. The feed (`GET /feed`, 20 a page, the next
+  page loaded as the end comes into view, "Couldn't load more" with Try again) in "Today", "Earlier
+  this week", "Earlier this month":
+  - new cards: six 100×147 tiles with prices, a tile opening Who has this card; from 7 cards the
+    6th reads "+N" and opens the profile; one card: its picture, name, code and rarity, price and
+    "Message" (the chat drawer, the card as the chat's subject);
+  - a wish: the terms and **"I have it"**: the chat drawer to the wisher with "Hi! I have {card}."
+    in the message box, your public copy of that card as the chat's card when you have one;
+    nothing is sent until you send it;
+  - a deck core: its photo band (or its key cards' pictures), the tag, "4 photos", the name, the
+    price and the note line; the whole post opens the deck core.
+  - Every 5 minutes while the tab is visible Home quietly reads one post: when newer posts exist,
+    the pill **"New posts · Show"** (no number) appears; posts never slide in.
+  - The end: a teal check, "You're all caught up", "That's everything new for Yu-Gi-Oh! in
+    Americas (North) from the last 30 days." and [Explore the map]. Day one: the dashed box
+    "Nothing new in Americas (North) yet"; a quiet game: "Nothing new in Pokémon yet" with [Add your
+    Pokémon cards] and [Switch game]; a quiet chip: its line and [Show all]. An error: "Couldn't
+    load what's new." with Try again. Three post skeletons while loading.
+  - **The rail** (lg and up): **Get started** ("1 of 3": choose your province, list your first
+    card with [Add cards], add a card you want with [Add a wish]; "Hide these steps" hides it for
+    good for this account in this browser, as do the three steps done) or, signed out, the guest
+    card ("You're browsing as a guest", Create account, Sign in); then the **map card**: a static
+    SVG of the region's bundled boundaries shaded by the binder counts of the browsed game, your
+    province outlined in teal, "Quebec · your province" over "7 binders · 5 deck cores", [Explore
+    the map] (Search › Binders on your province) and the caption; the footer links. Nothing else
+    (decision 16). At md the feed is centred with Get started on top and no map card; below 960 the
+    phone's Home.
+- **A collector's profile** (an avatar or handle anywhere, `/collectors/:handle`): the header card
+  (avatar with the online dot, the name, "@maya_k · ★5.0" scrolling to the ratings, the games and
+  tags, "Laval, Quebec · Member since 2024 · Active this week": the city only while its owner shows
+  it), [Message maya_k] and "⋯" (Share profile, Report maya_k, Block maya_k / Unblock). Cards: two
+  rows of six with prices; a game control when the collector lists cards of two or more games;
+  "See all" shows every card inline in pages of 24. Binders: three, "See all" inline. Looking for:
+  each wish's terms and note with **"I have it"**. The side column: About (bio, games, tags),
+  Ratings & references (the average, the stars, the count, the 2 latest references, "See all
+  references" down to the full section where you rate and write a reference), how deals go.
+- **Your own profile** (rail › Profile, `/profile`): [Edit profile], [Share profile] and the gear;
+  "Not on the map" when you are hidden; Cards with [Add cards] (Inventory's Add drawer) and "See
+  all" to Inventory; Binders' "See all" to Inventory › Binders; Looking for with "Edit" on each wish
+  (Search › Wishlist on that wish) and "See all"; no availability anywhere on a profile.
+- **The bell** (top bar): the orange dot and "Notifications, 1 new" count chats out
+  (`excludeTypes=MESSAGE`; a chat's push never raises it). A press opens the **popover**: "Mark all
+  as read" (teal), the gear (Settings › Notifications), NEW and EARLIER rows (the kind tile, "Maxx
+  "C" from your wishlist was listed in Quebec" over "maya_k · $14.00", the time, the dot), a
+  reminder answered in place ("Still have them" confirms the binder: "Confirmed. They stay in
+  search."; "Review the binder"), "See all notifications". A bottom sheet below 960.
+- **Notifications** (`/notifications`): centred at 720, "Chats are in Messages" and [Notification
+  settings], [All | Unread n], "New" with "Mark all as read", "Earlier" by day (Today, Yesterday,
+  Earlier this week, Last week, then the month), "Load more"; a card's picture on the right; old
+  offer, trade, payment and dispute notices read as history ("Past offer on …") and open nothing.
+- **Settings** (the gear, the account menu, `/settings/:section`): "Settings" with "Signed in as
+  {email}"; the nav: the mini profile card ("Edit profile"), Where you ship from (Location "Quebec,
+  Canada · On the map", Shipping details "Phone app only"), App (Notifications, Privacy, Appearance
+  "Same as the system"), Safety (Blocked, My reports), Account (Account, Legal), Sign out (red) and
+  "OrenjiTrade web 1.0.0".
+  - **Location**: "Show me on the map" ("Collectors see you in Quebec, Canada. Visitors without an
+    account see your cards, never your name."; without a location: "Choose your country and your
+    state or province first, then turn this on."), the region, country, state or province, city
+    ("8 / 80") and "Show my city on my profile", **What others see** (your handle with the
+    province, your name with the city on your profile, "A collector" with the province), **How
+    OrenjiTrade protects where you live**, "Remove my location" (red), "No changes yet" / "Unsaved
+    changes" and [Save location].
+  - **Notifications**: the topics (Messages, Ratings, Binder reminders, Report decisions, News and
+    tips) by App and Email; Push "Set on your phone"; quiet hours; no offers or trades.
+  - **Privacy**: as before, plus "Clear my searches" with how many this browser keeps.
+  - **Appearance**: three preview tiles (Same as the system, Light, Dark), the "Single-key
+    shortcuts" switch; the environment line only off production.
+  - **Legal**: the draft banner and the language switch as today, the documents (Payment
+    Protection and Refund & Dispute hidden while `protectedPayments` is off) and Trading safely.
+
+**Left hidden or out, and why**
+
+- No "Your desk" and no wishlist availability on Home or profiles (decision 16, owner 2026-10-19).
+- No web push (decision 13); chats never reach the bell (R9).
+- The sign-in **dialog** of guests (spec 5.4 and 11: "Sign in to see collector profiles") is stage
+  WG's; until then a guest's Message, "I have it" and a profile go to the sign-in page (the
+  profile shows "Sign in to see collector profiles" with Sign in and Create account in place).
+- Languages on a profile's About: the public profile response carries none, so the row is left out
+  (an additive field would be needed; not built).
+- Blocked's "2" and My reports' "1 waiting" counts in the Settings nav: not shown (each would be
+  one more read on every Settings page); the sections themselves are unchanged.
+
+**Spec points changed, and why**
+
+- **"I have it" pins your copy only when it is public** (spec 5.2: "When your inventory holds that
+  card, your copy is the subject"): R6's review fix 1 forbade pinning a private copy (the other
+  collector's inbox would show it with its price); a public copy outside a deck core is pinned
+  (`POST /conversations` allows your own public item), a private one never.
+- **"Show me on the map" is in Settings › Location (spec 13) and stays in Privacy too**:
+  Inventory's hidden-from-the-map banner (stage WB) links to Privacy, and stage WE changes nothing
+  outside its screens.
+- **A profile's Cards split by the games actually listed**, not the profile's followed games
+  (spec 11: "when the collector lists 2 or more games"): a collector's followed games can differ
+  from what they list (the seed's collector5 follows Pokémon and Magic and lists Yu-Gi-Oh!).
+- **The full ratings section stays below the profile** ("All ratings and references", the target
+  of "See all references"): it holds today's Rate and Write a reference, which the side card has no
+  room for.
+- **Legal's EN / Français switch** stays as it is (owner, 2026-10-20: the existing French texts
+  and their switch stay; nothing French added).
+
+**Removed with the old Home**: the map page (`features/map/map-page`), its state list and panel,
+the unified search box, the old profile's wishlist list and public item card, the old binder card
+and the bell's menu entry component; Home's map lives on as Search › Binders (WD) and the map card.
+
+**Checks** (retries off):
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | passed |
+| `npm run test:api` | 1311 tests, 0 failed (5 min 05 s); new: `DeletedCollectorNotificationsIT`, `FeedIT`'s six pictures and `previews` checks, `FeedRulesTest.previews`, the web's feed and profile reads in `GeoPrivacyContractTest` |
+| `(cd apps/api && ./gradlew exportOpenApi)` then `npm run generate:api` | regenerated and committed; a second run leaves the tree clean |
+| `npm run lint -w apps/web-angular`, `npm run format:check -w apps/web-angular` | passed |
+| `npm test -w apps/web-angular` / `npm run test:web` | 935 tests in 187 files, 0 failed |
+| `npm run build -w apps/web-angular` | passed, no warning |
+| `npm run build:prod -w apps/web-angular` | passed, no warning; **initial total 759.96 kB** (budget 900 kB; the old map page and the unified search box left the bundle); Home's lazy chunk 57.8 kB |
+| `npm run test:e2e -- --retries=0` | four full runs while fixing the suites that followed the old Home, profile and bell (run 1: 80 passed, 10 failed; run 3: 89 passed, 1 failed; run 4: 91 passed, 1 failed, launch-config's Home map); the last full run: **91 passed, 0 failed** (1.2 min); new spec `e2e/home-we.spec.ts` (3 tests: Home's chips, the end, "I have it"'s draft, Get started; the bell and `/notifications` without chats, Mark all as read; Settings › Location) |
+| `npm run typecheck`, `lint`, `format:check -w apps/mobile` | passed |
+| `npm run test:mobile` | 1782 tests in 128 suites and the 34 guard tests, 0 failed (a first run at 00:02 failed one Home-as-a-guest test whose "5 min" post fell before midnight; the file passes, and the whole run after it) |
+| `npx expo export --platform ios / android / web` (scratch folders) | all three passed |
+| `npm run test:mobile:e2e -- --retries=0` (`--stack-only`, the served bundle names `localhost:8090` and never 8080, then `--reuse-running`, then `--stop`) | 66 passed, 0 failed |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro, under the simulator lock) | MAESTRO_PLACEHOLDER |
+| `npm run test:scripts` | 166 passed, 0 failed |
+| `npm run audit:gate` | OK (no unreviewed high or critical advisory) |
+
+**The walk** (API 8580 on `orenjitrade_we_check`, web 4400; Playwright's Chromium at 1440, 1024 and
+390, dark and light): Home signed in and as a guest, each chip, an empty game (Riftbound), day one
+(Americas (South)), the bell with a reminder answered in place, `/notifications`, another
+collector's profile and your own, every Settings section; 66 BEFORE and 92 AFTER screenshots in
+`.local-dev/we-notes/pr-shots/`. Found and fixed in the walk: below 960 a post's name was squeezed
+by its button and the refresh button wrapped under the chips; the map card zoomed a capital
+district (Buenos Aires City) to one shape; a link's `?game=` lost to the account's profile game
+read a moment later (Home now picks the link's game once the games and the account are known, and
+reads the feed once). A guest's Search › Wishlist shows no "Pick a wish" line (F15, checked). The
+walk used seed accounts read-only and two throw-away accounts of my own on the walk database
+(`we-dbg-…@example.test`); no seed account was changed in the shared Auth emulator.
+
+**Could not verify**: the Android run could not be verified (no Android SDK on this Mac; the
+phone's code is unchanged, its generated types gained the optional `previews` parameter).
+
 ## NEXT TASK
 
 > **The web resumes (owner, 2026-10-28): stages WA to WH2 of the web redesign**, one at a time
