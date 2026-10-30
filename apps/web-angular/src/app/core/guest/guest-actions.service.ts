@@ -1,6 +1,5 @@
 import { DOCUMENT } from '@angular/common';
 import { Injectable, Injector, computed, effect, inject, signal, untracked } from '@angular/core';
-import { MatDialog } from '@angular/material/dialog';
 import { NavigationEnd, Router } from '@angular/router';
 import { filter, firstValueFrom } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
@@ -39,7 +38,6 @@ export type GuestAskChoice = 'sign-up' | 'sign-in' | undefined;
 export class GuestActions {
   private readonly injector = inject(Injector);
   private readonly router = inject(Router);
-  private readonly dialog = inject(MatDialog);
   private readonly auth = inject(AuthService);
   private readonly session = inject(SessionService);
   private readonly document = inject(DOCUMENT);
@@ -113,17 +111,20 @@ export class GuestActions {
     this.openingState.set(true);
     let choice: GuestAskChoice;
     try {
-      const { SignInDialogComponent } = await import('./sign-in-dialog.component');
+      // The dialog and Material's dialog service are lazy: they stay out of the initial bundle.
+      const [{ SignInDialogComponent }, { MatDialog }] = await Promise.all([
+        import('./sign-in-dialog.component'),
+        import('@angular/material/dialog'),
+      ]);
       this.openingState.set(false);
-      const ref = this.dialog.open<unknown, SignInDialogData, GuestAskChoice>(
-        SignInDialogComponent,
-        {
+      const ref = this.injector
+        .get(MatDialog)
+        .open<unknown, SignInDialogData, GuestAskChoice>(SignInDialogComponent, {
           data: { action, subject },
           panelClass: 'app-dialog--confirm',
           autoFocus: 'first-tabbable',
           restoreFocus: true,
-        },
-      );
+        });
       choice = await firstValueFrom(ref.afterClosed());
     } finally {
       this.openingState.set(false);
