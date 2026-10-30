@@ -25,11 +25,15 @@
               {{ channel.label }}
             </span>
           </div>
-          <mat-slide-toggle
-            [checked]="settings[channel.master]"
-            (change)="setMaster(channel.master, $event.checked)"
-            [aria-labelledby]="'notif-master-' + channel.key"
-          />
+          @if (channel.key === 'push') {
+            <span class="notif__phone" data-testid="notif-push-phone">Set on your phone</span>
+          } @else {
+            <mat-slide-toggle
+              [checked]="settings[channel.master]"
+              (change)="setMaster(channel.master, $event.checked)"
+              [aria-labelledby]="'notif-master-' + channel.key"
+            />
+          }
         </li>
       }
     </ul>
@@ -87,7 +91,7 @@
         <thead>
           <tr>
             <th scope="col">Topic</th>
-            @for (channel of channels; track channel.key) {
+            @for (channel of webChannels; track channel.key) {
               <th scope="col">{{ channel.label }}</th>
             }
           </tr>
@@ -99,7 +103,7 @@
                 <span class="section-row__label">{{ category.label }}</span>
                 <span class="section-row__help notif__help">{{ category.help }}</span>
               </th>
-              @for (channel of channels; track channel.key) {
+              @for (channel of webChannels; track channel.key) {
                 <td>
                   <mat-checkbox
                     [checked]="settings.categories[category.key][channel.key]"

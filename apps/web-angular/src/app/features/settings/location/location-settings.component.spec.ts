@@ -7,6 +7,7 @@ import { MyLocationResponse, RegionsService } from '@orenji/api-client';
 import { of } from 'rxjs';
 import { SessionService } from '../../../core/auth/session.service';
 import { LocationFieldsComponent } from '../../../shared/location/location-fields/location-fields.component';
+import { ApiError } from '../../../core/http/api-error';
 import { MyLocationStore } from '../../../shared/location/my-location.store';
 import { REGIONS_FIXTURE } from '../../../shared/regions/testing/regions-fixtures';
 import { LocationSettingsComponent } from './location-settings.component';
@@ -41,6 +42,8 @@ describe('LocationSettingsComponent', () => {
     load: ReturnType<typeof vi.fn>;
     saveLocation: ReturnType<typeof vi.fn>;
     removeLocation: ReturnType<typeof vi.fn>;
+    privacy: ReturnType<typeof signal<Record<string, unknown> | null>>;
+    savePrivacy: ReturnType<typeof vi.fn>;
   };
   let confirm: boolean;
 
@@ -51,6 +54,8 @@ describe('LocationSettingsComponent', () => {
       load: vi.fn(async () => true),
       saveLocation: vi.fn(async () => saved),
       removeLocation: vi.fn(async () => store.location.set({ discoverable: false })),
+      privacy: signal<Record<string, unknown> | null>({ discoverable: true }),
+      savePrivacy: vi.fn(async (settings: Record<string, unknown>) => settings),
     };
     TestBed.configureTestingModule({
       imports: [LocationSettingsComponent],
@@ -58,7 +63,15 @@ describe('LocationSettingsComponent', () => {
         provideRouter([]),
         { provide: MyLocationStore, useValue: store },
         { provide: RegionsService, useValue: { listRegions: vi.fn(() => of(REGIONS_FIXTURE)) } },
-        { provide: SessionService, useValue: { status: signal('ready'), me: signal(null) } },
+        {
+          provide: SessionService,
+          useValue: {
+            status: signal('ready'),
+            me: signal(null),
+            handle: signal('sam_trades'),
+            displayName: signal('Sam Tremblay'),
+          },
+        },
         { provide: MatSnackBar, useValue: { open: vi.fn() } },
         {
           provide: MatDialog,
@@ -91,6 +104,42 @@ describe('LocationSettingsComponent', () => {
     expect(element.textContent).toContain('Visible on the map');
     expect(saveButton().disabled).toBe(true);
     expect(element.textContent).not.toMatch(/\d+\.\d{3,}|\bkm\b/);
+  });
+
+  it('says what others see: the handle and the province, the city on the profile only (W25)', async () => {
+    await mount(SAVED);
+    const rows = [...element.querySelectorAll('.loc__others li')].map((row) =>
+      [...row.querySelectorAll('.loc__name, .loc__place')].map((part) => part.textContent?.trim()).join(' '),
+    );
+    expect(rows[0]).toContain('sam_trades Quebec');
+    expect(rows[0]).not.toContain('Montréal');
+    expect(rows[1]).toContain('Sam Tremblay Montréal, Quebec');
+    expect(rows[2]).toContain('A collector Quebec');
+    expect(rows[2]).not.toContain('Montréal');
+  });
+
+  it('answers 409 LOCATION_REQUIRED in place and puts the switch back', async () => {
+    await mount({ discoverable: false });
+    store.savePrivacy.mockRejectedValueOnce(
+      new ApiError({
+        status: 409,
+        errorCode: 'LOCATION_REQUIRED',
+        message: 'Location required',
+        requestId: 'r1',
+        fieldErrors: {},
+      }),
+    );
+    const toggle = element.querySelector<HTMLButtonElement>(
+      '[data-testid="location-discoverable"] button[role="switch"]',
+    )!;
+    toggle.click();
+    await settle();
+    fixture.detectChanges();
+    expect(store.savePrivacy).toHaveBeenCalledWith({ discoverable: true });
+    expect(element.textContent).toContain(
+      'Choose your country and your state or province first, then turn this on.',
+    );
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
   });
 
   it('saves an edited location', async () => {
@@ -128,7 +177,7 @@ describe('LocationSettingsComponent', () => {
     await mount(SAVED);
     confirm = true;
     Array.from(element.querySelectorAll('button'))
-      .find((button) => button.textContent?.includes('Remove location'))!
+      .find((button) => button.textContent?.includes('Remove my location'))!
       .click();
     await settle();
     fixture.detectChanges();
