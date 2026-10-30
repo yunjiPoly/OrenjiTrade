@@ -591,6 +591,11 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
                         .as("province of %s for %s", handle, reader)
                         .isEqualTo(PLACES.get(handle).split(", ")[0]);
                 fetch(base + "/inventory?size=10&excludeDeckCoreItems=true", caller);
+                // The web's profile (stage WE): 12 cards of one game, then pages of 24.
+                fetch(base + "/inventory?size=12&excludeDeckCoreItems=true&game=yugioh", caller);
+                fetch(
+                        base + "/inventory?size=24&page=1&excludeDeckCoreItems=true&game=yugioh",
+                        caller);
                 fetch(base + "/binders", caller);
                 fetch(base + "/ratings?limit=1", caller);
                 fetch(base + "/references?limit=2", caller);
@@ -770,6 +775,17 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
             for (String kind : List.of("NEW_CARDS", "WANTED", "DECK_CORES")) {
                 checkFeed(
                         fetch("/api/v1/feed?limit=50&game=yugioh&kind=" + kind, caller),
+                        reader,
+                        kindsSeen);
+            }
+            // The web's Home (stage WE): every chip with its 6 pictures per new-cards post.
+            for (String kind : List.of("ALL", "NEW_CARDS", "WANTED", "DECK_CORES")) {
+                checkFeed(
+                        fetch(
+                                "/api/v1/feed?limit=20&previews=6&region=americas-north"
+                                        + "&game=yugioh&kind="
+                                        + kind,
+                                caller),
                         reader,
                         kindsSeen);
             }

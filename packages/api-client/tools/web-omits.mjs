@@ -8,8 +8,8 @@
  * (packages/shared-types) keep every parameter of docs/api/openapi.json; the web never sends these.
  */
 export const WEB_CLIENT_OMITS = {
-  // Stage R9: the phone leaves chats out of its bell (`excludeTypes=MESSAGE`).
-  getUnreadNotificationCount: ['excludeTypes'],
+  // Stage R9 omitted `excludeTypes` of `getUnreadNotificationCount` here; web stage WE (spec 12)
+  // sends it (`excludeTypes=MESSAGE`, the bell leaves chats out), so nothing is omitted now.
 };
 
 /**
@@ -26,7 +26,7 @@ export const WEB_CLIENT_OMITS = {
  */
 export const WEB_CLIENT_NOT_NULL = {
   CollectorMarker: ['id', 'handle', 'displayName'],
-  FeedCollector: ['id', 'handle', 'displayName'],
+  // FeedCollector is typed nullable on the web since stage WE: Home shows a guest "A collector".
   PublicBinderOwner: ['id', 'handle', 'displayName'],
 };
 

@@ -3624,7 +3624,7 @@ export interface paths {
         };
         /**
          * What became public in a region for a game (Home)
-         * @description Posts of discoverable collectors of `region` (default: the caller's home region, else americas-north) for the game `game`, newest first with a cursor, never older than `windowDays` (a server setting, 30 by default; `nextCursor` is null at the end): NEW_CARDS (one collector's public, fresh cards of `game` that became public within the same hour: their number and the newest 4; cards filed in a deck core are left out, the deck core's post covers them), WANTED (a wish of a collector who shows their wishlist) and DECK_CORE (a public, unsold deck core of `game`). Never the caller's own posts, never a collector in a block with the caller in either direction (left out before the limit), never a city or a coordinate: places are a state or province and a country. Card pictures come through /api/v1/public/card-images; nothing is sponsored. Auth optional (stage R15): a signed-out caller reads the posts of americas-north unless `region` says otherwise, each with its place and every field of `collector` null (never who posted it).
+         * @description Posts of discoverable collectors of `region` (default: the caller's home region, else americas-north) for the game `game`, newest first with a cursor, never older than `windowDays` (a server setting, 30 by default; `nextCursor` is null at the end): NEW_CARDS (one collector's public, fresh cards of `game` that became public within the same hour: their number and the newest 4, or `previews` of them; cards filed in a deck core are left out, the deck core's post covers them), WANTED (a wish of a collector who shows their wishlist) and DECK_CORE (a public, unsold deck core of `game`). Never the caller's own posts, never a collector in a block with the caller in either direction (left out before the limit), never a city or a coordinate: places are a state or province and a country. Card pictures come through /api/v1/public/card-images; nothing is sponsored. Auth optional (stage R15): a signed-out caller reads the posts of americas-north unless `region` says otherwise, each with its place and every field of `collector` null (never who posted it).
          */
         get: operations["getFeed"];
         put?: never;
@@ -9496,7 +9496,7 @@ export interface components {
              * @example 12
              */
             total: number;
-            /** @description The newest 4 at most, newest first */
+            /** @description The newest 4 at most (or `previews` of them), newest first */
             previews: components["schemas"]["FeedCardPreview"][];
         };
         /** @description What became public in the region for the game in the last `windowDays` days, newest first */
@@ -25715,6 +25715,8 @@ export interface operations {
                 cursor?: string;
                 /** @description Posts per page (20 by default) */
                 limit?: number;
+                /** @description Card pictures of a new-cards post, 1 to 6 (4 by default, the phone's grid; the web asks for 6) */
+                previews?: number;
             };
             header?: never;
             path?: never;

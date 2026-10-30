@@ -17,8 +17,11 @@ import org.jspecify.annotations.Nullable;
  */
 public final class FeedRules {
 
-    /** At most this many card pictures in a new-cards post (the 4-column grid). */
+    /** At most this many card pictures in a new-cards post (the phone's 4-column grid). */
     public static final int PREVIEWS_MAX = 4;
+
+    /** The most pictures a caller may ask for with {@code previews} (the web's 6 tiles, WE). */
+    public static final int PREVIEWS_LIMIT = 6;
 
     /** The note line of a deck core post is at most this many characters, "…" included. */
     public static final int NOTE_LINE_MAX = 120;
@@ -110,5 +113,13 @@ public final class FeedRules {
             return DEFAULT_LIMIT;
         }
         return Math.max(1, Math.min(requested, MAX_LIMIT));
+    }
+
+    /**
+     * The pictures of a new-cards post: {@value #PREVIEWS_MAX} unless the caller asks for 1 to
+     * {@value #PREVIEWS_LIMIT} (the controller refuses anything else).
+     */
+    public static int previews(@Nullable Integer requested) {
+        return requested == null ? PREVIEWS_MAX : Math.clamp(requested, 1, PREVIEWS_LIMIT);
     }
 }

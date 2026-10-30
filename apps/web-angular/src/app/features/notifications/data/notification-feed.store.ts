@@ -2,6 +2,7 @@ import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core'
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   CursorPageNotificationResponse,
+  ListNotificationsRequestParams,
   NotificationResponse,
   NotificationsService,
 } from '@orenji/api-client';
@@ -9,8 +10,10 @@ import { Subscription, firstValueFrom } from 'rxjs';
 import { ApiError, toApiError } from '../../../core/http/api-error';
 import { silentErrors } from '../../../core/http/http-context';
 import {
+  EXCLUDED_NOTIFICATION_TYPES,
   NotificationCenter,
   ReadChange,
+  bellShows,
 } from '../../../core/notifications/notification-center.service';
 import { RealtimeService } from '../../../core/realtime/realtime.service';
 
@@ -107,7 +110,7 @@ export class NotificationFeedStore {
     this.started = true;
     this.center.pushed$
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((notification) => this.prepend(notification));
+      .subscribe((notification) => bellShows(notification) && this.prepend(notification));
     this.center.readChanges$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((change) => this.applyRead(change));
@@ -213,8 +216,9 @@ export class NotificationFeedStore {
     return this.center.markAllRead();
   }
 
-  private request(): { limit: number; unreadOnly?: boolean } {
-    return this.unreadOnlyState() ? { limit: FEED_PAGE, unreadOnly: true } : { limit: FEED_PAGE };
+  private request(): ListNotificationsRequestParams {
+    const base = { limit: FEED_PAGE, excludeTypes: EXCLUDED_NOTIFICATION_TYPES };
+    return this.unreadOnlyState() ? { ...base, unreadOnly: true } : base;
   }
 
   private setCursor(page: CursorPageNotificationResponse): void {

@@ -51,9 +51,13 @@ test('every omission names a parameter the OpenAPI document has (none is stale)'
       );
     }
   }
-  // The unread count is called without parameters by the paused web: none left after the filter.
+  // Web stage WE sends `excludeTypes` with the unread count (the bell leaves chats out): kept.
   withoutWebOmits(document);
-  assert.equal(operations.get('getUnreadNotificationCount').parameters, undefined);
+  assert.ok(
+    (operations.get('getUnreadNotificationCount').parameters ?? []).some(
+      (parameter) => parameter.name === 'excludeTypes'
+    )
+  );
 });
 
 test('the web keeps a collector\'s identity typed as before; others stay nullable', () => {

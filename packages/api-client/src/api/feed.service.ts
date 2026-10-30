@@ -43,7 +43,7 @@ export class FeedService extends BaseService implements FeedServiceInterface {
 
     /**
      * What became public in a region for a game (Home)
-     * Posts of discoverable collectors of &#x60;region&#x60; (default: the caller\&#39;s home region, else americas-north) for the game &#x60;game&#x60;, newest first with a cursor, never older than &#x60;windowDays&#x60; (a server setting, 30 by default; &#x60;nextCursor&#x60; is null at the end): NEW_CARDS (one collector\&#39;s public, fresh cards of &#x60;game&#x60; that became public within the same hour: their number and the newest 4; cards filed in a deck core are left out, the deck core\&#39;s post covers them), WANTED (a wish of a collector who shows their wishlist) and DECK_CORE (a public, unsold deck core of &#x60;game&#x60;). Never the caller\&#39;s own posts, never a collector in a block with the caller in either direction (left out before the limit), never a city or a coordinate: places are a state or province and a country. Card pictures come through /api/v1/public/card-images; nothing is sponsored. Auth optional (stage R15): a signed-out caller reads the posts of americas-north unless &#x60;region&#x60; says otherwise, each with its place and every field of &#x60;collector&#x60; null (never who posted it).
+     * Posts of discoverable collectors of &#x60;region&#x60; (default: the caller\&#39;s home region, else americas-north) for the game &#x60;game&#x60;, newest first with a cursor, never older than &#x60;windowDays&#x60; (a server setting, 30 by default; &#x60;nextCursor&#x60; is null at the end): NEW_CARDS (one collector\&#39;s public, fresh cards of &#x60;game&#x60; that became public within the same hour: their number and the newest 4, or &#x60;previews&#x60; of them; cards filed in a deck core are left out, the deck core\&#39;s post covers them), WANTED (a wish of a collector who shows their wishlist) and DECK_CORE (a public, unsold deck core of &#x60;game&#x60;). Never the caller\&#39;s own posts, never a collector in a block with the caller in either direction (left out before the limit), never a city or a coordinate: places are a state or province and a country. Card pictures come through /api/v1/public/card-images; nothing is sponsored. Auth optional (stage R15): a signed-out caller reads the posts of americas-north unless &#x60;region&#x60; says otherwise, each with its place and every field of &#x60;collector&#x60; null (never who posted it).
      * @endpoint get /api/v1/feed
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -62,6 +62,7 @@ export class FeedService extends BaseService implements FeedServiceInterface {
         const kind = requestParameters?.kind;
         const cursor = requestParameters?.cursor;
         const limit = requestParameters?.limit;
+        const previews = requestParameters?.previews;
 
         let localVarQueryParameters = new OpenApiHttpParams(this.encoder);
 
@@ -105,6 +106,15 @@ export class FeedService extends BaseService implements FeedServiceInterface {
             localVarQueryParameters,
             'limit',
             <any>limit,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'previews',
+            <any>previews,
             QueryParamStyle.Form,
             true,
         );

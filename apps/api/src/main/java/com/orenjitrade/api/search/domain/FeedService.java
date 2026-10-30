@@ -93,7 +93,19 @@ public class FeedService {
             @Nullable String game,
             @Nullable String kind,
             @Nullable String cursor,
-            @Nullable Integer limit) {}
+            @Nullable Integer limit,
+            @Nullable Integer previews) {
+
+        /** Without {@code previews}: the phone's {@value FeedRules#PREVIEWS_MAX} pictures. */
+        public FeedQuery(
+                @Nullable String region,
+                @Nullable String game,
+                @Nullable String kind,
+                @Nullable String cursor,
+                @Nullable Integer limit) {
+            this(region, game, kind, cursor, limit, null);
+        }
+    }
 
     /** One page of the feed. */
     @Transactional(readOnly = true)
@@ -154,13 +166,14 @@ public class FeedService {
                 game,
                 kinds,
                 days,
-                posts(viewerId, scope, page),
+                posts(viewerId, scope, page, FeedRules.previews(query.previews())),
                 nextCursor,
                 gameHasPosts,
                 regionHasPosts);
     }
 
-    private List<FeedPost> posts(@Nullable UUID viewerId, Scope scope, List<PostRef> page) {
+    private List<FeedPost> posts(
+            @Nullable UUID viewerId, Scope scope, List<PostRef> page, int previews) {
         if (page.isEmpty()) {
             return List.of();
         }
@@ -177,8 +190,7 @@ public class FeedService {
             }
         }
 
-        Map<GroupKey, CardGroup> cardGroups =
-                feed.cardGroups(scope, groups, FeedRules.PREVIEWS_MAX);
+        Map<GroupKey, CardGroup> cardGroups = feed.cardGroups(scope, groups, previews);
         List<UUID> itemIds = new ArrayList<>();
         cardGroups.values().forEach(group -> itemIds.addAll(group.itemIds()));
         Map<UUID, InventoryItemView> items = new HashMap<>();
@@ -379,7 +391,8 @@ public class FeedService {
      * One collector's cards of one hour.
      *
      * @param total how many
-     * @param previews the newest {@value FeedRules#PREVIEWS_MAX} at most, newest first
+     * @param previews the newest {@value FeedRules#PREVIEWS_MAX} at most (up to {@value
+     *     FeedRules#PREVIEWS_LIMIT} when the caller asks, the web's 6 tiles), newest first
      */
     public record NewCards(long total, List<CardPreview> previews) {}
 

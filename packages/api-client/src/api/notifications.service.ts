@@ -36,6 +36,7 @@ import { BaseService } from '../api.base.service';
 import {
     NotificationsServiceInterface,
     DeletePushTokenRequestParams,
+    GetUnreadNotificationCountRequestParams,
     ListNotificationsRequestParams,
     MarkNotificationReadRequestParams,
     RegisterPushTokenRequestParams
@@ -117,14 +118,27 @@ export class NotificationsService extends BaseService implements NotificationsSe
      * Number of unread notifications (badge)
      * &#x60;excludeTypes&#x60; leaves types out of the count (stage R9), as on the list.
      * @endpoint get /api/v1/notifications/unread-count
+     * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public getUnreadNotificationCount(observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<UnreadNotificationCount>;
-    public getUnreadNotificationCount(observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<UnreadNotificationCount>>;
-    public getUnreadNotificationCount(observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<UnreadNotificationCount>>;
-    public getUnreadNotificationCount(observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+    public getUnreadNotificationCount(requestParameters?: GetUnreadNotificationCountRequestParams, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<UnreadNotificationCount>;
+    public getUnreadNotificationCount(requestParameters?: GetUnreadNotificationCountRequestParams, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<UnreadNotificationCount>>;
+    public getUnreadNotificationCount(requestParameters?: GetUnreadNotificationCountRequestParams, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<UnreadNotificationCount>>;
+    public getUnreadNotificationCount(requestParameters?: GetUnreadNotificationCountRequestParams, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        const excludeTypes = requestParameters?.excludeTypes;
+
+        let localVarQueryParameters = new OpenApiHttpParams(this.encoder);
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'excludeTypes',
+            <any>excludeTypes,
+            QueryParamStyle.Form,
+            true,
+        );
+
 
         let localVarHeaders = this.defaultHeaders;
 
@@ -160,6 +174,7 @@ export class NotificationsService extends BaseService implements NotificationsSe
         return this.httpClient.request<UnreadNotificationCount>('get', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
+                params: localVarQueryParameters.toHttpParams(),
                 responseType: <any>responseType_,
                 ...(withCredentials ? { withCredentials } : {}),
                 headers: localVarHeaders,

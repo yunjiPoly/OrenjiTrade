@@ -54,16 +54,17 @@ public class FeedController {
                         + " cursor, never older than `windowDays` (a server setting, 30 by default;"
                         + " `nextCursor` is null at the end): NEW_CARDS (one collector's public,"
                         + " fresh cards of `game` that became public within the same hour: their"
-                        + " number and the newest 4; cards filed in a deck core are left out, the"
-                        + " deck core's post covers them), WANTED (a wish of a collector who shows"
-                        + " their wishlist) and DECK_CORE (a public, unsold deck core of `game`)."
-                        + " Never the caller's own posts, never a collector in a block with the"
-                        + " caller in either direction (left out before the limit), never a city or"
-                        + " a coordinate: places are a state or province and a country. Card"
-                        + " pictures come through /api/v1/public/card-images; nothing is sponsored."
-                        + " Auth optional (stage R15): a signed-out caller reads the posts of"
-                        + " americas-north unless `region` says otherwise, each with its place and"
-                        + " every field of `collector` null (never who posted it).")
+                        + " number and the newest 4, or `previews` of them; cards filed in a deck"
+                        + " core are left out, the deck core's post covers them), WANTED (a wish of"
+                        + " a collector who shows their wishlist) and DECK_CORE (a public, unsold"
+                        + " deck core of `game`). Never the caller's own posts, never a collector"
+                        + " in a block with the caller in either direction (left out before the"
+                        + " limit), never a city or a coordinate: places are a state or province"
+                        + " and a country. Card pictures come through /api/v1/public/card-images;"
+                        + " nothing is sponsored. Auth optional (stage R15): a signed-out caller"
+                        + " reads the posts of americas-north unless `region` says otherwise, each"
+                        + " with its place and every field of `collector` null (never who posted"
+                        + " it).")
     @ApiResponse(responseCode = "200", description = "One page of the feed")
     @ApiResponse(
             responseCode = "400",
@@ -118,11 +119,19 @@ public class FeedController {
                     @RequestParam(required = false)
                     @Min(1)
                     @Max(FeedRules.MAX_LIMIT)
-                    @Nullable Integer limit) {
+                    @Nullable Integer limit,
+            @Parameter(
+                            description =
+                                    "Card pictures of a new-cards post, 1 to 6 (4 by default, the"
+                                            + " phone's grid; the web asks for 6)")
+                    @RequestParam(required = false)
+                    @Min(1)
+                    @Max(FeedRules.PREVIEWS_LIMIT)
+                    @Nullable Integer previews) {
         return FeedPageResponse.from(
                 feedService.page(
                         SearchController.viewer(principal),
-                        new FeedQuery(region, game, kind, cursor, limit)),
+                        new FeedQuery(region, game, kind, cursor, limit, previews)),
                 SearchController.showWho(privacyPolicy, principal));
     }
 }

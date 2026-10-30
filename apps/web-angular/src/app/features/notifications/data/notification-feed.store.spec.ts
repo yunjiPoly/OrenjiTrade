@@ -102,7 +102,7 @@ describe('NotificationFeedStore', () => {
   it('loads all notifications, then only the unread ones when the filter changes', () => {
     store.setFilter(false);
     expect(api['listNotifications']).toHaveBeenCalledWith(
-      { limit: FEED_PAGE },
+      { limit: FEED_PAGE, excludeTypes: ['MESSAGE'] },
       'body',
       false,
       expect.anything(),
@@ -114,7 +114,7 @@ describe('NotificationFeedStore', () => {
     pages.push({ items: [notification('a')], hasMore: false });
     store.setFilter(true);
     expect(api['listNotifications']).toHaveBeenLastCalledWith(
-      { limit: FEED_PAGE, unreadOnly: true },
+      { limit: FEED_PAGE, excludeTypes: ['MESSAGE'], unreadOnly: true },
       'body',
       false,
       expect.anything(),
@@ -128,7 +128,7 @@ describe('NotificationFeedStore', () => {
     pages.push({ items: [notification('c', '2026-09-20T10:00:00Z')], hasMore: false });
     store.loadMore();
     expect(api['listNotifications']).toHaveBeenLastCalledWith(
-      { limit: FEED_PAGE, cursor: 'next' },
+      { limit: FEED_PAGE, excludeTypes: ['MESSAGE'], cursor: 'next' },
       'body',
       false,
       expect.anything(),
