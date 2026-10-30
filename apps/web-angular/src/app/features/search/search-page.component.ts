@@ -16,6 +16,7 @@ import { CatalogService } from '@orenji/api-client';
 import type { PublicBinderSummary, WishlistItemResponse } from '@orenji/api-client';
 import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
+import { SessionService } from '../../core/auth/session.service';
 import { GameContext } from '../../core/game/game-context.service';
 import { silentErrors } from '../../core/http/http-context';
 import { ShellLayout } from '../../core/layout/shell-layout.service';
@@ -98,6 +99,7 @@ export class SearchPageComponent {
   private readonly catalog = inject(CatalogService);
   private readonly document = inject(DOCUMENT);
   protected readonly auth = inject(AuthService);
+  private readonly session = inject(SessionService);
   protected readonly layout = inject(ShellLayout);
   protected readonly regionContext = inject(RegionContext);
   protected readonly gameContext = inject(GameContext);
@@ -245,6 +247,7 @@ export class SearchPageComponent {
 
   private appliedRegion: string | null = null;
   private appliedGame: string | null = null;
+  private appliedAccount: string | null | undefined = undefined;
   private returnFocus: { id: string; scroll: number } | null = null;
 
   constructor() {
@@ -276,9 +279,19 @@ export class SearchPageComponent {
       const game = this.gameContext.current();
       const browsable = this.gameContext.browsable();
       const oldLink = !!this.card() || !!this.printing();
+      // Signing in (or out) brings back the account's own game and region: the address's choice
+      // is applied again after it, as Home does (WE 5f4a23be), so the sign-in comes back to the
+      // same game with the same binder open (WG review U3).
+      const status = this.session.status();
+      const account = this.gameContext.account();
       untracked(() => {
-        if (oldLink) {
+        if (oldLink || status === 'loading') {
           return;
+        }
+        if (account !== this.appliedAccount) {
+          this.appliedAccount = account;
+          this.appliedRegion = null;
+          this.appliedGame = null;
         }
         if (
           requestedRegion &&
@@ -291,9 +304,15 @@ export class SearchPageComponent {
             return;
           }
         }
-        if (requestedGame && requestedGame !== this.appliedGame && browsable !== null) {
+        if (requestedGame && requestedGame !== this.appliedGame) {
+          if (browsable === null) {
+            // The games are not listed yet: the link's game waits for them (the URL stays).
+            return;
+          }
           this.appliedGame = requestedGame;
-          if (requestedGame !== game && this.gameContext.select(requestedGame)) {
+          // Picked even when it is already browsed: the account's profile game, read a moment
+          // later, must not replace the link's game.
+          if (this.gameContext.select(requestedGame) && requestedGame !== game) {
             return;
           }
         }
