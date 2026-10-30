@@ -237,6 +237,8 @@ public class SaleService {
         data.put("conversationId", conversationId.toString());
         data.put("saleId", saleId.toString());
         data.put("sellerHandle", seller.handle());
+        // The seller's id (WF, WE review R2-2): an account deletion finds the row by it.
+        data.put("sellerId", me.toString());
         // Stage R9: the phone's row "{seller} marked {name} as sold to you", the card's picture
         // and whether a tracking number came with it (never the number itself).
         data.put("itemName", row.name());
