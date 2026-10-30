@@ -13798,7 +13798,22 @@ shell icons (`gear`, `messageSquare`, `send`, `trash`, `image` and the existing 
 
 **Checks** (retries off, the real numbers)
 
-CHECKS_TABLE
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | clean |
+| `npm run test:api` | **209 classes / 1,313 tests** (`test`) and 13 (`catalogTest`), 0 failures, 4 min 27 s; `DeletedCollectorDealNotificationsIT` (2) among them |
+| `exportOpenApi` then `generate:api` | nothing changed (the new keys sit in a notification's free `data` map); git clean |
+| `npm run lint`, `format:check -w apps/web-angular` | clean |
+| `npm run test:web` (lint and `ng test`) | **196 files / 1,004 tests** |
+| `npm run build -w apps/web-angular`, `build:prod` | initial total **763.51 kB** (budget 900 kB; WE: 759.96 kB), no warning |
+| `npm run test:e2e -- --retries=0` (8180/4300, under the lock) | **96 passed** (1.2 min), every spec on the first attempt; targeted runs before: 21 of 22 (the focus after Back below 960, fixed with the one Messages route), then 26 of 26 |
+| `npm run typecheck`, `lint`, `format:check -w apps/mobile` | clean |
+| `npm run test:mobile` | **128 suites / 1,782 tests** |
+| `npx expo export` (scratch folders) | iOS 1,975 modules, Android 2,101 modules, web 1,596 modules and 68 static routes |
+| `npm run test:mobile:e2e -- --retries=0` (8090/19006, under the simulator lock) | `--stack-only` (the served export names `http://localhost:8090` only, checked by the harness and by hand), then `--reuse-running`: **66 passed** (1.1 min), then `--stop` |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro, under the lock; `apps/api` changed) | MAESTRO_RESULT |
+| `npm run test:scripts` | **165 / 165** (the guard test of `PAUSED_WEB_CHANNELS` removed with it) |
+| `npm run audit:gate` | OK (no unreviewed high or critical advisory) |
 
 **The walk** (Playwright on the walk stack: API 8580 with `orenjitrade_wf_check` and Redis db 6, web
 4400; seed collectors and a phone-made post with two photos uploaded as `COMMUNITY` in the walk
@@ -13807,10 +13822,14 @@ and after): the list and the room beside it, the photo post and its viewer, the 
 both pickers, a post with a shared card, Report this post, Room rules as the pane, the drawer at
 1024 and the sheet at 390, Block (gone at once and after a reload, Unblock in Room rules), the
 room's limit after ten posts; WE's leftovers (the breadcrumb and the profile's menu, the gears,
-Home's links at 1024, "Still have them" in the Unread view). Compared with board W22: the same
-columns, rows, tiles, header, banner, post rows, menus, message box and Room rules pane. It found
-one thing, fixed: the share picker's header and search had lost their layout (a rule of the room
-mode had split a selector list; the chats' picker was hit too; a spec now covers the picker).
+Home's links at 1024, "Still have them" in the Unread view); keyboard only (↓ and Enter between
+rooms, Esc in a room back to its row, "⋯" shown on focus, its menu from Enter with the first item
+focused and Esc back on "⋯") and at 200 percent zoom (720 × 450: no sideways scroll, the message box
+in view). Compared with board W22: the same columns, rows, tiles, header, banner, post rows, menus,
+message box and Room rules pane. It found two things, fixed: the share picker's header and search
+had lost their layout (a rule of the room mode had split a selector list; the chats' picker was hit
+too; a spec now covers the picker), and a room row's spoken last post got a second full stop after
+its own "!" (unit test).
 
 **What could not be verified**
 
