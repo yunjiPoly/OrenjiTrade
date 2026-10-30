@@ -13534,7 +13534,7 @@ API change (the account deletion, no DTO, OpenAPI, schema or migration change: t
 | `npm run test:mobile` | 1782 tests in 128 suites and the 34 guard tests, 0 failed |
 | `npx expo export --platform ios / android / web` (scratch folders) | all three passed |
 | `npm run test:mobile:e2e -- --retries=0` (`--stack-only`, the served bundle names `localhost:8090` twice and never 8080, then `--reuse-running`, then `--stop`) | 66 passed, 0 failed |
-| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro, under the simulator lock; `apps/api` changed) | MAESTRO_RESULT_FIX1 |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro, under the simulator lock; `apps/api` changed) | run 1 cut by the owner's pause (29 passed, the 30th failed as the run was stopped); **run 2: 44 of 44 flows passed** (1 h 10 min); the simulator's appearance (light) and text size (large) unchanged, the lock released |
 | `npm run test:scripts` | 166 passed, 0 failed |
 | `npm run audit:gate` | OK (no unreviewed high or critical advisory) |
 
@@ -13551,6 +13551,10 @@ database). Found and fixed in the walk: "Still have them" lost the focus as the 
 Earlier; 2.5 px of the toolbar's padding at 720×450 (a card tile partly under it, never hidden).
 The AFTER screenshots are refreshed (92, and 12 `fix1-*` of the fixes) in
 `.local-dev/we-notes/pr-shots/after/`.
+
+The web, mobile and script checks above ran on the final tree before `origin/main` (WD, #99) was
+merged in at `30eb9eb8` (no file changed); after them only `RefusedAccountBrowsesAsGuestIT`
+changed (test only), so the API suite and the native suite ran again and nothing else did.
 
 **Could not verify**: the Android run could not be verified (no Android SDK on this Mac; the
 phone's code is unchanged; the API change renames notification rows the phone reads with the
