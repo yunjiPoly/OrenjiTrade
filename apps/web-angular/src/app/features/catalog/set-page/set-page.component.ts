@@ -80,6 +80,15 @@ export function printingDistinction(
     .join(' · ');
 }
 
+/**
+ * Whether a focused stepper or tile is scrolled above the sticky footer of "Add from this set": it
+ * reaches within 12 px of the footer, and the keyboard focused it (a pointer press keeps its place,
+ * or its click is lost: WD review R1-2).
+ */
+export function liftsAboveFooter(bottom: number, footTop: number, keyboard: boolean): boolean {
+  return keyboard && bottom > footTop - 12;
+}
+
 /** The binders "Add from this set" can file into: the collector's binders of the set's game. */
 export function sameGameBinders(
   binders: readonly BinderResponse[],
@@ -338,7 +347,12 @@ export class SetPageComponent {
     return { tab: 'cards', set: this.id() };
   }
 
-  /** A focused stepper or tile under the sticky footer is scrolled above it (SC 2.4.11). */
+  /**
+   * A stepper or tile the keyboard focused under the sticky footer is scrolled above it (SC
+   * 2.4.11). A pointer press focuses its button before the click: a scroll then would move the
+   * button from under the finger and lose the click (WD review R1-2), so only a keyboard focus
+   * (`:focus-visible`) scrolls.
+   */
   protected onGridFocus(event: FocusEvent): void {
     if (!this.adding()) {
       return;
@@ -348,8 +362,13 @@ export class SetPageComponent {
     if (!target || !foot) {
       return;
     }
-    const limit = foot.getBoundingClientRect().top - 12;
-    if (target.getBoundingClientRect().bottom > limit) {
+    if (
+      liftsAboveFooter(
+        target.getBoundingClientRect().bottom,
+        foot.getBoundingClientRect().top,
+        target.matches(':focus-visible'),
+      )
+    ) {
       target.scrollIntoView({ block: 'center' });
     }
   }

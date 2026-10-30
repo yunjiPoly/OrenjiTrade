@@ -1,5 +1,11 @@
 import type { BinderResponse, PrintingSummary } from '@orenji/api-client';
-import { addBodies, cardsLabel, printingDistinction, sameGameBinders } from './set-page.component';
+import {
+  addBodies,
+  cardsLabel,
+  liftsAboveFooter,
+  printingDistinction,
+  sameGameBinders,
+} from './set-page.component';
 
 describe('"Add from this set" (spec 7.5, owner check)', () => {
   it('makes one create per tile with copies, Private by default, in the chosen binder', () => {
@@ -38,6 +44,15 @@ describe('"Add from this set" (spec 7.5, owner check)', () => {
       { id: 'new', game: null, games: [] },
     ] as unknown as BinderResponse[];
     expect(sameGameBinders(binders, 'yugioh').map((b) => b.id)).toEqual(['y', 'new']);
+  });
+
+  it('scrolls a stepper above the footer only for a keyboard focus (WD review R1-2)', () => {
+    // Tab onto a stepper 2 px above the footer: it is scrolled above it (SC 2.4.11).
+    expect(liftsAboveFooter(623, 625, true)).toBe(true);
+    // A tap or a click on the same stepper focuses it first: no scroll, or the click is lost.
+    expect(liftsAboveFooter(623, 625, false)).toBe(false);
+    // Well above the footer: no scroll either way.
+    expect(liftsAboveFooter(500, 625, true)).toBe(false);
   });
 
   it('counts the cards chosen', () => {

@@ -389,10 +389,26 @@ test.describe('web stage WD: Search, Who has this card, sets, binders and deck c
     await page.goto(`/sets/${setId}`);
     await expect(page.getByRole('heading', { level: 1, name: 'Azure Dawn' })).toBeVisible();
     await page.getByTestId('add-from-set').click();
-    await page.getByRole('button', { name: 'One more AZR-EN001' }).first().click();
+    const footer = page.getByTestId('set-add-footer');
+    // A click on a stepper right above the sticky footer lands: a pointer focus never scrolls the
+    // page between the press and the release (WD review R1-2).
+    const firstStep = page.getByRole('button', { name: 'One more AZR-EN001' }).first();
+    await page.evaluate(() => window.scrollTo(0, 0));
+    const size = page.viewportSize()!;
+    const step = (await firstStep.boundingBox())!;
+    const foot = (await footer.boundingBox())!;
+    await page.setViewportSize({
+      width: size.width,
+      height: Math.ceil(step.y + step.height + 4 + foot.height),
+    });
+    const stepNow = (await firstStep.boundingBox())!;
+    expect(stepNow.y + stepNow.height).toBeGreaterThan((await footer.boundingBox())!.y - 12);
+    await page.mouse.click(stepNow.x + stepNow.width / 2, stepNow.y + stepNow.height / 2);
+    await expect(footer).toContainText('1 card');
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+    await page.setViewportSize(size);
     await page.getByRole('button', { name: 'One more AZR-EN001' }).first().click();
     await page.getByRole('button', { name: 'One more AZR-EN011' }).first().click();
-    const footer = page.getByTestId('set-add-footer');
     await expect(footer).toContainText('3 cards');
     await footer.getByRole('radio', { name: 'Public' }).click();
     await footer.getByTestId('set-add-submit').click();
