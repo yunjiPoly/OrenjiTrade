@@ -18,6 +18,14 @@ export interface WishedCard {
   rarity?: string | null;
 }
 
+/**
+ * The drawer's line when no copy of yours is pinned: a chat with this collector may still be
+ * pinned to an earlier card (one chat per pair), so it says what this message is about.
+ */
+export function iHaveItContext(cardName: string): string {
+  return `About their wish: ${cardName}. The pinned card is from before.`;
+}
+
 /** "Hi! I have {card}." (spec 5.2): waits in the message box, never sent by itself. */
 export function iHaveItDraft(cardName: string): string {
   return `Hi! I have ${cardName}.`;
@@ -82,7 +90,7 @@ export class IHaveIt {
     await this.drawer.message(
       {
         recipientId: wisherId,
-        ...(copy ? { subjectItemId: copy.id } : {}),
+        ...(copy ? { subjectItemId: copy.id } : { context: iHaveItContext(wish.name) }),
         draft: iHaveItDraft(wish.name),
       },
       opener,

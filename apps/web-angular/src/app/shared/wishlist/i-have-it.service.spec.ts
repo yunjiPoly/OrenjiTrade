@@ -104,4 +104,28 @@ describe('"I have it" (spec 5.2 and 11)', () => {
       undefined,
     );
   });
+
+  it('without a public copy: no card pinned, and the drawer says what the message is about (F7)', async () => {
+    const message = vi.fn(async () => undefined);
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: AuthService, useValue: { isAuthenticated: signal(true) } },
+        {
+          provide: InventoryService,
+          useValue: { listInventoryItems: vi.fn(() => of({ items: [] })) },
+        },
+        { provide: BindersService, useValue: { listMyBinders: () => of([]) } },
+        { provide: ChatDrawer, useValue: { message } },
+      ],
+    });
+    await TestBed.inject(IHaveIt).offer('wisher', wish);
+    expect(message).toHaveBeenCalledWith(
+      {
+        recipientId: 'wisher',
+        context: 'About their wish: Ash Blossom. The pinned card is from before.',
+        draft: 'Hi! I have Ash Blossom.',
+      },
+      undefined,
+    );
+  });
 });

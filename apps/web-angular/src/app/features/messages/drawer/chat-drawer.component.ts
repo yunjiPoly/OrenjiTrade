@@ -123,6 +123,11 @@ const ON_TOP = [
             <mat-icon aria-hidden="true">close</mat-icon>
           </button>
         </header>
+        @if (context(); as line) {
+          <p drawerHeader class="cd__context" role="note" data-testid="chat-drawer-context">
+            {{ line }}
+          </p>
+        }
       </app-thread-view>
     </div>
   `,
@@ -149,6 +154,14 @@ const ON_TOP = [
     }
     .cd__thread {
       flex: 1 1 auto;
+    }
+    .cd__context {
+      margin: 0;
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--color-border);
+      background: var(--color-surface-variant);
+      color: var(--color-text-secondary);
+      font-size: 13px;
     }
     .cd__head {
       display: flex;
@@ -247,6 +260,17 @@ export class ChatDrawerComponent {
   protected readonly copy = CHAT_COPY;
   protected readonly titleId = `chat-drawer-${Math.random().toString(36).slice(2, 8)}`;
   protected readonly status = computed(() => chatStatusLine(this.conversation(), false, false));
+  /**
+   * The opening's line over the pinned card ("I have it" without a copy of yours), shown only
+   * while this chat has a pinned card (one from before).
+   */
+  protected readonly context = computed(() => {
+    const state = this.drawer.state();
+    const conversation = this.conversation();
+    return state?.conversation.id === conversation.id && conversation.subject
+      ? state.context
+      : null;
+  });
 
   constructor() {
     // A new chat: the focus moves into the composer (the opener keeps its place for Esc).

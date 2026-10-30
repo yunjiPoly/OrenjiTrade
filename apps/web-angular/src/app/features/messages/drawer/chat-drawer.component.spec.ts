@@ -95,6 +95,22 @@ describe('ChatDrawerComponent (web WC, spec 10.6)', () => {
     return (fixture.nativeElement as HTMLElement).querySelector('textarea')!;
   }
 
+  it('"I have it" without a copy of yours: a line over the earlier pinned card (WE review F7)', async () => {
+    const pinned = { ...CHAT, subject: { itemId: 'old' } } as unknown as ConversationSummary;
+    const state = TestBed.inject(ChatDrawer).state as unknown as ReturnType<typeof signal>;
+    state.set({ conversation: pinned, opener, context: 'About their wish: Ash Blossom.' });
+    fixture.componentRef.setInput('conversation', pinned);
+    await fixture.whenStable();
+    const line = () =>
+      (fixture.nativeElement as HTMLElement).querySelector('[data-testid="chat-drawer-context"]');
+    expect(line()?.textContent?.trim()).toBe('About their wish: Ash Blossom.');
+    // A chat without a pinned card has nothing to explain.
+    state.set({ conversation: CHAT, opener, context: 'About their wish: Ash Blossom.' });
+    fixture.componentRef.setInput('conversation', CHAT);
+    await fixture.whenStable();
+    expect(line()).toBeNull();
+  });
+
   it('closes on Esc inside, the focus going back to the opener', () => {
     escape(drawerField());
     expect(close).toHaveBeenCalledWith();

@@ -16,10 +16,18 @@ export interface ChatRequest extends ChatSubjectRequest {
    * spec 5.2); a draft already typed in that chat is kept instead.
    */
   draft?: string;
+  /**
+   * A line the drawer shows over the chat's pinned card, for this opening only: "I have it"
+   * without a public copy of yours keeps the card the chat was pinned to before, so the line says
+   * the message is about the wished card (WE review F7, U5).
+   */
+  context?: string;
 }
 
 interface DrawerState {
   conversation: ConversationSummary;
+  /** {@link ChatRequest.context} of the opening. */
+  context: string | null;
   /** The control that opened it: the focus goes back there when the drawer closes. */
   opener: HTMLElement | null;
 }
@@ -71,7 +79,7 @@ export class ChatDrawer {
       });
       return;
     }
-    const { recipientId, draft, ...subject } = request;
+    const { recipientId, draft, context, ...subject } = request;
     const uid = this.auth.user()?.uid ?? null;
     this.startingState.set(recipientId);
     let conversation: ConversationSummary | null;
@@ -98,6 +106,7 @@ export class ChatDrawer {
     const element = opener instanceof HTMLElement ? opener : null;
     this.stateSignal.set({
       conversation,
+      context: context ?? null,
       opener: element ?? this.stateSignal()?.opener ?? null,
     });
   }
