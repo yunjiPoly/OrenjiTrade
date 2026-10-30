@@ -14287,8 +14287,8 @@ still open first)
 | `exportOpenApi` then `generate:api` | nothing changed after the stage's own regeneration (the web's two models with R15's nulls, committed); git clean |
 | `npm run lint`, `format:check -w apps/web-angular` | clean |
 | `npm test -w apps/web-angular`, `npm run test:web` | **211 files / 1,080 tests** (WF's last: 199 / 1,037) |
-| `npm run build -w apps/web-angular`, `build:prod` | initial total **769.32 kB** (budget 900 kB; WF 763.73 kB), no warning (a first build was 798.98 kB with Material's dialog eager in the shell, and Home's styles 167 bytes over their budget: both fixed, `6b8bb888`) |
-| `npm run test:e2e -- --retries=0` (8180/4300, under the lock) | **104 passed** (1.3 min). The first full run had 1 failure: `home-we` found no end of Yu-Gi-Oh!'s feed because the new guest specs' sellers listed Yu-Gi-Oh! cards; they list a Pokémon card now (`8e61cac8`). Targeted runs before: guests 6/6, auth, smoke, admin, community, launch-safety, registration |
+| `npm run build -w apps/web-angular`, `build:prod` | initial total **769.32 kB** (budget 900 kB; WF 763.73 kB), no warning (a first build was 798.98 kB with Material's dialog eager in the shell, and Home's styles 167 bytes over their budget: both fixed, `2acc56c8`) |
+| `npm run test:e2e -- --retries=0` (8180/4300, under the lock) | **104 passed** (1.3 min). The first full run had 1 failure: `home-we` found no end of Yu-Gi-Oh!'s feed because the new guest specs' sellers listed Yu-Gi-Oh! cards; they list a Pokémon card now (`e0cbdfdb`). Targeted runs before: guests 6/6, auth, smoke, admin, community, launch-safety, registration |
 | `npm run typecheck`, `lint`, `format:check -w apps/mobile` | clean |
 | `npm run test:mobile` | **128 suites / 1,782 tests** |
 | `npx expo export` (scratch folders) | iOS 1,975 modules, Android 2,101 modules, web 1,596 modules and 68 static routes |
