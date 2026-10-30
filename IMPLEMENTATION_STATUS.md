@@ -13419,12 +13419,12 @@ and the bell's menu entry component; Home's map lives on as Search › Binders (
 | `npm test -w apps/web-angular` / `npm run test:web` | 935 tests in 187 files, 0 failed |
 | `npm run build -w apps/web-angular` | passed, no warning |
 | `npm run build:prod -w apps/web-angular` | passed, no warning; **initial total 759.96 kB** (budget 900 kB; the old map page and the unified search box left the bundle); Home's lazy chunk 57.8 kB |
-| `npm run test:e2e -- --retries=0` | four full runs while fixing the suites that followed the old Home, profile and bell (run 1: 80 passed, 10 failed; run 3: 89 passed, 1 failed; run 4: 91 passed, 1 failed, launch-config's Home map); the last full run: **91 passed, 0 failed** (1.2 min); new spec `e2e/home-we.spec.ts` (3 tests: Home's chips, the end, "I have it"'s draft, Get started; the bell and `/notifications` without chats, Mark all as read; Settings › Location) |
+| `npm run test:e2e -- --retries=0` | the suites that followed the old Home, profile and bell were fixed over five runs (run 1: 80 passed, 10 failed; run 3: 89 passed, 1 failed; run 4: 91 passed, 1 failed, launch-config's Home map); the final full run after the last Home change: **92 passed, 0 failed** (1.2 min); new spec `e2e/home-we.spec.ts` (3 tests: Home's chips, the end, "I have it"'s draft, Get started; the bell and `/notifications` without chats, Mark all as read; Settings › Location) |
 | `npm run typecheck`, `lint`, `format:check -w apps/mobile` | passed |
 | `npm run test:mobile` | 1782 tests in 128 suites and the 34 guard tests, 0 failed (a first run at 00:02 failed one Home-as-a-guest test whose "5 min" post fell before midnight; the file passes, and the whole run after it) |
 | `npx expo export --platform ios / android / web` (scratch folders) | all three passed |
 | `npm run test:mobile:e2e -- --retries=0` (`--stack-only`, the served bundle names `localhost:8090` and never 8080, then `--reuse-running`, then `--stop`) | 66 passed, 0 failed |
-| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro, under the simulator lock) | MAESTRO_PLACEHOLDER |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro, under the simulator lock) | **44 of 44 flows passed** (70 min 50 s); the simulator left booted in light with the large text size, as found |
 | `npm run test:scripts` | 166 passed, 0 failed |
 | `npm run audit:gate` | OK (no unreviewed high or critical advisory) |
 
