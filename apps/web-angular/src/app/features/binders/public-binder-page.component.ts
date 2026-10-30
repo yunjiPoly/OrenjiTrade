@@ -1,3 +1,7 @@
+import { GuestActions } from '../../core/guest/guest-actions.service';
+import { cardSubject, guestPlace, personSubject } from '../../core/guest/guest-actions';
+import { printingImageUrl } from '../../shared/inventory/inventory-labels';
+import { itemPriceText } from '../inventory/data/item-price';
 import { DOCUMENT } from '@angular/common';
 import {
   ChangeDetectionStrategy,
@@ -92,6 +96,7 @@ export class PublicBinderPageComponent {
   private readonly session = inject(SessionService);
   private readonly reports = inject(ReportActionsService);
   private readonly chatDrawer = inject(ChatDrawer);
+  private readonly guest = inject(GuestActions);
   private readonly gameContext = inject(GameContext);
   private readonly toasts = inject(ToastService);
   private readonly router = inject(Router);
@@ -215,15 +220,25 @@ export class PublicBinderPageComponent {
     };
   }
 
-  /** "Message": the chat drawer, about the deck core when the binder sells as one (stage R4). */
+  /**
+   * "Message": the chat drawer, about the deck core when the binder sells as one (stage R4). A
+   * guest gets the sign-in dialog, and the chat opens after (spec 14).
+   */
   protected messageOwner(binder: PublicBinderResponse, opener: EventTarget | null): void {
-    if (!this.auth.isAuthenticated() || !binder.owner?.id) {
-      this.signIn();
+    const ownerId = binder.owner?.id;
+    if (!this.auth.isAuthenticated() || !ownerId) {
+      void this.guest.ask(
+        binder.sellsAsCore
+          ? { kind: 'message', listing: { binderId: binder.id } }
+          : { kind: 'message', listing: { binderId: binder.id }, pin: false },
+        personSubject(guestPlace(binder.owner?.place)),
+        opener,
+      );
       return;
     }
     void this.chatDrawer.message(
       {
-        recipientId: binder.owner.id,
+        recipientId: ownerId,
         ...(binder.sellsAsCore ? { subjectBinderId: binder.id } : {}),
       },
       opener,
@@ -233,22 +248,48 @@ export class PublicBinderPageComponent {
   /** "Message about this card" on a tile: the chat drawer about that copy. */
   protected messageAbout(item: PublicInventoryItem, opener: EventTarget | null): void {
     const binder = this.binder();
-    if (!this.auth.isAuthenticated() || !binder?.owner?.id) {
-      this.signIn();
+    const ownerId = binder?.owner?.id;
+    if (!this.auth.isAuthenticated() || !ownerId) {
+      void this.guest.ask(
+        { kind: 'message', listing: { itemId: item.id } },
+        cardSubject(
+          { name: item.card.name, imageUrl: printingImageUrl(item.printing), game: this.game() },
+          guestPlace(binder?.owner?.place),
+          itemPriceText(item),
+        ),
+        opener,
+      );
       return;
     }
-    void this.chatDrawer.message({ recipientId: binder.owner.id, subjectItemId: item.id }, opener);
+    void this.chatDrawer.message({ recipientId: ownerId, subjectItemId: item.id }, opener);
   }
 
-  protected async reportOwner(binder: PublicBinderResponse): Promise<void> {
-    if (!this.auth.isAuthenticated() || !binder.owner?.id) {
-      this.signIn();
+  /** A guest's "View profile" on the seller card: the sign-in dialog, the profile after. */
+  protected askProfile(binder: PublicBinderResponse, opener: EventTarget | null): void {
+    void this.guest.ask(
+      { kind: 'profile', listing: { binderId: binder.id } },
+      personSubject(guestPlace(binder.owner?.place)),
+      opener,
+    );
+  }
+
+  protected async reportOwner(
+    binder: PublicBinderResponse,
+    opener?: EventTarget | null,
+  ): Promise<void> {
+    const ownerId = binder.owner?.id;
+    if (!this.auth.isAuthenticated() || !ownerId || !binder.owner) {
+      void this.guest.ask(
+        { kind: 'report', binderId: binder.id },
+        personSubject(guestPlace(binder.owner?.place)),
+        opener ?? null,
+      );
       return;
     }
     await this.reports.report(
       {
-        id: binder.owner.id,
-        displayName: binder.owner.displayName,
+        id: ownerId,
+        displayName: binder.owner.displayName ?? binder.owner.handle ?? '',
         handle: binder.owner.handle,
         avatarUrl: binder.owner.avatarUrl,
       },
@@ -270,10 +311,6 @@ export class PublicBinderPageComponent {
     } catch {
       // Cancelled by the collector, or no clipboard: nothing to say.
     }
-  }
-
-  private signIn(): void {
-    void this.router.navigate(['/auth/sign-in'], { queryParams: { returnUrl: this.router.url } });
   }
 
   private navigate(queryParams: Record<string, string | null>, replaceUrl = false): void {

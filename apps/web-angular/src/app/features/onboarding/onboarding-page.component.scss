@@ -30,6 +30,8 @@
 }
 
 .welcome__card {
+  display: flex;
+  flex-direction: column;
   box-sizing: border-box;
   width: 100%;
   max-width: 560px;

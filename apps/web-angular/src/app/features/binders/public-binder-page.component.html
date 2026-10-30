@@ -87,6 +87,7 @@
                 [owner]="binder.owner"
                 [rating]="rating()"
                 [binderCount]="binder.ownerPublicBinderCount"
+                (askProfile)="askProfile(binder, $event)"
               />
               @if (isOwn()) {
                 <a
@@ -104,7 +105,7 @@
                   (click)="messageOwner(binder, $event.currentTarget)"
                 >
                   <app-shell-icon name="messages" [size]="20" />
-                  Message {{ binder.owner.handle || 'the seller' }}
+                  Message {{ binder.owner.handle || 'this collector' }}
                 </button>
               }
               @if (binder.description) {
@@ -173,7 +174,7 @@
                   (click)="messageOwner(binder, $event.currentTarget)"
                 >
                   <app-shell-icon name="messages" [size]="18" />
-                  Message {{ binder.owner.handle || 'the owner' }}
+                  Message {{ binder.owner.handle || 'this collector' }}
                 </button>
               }
               <button

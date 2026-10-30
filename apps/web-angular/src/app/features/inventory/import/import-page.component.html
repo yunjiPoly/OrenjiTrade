@@ -1,20 +1,6 @@
 @if (signedIn() === false) {
-  <div class="imp">
-    <h1 class="imp__title" appShellTabTitle>Import cards</h1>
-    <app-empty-state
-      icon="upload_file"
-      title="Sign in to import your cards"
-      description="Import a deck file or a Collectr export into your inventory. Everything starts private."
-    >
-      <a
-        actions
-        matButton="filled"
-        routerLink="/auth/sign-in"
-        [queryParams]="{ returnUrl: '/inventory/import' }"
-        >Sign in</a
-      >
-    </app-empty-state>
-  </div>
+  <!-- A guest: Inventory's guest page (spec 14), back to the import after signing in. -->
+  <app-guest-page kind="inventory" />
 } @else {
   <div class="imp" [class.imp--done]="phase() === 'done'">
     <header class="imp__head">

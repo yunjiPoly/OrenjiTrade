@@ -189,8 +189,8 @@ const LEGEND: readonly ShadeLevel[] = [0, 1, 2, 3, 4];
     }
     .art__shape {
       fill: var(--color-map-step0);
-      /* The panel's own colour between the shapes, in dark and in light. */
-      stroke: var(--color-surface-variant);
+      /* Lines between the shapes: the canvas in dark (board W27), the panel's colour in light. */
+      stroke: light-dark(var(--color-surface-variant), var(--color-background));
       stroke-width: 0.8;
       stroke-linejoin: round;
     }

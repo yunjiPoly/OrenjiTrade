@@ -1,3 +1,4 @@
+import { GuestActions } from '../../../core/guest/guest-actions.service';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -149,6 +150,7 @@ export class SetPageComponent {
   private readonly toasts = inject(ToastService);
   private readonly gameContext = inject(GameContext);
   protected readonly auth = inject(AuthService);
+  private readonly guest = inject(GuestActions);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   readonly id = input.required<string>();
@@ -218,6 +220,18 @@ export class SetPageComponent {
     effect(() => {
       const id = this.id();
       untracked(() => this.load(id));
+    });
+    // Back from signing in: "Add from this set" asked as a guest opens the adding mode.
+    effect(() => {
+      const id = this.id();
+      if (!this.detail() || !this.guest.ready()) {
+        return;
+      }
+      untracked(() => {
+        if (this.guest.take((action) => action.kind === 'add' && action.setId === id)) {
+          void this.toggleAdding();
+        }
+      });
     });
     this.router.events
       .pipe(
@@ -373,9 +387,10 @@ export class SetPageComponent {
     }
   }
 
-  protected async toggleAdding(): Promise<void> {
+  protected async toggleAdding(event?: Event): Promise<void> {
     if (!this.auth.isAuthenticated()) {
-      void this.router.navigate(['/auth/sign-in'], { queryParams: { returnUrl: this.router.url } });
+      // A guest: "Sign in to add your cards"; back here, the set's adding mode opens (spec 14).
+      void this.guest.ask({ kind: 'add', setId: this.id() }, null, event?.currentTarget ?? null);
       return;
     }
     const next = !this.adding();

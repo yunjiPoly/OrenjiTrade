@@ -1,3 +1,6 @@
+import { DOCUMENT } from '@angular/common';
+import { GuestActions } from '../../../core/guest/guest-actions.service';
+import { plainCardSubject } from '../../../core/guest/guest-actions';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -121,6 +124,8 @@ export class CardPageComponent {
   protected readonly wishBusy = signal(false);
   /** The Add drawer is open (its chunk loads with the first open, `@defer`). */
   protected readonly adding = signal(false);
+  private readonly guest = inject(GuestActions);
+  private readonly document = inject(DOCUMENT);
   private addOpener: HTMLElement | null = null;
 
   protected readonly printings = computed<PrintingSummary[]>(() => this.card()?.printings ?? []);
@@ -197,6 +202,21 @@ export class CardPageComponent {
         if (requested && requested !== this.appliedRegion && REGION_CODE.test(requested)) {
           this.appliedRegion = requested;
           this.regionContext.select(requested);
+        }
+      });
+    });
+    // Back from signing in: "I have this card" asked as a guest opens the Add drawer (spec 14).
+    effect(() => {
+      const card = this.card();
+      if (!card?.id || !this.guest.ready()) {
+        return;
+      }
+      untracked(() => {
+        const taken = this.guest.take(
+          (action) => action.kind === 'add' && action.cardId === card.id,
+        );
+        if (taken) {
+          this.adding.set(true);
         }
       });
     });
@@ -346,7 +366,23 @@ export class CardPageComponent {
       return;
     }
     if (!this.auth.isAuthenticated()) {
-      this.signIn();
+      // A guest: "Sign in to save your wishes", then the wish of this card (spec 14).
+      const selection = this.selection();
+      void this.guest.ask(
+        {
+          kind: 'wish',
+          cardId: card.id,
+          printingId: selection.printingId ?? null,
+          rarity: selection.printingId ? null : (selection.rarity ?? null),
+        },
+        plainCardSubject({
+          name: card.name ?? '',
+          imageUrl: this.art(),
+          game: card.game,
+          line: this.caption()?.line ?? null,
+        }),
+        this.document.activeElement,
+      );
       return;
     }
     if (this.wishState() === 'loading') {
@@ -394,8 +430,21 @@ export class CardPageComponent {
 
   /** "I have this card": the Add drawer over the page (owner check, decision 17). */
   protected iHaveIt(event: Event): void {
+    const card = this.card();
     if (!this.auth.isAuthenticated()) {
-      this.signIn();
+      // A guest: "Sign in to add your cards"; back here, the Add drawer opens (spec 14).
+      if (card?.id) {
+        void this.guest.ask(
+          { kind: 'add', cardId: card.id, printingId: this.selection().printingId ?? null },
+          plainCardSubject({
+            name: card.name ?? '',
+            imageUrl: this.art(),
+            game: card.game,
+            line: this.caption()?.line ?? null,
+          }),
+          event.currentTarget,
+        );
+      }
       return;
     }
     this.addOpener = event.currentTarget as HTMLElement;
@@ -406,10 +455,6 @@ export class CardPageComponent {
     this.adding.set(false);
     const opener = this.addOpener;
     setTimeout(() => opener?.focus());
-  }
-
-  private signIn(): void {
-    void this.router.navigate(['/auth/sign-in'], { queryParams: { returnUrl: this.router.url } });
   }
 
   private applyTitle(): void {

@@ -47,6 +47,48 @@
   min-width: 0;
 }
 
+// A guest's header (board W26): one button, "A collector" and the province, asking to sign in.
+.fp__guest-who {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--color-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.fp__guest-who .fp__title,
+.fp__guest-who .fp__meta {
+  display: block;
+}
+
+.fp__guest-who:hover .fp__handle {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.fp__guest-who:focus-visible,
+.fp__tile-button:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+.fp__tile-button {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 .fp__title {
   margin: 0;
   font-size: var(--font-size-body);

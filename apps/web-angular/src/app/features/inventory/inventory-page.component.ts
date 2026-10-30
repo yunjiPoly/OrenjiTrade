@@ -17,6 +17,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { Router, RouterLink } from '@angular/router';
+import { GuestPageComponent } from '../../shared/guest/guest-page.component';
 import type { BinderResponse, InventoryItemResponse } from '@orenji/api-client';
 import { AuthService } from '../../core/auth/auth.service';
 import { ToastService } from '../../core/feedback/toast.service';
@@ -114,6 +115,7 @@ const DRAG_CONFIG: DragDropConfig = { dragStartThreshold: 4, pointerDirectionCha
     EditCardDrawerComponent,
     EmptyStateComponent,
     ErrorStateComponent,
+    GuestPageComponent,
     InventoryGridComponent,
     InventoryTableComponent,
     InventoryToolbarComponent,
@@ -467,10 +469,6 @@ export class InventoryPageComponent {
     const onKey = (event: KeyboardEvent) => this.onDocumentKey(event);
     this.document.addEventListener('keydown', onKey);
     inject(DestroyRef).onDestroy(() => this.document.removeEventListener('keydown', onKey));
-  }
-
-  protected get returnUrl(): string {
-    return this.router.url;
   }
 
   // --- filters, view and pages ---------------------------------------------------------------

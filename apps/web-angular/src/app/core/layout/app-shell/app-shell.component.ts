@@ -4,6 +4,7 @@ import { RouterOutlet } from '@angular/router';
 import { ChatDrawerComponent } from '../../../features/messages/drawer/chat-drawer.component';
 import { ChatDrawer } from '../../../shared/messaging/chat-drawer.service';
 import { ToastHostComponent } from '../../feedback/toast-host.component';
+import { GuestActions } from '../../guest/guest-actions.service';
 import { KeyboardShortcuts } from '../../keyboard/keyboard-shortcuts.service';
 import { FooterComponent } from '../footer/footer.component';
 import { RailComponent } from '../rail/rail.component';
@@ -188,6 +189,8 @@ export class AppShellComponent {
 
   constructor() {
     inject(KeyboardShortcuts).start();
+    // A guest's action finishes once they signed in and are back on its page (spec 14).
+    inject(GuestActions).start();
   }
 
   /**

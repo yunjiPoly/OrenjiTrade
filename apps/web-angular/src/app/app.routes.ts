@@ -179,7 +179,8 @@ export const routes: Routes = [
     path: 'profile',
     title: 'Profile',
     data: { shell: PROFILE_TAB },
-    canActivate: [authGuard, onboardingGuard],
+    // A guest reads Profile's guest page (spec 14), with Appearance, Trading safely and Legal.
+    canActivate: [onboardingGuard],
     loadComponent: () =>
       import('./features/profile/my-profile-page.component').then((m) => m.MyProfilePageComponent),
   },
@@ -211,7 +212,8 @@ export const routes: Routes = [
   {
     path: 'settings',
     data: { shell: PROFILE },
-    canActivate: [accountGuard],
+    // Appearance and Legal open to guests too (spec 14); every other section is the account's.
+    canActivate: [accountStateGuard],
     loadChildren: () =>
       import('./features/settings/settings.routes').then((m) => m.SETTINGS_ROUTES),
   },

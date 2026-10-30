@@ -13,9 +13,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { FEATURE, FeatureFlagsService } from '../../core/feature-flags/feature-flags.service';
 import { GameContext } from '../../core/game/game-context.service';
@@ -24,7 +22,7 @@ import { ShellLayout } from '../../core/layout/shell-layout.service';
 import { ShellTabTitleDirective } from '../../core/layout/shell-tab-title.directive';
 import { UnreadChats } from '../../core/layout/unread-chats/unread-chats';
 import { CommunityViewComponent } from '../community/community-view.component';
-import { EmptyStateComponent } from '../../shared/ui/empty-state/empty-state.component';
+import { GuestPageComponent } from '../../shared/guest/guest-page.component';
 import {
   UnderlineTab,
   UnderlineTabsComponent,
@@ -44,14 +42,11 @@ import { RealtimeStatusComponent } from './realtime-status/realtime-status.compo
 @Component({
   selector: 'app-messages-page',
   imports: [
-    RouterLink,
-    MatButtonModule,
-    MatIconModule,
-    EmptyStateComponent,
     MessengerComponent,
     RealtimeStatusComponent,
     UnderlineTabsComponent,
     CommunityViewComponent,
+    GuestPageComponent,
     ShellTabTitleDirective,
   ],
   template: `
@@ -93,22 +88,9 @@ import { RealtimeStatusComponent } from './realtime-status/realtime-status.compo
         </app-messenger>
       }
     } @else {
-      <div class="page messages-page">
-        <app-empty-state
-          icon="lock_person"
-          title="Messages are for members"
-          description="Sign in to talk privately with collectors."
-        >
-          <a
-            actions
-            matButton="filled"
-            routerLink="/auth/sign-in"
-            [queryParams]="{ returnUrl: '/messages' }"
-          >
-            Sign in
-          </a>
-        </app-empty-state>
-      </div>
+      <!-- A guest's Messages (spec 14): back to this very page after signing in, a room's too
+        (WF leftover U13). -->
+      <app-guest-page kind="messages" />
     }
   `,
   styles: `

@@ -1,19 +1,7 @@
 @if (signedIn() === false) {
-  <div class="inv inv--guest">
-    <h1 class="inv__title" appShellTabTitle>Inventory</h1>
-    <app-empty-state
-      icon="style"
-      title="Sign in to build your inventory"
-      description="Record the cards you own, group them into binders and publish the ones you trade. Everything starts private."
-    >
-      <a actions matButton="filled" routerLink="/auth/sign-in" [queryParams]="{ returnUrl }"
-        >Sign in</a
-      >
-      <a actions matButton="outlined" routerLink="/auth/sign-up" [queryParams]="{ returnUrl }"
-        >Create account</a
-      >
-    </app-empty-state>
-  </div>
+  <!-- A guest's Inventory (spec 14; the phone's R15): what an account gives, Create account and
+    Sign in, both back to this page. -->
+  <app-guest-page kind="inventory" />
 } @else {
   @let p = params();
   <div

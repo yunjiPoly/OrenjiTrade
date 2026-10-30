@@ -74,7 +74,10 @@ export function holderPrice(result: CardHolderResult): string | null {
 
 /** "Message duelist.jp about Ash Blossom & Joyous Spring" (spec 7.3). */
 export function messageLabel(handle: string | null | undefined, cardName: string): string {
-  return handle ? `Message ${handle} about ${cardName}` : `Message a collector about ${cardName}`;
+  // A guest: the board's words, the dialog comes first (spec 14).
+  return handle
+    ? `Message ${handle} about ${cardName}`
+    : `Message this collector about ${cardName}. Needs an account`;
 }
 
 /** The DOM id of a group's header, the target of its "Jump to" chip. */

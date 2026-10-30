@@ -8,6 +8,7 @@ import {
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { safeReturnUrl } from '../../../core/auth/auth.guards';
+import { GuestActions } from '../../../core/guest/guest-actions.service';
 import {
   ShellIconComponent,
   ShellIconName,
@@ -32,7 +33,12 @@ import { AuthArtComponent } from '../auth-art/auth-art.component';
       <div class="auth__main">
         <div class="auth__top">
           @if (closeTarget(); as target) {
-            <a class="auth__close" [routerLink]="target" data-testid="auth-close">
+            <a
+              class="auth__close"
+              [routerLink]="target"
+              data-testid="auth-close"
+              (click)="guest.forget()"
+            >
               <app-shell-icon name="close" [size]="20" [stroke]="2" />
               Not now, keep browsing
             </a>
@@ -73,6 +79,8 @@ import { AuthArtComponent } from '../auth-art/auth-art.component';
 })
 export class AuthLayoutComponent {
   protected readonly layout = inject(ShellLayout);
+  /** "Not now, keep browsing" forgets what the guest tried to do (as the phone's Sign in close). */
+  protected readonly guest = inject(GuestActions);
   private readonly router = inject(Router);
 
   /** The page's h1 (Sign in's is read by screen readers only, the wordmark leading the page). */

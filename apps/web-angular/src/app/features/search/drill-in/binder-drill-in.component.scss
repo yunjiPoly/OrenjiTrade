@@ -136,6 +136,14 @@
   --avatar-size: 36px;
 }
 
+// A guest's seller row is a button (it asks to sign in): the row's look, the button's reset.
+.di__seller--guest {
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 .di__seller app-binder-owner {
   flex: 1;
   min-width: 0;

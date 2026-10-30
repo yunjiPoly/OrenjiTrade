@@ -1,3 +1,11 @@
+import { GuestActions } from '../../core/guest/guest-actions.service';
+import {
+  GUEST_COPY,
+  ListingRef,
+  cardSubject,
+  personSubject,
+  wishSubject,
+} from '../../core/guest/guest-actions';
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type { FeedCardPreview, FeedPost } from '@orenji/api-client';
@@ -26,37 +34,63 @@ import { itemPriceText } from '../inventory/data/item-price';
     @let handle = p.collector.handle;
     @let verb = verbOf();
     <article class="fp" [attr.aria-labelledby]="headId()" data-testid="feed-post">
-      <header class="fp__head">
-        @if (handle) {
-          <a
-            class="fp__avatar"
-            [routerLink]="['/collectors', handle]"
-            tabindex="-1"
-            aria-hidden="true"
+      @if (!handle) {
+        <!-- A guest (R15): "A collector" with the province; the header asks to sign in, then
+          opens the collector's profile (spec 14, board W26). -->
+        <header class="fp__head">
+          <button
+            type="button"
+            class="fp__guest-who"
+            data-testid="feed-guest-who"
+            [attr.aria-label]="guestWhoLabel()"
+            (click)="askProfile($event.currentTarget)"
           >
-            <app-avatar
-              [src]="p.collector.avatarUrl"
-              [name]="p.collector.displayName || handle"
-              [decorative]="true"
-            />
-          </a>
-        } @else {
-          <span class="fp__avatar fp__avatar--guest" aria-hidden="true">
-            <app-shell-icon name="profile" [size]="18" />
-          </span>
-        }
-        <div class="fp__who">
-          <p class="fp__title" [id]="headId()">
-            @if (handle) {
-              <a class="fp__handle" [routerLink]="['/collectors', handle]">{{ handle }}</a>
-            } @else {
-              <span class="fp__handle">{{ name() }}</span>
-            }
-            <span class="fp__verb" [attr.data-tone]="verb.tone"> {{ verb.text }}</span>
-          </p>
-          <p class="fp__meta">{{ time() }} · {{ place() }}</p>
-        </div>
-      </header>
+            <span class="fp__avatar fp__avatar--guest" aria-hidden="true">
+              <app-shell-icon name="profile" [size]="18" />
+            </span>
+            <span class="fp__who">
+              <span class="fp__title" [id]="headId()">
+                <span class="fp__handle">{{ name() }}</span>
+                <span class="fp__verb" [attr.data-tone]="verb.tone"> {{ verb.text }}</span>
+              </span>
+              <span class="fp__meta">{{ time() }} · {{ place() }}</span>
+            </span>
+          </button>
+        </header>
+      }
+      @if (handle) {
+        <header class="fp__head">
+          @if (handle) {
+            <a
+              class="fp__avatar"
+              [routerLink]="['/collectors', handle]"
+              tabindex="-1"
+              aria-hidden="true"
+            >
+              <app-avatar
+                [src]="p.collector.avatarUrl"
+                [name]="p.collector.displayName || handle"
+                [decorative]="true"
+              />
+            </a>
+          } @else {
+            <span class="fp__avatar fp__avatar--guest" aria-hidden="true">
+              <app-shell-icon name="profile" [size]="18" />
+            </span>
+          }
+          <div class="fp__who">
+            <p class="fp__title" [id]="headId()">
+              @if (handle) {
+                <a class="fp__handle" [routerLink]="['/collectors', handle]">{{ handle }}</a>
+              } @else {
+                <span class="fp__handle">{{ name() }}</span>
+              }
+              <span class="fp__verb" [attr.data-tone]="verb.tone"> {{ verb.text }}</span>
+            </p>
+            <p class="fp__meta">{{ time() }} · {{ place() }}</p>
+          </div>
+        </header>
+      }
 
       @switch (p.kind) {
         @case ('NEW_CARDS') {
@@ -138,14 +172,17 @@ import { itemPriceText } from '../inventory/data/item-price';
                       <span class="fp__tile-price" aria-hidden="true">more</span>
                     </a>
                   } @else {
-                    <span
-                      class="fp__tile-link"
-                      [attr.aria-label]="moreLabel(tile.count)"
-                      role="img"
+                    <!-- A guest's "+N": the sign-in dialog, the collector's profile after. -->
+                    <button
+                      type="button"
+                      class="fp__tile-link fp__tile-button"
+                      data-testid="feed-guest-more"
+                      [attr.aria-label]="guestMoreLabel(tile.count)"
+                      (click)="askProfile($event.currentTarget)"
                     >
                       <span class="fp__more" aria-hidden="true">+{{ tile.count }}</span>
                       <span class="fp__tile-price" aria-hidden="true">more</span>
-                    </span>
+                    </button>
                   }
                 </li>
               }
@@ -243,6 +280,7 @@ export class FeedPostComponent {
 
   protected readonly drawer = inject(ChatDrawer);
   private readonly iHaveIt = inject(IHaveIt);
+  private readonly guest = inject(GuestActions);
 
   protected readonly headId = computed(() => `post-${this.post().id}`);
   protected readonly verbOf = computed(() => postVerb(this.post()));
@@ -262,7 +300,9 @@ export class FeedPostComponent {
     return wish ? wishTerms(wish) : '';
   });
   protected readonly haveLabel = computed(() =>
-    iHaveItLabel(this.post().wanted?.name ?? 'this card', this.post().collector.handle),
+    this.post().collector.handle
+      ? iHaveItLabel(this.post().wanted?.name ?? 'this card', this.post().collector.handle)
+      : GUEST_COPY.haveLabel(this.post().wanted?.name ?? 'this card'),
   );
 
   protected price(card: FeedCardPreview): string | null {
@@ -270,7 +310,41 @@ export class FeedPostComponent {
   }
 
   protected messageLabel(card: FeedCardPreview): string {
-    return `Message ${this.name()} about ${card.name}`;
+    return this.post().collector.handle
+      ? `Message ${this.name()} about ${card.name}`
+      : GUEST_COPY.messageLabel(card.name);
+  }
+
+  /** A guest's header: "A collector listed 12 cards, 5 min, Quebec. Sign in to see collector profiles". */
+  protected guestWhoLabel(): string {
+    return GUEST_COPY.whoLabel(
+      `${this.name()} ${this.verbOf().text}, ${this.time()}, ${this.place()}`,
+    );
+  }
+
+  protected guestMoreLabel(count: number): string {
+    return GUEST_COPY.moreLabel(count);
+  }
+
+  /** The listing a guest's header and "+N" stand for (never the collector: R15). */
+  private listing(): ListingRef | null {
+    const post = this.post();
+    const item = post.newCards?.previews[0]?.itemId;
+    if (item) {
+      return { itemId: item };
+    }
+    if (post.wanted?.wishId) {
+      return { wishId: post.wanted.wishId };
+    }
+    return post.deckCore?.binderId ? { binderId: post.deckCore.binderId } : null;
+  }
+
+  /** A guest's header or "+N": "Sign in to see collector profiles", the profile after. */
+  protected askProfile(opener: EventTarget | null): void {
+    const listing = this.listing();
+    if (listing) {
+      void this.guest.ask({ kind: 'profile', listing }, personSubject(this.place()), opener);
+    }
   }
 
   protected moreLabel(count: number): string {
@@ -280,6 +354,18 @@ export class FeedPostComponent {
   /** "Message": the chat drawer with this card as the chat's subject (spec 5.2). */
   protected message(card: FeedCardPreview, opener: EventTarget | null): void {
     const recipientId = this.post().collector.id;
+    if (!recipientId) {
+      void this.guest.ask(
+        { kind: 'message', listing: { itemId: card.itemId } },
+        cardSubject(
+          { name: card.name, imageUrl: card.imageUrl, game: this.game() },
+          this.place(),
+          itemPriceText(card),
+        ),
+        opener,
+      );
+      return;
+    }
     void this.drawer.message(
       { recipientId: recipientId ?? '', subjectItemId: card.itemId },
       opener,
@@ -291,6 +377,23 @@ export class FeedPostComponent {
     const post = this.post();
     const wish = post.wanted;
     if (!wish) {
+      return;
+    }
+    if (!post.collector.id) {
+      void this.guest.ask(
+        {
+          kind: 'have',
+          wishId: wish.wishId,
+          card: {
+            cardId: wish.cardId,
+            name: wish.name,
+            printingId: wish.printing?.id ?? null,
+            rarity: wish.rarity ?? null,
+          },
+        },
+        wishSubject({ name: wish.name, imageUrl: wish.imageUrl, game: this.game() }, this.place()),
+        opener,
+      );
       return;
     }
     void this.iHaveIt.offer(
