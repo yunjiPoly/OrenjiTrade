@@ -39,6 +39,7 @@ import { ShellIconComponent } from '../shell-icon/shell-icon.component';
       aria-labelledby="np-title"
       tabindex="-1"
       cdkTrapFocus
+      data-notification-surface
       data-testid="notification-popover"
     >
       <div class="np__head">

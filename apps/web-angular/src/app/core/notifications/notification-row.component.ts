@@ -28,6 +28,12 @@ import {
 import { ReminderAnswers } from './reminder-answers.service';
 
 /**
+ * The element that holds one list of rows (the bell's popover, the page's list), marked with
+ * `data-notification-surface`: a row's answer moves the focus within its own surface only.
+ */
+export const NOTIFICATION_SURFACE = '[data-notification-surface]';
+
+/**
  * One notification (spec 12, board W24): a 36 kind tile, the sentence with its bold subject, the
  * muted line, the time and an unread dot; on the page a card's picture on the right. A row with a
  * target is a link (it is marked read when opened); a freshness reminder answers in place ("Still
@@ -179,15 +185,18 @@ export class NotificationRowComponent {
   /**
    * "Still have them": the button goes away with the answer, and the row, marked read, moves from
    * New to Earlier (a new row element), so the focus moves to that row's "Confirmed. They stay in
-   * search." (or back to its button when it failed), never to the page (A4).
+   * search." (or back to its button when it failed), never to the page (A4). The row is looked up
+   * in this row's own surface (the bell's popover or the page's list): with /notifications open
+   * under the bell, the same notice is on both, and the page's copy comes first (WE review R1-2).
    */
   protected async confirm(): Promise<void> {
     const id = this.notification().id;
-    const doc = this.host.nativeElement.ownerDocument;
+    const host = this.host.nativeElement;
+    const surface: ParentNode = host.closest(NOTIFICATION_SURFACE) ?? host.ownerDocument;
     await this.answers.confirm(this.notification());
     afterNextRender(
       () => {
-        const row = doc.querySelector(`[data-notification-id="${id}"]`);
+        const row = surface.querySelector(`[data-notification-id="${id}"]`);
         row
           ?.querySelector<HTMLElement>('.nr__confirmed, .nr__still')
           ?.focus({ preventScroll: true });

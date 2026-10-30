@@ -70,7 +70,12 @@ import { NotificationFeedStore } from './data/notification-feed.store';
           (valueChange)="onFilter($event)"
         />
 
-        <section class="nf__body" aria-label="Notification list" [attr.aria-busy]="busy()">
+        <section
+          class="nf__body"
+          aria-label="Notification list"
+          data-notification-surface
+          [attr.aria-busy]="busy()"
+        >
           @switch (store.status()) {
             @case ('loading') {
               <span class="visually-hidden">Loading notifications</span>

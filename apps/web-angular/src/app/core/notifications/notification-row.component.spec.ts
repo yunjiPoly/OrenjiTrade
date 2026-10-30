@@ -3,7 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { NotificationResponse, NotificationResponseTypeEnum as Type } from '@orenji/api-client';
 import { SessionService } from '../auth/session.service';
-import { NotificationRowComponent } from './notification-row.component';
+import { NOTIFICATION_SURFACE, NotificationRowComponent } from './notification-row.component';
 import { ReminderAnswers } from './reminder-answers.service';
 
 function notice(type: Type, data: Record<string, unknown> = {}): NotificationResponse {
@@ -92,6 +92,73 @@ describe('NotificationRowComponent (spec 12, board W24)', () => {
     expect(element.querySelector('a.nr__link')).toBeNull();
     const history = element.querySelector('[data-testid="notification-history"]')!;
     expect(history.textContent).toContain('Past offer on Ash Blossom');
+  });
+
+  it("Still have them in the bell moves the focus to the bell's own row, not the page's copy (R1-2)", async () => {
+    // /notifications open under the bell: the same reminder is on the page (earlier in the DOM)
+    // and in the popover's overlay; the answer given in the popover keeps the focus there.
+    const answered = signal<'pending' | 'confirmed'>('pending');
+    // The service's answer: the state is confirmed when its promise resolves.
+    const answer = vi.fn(async () => {
+      answered.set('confirmed');
+      return true;
+    });
+    TestBed.configureTestingModule({
+      imports: [NotificationRowComponent],
+      providers: [
+        provideRouter([]),
+        { provide: SessionService, useValue: { handle: signal('sam_trades') } },
+        {
+          provide: ReminderAnswers,
+          useValue: {
+            state: () => answered(),
+            confirm: answer,
+            confirming: signal(null),
+            reviewLink: () => ({ path: ['/inventory'], query: { binder: 'b1' } }),
+          },
+        },
+      ],
+    });
+    const reminder = notice(Type.BinderStaleWarning, {
+      binderId: 'b1',
+      binderName: 'Trade binder',
+    });
+    const main = document.createElement('main');
+    const pageList = document.createElement('section');
+    pageList.setAttribute('data-notification-surface', '');
+    main.append(pageList);
+    const popover = document.createElement('div');
+    popover.setAttribute('data-notification-surface', '');
+    document.body.append(main, popover);
+    try {
+      const rows = [true, false].map((page) => {
+        const row = TestBed.createComponent(NotificationRowComponent);
+        row.componentRef.setInput('notification', reminder);
+        row.componentRef.setInput('page', page);
+        row.autoDetectChanges();
+        return row;
+      });
+      await Promise.all(rows.map((row) => row.whenStable()));
+      // Moved once both exist (TestBed takes an earlier root out of the body on a new one).
+      pageList.append(rows[0].nativeElement as HTMLElement);
+      popover.append(rows[1].nativeElement as HTMLElement);
+      expect(popover.matches(NOTIFICATION_SURFACE)).toBe(true);
+      const still = [...(rows[1].nativeElement as HTMLElement).querySelectorAll('button')].find(
+        (b) => b.textContent?.includes('Still have them'),
+      )!;
+      still.focus();
+      still.click();
+      await new Promise((resolve) => setTimeout(resolve));
+      await Promise.all(rows.map((row) => row.whenStable()));
+      expect(answer).toHaveBeenCalledTimes(1);
+      expect(main.querySelector('.nr__confirmed')).not.toBeNull();
+      const focused = document.activeElement as HTMLElement;
+      expect(focused.classList.contains('nr__confirmed')).toBe(true);
+      expect(popover.contains(focused)).toBe(true);
+    } finally {
+      main.remove();
+      popover.remove();
+    }
   });
 
   it("the page's unread row can be marked read", () => {
