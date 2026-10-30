@@ -13675,16 +13675,18 @@ the community API of the phone's R11 is read unchanged. Contract
   posts"; newer posts appear within 15 s while the room is on screen): a 36 avatar, the handle (it
   opens the profile), "You" on your own, **"{province} · {time}"** (never a city), the text, a
   shared card ("View": Who has this card on that printing), a shared deck core ("Deck core", its
-  price, "Open") or binder ("Public binder · {game}", "Open"), "Binder no longer available", and
+  price, "Open") or binder ("Public binder", "Open"; both a card and a binder when the post has
+  both), "Binder no longer available", and
   the photos a phone added (read only; a click opens them larger with Previous and Next, ← and →).
 - **"⋯" on a post** (on hover or focus): **"Message {h}"** (the private chat opens in Messages),
   **"Report this post"** (the report dialog shows the post: handle, "{province} · {time}", its
   text), a divider, **"Block {h}"** in red (the board's confirmation; the author's posts leave the
   room at once, "{h} is blocked" with Undo, and "You blocked {h}" with Unblock in Room rules); a
   moderator also has "Remove (moderator)"; your own post has Edit and Delete.
-- **The message box**: "+" with **"Share a card"** (your public cards of the room's game) and
-  **"Share a binder or deck core"** (your public binders of that game), the choice waiting above the
-  field (removable); "Write to the room" grows to 6 lines; **Enter posts**, Shift+Enter makes a new
+- **The message box**: "+" with **"Share a card"** (your public cards of the room's game, then
+  **"All cards"** of the catalogue for a card you do not own) and **"Share a binder or deck core"**
+  (your public binders of that game), a card and a binder waiting above the field together
+  (removable); "Write to the room" grows to 6 lines; **Enter posts**, Shift+Enter makes a new
   line; the post button turns orange with text. Refusals in the phone's words: "You can post up to
   10 times an hour in each room. Try again later.", "You already posted this.", the community rules,
   "Your post was not sent. Check your connection." with "Try again".
@@ -13764,8 +13766,10 @@ shell icons (`gear`, `messageSquare`, `send`, `trash`, `image` and the existing 
    removes it. A moderator keeps "Remove (moderator)" on others' posts for the same reason.
 3. **A shared card reads its name and code with "View"**, without the board's "Spares · $6.00": a
    post shares a printing, not one of your copies, so no binder or price is stored with it.
-4. **"Share a card" lists your public cards of the room's game** (board W22: "Cards in your public
-   binders") rather than the phone's catalogue search; the post shares the card's printing.
+4. **"Share a card" lists your public cards of the room's game first** (board W22: "Cards in your
+   public binders"), **then "All cards" of the catalogue** (`GET /cards/suggest`, any game, as the
+   phone's picker and the web before WF; added by review fix 1, F1/U1, so a "Looking for" post can
+   share a card you do not own); the post shares the card's printing.
 5. **"Message {h}" opens the chat in Messages**, not the chat drawer: the drawer (spec 10.6) serves
    the other pages; on the Messages page the chat opens in place, as board W22's link does.
 6. **New posts are remembered per account in this browser** (the phone: "on this phone"), in
@@ -13851,6 +13855,78 @@ its own "!" (unit test).
    should go from the web too.
 3. Rooms count new posts per browser (decision 6); a signed-out browser forgets them.
 
+### Review fix 1 (2026-10-30)
+
+Round 1 of at most 2: 31 findings of the four reviewers (functional, product and UX, privacy,
+accessibility), each fixed at its cause with a test that would have caught it, or answered. No
+migration (the next is still **V135**), no API source change (two API tests), no DTO, OpenAPI or
+`packages/api-client` change; the phone's code is untouched.
+
+- **Blockers.** **F1/U1**: "Share a card" in a room lists your public cards, then **"All cards"**
+  of the catalogue (`GET /cards/suggest`, any game; a card suggestion resolved to its printing by
+  `GET /cards/{id}`), as the phone and the web before WF; the two link pickers WF had left unused
+  are removed (unit test, and an E2E "Looking for" post sharing a card the poster does not own).
+  **P1**: `RoomStore.refresh` reads again **every page shown**, following the cursors down to the
+  oldest post shown, and replaces the list (a read overtaken by a change made here is dropped);
+  the rooms list is read again every 15 s and when the tab comes back. A post a moderator removed
+  from an older page, the posts of an author who blocked the reader elsewhere and a suspended
+  author's posts now leave within one poll (unit tests; walked: an older page's removed post gone
+  after 13.2 s, another room's preview replaced after 13.2 s).
+- **Major.** **F2**: tests for the room's 15 s poll (not while hidden, at once when the tab comes
+  back, none after leaving) and the rooms list's. **F3**: the reused-handle IT writes older
+  `SALE_RECORDED` rows too (one before the deleted account existed keeps its name, one after says
+  "Deleted collector"; mutant A4 now fails). **U2**: a post with a card and a deck core shows both.
+  **U3/A1**: the photo viewer's Close is named "Close" (`MatDialogClose`'s own `aria-label` input:
+  its host binding had wiped the attribute).
+- **Minor.** **F4**: editing the text clears a refusal and its "Try again". **F5**: a shared binder
+  reads "Public binder" and a deck core its price alone (the post's data names no game; decision
+  13). **F6/U5**: the rooms' last posts and dots follow other rooms. **F7**: tests for below 960 a
+  room above the tabs (M27), Esc back to the row (M43), Undo reading the room again (M45), a room
+  switch clearing a refusal (M48), the focus on the message box after a block (M49), the gear
+  (M47). **P2**: the kill switch closing the open room closes the list too; **A6**: the room pane
+  then says "The community is closed right now", also on a room link. **P3**:
+  `GeoPrivacyContractTest.chatSubjectsAndSalesCarryThePlaceOnly` rates the seller after the sale,
+  so a RatingService-written `RATING_RECEIVED` (with `raterId`) goes through the contract (a
+  latitude beside `raterId` now fails it), then takes the rating back. **U4**: one card and one
+  binder or deck core together in the message box. **U6**: below 960 a post's "⋯" is a full-width
+  bottom sheet (the walk found the menu's own width winning; a global rule for both classes).
+  **U7**: Unblock in Room rules gives the focus to the next Unblock, else the close button, and
+  dismisses the block's Undo toast. **U8**: Chats | Community keep the focus on the tab now active.
+  **U9**: the newest post stays in view when the message box grows (a `ResizeObserver` on the log
+  while it is at its end). **U10**: the rooms list's error is the full error state, and the room
+  pane says "Choose a room once the list loads" with "Try again". **U11**: "Report this post" has
+  the header's Close, rows divided by lines and the board's sentence "Reports are confidential:
+  they are never told who reported them…" (the collector report keeps its own). **A2**: "Message
+  {h}" lands with the focus in the chat's message box (`MessengerComponent.focusChat`), the last
+  "Show older posts" gives it to the first older post, "Try again" to the message box. **A3**:
+  older posts go into the log with its live updates off, then one "{n} older posts shown". **A4**:
+  the rooms are one Tab stop with ↑↓, j k (off with the single-key switch), Home and End. **A5**:
+  "Skip to the message box" after the room's header.
+
+**Decisions of the fix round**
+
+13. **F5: no game on a shared binder or deck core** rather than an additive `game` in the post's
+    binder data: a post may share a binder of any game (the API and the phone allow it), and adding
+    the field would change the API the phone reads for a label. The board's "Public binder ·
+    Yu-Gi-Oh!" becomes "Public binder"; a deck core shows its price.
+14. **"All cards" searches every game** (no `game` filter), as the phone's `CardLinkPicker` and the
+    web's old picker; each row names its game.
+15. **U11 only in the room's report mode**: the collector report of other stages keeps its boxed
+    rows and its sentence. The reasons' lines are the server's, so at 900 px tall the dialog can
+    still scroll when they wrap.
+
+**Tests added or changed**: web unit `room.store.spec` (+2: every page read again, an overtaken
+read dropped), `room-view.component.spec` (+10), `community-view.component.spec` (+4),
+`room-list.component.spec` (+1), `room-post.component.spec` (+3), `room-composer.component.spec`
+(+1), `community-rules.spec` (+1), `share-picker-dialog.component.spec` (+2),
+`photo-viewer-dialog.component.spec` (new, 2), `messages-page.component.spec` (new, 3),
+`report-collector-dialog.component.spec`, the gear in `collector-profile-view` and
+`notification-bell`; web E2E `community.spec.ts` (a card not owned, Message's focus, the tab's
+focus); API `DeletedCollectorDealNotificationsIT` and `GeoPrivacyContractTest` (above). Mutants
+re-run: A4 and P3's latitude now fail their tests.
+
+CHECKS_FIX1
+
 ## NEXT TASK
 
 > **The web resumes (owner, 2026-10-28): stages WA to WH2 of the web redesign**, one at a time
@@ -13929,9 +14005,12 @@ its own "!" (unit test).
 > and a phone's photos read only, the "⋯" menu (Message, Report this post, Block), the message box
 > with "+", Room rules as the third pane, a drawer at md and a sheet below 960; the web E2E
 > database keeps V134's archived channels (`PAUSED_WEB_CHANNELS` dropped from the harness and the
-> CI job). **Next for WF: its reviewers** (functional, product and UX as a collector at a desk,
-> privacy), at most two fix rounds, then its pull request against `main` once WE (#100) is merged
-> and `origin/main` is merged into the branch.
+> CI job). Its reviewers (functional, product and UX as a collector at a desk, privacy,
+> accessibility) ran round 1: **review fix 1 is done** (section "Review fix 1" in the WF section:
+> "Share a card" searches all cards again, every page shown read again, the rooms list every 15 s,
+> focus and live regions). **Next for WF: round 2 of its reviewers** (at most one more fix round),
+> then its pull request against `main` once WE (#100) is merged and `origin/main` is merged into
+> the branch.
 >
 > **The exact next stage after WF's pull request: stage WG of the web redesign, Sign-in, welcome
 > and guests (boards W26 and W27; spec section 14; decision 4; the guest parts after phone R15,
