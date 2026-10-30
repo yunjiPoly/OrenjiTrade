@@ -5374,6 +5374,11 @@ On 2026-10-14, this branch, every suite with retries off:
 | `npm run test:scripts` | **133 tests** passed |
 | `npm run infra:validate` | passed (fmt, init without backend, validate; nothing planned or applied) |
 | `npm run audit:gate` | OK (no unreviewed high or critical advisory) |
+
+The API, client, mobile and full web E2E checks ran on `15de3501`; the one later web change (a room
+row's spoken punctuation, `0dc9cb30`) was re-checked on the final tree: `npm run test:web` (196 files
+/ 1,004 tests), both builds (763.51 kB) and `community.spec.ts` with `acceptance/community.spec.ts`
+alone (**6 passed**).
 | Android | **the Android run could not be verified** (no Android SDK on this Mac) |
 
 **Migration on a seeded database:** a scratch database `orenjitrade_f1_check` was seeded by the
@@ -13811,7 +13816,7 @@ shell icons (`gear`, `messageSquare`, `send`, `trash`, `image` and the existing 
 | `npm run test:mobile` | **128 suites / 1,782 tests** |
 | `npx expo export` (scratch folders) | iOS 1,975 modules, Android 2,101 modules, web 1,596 modules and 68 static routes |
 | `npm run test:mobile:e2e -- --retries=0` (8090/19006, under the simulator lock) | `--stack-only` (the served export names `http://localhost:8090` only, checked by the harness and by hand), then `--reuse-running`: **66 passed** (1.1 min), then `--stop` |
-| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro, under the lock; `apps/api` changed) | MAESTRO_RESULT |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro, under the lock; `apps/api` changed) | **44 / 44 flows passed** (70 min 9 s; `community-post` among them); the simulator back as found (light, default text size), Expo Go stopped, the owner's Metro was not running |
 | `npm run test:scripts` | **165 / 165** (the guard test of `PAUSED_WEB_CHANNELS` removed with it) |
 | `npm run audit:gate` | OK (no unreviewed high or critical advisory) |
 
