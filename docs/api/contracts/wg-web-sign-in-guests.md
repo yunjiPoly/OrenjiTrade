@@ -47,6 +47,15 @@ A listing gone in between answers 404: "That listing is no longer available." On
 collector's own: "That’s one of your own listings." The last two titles are not in the spec's list
 (spec 14 names four): a guest can reach these actions too, and the phone uses the first of them.
 
+The action belongs to the sign-in it was asked for, and to nothing else (WG review fix 1; the
+phone's R15 forgets it on every other entry too). It is kept only once Create account or Sign in is
+chosen, and forgotten by "Not now", Esc, "Not now, keep browsing", leaving the sign-in steps still
+signed out (the browser's Back, the wordmark), signing out after signing in for it (Review our
+terms, the account states), another account appearing in the tab, and the ready account first
+landing on another page than the action's. It never finishes on a later visit, nor for anyone
+else. Nothing is sent without a tap: "I have it" fills the box, the wish and the report open their
+dialogs.
+
 ## Privacy
 
 Nothing new is returned: the reads above are the ones `GeoPrivacyContractTest`,
