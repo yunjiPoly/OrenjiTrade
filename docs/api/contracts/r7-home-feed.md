@@ -22,6 +22,7 @@ All under `/api/v1`. Places are a state or province and a country, never a city 
 | `kind` | `ALL` (default), `NEW_CARDS`, `WANTED` or `DECK_CORES` (any case). Other: 400, field `kind` |
 | `cursor` | the `nextCursor` of the previous page (opaque; a malformed one is 400, field `cursor`) |
 | `limit` | 1 to 50, 20 by default (out of range: 400) |
+| `previews` | since web stage WE: 1 to 6, the card pictures of a new-cards post (4 by default, the phone's grid; out of range: 400). The web asks for 6 ([we-web-home.md](we-web-home.md)) |
 
 Anonymous: 401 until stage R15; since R15 open to signed-out callers (GET only), every field of
 `collector` `null` and the place kept ([r15-browse-without-account.md](r15-browse-without-account.md)).

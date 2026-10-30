@@ -29,12 +29,15 @@ type MasterKey = 'pushEnabled' | 'emailEnabled' | 'inAppEnabled';
 
 export const CHANNELS: readonly { key: Channel; master: MasterKey; label: string; icon: string }[] =
   [
-    { key: 'inApp', master: 'inAppEnabled', label: 'In-app', icon: 'notifications' },
+    { key: 'inApp', master: 'inAppEnabled', label: 'App', icon: 'notifications' },
     { key: 'push', master: 'pushEnabled', label: 'Push', icon: 'phone_iphone' },
     { key: 'email', master: 'emailEnabled', label: 'Email', icon: 'mail' },
   ];
 
 /** Categories in display order with human labels (unknown API categories still render). */
+/** Topics the web no longer lists (offers and trades left the web, decision 2). */
+export const HIDDEN_CATEGORIES: ReadonlySet<string> = new Set(['OFFER', 'TRADE']);
+
 export const CATEGORY_LABELS: Record<string, { label: string; help: string }> = {
   MESSAGE: { label: 'Messages', help: 'New private messages.' },
   OFFER: { label: 'Offers', help: 'Offers you receive and their answers.' },
@@ -82,6 +85,8 @@ export class NotificationSettingsComponent {
   private readonly snackBar = inject(MatSnackBar);
 
   protected readonly channels = CHANNELS;
+  /** The table's columns: App and Email; Push is set on the phone (spec 13). */
+  protected readonly webChannels = CHANNELS.filter((channel) => channel.key !== 'push');
   protected readonly timeZones = timeZones();
   protected readonly draft = signal<NotificationSettingsResponse | null>(null);
   protected readonly loading = signal(true);
@@ -97,13 +102,18 @@ export class NotificationSettingsComponent {
       return [];
     }
     const order = Object.keys(CATEGORY_LABELS);
-    return Object.keys(settings.categories)
-      .sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99))
-      .map((key) => ({
-        key,
-        label: CATEGORY_LABELS[key]?.label ?? key.replace(/_/g, ' ').toLowerCase(),
-        help: CATEGORY_LABELS[key]?.help ?? '',
-      }));
+    return (
+      Object.keys(settings.categories)
+        // The web's topics (spec 13): no offers or trades any more (decision 2); their saved
+        // choices are kept as they are.
+        .filter((key) => !HIDDEN_CATEGORIES.has(key))
+        .sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99))
+        .map((key) => ({
+          key,
+          label: CATEGORY_LABELS[key]?.label ?? key.replace(/_/g, ' ').toLowerCase(),
+          help: CATEGORY_LABELS[key]?.help ?? '',
+        }))
+    );
   });
   protected readonly quietHoursInvalid = computed(() => {
     const quiet = this.draft()?.quietHours;

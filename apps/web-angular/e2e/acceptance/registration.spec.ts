@@ -82,7 +82,7 @@ test.describe('acceptance: registration', () => {
     await chooseOption(page, 'State or province', 'Brittany');
     await page.getByLabel('City (optional)').fill(city);
     await page.getByRole('button', { name: 'Finish' }).click();
-    await expect(page).toHaveURL(/:\d+\/(\?region=[a-z-]+)?$/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/:\d+\/(\?region=[a-z-]+(&game=[a-z-]+)?)?$/, { timeout: 20_000 });
     await expect(page.getByText('Welcome to OrenjiTrade! Your profile is ready.')).toBeVisible();
 
     // The server stored the declared place (codes and the city text only, never a coordinate).
@@ -116,10 +116,10 @@ test.describe('acceptance: registration', () => {
     await expect(page.getByText('You are signed out. See you soon!')).toBeVisible();
 
     await signIn(page, { email, password: TEST_PASSWORD });
-    await expect(page).toHaveURL(/:\d+\/(\?region=[a-z-]+)?$/);
+    await expect(page).toHaveURL(/:\d+\/(\?region=[a-z-]+(&game=[a-z-]+)?)?$/);
     // Signed in: the home region is browsed.
     await page.goto('/');
-    await expect(page).toHaveURL(/:\d+\/\?region=europe$/);
+    await expect(page).toHaveURL(/:\d+\/\?region=europe&game=[a-z-]+$/);
     await expect(page.getByTestId('region-pill')).toContainText('Europe');
     await openAccountMenu(page);
     await expect(page.getByTestId('account-menu-handle')).toHaveText(`@${handle}`);
@@ -131,16 +131,15 @@ test.describe('acceptance: registration', () => {
     // Not discoverable yet (the default): the profile shows no place at all.
     await page.goto(`/collectors/${handle}`);
     await expect(page.getByRole('heading', { level: 1, name: displayName })).toBeVisible();
-    await expect(page.getByRole('list', { name: 'Games' })).toContainText('Pokémon');
-    await expect(page.getByRole('list', { name: 'Collector details' })).toContainText(
-      'Not on the map',
-    );
+    await expect(page.getByRole('list', { name: 'Games and tags' })).toContainText('Pokémon');
+    await expect(page.getByTestId('collector-facts')).toContainText('Not on the map');
     await expect(page.getByTestId('collector-city')).toHaveCount(0);
 
     // Discoverable: the profile shows the state and, with "show my city" on, the city.
     await api.updatePrivacy(token, { discoverable: true });
     await page.reload();
-    await expect(page.getByTestId('collector-public-label')).toContainText(label);
+    // The header names the province (board W23b), the city before it.
+    await expect(page.getByTestId('collector-public-label')).toContainText(label.split(',')[0]);
     await expect(page.getByTestId('collector-city')).toHaveText(city);
   });
 });

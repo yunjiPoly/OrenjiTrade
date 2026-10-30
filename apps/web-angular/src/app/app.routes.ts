@@ -70,7 +70,7 @@ const PROFILE_TAB: ShellRouteData = { ...PROFILE, tabBar: true };
  */
 export const routes: Routes = [
   {
-    // Home: until web stage WE builds the feed (W1), the region's binders on its map.
+    // Home (web stage WE, spec 5, boards W1 and W2): what's new in the region and game.
     path: '',
     pathMatch: 'full',
     title: 'Home',
@@ -78,7 +78,7 @@ export const routes: Routes = [
     data: { shell: HOME, seo: 'index' },
     canActivate: [onboardingGuard],
     loadComponent: () =>
-      import('./features/map/map-page.component').then((m) => m.MapPageComponent),
+      import('./features/home/home-page.component').then((m) => m.HomePageComponent),
   },
   { path: 'map', pathMatch: 'full', children: [], canActivate: [mapRedirect] },
   {

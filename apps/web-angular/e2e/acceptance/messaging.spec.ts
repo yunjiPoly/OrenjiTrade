@@ -47,7 +47,7 @@ test.describe('acceptance: messaging', () => {
     const pageA = await actors.open(a);
     await pageA.goto(`/collectors/${b.handle}`);
     await expect(pageA.getByRole('heading', { level: 1, name: b.displayName })).toBeVisible();
-    await pageA.getByRole('button', { name: `Message ${b.displayName}` }).click();
+    await pageA.getByRole('button', { name: `Message ${b.handle}` }).click();
     // The chat drawer (web WC, spec 10.6); "Open in Messages" goes full page.
     await pageA.getByTestId('chat-drawer').getByTestId('open-in-messages').click();
     await expect(pageA).toHaveURL(/\/messages\/[0-9a-f-]{36}$/);

@@ -165,9 +165,10 @@ test.describe('launch configuration: every money flag off', () => {
     await stubCardImages(page);
     await signInThroughUi(page, buyer.email, buyer.password);
 
-    // --- Home's map: no radius exists any more (ADR 0017), nothing is sold, no sponsored place ---
-    await expect(page).toHaveURL(/:\d+\/(\?region=[a-z-]+)?$/);
-    await expect(page.getByTestId('boundary-map')).toBeVisible();
+    // --- Home (web stage WE: the feed and its map card): no radius exists any more (ADR 0017),
+    // nothing is sold, no sponsored place ---
+    await expect(page).toHaveURL(/:\d+\/(\?region=[a-z-]+(&game=[a-z-]+)?)?$/);
+    await expect(page.getByTestId('home-map-card')).toBeVisible();
     await expect(page.getByTestId('radius-cap')).toHaveCount(0);
     await expect(page.getByRole('main')).not.toContainText(/\bkm\b/);
     await expect(page.locator('a[href="/premium"]')).toHaveCount(0);

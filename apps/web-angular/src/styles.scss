@@ -165,12 +165,31 @@ html {
       container-shape: var(--radius-sm),
     )
   );
+  // A switch turned off: its outline and handle in textMuted, at least 3:1 against the surface and
+  // the track in both themes (borderStrong was 1.5:1; SC 1.4.11, WE review A8).
+  @include mat.slide-toggle-overrides(
+    (
+      track-outline-color: var(--color-text-muted),
+      unselected-handle-color: var(--color-text-muted),
+      unselected-hover-handle-color: var(--color-text-secondary),
+      unselected-focus-handle-color: var(--color-text-secondary),
+      unselected-pressed-handle-color: var(--color-text-secondary),
+    )
+  );
 }
 
 // Focused controls are never hidden under the sticky top bar (64 at every width) or, below 960,
 // the tab bar (64 plus the safe area) (WCAG 2.4.11).
 html {
   scroll-padding-top: 72px;
+}
+// Home: the bar and its sticky toolbar (64 + 56, with a 12 fade), and the "New posts · Show" pill
+// under them when it shows: a control reached with Shift+Tab stops below them (WE review A1).
+html:has(.home__toolbar) {
+  scroll-padding-top: 148px;
+}
+html:has(.home__newer-row) {
+  scroll-padding-top: 176px;
 }
 @media (max-width: 959.98px) {
   html {

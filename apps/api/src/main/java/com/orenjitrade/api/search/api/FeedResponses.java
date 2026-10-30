@@ -190,7 +190,8 @@ public final class FeedResponses {
             @Schema(requiredMode = RequiredMode.REQUIRED, example = "12") long total,
             @Schema(
                             requiredMode = RequiredMode.REQUIRED,
-                            description = "The newest 4 at most, newest first")
+                            description =
+                                    "The newest 4 at most (or `previews` of them), newest first")
                     List<FeedCardPreviewResponse> previews) {
 
         static FeedNewCardsResponse from(NewCards cards) {

@@ -58,24 +58,8 @@
 
         @if (isCore()) {
           <div class="core">
-            <div class="core__main">
-              <app-deck-core-gallery [photos]="binder.photos ?? []" [name]="binder.name" />
-              @if ((binder.keyCards ?? []).length > 0) {
-                <section class="core__keys" aria-labelledby="core-keys-title">
-                  <h2 class="core__h2" id="core-keys-title">Key cards</h2>
-                  <p class="core__keys-lead">
-                    Chosen by {{ binder.owner.handle || 'the seller' }} from the
-                    {{ binder.itemCount }} cards in this deck core. Ask in the chat for the full
-                    list.
-                  </p>
-                  <app-key-cards
-                    [cards]="binder.keyCards ?? []"
-                    [items]="store.items()"
-                    [game]="game()"
-                  />
-                </section>
-              }
-            </div>
+            <!-- The name (h1) comes before the photos in the reading order; CSS keeps the photos on
+                 the left (WD review A21). -->
             <aside class="core__panel" aria-label="About this deck core">
               <div class="core__tags">
                 <span class="tag tag--core"
@@ -129,6 +113,25 @@
               }
               <app-ship-notes variant="panel" />
             </aside>
+            <!-- order -1: the photos stay on the left (inline: the style budget is full). -->
+            <div class="core__main" style="order: -1">
+              <app-deck-core-gallery [photos]="binder.photos ?? []" [name]="binder.name" />
+              @if ((binder.keyCards ?? []).length > 0) {
+                <section class="core__keys" aria-labelledby="core-keys-title">
+                  <h2 class="core__h2" id="core-keys-title">Key cards</h2>
+                  <p class="core__keys-lead">
+                    Chosen by {{ binder.owner.handle || 'the seller' }} from the
+                    {{ binder.itemCount }} cards in this deck core. Ask in the chat for the full
+                    list.
+                  </p>
+                  <app-key-cards
+                    [cards]="binder.keyCards ?? []"
+                    [items]="store.items()"
+                    [game]="game()"
+                  />
+                </section>
+              }
+            </div>
           </div>
         } @else {
           <header class="bnd__head">

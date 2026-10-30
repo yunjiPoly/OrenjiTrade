@@ -28,7 +28,9 @@ coordinate (ADR 0017).
   notices included (they only mirror the chats' own unread state, which lives in the
   conversations; the Messages badge does not read them).
 
-**The paused web's client.** `getUnreadNotificationCount` had no parameter; the generated Angular
+**The web's client.** Since web stage WE the web sends `excludeTypes=MESSAGE` with both endpoints
+and `web-omits.mjs` omits nothing ([we-web-home.md](we-web-home.md)). Before that: **the paused
+web's client.** `getUnreadNotificationCount` had no parameter; the generated Angular
 service would have turned `op('body', false, options)` into `op(requestParameters?, observe?, …)`
 and broken the paused web's calls. `packages/api-client/tools/web-omits.mjs` leaves `excludeTypes`
 out of that one operation in the web's client only (`scripts/lib/web-client-omits.test.mjs` checks

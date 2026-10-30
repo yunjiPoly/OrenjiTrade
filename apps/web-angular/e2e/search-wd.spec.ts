@@ -163,7 +163,7 @@ test.describe('web stage WD: Search, Who has this card, sets, binders and deck c
     await clickState(page, 'CA-ON', 'CA-QC');
     await expect(page).toHaveURL(/state=CA-ON/);
     const chip = page.getByTestId('state-chip');
-    await expect(chip).toHaveAttribute('aria-label', 'Showing Ontario. Show the whole region');
+    await expect(chip).toHaveAttribute('aria-label', 'Showing Ontario. Back to the list of states');
     await expect(page.getByTestId('boundary-map')).toBeVisible();
     // Moving across states leaves at most one tooltip.
     await page.mouse.move(5, 5);
@@ -206,7 +206,10 @@ test.describe('web stage WD: Search, Who has this card, sets, binders and deck c
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL(/state=US-SD/);
     await expect(chip).toBeFocused();
-    await expect(chip).toHaveAttribute('aria-label', 'Showing South Dakota. Show the whole region');
+    await expect(chip).toHaveAttribute(
+      'aria-label',
+      'Showing South Dakota. Back to the list of states',
+    );
     const row = page.getByTestId('binder-row').filter({ hasText: seller.binder.name });
     await expect(row).toContainText(`${seller.collector.handle} · South Dakota · 2 cards`);
     // No counts in the results (owner 2026-10-14).

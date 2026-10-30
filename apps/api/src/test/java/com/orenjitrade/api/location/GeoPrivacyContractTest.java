@@ -591,6 +591,11 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
                         .as("province of %s for %s", handle, reader)
                         .isEqualTo(PLACES.get(handle).split(", ")[0]);
                 fetch(base + "/inventory?size=10&excludeDeckCoreItems=true", caller);
+                // The web's profile (stage WE): 12 cards of one game, then pages of 24.
+                fetch(base + "/inventory?size=12&excludeDeckCoreItems=true&game=yugioh", caller);
+                fetch(
+                        base + "/inventory?size=24&page=1&excludeDeckCoreItems=true&game=yugioh",
+                        caller);
                 fetch(base + "/binders", caller);
                 fetch(base + "/ratings?limit=1", caller);
                 fetch(base + "/references?limit=2", caller);
@@ -773,6 +778,17 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
                         reader,
                         kindsSeen);
             }
+            // The web's Home (stage WE): every chip with its 6 pictures per new-cards post.
+            for (String kind : List.of("ALL", "NEW_CARDS", "WANTED", "DECK_CORES")) {
+                checkFeed(
+                        fetch(
+                                "/api/v1/feed?limit=20&previews=6&region=americas-north"
+                                        + "&game=yugioh&kind="
+                                        + kind,
+                                caller),
+                        reader,
+                        kindsSeen);
+            }
         }
         assertThat(kindsSeen).containsExactlyInAnyOrder("NEW_CARDS", "WANTED", "DECK_CORE");
         for (Fetched document : fetched) {
@@ -860,6 +876,17 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
         }
     }
 
+    /** The new-cards posts of a feed page with more than the phone's 4 pictures. */
+    private static int widePostsOf(JsonNode page) {
+        int wide = 0;
+        for (JsonNode post : page.path("items")) {
+            if (post.path("newCards").path("previews").size() > 4) {
+                wide++;
+            }
+        }
+        return wide;
+    }
+
     private void readSignedOut(CapturedOutput output) {
         Map<String, String> userIds = new LinkedHashMap<>();
         List<String> names = new ArrayList<>();
@@ -892,6 +919,7 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
 
         java.util.Set<String> binderIds = new java.util.LinkedHashSet<>();
         int places = 0;
+        int widePosts = 0;
         for (String region : List.of("americas-north", "americas-south", "europe")) {
             for (String game : List.of("yugioh", "pokemon", "mtg", "onepiece", "riftbound")) {
                 JsonNode feed =
@@ -905,6 +933,41 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
             }
             for (String kind : List.of("NEW_CARDS", "WANTED", "DECK_CORES")) {
                 fetch("/api/v1/feed?limit=50&game=yugioh&region=" + region + "&kind=" + kind, null);
+            }
+            // The web's guest Home (stage WE): every game and chip with its 6 pictures per
+            // new-cards post, which only `previews` returns (WE review P1).
+            for (String game : List.of("yugioh", "pokemon", "mtg", "onepiece", "riftbound")) {
+                for (String kind : List.of("ALL", "NEW_CARDS", "WANTED", "DECK_CORES")) {
+                    JsonNode web =
+                            fetch(
+                                    "/api/v1/feed?limit=20&previews=6&region="
+                                            + region
+                                            + "&game="
+                                            + game
+                                            + "&kind="
+                                            + kind,
+                                    null);
+                    widePosts += widePostsOf(web);
+                }
+            }
+            // Every page of the web's new cards (the suite's own posts may push the seed's wide
+            // posts past the first page): each one goes through the same checks.
+            String newCards =
+                    "/api/v1/feed?limit=50&previews=6&region="
+                            + region
+                            + "&game=yugioh&kind=NEW_CARDS";
+            JsonNode page = fetch(newCards, null);
+            widePosts += widePostsOf(page);
+            for (int more = 0; more < 40 && page.path("hasMore").asBoolean(); more++) {
+                page =
+                        fetch(
+                                newCards
+                                        + "&cursor="
+                                        + java.net.URLEncoder.encode(
+                                                page.path("nextCursor").asString(),
+                                                java.nio.charset.StandardCharsets.UTF_8),
+                                null);
+                widePosts += widePostsOf(page);
             }
             JsonNode counts = fetch("/api/v1/regions/" + region + "/binder-counts", null);
             for (JsonNode subdivision : counts.path("subdivisions")) {
@@ -976,6 +1039,9 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
             fetch("/api/v1/public/binders/" + binderId + "/items?size=100", null);
         }
         assertThat(places).as("places read by a guest").isPositive();
+        assertThat(widePosts)
+                .as("new-cards posts with 5 or 6 pictures read by a guest (previews=6)")
+                .isPositive();
 
         boolean itemPhotos = false;
         boolean binderPhotos = false;

@@ -115,7 +115,14 @@ type Status = 'idle' | 'loading' | 'ready' | 'error';
                 </li>
               }
             </ul>
-            <p class="cp__note">Only you see your searches. They're kept in this browser.</p>
+            <p class="cp__note">
+              Only you see your searches. They're kept in this browser. You can turn this off in
+              @if (signedIn()) {
+                <a class="cp__link" routerLink="/settings/privacy">Settings › Privacy</a>.
+              } @else {
+                Settings › Privacy.
+              }
+            </p>
           </section>
         }
         <p class="cp__quiet">Pick a state on the map to see its binders.</p>
@@ -273,7 +280,7 @@ export class CardsPaneComponent {
 
   protected readonly trimmed = computed(() => this.query().trim());
   protected readonly typing = computed(() => this.trimmed().length >= SEARCH_MIN_CHARS);
-  private readonly signedIn = computed(() => this.auth.isAuthenticated());
+  protected readonly signedIn = computed(() => this.auth.isAuthenticated());
   protected readonly options = computed<SearchOption[]>(() => {
     const results = this.results();
     if (!this.typing() || !results || results.query !== this.trimmed()) {

@@ -160,5 +160,28 @@
         aria-describedby="privacy-remember-searches-help"
       />
     </li>
+    <li class="section-row">
+      <div class="section-row__text">
+        <span class="section-row__label">Your recent searches</span>
+        <span class="section-row__help" role="status">
+          {{
+            recent.list().length === 0
+              ? 'Nothing kept in this browser.'
+              : recent.list().length === 1
+                ? '1 search kept in this browser.'
+                : recent.list().length + ' searches kept in this browser.'
+          }}
+        </span>
+      </div>
+      <button
+        type="button"
+        class="privacy__clear"
+        data-testid="privacy-clear-searches"
+        [disabled]="recent.list().length === 0"
+        (click)="recent.clear()"
+      >
+        Clear my searches
+      </button>
+    </li>
   </ul>
 </app-section-card>

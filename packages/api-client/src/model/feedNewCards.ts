@@ -16,7 +16,7 @@ import { FeedCardPreview } from './feedCardPreview';
 export interface FeedNewCards { 
     total: number;
     /**
-     * The newest 4 at most, newest first
+     * The newest 4 at most (or `previews` of them), newest first
      */
     previews: Array<FeedCardPreview>;
 }

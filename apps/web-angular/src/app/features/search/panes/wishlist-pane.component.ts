@@ -23,28 +23,17 @@ import { ToastService } from '../../../core/feedback/toast.service';
 import { silentErrors } from '../../../core/http/http-context';
 import { ShellLayout } from '../../../core/layout/shell-layout.service';
 import { ShellIconComponent } from '../../../core/layout/shell-icon/shell-icon.component';
-import { printingCode } from '../../../shared/inventory/inventory-labels';
 import {
   ConfirmDialogComponent,
   ConfirmDialogData,
 } from '../../../shared/ui/confirm-dialog/confirm-dialog.component';
 import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import { WishlistActions, addedMessage } from '../../../shared/wishlist/wishlist-actions.service';
+import { wishTerms } from '../../../shared/wishlist/wishlist-labels';
 import { WishlistStore } from '../../wishlist/data/wishlist.store';
 
-/** "Any printing · 90% TCG", "TN19-EN013 · NM only" (spec 6.6: a wish's terms on one line). */
-export function wishTerms(
-  wish: Pick<WishlistItemResponse, 'printing' | 'rarity' | 'nearMintOnly' | 'priceTerm'>,
-): string {
-  const copy = wish.printing
-    ? printingCode(wish.printing) || 'One printing'
-    : wish.rarity
-      ? `Any ${wish.rarity}`
-      : 'Any printing';
-  return [copy, wish.nearMintOnly ? 'NM only' : null, wish.priceTerm?.label ?? null]
-    .filter(Boolean)
-    .join(' · ');
-}
+/** A wish's terms on one line (moved to the shared labels for Home and profiles, stage WE). */
+export { wishTerms };
 
 /** The bulk remove's confirmation: "for it" for one wish, "for them" for several. */
 export function removeConfirmation(count: number): ConfirmDialogData {
@@ -297,6 +286,16 @@ export class WishlistPaneComponent {
   private readonly dock = viewChild<ElementRef<HTMLElement>>('dock');
   private readonly available = signal<ReadonlySet<string>>(new Set());
 
+  /** The listed wishes' ids, `null` until listed or signed out (the availability's trigger). */
+  private readonly wishIds = computed(() =>
+    this.auth.isAuthenticated() && this.store.status() === 'ready'
+      ? this.store
+          .items()
+          .map((wish) => wish.id)
+          .join(',')
+      : null,
+  );
+
   /** The browsed game's wishes only (stage G). */
   protected readonly wishes = computed(() =>
     this.store.items().filter((wish) => wish.game === this.game()),
@@ -332,14 +331,15 @@ export class WishlistPaneComponent {
         });
       }
     });
-    // "Available" for the browsed region and game (ids only, no counts).
+    // "Available" for the browsed region and game (ids only, no counts): read once the wishes are
+    // listed, and again only when the region, the game or the set of wishes changes, never for
+    // the same wishes listed again (WD review F14).
     effect(() => {
       const region = this.region();
       const game = this.game();
-      const signedIn = this.auth.isAuthenticated();
-      this.store.items();
+      const wishes = this.wishIds();
       untracked(() => {
-        if (signedIn) {
+        if (wishes !== null) {
           void this.loadAvailability(region, game);
         }
       });

@@ -6,7 +6,7 @@ import { of } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
 import { SessionService } from '../../../core/auth/session.service';
 import { BinderListStore } from '../data/binder-list.store';
-import { BindersPaneComponent } from './binders-pane.component';
+import { BindersPaneComponent, stateChipLabel } from './binders-pane.component';
 
 const BINDERS = [
   {
@@ -82,7 +82,7 @@ describe('BindersPaneComponent (spec 6.3)', () => {
     expect(rows[0].textContent).toContain('Yours');
     expect(rows[1].textContent).toContain('$95');
     expect(element.querySelector('[data-testid="state-chip"]')?.getAttribute('aria-label')).toBe(
-      'Showing Quebec. Show the whole region',
+      'Showing Quebec. Back to the list of states',
     );
   });
 
@@ -176,5 +176,14 @@ describe('BindersPaneComponent (spec 6.3)', () => {
       await settle();
       expect(announce).toHaveBeenCalledWith('Results updated', 'polite');
     });
+  });
+});
+
+describe('stateChipLabel (WD review R2-5)', () => {
+  it('names what the × does, the whole region worded on its own', () => {
+    expect(stateChipLabel('CA-QC', 'Quebec')).toBe('Showing Quebec. Back to the list of states');
+    expect(stateChipLabel('all', 'Whole region')).toBe(
+      'Showing the whole region. Back to the list of states',
+    );
   });
 });

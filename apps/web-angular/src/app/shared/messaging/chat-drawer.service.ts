@@ -5,15 +5,29 @@ import type { ConversationSummary } from '@orenji/api-client';
 import { filter } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { ShellLayout } from '../../core/layout/shell-layout.service';
+import { ChatDrafts } from './chat-drafts.service';
 import type { ChatSubjectRequest } from './conversation-starter.service';
 
 /** Who to message from a "Message" button, and what about. */
 export interface ChatRequest extends ChatSubjectRequest {
   recipientId: string;
+  /**
+   * Text waiting in the message box, never sent by itself ("I have it": "Hi! I have {card}.",
+   * spec 5.2); a draft already typed in that chat is kept instead.
+   */
+  draft?: string;
+  /**
+   * A line the drawer shows over the chat's pinned card, for this opening only: "I have it"
+   * without a public copy of yours keeps the card the chat was pinned to before, so the line says
+   * the message is about the wished card (WE review F7, U5).
+   */
+  context?: string;
 }
 
 interface DrawerState {
   conversation: ConversationSummary;
+  /** {@link ChatRequest.context} of the opening. */
+  context: string | null;
   /** The control that opened it: the focus goes back there when the drawer closes. */
   opener: HTMLElement | null;
 }
@@ -32,6 +46,7 @@ export class ChatDrawer {
   private readonly layout = inject(ShellLayout);
   private readonly auth = inject(AuthService);
   private readonly document = inject(DOCUMENT);
+  private readonly drafts = inject(ChatDrafts);
 
   private readonly stateSignal = signal<DrawerState | null>(null);
   readonly state = this.stateSignal.asReadonly();
@@ -64,7 +79,7 @@ export class ChatDrawer {
       });
       return;
     }
-    const { recipientId, ...subject } = request;
+    const { recipientId, draft, context, ...subject } = request;
     const uid = this.auth.user()?.uid ?? null;
     this.startingState.set(recipientId);
     let conversation: ConversationSummary | null;
@@ -81,6 +96,9 @@ export class ChatDrawer {
     if (!conversation || uid !== (this.auth.user()?.uid ?? null)) {
       return;
     }
+    if (draft && !this.drafts.get(conversation.id)) {
+      this.drafts.set(conversation.id, draft);
+    }
     if (this.layout.narrow()) {
       await this.router.navigate(['/messages', conversation.id]);
       return;
@@ -88,6 +106,7 @@ export class ChatDrawer {
     const element = opener instanceof HTMLElement ? opener : null;
     this.stateSignal.set({
       conversation,
+      context: context ?? null,
       opener: element ?? this.stateSignal()?.opener ?? null,
     });
   }

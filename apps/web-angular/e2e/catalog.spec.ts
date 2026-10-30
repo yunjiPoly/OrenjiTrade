@@ -38,7 +38,7 @@ test.describe('card catalog', () => {
     test.setTimeout(120_000);
     const collector = await createOnboardedCollector(request, 'browse');
     await signInThroughUi(page, collector.email, collector.password);
-    await expect(page).toHaveURL(/:\d+\/(\?region=[a-z-]+)?$/);
+    await expect(page).toHaveURL(/:\d+\/(\?region=[a-z-]+(&game=[a-z-]+)?)?$/);
     const search = topSearch(page);
     // Specific enough to rank the fictional card first when the real Yu-Gi-Oh! catalog is
     // imported locally (it has an "Azure-Eyes Silver Dragon").
@@ -269,7 +269,7 @@ test.describe('card catalog', () => {
     // An unknown set gets a not-found state with a way back.
     await page.goto('/sets/not-a-set');
     await expect(
-      page.getByRole('heading', { name: "This set isn't in the catalogue" }),
+      page.getByRole('heading', { name: "This set isn't in the catalog" }),
     ).toBeVisible();
   });
 
@@ -278,7 +278,7 @@ test.describe('card catalog', () => {
   }) => {
     await page.goto('/cards/00000000-0000-4000-8000-000000000000');
     await expect(
-      page.getByRole('heading', { name: "This card isn't in the catalogue" }),
+      page.getByRole('heading', { name: "This card isn't in the catalog" }),
     ).toBeVisible();
     await expect(page.getByRole('link', { name: 'Search cards' })).toHaveAttribute(
       'href',

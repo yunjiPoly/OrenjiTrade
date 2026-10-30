@@ -16,15 +16,15 @@ export interface FeedCollector {
     /**
      * Null for a signed-out caller
      */
-    id: string;
+    id: string | null;
     /**
      * Null for a signed-out caller
      */
-    handle: string;
+    handle: string | null;
     /**
      * Null for a signed-out caller
      */
-    displayName: string;
+    displayName: string | null;
     avatarUrl?: string | null;
 }
 

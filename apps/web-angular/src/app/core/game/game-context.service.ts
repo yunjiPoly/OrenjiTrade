@@ -41,6 +41,29 @@ export function browsableGames(games: readonly GameResponse[] | null): ReadonlyS
 }
 
 /**
+ * The rows of the game popover: the games of `GET /games` (ACTIVE, never HIDDEN, in the API's
+ * order), each available when its catalogue holds a card; the static list only while the games
+ * load, with the browsed one available (WD review F16). A game the web does not know by name yet
+ * keeps the API's name.
+ */
+export function gameOptions(games: readonly GameResponse[] | null, current: string): GameOption[] {
+  if (games === null) {
+    return ALL_GAMES.map((game) => ({ game, available: game.slug === current }));
+  }
+  return games
+    .filter((game) => !!game.slug && game.status === 'ACTIVE')
+    .map((game) => {
+      const slug = game.slug as string;
+      const known = gameInfo(slug);
+      const info =
+        known.label === slug && game.name
+          ? { ...known, label: game.name, shortLabel: game.shortName || game.name }
+          : known;
+      return { game: info, available: game.hasCards === true };
+    });
+}
+
+/**
  * The game to browse (the phone's `resolveBrowsingGame`, stage G), in this order: the one picked
  * in this visit (the pill, a `?game=` link, a card page of another game), the one kept in this
  * browser for this account, the first game of the collector's profile that can be browsed, then
@@ -94,6 +117,11 @@ export class GameContext {
     this.accountState() ? (this.profiles.profile()?.games ?? []) : [],
   );
 
+  /**
+   * The account whose kept game is browsed (`null` signed out). It changes with the game it brings
+   * back, so a page that let a link choose the game (Home's `?game=`) applies it again after it.
+   */
+  readonly account = this.accountState.asReadonly();
   /** The browsable slugs; `null` until `GET /games` answered. */
   readonly browsable = computed(() => browsableGames(this.gamesStore.games()));
   readonly current = computed(() =>
@@ -105,13 +133,9 @@ export class GameContext {
     }),
   );
   readonly info = computed(() => gameInfo(this.current()));
-  readonly options = computed<GameOption[]>(() => {
-    const browsable = this.browsable();
-    return ALL_GAMES.map((game) => ({
-      game,
-      available: browsable === null ? game.slug === this.current() : browsable.has(game.slug),
-    }));
-  });
+  readonly options = computed<GameOption[]>(() =>
+    gameOptions(this.gamesStore.games(), this.current()),
+  );
 
   constructor() {
     void this.gamesStore.load();

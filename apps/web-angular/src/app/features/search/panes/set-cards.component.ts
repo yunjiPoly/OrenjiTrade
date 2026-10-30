@@ -76,7 +76,7 @@ type Status = 'loading' | 'ready' | 'error';
             {{
               q()
                 ? 'No card of ' + (set()?.code || 'this set') + ' matches ‘' + q() + '’.'
-                : 'This set has no cards in the catalogue yet.'
+                : 'This set has no cards in the catalog yet.'
             }}
           }
         </p>
@@ -251,6 +251,8 @@ export class SetCardsComponent {
   });
   private request = 0;
   private subscriptions: Subscription[] = [];
+  private loadedSet: string | null = null;
+  private loadedGame: string | null = null;
 
   constructor() {
     effect(() => {
@@ -268,10 +270,30 @@ export class SetCardsComponent {
       });
     });
     effect(() => {
-      this.setId();
-      this.game();
+      const id = this.setId();
+      const game = this.game();
       this.q();
-      untracked(() => this.reload());
+      untracked(() => {
+        // A game switch away from this set's own game: the page drops the set right after, so no
+        // read goes out with the new game and the old set (WD review R2-4).
+        const own = this.set()?.game;
+        const switchedAway =
+          id === this.loadedSet && game !== this.loadedGame && !!own && !!game && own !== game;
+        this.loadedSet = id;
+        this.loadedGame = game;
+        if (switchedAway) {
+          // Nothing of the other game stays under the pill meanwhile.
+          this.subscriptions.forEach((sub) => sub.unsubscribe());
+          this.subscriptions = [];
+          this.request++;
+          this.cards.set([]);
+          this.page.set(0);
+          this.totalPages.set(0);
+          this.status.set('ready');
+        } else {
+          this.reload();
+        }
+      });
     });
     inject(DestroyRef).onDestroy(() => this.subscriptions.forEach((sub) => sub.unsubscribe()));
   }

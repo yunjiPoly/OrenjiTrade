@@ -110,6 +110,66 @@ binders|deckcores&open=<binderId>&wish=<id>` (`data/search-url.ts`).
   pill (Recently added, Name, Price: `sort=` of the items) and its cards with "Load more"
   (`shared/discovery/binder-view`).
 
+## Home, profiles, notifications and settings (web redesign WE)
+
+Boards W1, W2 and W23 to W25; spec sections 5, 11, 12 and 13; decisions 13 and 16.
+
+- **Home** (`/`, `features/home`, lazy): "What's new" with "{game} · {region} · last 30 days", the
+  sticky toolbar (the chips All, New cards, Wanted and Deck cores in a "Show" group, "Updated 5 min
+  ago" and a refresh button), the feed of `GET /feed?region&game&kind&previews=6` (`HomeFeedStore`:
+  cursor pages loaded when the end comes into view, a post seen twice keeps its first copy) in
+  "Today", "Earlier this week" and "Earlier this month". A post (`FeedPostComponent`): a 36 avatar
+  and the handle opening the profile, "listed 12 cards" / "wants a card" / "is selling a deck
+  core", "5 min · Quebec"; new cards as six 100×147 tiles with prices (the 6th "+N" from 7 cards,
+  opening the profile), one card with "Message {handle} about {card}" (the chat drawer, the card
+  as its subject), a wish with "I have it" (`IHaveIt`: the chat drawer to the wisher with "Hi! I
+  have {card}." waiting in the box, your public copy of that card as the chat's card when you
+  have one; nothing is sent), a deck core's photo band opening the deck core. Every 5 minutes
+  while the tab is visible one post is read quietly: newer posts show the pill "New posts · Show"
+  (never a number; posts never slide in). The end: "You're all caught up" and the window's
+  sentence; day one: "Nothing new in {region} yet"; a quiet game: "Nothing new in {game} yet" with
+  [Add your {game} cards] and [Switch game]; a quiet chip: its line and [Show all]. A guest reads
+  "A collector" with a plain avatar (R15). The URL keeps `?region&game&kind` (spec 4.11).
+- **Home's rail** (320, lg and up): Get started (signed in, until the three steps are done or
+  "Hide these steps", kept per account in this browser) or the guest card, then the **map card**:
+  a static SVG (`static-map.ts`, Web Mercator into 280×168 card pixels rounded to a tenth, from the
+  bundled boundaries; no Leaflet, which stays in the Search chunk) shaded by the binder counts,
+  your province outlined in teal, "Quebec · your province" over "7 binders · 5 deck cores",
+  [Explore the map] and the caption; then the footer links. At md the feed is centred with Get
+  started on top and no map card; below 960 the phone's Home. Nothing else (decision 16: no "Your
+  desk", no wishlist availability).
+- **Profiles** (`/collectors/:handle`, `/profile`; `collector-profile-view`): the header card
+  (avatar 96 with the online dot, the name, "@handle · ★4.9" scrolling to the ratings, the games
+  and tags, "Laval, Quebec · Member since 2024 · Active this week": the city only while its owner
+  shows it); another collector's [Message {handle}] and "⋯" (Share profile, Report, Block or
+  Unblock), your own [Edit profile], [Share profile] and the gear. Main column: Cards (12 tiles;
+  a game control when the collector lists cards of two or more games, from their binders and first
+  cards; "See all" pages of 24 inline, yours to Inventory), Binders (three, "See all" inline or to
+  Inventory › Binders), Looking for (rows with the terms and the note; "I have it" on someone
+  else's, "Edit" on yours; never an availability). Side column: About, Ratings & references (the
+  average, the count, the 2 latest references, "See all references" to the full section below),
+  how deals go (yours: where your city shows). Blocked and private states as before.
+- **Notifications** (spec 12): the bell opens a 400 popover (`notification-popover`, lazy; a
+  bottom sheet below 960) with "Mark all as read", the gear, NEW and EARLIER and "See all
+  notifications"; `/notifications` is centred at 720 with [All | Unread n], "New" with "Mark all
+  as read", then "Earlier" by day, and "Load more". Both read `excludeTypes=MESSAGE` (chats have
+  their own badge in Messages; a chat's push never raises the bell). Rows
+  (`notification-row`, `notification-rows.ts`): the kind tile, "{bold subject} {rest}" over one
+  muted line, the time; reminders answered in place ("Still have them" confirms the binder, then
+  "Confirmed. They stay in search."; "Review the binder"); old offer, trade, payment and dispute
+  notices read as history and open nothing. No web push (decision 13).
+- **Settings** (`/settings/:section`, spec 13): container 1040, a nav of 248 (the mini profile
+  card with "Edit profile"; Where you ship from: Location with "Quebec, Canada · On the map",
+  Shipping details "Phone app only"; App: Notifications, Privacy, Appearance with the theme; Safety:
+  Blocked, My reports; Account: Account, Legal; Sign out and "OrenjiTrade web 1.0.0"). Location:
+  "Show me on the map" (409 `LOCATION_REQUIRED` answered in place), the region, country, state and
+  city with "Show my city on my profile", what others see (members, your profile, visitors), how
+  OrenjiTrade protects where you live, "Remove my location", "No changes yet" and Save.
+  Notifications: the topics by App and Email, Push "Set on your phone", quiet hours; no offers or
+  trades. Privacy: as before with "Clear my searches". Appearance: three preview tiles and the
+  "Single-key shortcuts" switch; the environment line only off production. Legal: the documents
+  (the payment policies hidden while `protectedPayments` is off) and Trading safely.
+
 ## Run
 
 ```bash
@@ -369,9 +429,9 @@ Contract: `docs/api/contracts/phase3-inventory.md` (web section). Generated clie
   web stage WD's boards W8 and W9, see the WD section). The owner's state or province only (ADR
   0017); search and sort in the URL; never private notes. States: "This binder isn't public
   anymore." (404), the daily view limit (429), an error with "Try again".
-- **Collector page**: "View public binder" opens the first public binder; public binders
-  (`GET /collectors/{handle}/binders`) and a preview of public cards
-  (`GET /collectors/{handle}/inventory`) are listed.
+- **Collector page**: its Binders open each public binder (since web stage WE, board W23; "View
+  public binder" left); public binders (`GET /collectors/{handle}/binders`) and the public cards
+  (`GET /collectors/{handle}/inventory?excludeDeckCoreItems=true`) are listed.
 
 ## Map discovery and search (Phase 4, platform regions since ADR 0017)
 
@@ -393,6 +453,9 @@ Generated client only (`RegionsService`, `SearchService`, `PublicBindersService`
   binders in cursor pages (`GET /regions/{region}/subdivisions/{code}/binders`, "Load more"), with a
   skeleton, an empty state, an error with retry; states listed but not drawn (too small or newer
   than the data) are reachable from the list. The right-hand Messages panel (Phase 5) stays.
+  **Since web stage WE** the map page, its state list and panel are gone: Home is the feed (with a
+  static map card) and the map with its list of states is Search › Binders (stage WD); `/map`
+  redirects there.
 - **Location** (`shared/location`): `LocationFieldsComponent` (region, country and state pickers
   fed by `GET /regions`, optional city ≤ 80 characters, "Show my city on my profile") in onboarding
   ("Where are you?") and Settings → Location (`PUT/DELETE /me/location`); a gentle prompt invites
@@ -930,7 +993,7 @@ src/app/
     limits/     limit wording (labels, windows, values)
     discovery/  discovery labels, who-has (the holders list), binder-view (store, gallery, owner,
                 cards, key cards), ViewerPlaceService
-    search/     UnifiedSearchBox (GET /search/suggest), suggestion grouping and routing
+    search/     suggestion grouping and routing (the unified search box left with web stage WE)
     domain/     games, place / last-active labels
     location/   LocationFields (region, country, state pickers, city), MyLocationStore
     regions/    RegionsStore (GET /regions), platform region names

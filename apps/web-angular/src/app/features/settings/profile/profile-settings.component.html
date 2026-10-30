@@ -38,7 +38,7 @@
       novalidate
       aria-labelledby="settings-details"
     >
-      <app-profile-fields [form]="form" />
+      <app-profile-fields settingsLayout [form]="form" />
       <h3 class="section-sub">Games</h3>
       <app-game-picker [value]="games()" (valueChange)="setGames($event)" />
       <h3 class="section-sub">Languages</h3>

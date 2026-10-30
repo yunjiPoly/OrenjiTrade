@@ -87,6 +87,15 @@ class FeedRulesTest {
     }
 
     @Test
+    void aNewCardsPostShowsFourPicturesUnlessTheCallerAsksForOneToSix() {
+        assertThat(FeedRules.previews(null)).isEqualTo(4);
+        assertThat(FeedRules.previews(6)).isEqualTo(6);
+        assertThat(FeedRules.previews(1)).isEqualTo(1);
+        assertThat(FeedRules.previews(9)).isEqualTo(6);
+        assertThat(FeedRules.previews(0)).isEqualTo(1);
+    }
+
+    @Test
     void theKindFilterKeepsItsKinds() {
         assertThat(FeedFilter.parse(null)).contains(FeedFilter.ALL);
         assertThat(FeedFilter.parse(" ")).contains(FeedFilter.ALL);

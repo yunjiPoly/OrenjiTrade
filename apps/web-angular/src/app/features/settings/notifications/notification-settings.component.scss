@@ -115,3 +115,9 @@
   font-size: 18px;
   color: var(--color-warning);
 }
+
+.notif__phone {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}

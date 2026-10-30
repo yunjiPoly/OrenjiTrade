@@ -295,8 +295,10 @@ public class AccountDeletionService {
                         .findSnapshot(userId)
                         .orElseThrow(() -> new IllegalStateException("Account vanished"));
         String providerUid = account.providerUid();
+        // The handle before anonymise(): rows of other collectors that name the account by it.
+        String handle = account.handle();
         for (DeletionParticipant participant : participants) {
-            participant.purge(userId);
+            participant.purge(userId, handle);
         }
         userAccountService.anonymise(userId);
         // Reload: a participant may have cleared the persistence context (the row lock is kept).

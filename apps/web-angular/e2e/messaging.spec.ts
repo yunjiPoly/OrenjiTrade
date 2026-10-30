@@ -125,7 +125,7 @@ test.describe('private messaging', () => {
     await expect(drillIn.getByRole('heading', { name: binderName })).toBeVisible();
     await drillIn.getByRole('link', { name: b.handle, exact: true }).click();
     await expect(pageA).toHaveURL(new RegExp(`/collectors/${b.handle}$`));
-    await pageA.getByRole('button', { name: `Message ${b.displayName}` }).click();
+    await pageA.getByRole('button', { name: `Message ${b.handle}` }).click();
 
     // The chat drawer opens beside the profile (web WC, spec 10.6); "Open in Messages" goes full page.
     const drawerA = pageA.getByTestId('chat-drawer');
@@ -275,7 +275,7 @@ test.describe('private messaging', () => {
 
     await page.goto(`/collectors/${b.handle}`);
     await expect(page.getByRole('heading', { level: 1, name: b.displayName })).toBeVisible();
-    await page.getByRole('button', { name: `Message ${b.displayName}` }).click();
+    await page.getByRole('button', { name: `Message ${b.handle}` }).click();
     await page.getByTestId('chat-drawer').getByTestId('open-in-messages').click();
     await expect(page).toHaveURL(/\/messages\/[0-9a-f-]{36}$/);
     const thread = page.getByRole('region', { name: `Chat with ${b.handle}` });

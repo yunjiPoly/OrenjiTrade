@@ -75,6 +75,20 @@ describe('SetCardsComponent', () => {
     expect(element.textContent).not.toMatch(/\d+ (cards|results)/);
   });
 
+  it('sends no read with the new game and the old set on a game switch (WD review R2-4)', async () => {
+    await render('', 'yugioh');
+    expect(searchCards).toHaveBeenCalledTimes(1);
+    fixture.componentRef.setInput('game', 'pokemon');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(searchCards).toHaveBeenCalledTimes(1);
+    // Back to the set's own game: read again.
+    fixture.componentRef.setInput('game', 'yugioh');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(searchCards).toHaveBeenCalledTimes(2);
+  });
+
   it('filters by the text, says when nothing matches, and offers Try again on an error', async () => {
     await render('fox');
     expect(searchCards).toHaveBeenCalledWith(
@@ -108,20 +122,14 @@ describe('SetCardsComponent', () => {
       false,
       expect.anything(),
     );
-    // The set's game is not the browsed one (a hand-made link): no other game's card shows, and
-    // the pane says why instead of "no cards in the catalogue".
-    searchCards.mockReturnValueOnce(of({ items: [], page: 0, totalPages: 0 }));
+    // The set's game is not the browsed one any more: no other game's card shows, the pane says
+    // why instead of "no cards in the catalog", and no read goes out for it (R2-4).
     fixture.componentRef.setInput('game', 'pokemon');
     fixture.componentRef.setInput('gameName', 'Pokémon');
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
-    expect(searchCards).toHaveBeenLastCalledWith(
-      { set: 's1', game: 'pokemon', page: 0, size: 50 },
-      'body',
-      false,
-      expect.anything(),
-    );
+    expect(searchCards).toHaveBeenCalledTimes(1);
     expect(element.querySelectorAll('[data-testid="set-card-row"]')).toHaveLength(0);
     expect(element.querySelector('[data-testid="set-cards-empty"]')?.textContent?.trim()).toBe(
       'AZR is a Yu-Gi-Oh! set, not a Pokémon one.',

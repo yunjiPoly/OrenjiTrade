@@ -69,7 +69,7 @@ test.describe('launch readiness: trading safety and French legal pages', () => {
     await chooseOption(page, 'State or province', 'Quebec');
     await page.getByRole('switch', { name: 'Show me on the map' }).click();
     await page.getByRole('button', { name: 'Finish' }).click();
-    await expect(page).toHaveURL(/:\d+\/(\?region=[a-z-]+)?$/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/:\d+\/(\?region=[a-z-]+(&game=[a-z-]+)?)?$/, { timeout: 20_000 });
     await expect(page.getByText('Welcome to OrenjiTrade! Your profile is ready.')).toBeVisible();
 
     // The API confirms the account is discoverable (the age gate let the switch through) and
@@ -99,7 +99,7 @@ test.describe('launch readiness: trading safety and French legal pages', () => {
     // chat, Trading safely beside a buyer's chat, and Report / Block in the "⋯" menu.
     await page.goto(`/collectors/${other.handle}`);
     await expect(page.getByRole('heading', { level: 1, name: other.displayName })).toBeVisible();
-    await page.getByRole('button', { name: `Message ${other.displayName}` }).click();
+    await page.getByRole('button', { name: `Message ${other.handle}` }).click();
     const drawer = page.getByTestId('chat-drawer');
     await expect(drawer).toBeVisible();
     await drawer.getByTestId('open-in-messages').click();
@@ -140,23 +140,28 @@ test.describe('launch readiness: trading safety and French legal pages', () => {
     await expect(page.getByText('the cards ship by mail')).toBeVisible();
 
     // --- Block and unblock from the collector profile ----------------------------------------
+    // Web stage WE (board W23): Report and Block in the profile's "⋯" menu, named by the handle.
     await page.goto(`/collectors/${other.handle}`);
-    await page.getByRole('button', { name: `Block ${other.displayName}` }).click();
+    await page.getByRole('button', { name: `More for ${other.handle}` }).click();
+    await page.getByRole('menuitem', { name: `Block ${other.handle}` }).click();
     await page
-      .getByRole('dialog', { name: `Block ${other.displayName}?` })
+      .getByRole('dialog', { name: `Block ${other.handle}?` })
       .getByRole('button', { name: 'Block' })
       .click();
-    await expect(page.getByText(`${other.displayName} is blocked.`)).toBeVisible();
-    await expect(page.getByRole('button', { name: `Unblock ${other.displayName}` })).toBeVisible();
+    await expect(page.getByText(`You blocked ${other.handle}.`)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Unblock' })).toBeVisible();
     const me = await apiMe(request, token);
     const refused = await request.post(`${API_URL}/api/v1/conversations`, {
       headers: authHeader(other.idToken),
       data: { recipientId: me.id },
     });
     expect(refused.status()).toBe(403);
-    await page.getByRole('button', { name: `Unblock ${other.displayName}` }).click();
-    await expect(page.getByText(`${other.displayName} is unblocked.`)).toBeVisible();
-    await expect(page.getByRole('button', { name: `Block ${other.displayName}` })).toBeVisible();
+    await page.getByRole('button', { name: 'Unblock' }).click();
+    await expect(page.getByText(`${other.handle} is unblocked.`)).toBeVisible();
+    await expect(page.getByText(`You blocked ${other.handle}.`)).toHaveCount(0);
+    await page.getByRole('button', { name: `More for ${other.handle}` }).click();
+    await expect(page.getByRole('menuitem', { name: `Block ${other.handle}` })).toBeVisible();
+    await page.keyboard.press('Escape');
   });
 
   test('legal pages in French for a French browser, with the EN/FR switch, and in English otherwise', async ({

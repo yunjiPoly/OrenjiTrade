@@ -1,6 +1,6 @@
 import { requireStack } from '../support/stack';
 import { suffix } from './support/api';
-import { escapeRegExp, expect, expectRealtime, signIn, test } from './support/fixtures';
+import { expect, expectRealtime, signIn, test } from './support/fixtures';
 import { cityToken, placeOf } from './support/places';
 
 /**
@@ -81,14 +81,16 @@ test.describe('acceptance: wishlist', () => {
       await page.evaluate(() => (window as unknown as { e2eNoReload?: boolean }).e2eNoReload),
     ).toBe(true);
     await page.getByTestId('notification-bell').click();
-    const entry = page
-      .getByRole('menu', { name: 'Notifications' })
-      .getByRole('menuitem', { name: new RegExp(`Wishlist alert: ${escapeRegExp(CARD)}`) });
-    await expect(entry).toContainText(
-      `${CARD} ${CODE} Rare was just listed by @${b.handle} in ${place.label}.`,
+    const row = page
+      .getByTestId('notification-popover')
+      .getByTestId('notification-row')
+      .filter({ hasText: CARD });
+    await expect(row).toContainText(
+      `${CARD} from your wishlist was listed in ${place.label.split(',')[0]}`,
     );
-    await expect(entry).not.toContainText(/\bkm\b/);
-    await entry.click();
+    await expect(row).toContainText(b.handle);
+    await expect(row).not.toContainText(/\bkm\b/);
+    await row.getByRole('link').click();
     // The wish is for any printing: the link says so and the card page picks no printing.
     await expect(page).toHaveURL(new RegExp(`/cards/${cardId}\\?printing=any$`));
     await expect(page.getByRole('heading', { level: 1, name: CARD })).toBeVisible();

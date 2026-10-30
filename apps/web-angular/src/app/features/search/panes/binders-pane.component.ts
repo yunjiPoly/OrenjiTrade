@@ -19,6 +19,7 @@ import type { PlatformRegion, PublicBinderSummary } from '@orenji/api-client';
 import { AuthService } from '../../../core/auth/auth.service';
 import { SessionService } from '../../../core/auth/session.service';
 import { ShellIconComponent } from '../../../core/layout/shell-icon/shell-icon.component';
+import { ShellLayout } from '../../../core/layout/shell-layout.service';
 import { PAGE_SEARCH_ATTR } from '../../../core/keyboard/keyboard-shortcuts.service';
 import {
   SegmentOption,
@@ -54,6 +55,15 @@ export function bindersEmptyText(
  * is of the browsed region and game. A row opens its binder or deck core; hovering a row outlines
  * its province on the map and fetches nothing.
  */
+/**
+ * The state chip's name says what its × does (WD review R2-5): "Showing Quebec. Back to the list
+ * of states"; the whole region is worded on its own.
+ */
+export function stateChipLabel(state: string, name: string): string {
+  const showing = state === WHOLE_REGION ? 'the whole region' : name || state;
+  return `Showing ${showing}. Back to the list of states`;
+}
+
 @Component({
   selector: 'app-binders-pane',
   imports: [BinderRowComponent, SegmentedComponent, ShellIconComponent, StateListComponent],
@@ -67,7 +77,7 @@ export function bindersEmptyText(
           type="search"
           autocomplete="off"
           data-page-search
-          placeholder="Deck, binder or collector, like Yubel"
+          [placeholder]="placeholder()"
           aria-label="Search binders and deck cores: a deck, a binder or a collector"
           [attr.maxlength]="maxLength"
           [value]="q()"
@@ -82,7 +92,7 @@ export function bindersEmptyText(
             type="button"
             class="bp__chip"
             data-testid="state-chip"
-            [attr.aria-label]="'Showing ' + stateName() + '. Show the whole region'"
+            [attr.aria-label]="chipLabel(code)"
             (click)="clearState()"
           >
             {{ stateName() }}
@@ -295,6 +305,11 @@ export class BindersPaneComponent {
   protected readonly store = inject(BinderListStore);
   private readonly auth = inject(AuthService);
   private readonly session = inject(SessionService);
+  private readonly layout = inject(ShellLayout);
+  /** The example drops at md, where the list pane is narrower: never cut (WD review U18). */
+  protected readonly placeholder = computed(() =>
+    this.layout.medium() ? 'Deck, binder or collector' : 'Deck, binder or collector, like Yubel',
+  );
   private readonly fieldRef = viewChild<ElementRef<HTMLInputElement>>('field');
   private readonly stateListRef = viewChild(StateListComponent);
   private readonly chipRef = viewChild<ElementRef<HTMLButtonElement>>('chip');
@@ -420,6 +435,10 @@ export class BindersPaneComponent {
   protected pickState(code: string): void {
     this.pendingFocus = { to: 'chip' };
     this.stateChange.emit(code);
+  }
+
+  protected chipLabel(code: string): string {
+    return stateChipLabel(code, this.stateName());
   }
 
   /** The chip's ×: back to the list, the focus on the state that was chosen. */

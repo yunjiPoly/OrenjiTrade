@@ -142,7 +142,9 @@ test.describe('acceptance: privacy', () => {
       pageV.getByRole('option', { name: new RegExp(`^${escapeRegExp(seller.handle)}, `) }),
     ).toBeVisible();
     await pageV.goto(`/collectors/${seller.handle}`);
-    await expect(pageV.getByTestId('collector-public-label')).toContainText(place.label);
+    await expect(pageV.getByTestId('collector-public-label')).toContainText(
+      place.label.split(',')[0],
+    );
     await expect(pageV.getByTestId('collector-city')).toHaveText(city);
     await pageV.goto(`/binders/${binder.id}`);
     await expect(pageV.getByTestId('owner-public-label')).toContainText(place.label.split(',')[0]);
@@ -166,9 +168,13 @@ test.describe('acceptance: privacy', () => {
     await expect.poll(() => privacy.checkedFrames).toBeGreaterThan(framesBefore);
     await bell.click();
     const alert = pageV
-      .getByRole('menu', { name: 'Notifications' })
-      .getByRole('menuitem', { name: new RegExp(`Wishlist alert: ${escapeRegExp(card)}`) });
-    await expect(alert).toContainText(`was just listed by @${seller.handle} in ${place.label}`);
+      .getByTestId('notification-popover')
+      .getByTestId('notification-row')
+      .filter({ hasText: card });
+    await expect(alert).toContainText(
+      `from your wishlist was listed in ${place.label.split(',')[0]}`,
+    );
+    await expect(alert).toContainText(seller.handle);
     await expect(alert).not.toContainText(city);
     await pageV.keyboard.press('Escape');
 

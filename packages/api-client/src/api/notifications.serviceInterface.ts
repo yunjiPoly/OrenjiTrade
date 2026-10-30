@@ -26,6 +26,10 @@ export interface DeletePushTokenRequestParams {
     token: string;
 }
 
+export interface GetUnreadNotificationCountRequestParams {
+    excludeTypes?: Array<'WISHLIST_ALERT' | 'MESSAGE' | 'OFFER_RECEIVED' | 'OFFER_ACCEPTED' | 'OFFER_COUNTERED' | 'OFFER_DECLINED' | 'OFFER_CANCELLED' | 'OFFER_EXPIRED' | 'BINDER_EXPIRING' | 'BINDER_STALE_WARNING' | 'BINDER_HIDDEN' | 'RATING_RECEIVED' | 'TRADE_UPDATE' | 'SHIPMENT_STATUS' | 'PAYMENT_UPDATE' | 'DISPUTE_UPDATE' | 'REPORT_DECISION' | 'SALE_RECORDED' | 'SYSTEM'>;
+}
+
 export interface ListNotificationsRequestParams {
     cursor?: string;
     limit?: number;
@@ -58,8 +62,9 @@ export interface NotificationsServiceInterface {
      * Number of unread notifications (badge)
      * &#x60;excludeTypes&#x60; leaves types out of the count (stage R9), as on the list.
      * @endpoint get /api/v1/notifications/unread-count
-*/
-    getUnreadNotificationCount(extraHttpRequestParams?: any): Observable<UnreadNotificationCount>;
+* @param requestParameters
+     */
+    getUnreadNotificationCount(requestParameters: GetUnreadNotificationCountRequestParams, extraHttpRequestParams?: any): Observable<UnreadNotificationCount>;
 
     /**
      * The caller\&#39;s notifications (newest first)

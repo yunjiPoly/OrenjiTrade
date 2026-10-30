@@ -135,14 +135,11 @@ test.describe('region map and search', () => {
     expect(yukon).toBeGreaterThanOrEqual(1);
 
     await signInThroughUi(page, viewer.email, viewer.password);
-    await page.goto('/');
-    // Signed in: the home region (from GET /me) is browsed and written to the URL (Home shows the
-    // region's map until web stage WE).
-    await expect(page).toHaveURL(/:\d+\/\?region=americas-north$/);
+    // Web stage WE: Home is the feed (its map card is a static picture); the map and the states'
+    // list are Search › Binders (spec 6.3 and 6.4).
+    await page.goto('/search?tab=binders');
+    await expect(page).toHaveURL(/region=americas-north/);
     await expect(page.getByTestId('region-pill')).toContainText('Americas (North)');
-    await expect(page.getByTestId('map-status')).toContainText(
-      /public binders? in Americas \(North\)/,
-    );
     // The state is drawn and shaded with a map step (it holds at least the seller's binder).
     const shape = page.locator('.leaflet-overlay-pane path[data-code="CA-YT"]');
     await expect(shape).toBeAttached();
@@ -153,32 +150,28 @@ test.describe('region map and search', () => {
       .poll(async () => (await shape.getAttribute('fill'))?.toLowerCase())
       .not.toBe(empty.toLowerCase());
 
-    // The accessible list: filter, keyboard, the same panel as the map.
-    await page.getByTestId('subdivision-filter').fill('yukon');
-    const entry = page.locator('[data-code="CA-YT"]').filter({ hasText: 'Yukon' });
-    await expect(entry).toContainText(String(yukon));
+    // The accessible list: the state's row, then its binders.
+    const entry = page.locator('.sl__row[data-code="CA-YT"]');
     await entry.focus();
     await page.keyboard.press('Enter');
-    await expect(page).toHaveURL(/:\d+\/\?region=americas-north&state=CA-YT$/);
-    const panel = page.getByTestId('subdivision-panel');
-    await expect(panel.getByRole('heading', { name: 'Yukon, Canada' })).toBeFocused();
-    const card = panel.getByRole('listitem').filter({ hasText: seller.binder.name });
-    await expect(card).toContainText(`@${a.handle}`);
-    await expect(card.getByTestId('binder-owner-place')).toContainText('Yukon, Canada');
+    await expect(page).toHaveURL(/state=CA-YT/);
+    const chip = page.getByTestId('state-chip');
+    await expect(chip).toBeFocused();
+    const row = page.getByTestId('binder-row').filter({ hasText: seller.binder.name });
+    await expect(row).toContainText(`${a.handle} · Yukon`);
     // The city is never shown outside the owner's profile.
-    await expect(panel).not.toContainText('Zqcity');
-    await panel.getByRole('button', { name: 'Back to the list' }).click();
-    await expect(page).toHaveURL(/:\d+\/\?region=americas-north$/);
+    await expect(page.locator('.bp')).not.toContainText('Zqcity');
+    await chip.click();
+    await expect(page).not.toHaveURL(/state=/);
 
     // A real mouse click on the state on the map opens it too (never a synthetic event).
     await clickState(page, 'CA-YT');
     await expect(page).toHaveURL(/state=CA-YT/);
-    await expect(panel.getByRole('heading', { name: 'Yukon, Canada' })).toBeVisible();
+    await expect(row).toBeVisible();
     await expectNoGeography(page, watcher, providers);
 
     // The binder, then its owner's profile (state and city on their own profile only).
-    await panel.getByRole('link', { name: seller.binder.name }).click();
-    await expect(page).toHaveURL(new RegExp(`/binders/${seller.binder.id}$`));
+    await page.goto(`/binders/${seller.binder.id}`);
     await expect(page.getByRole('heading', { level: 1, name: seller.binder.name })).toBeVisible();
     // The owner row: the province (spec 8.2), never the city.
     await expect(page.getByTestId('owner-public-label')).toContainText('Yukon');
@@ -193,7 +186,7 @@ test.describe('region map and search', () => {
     await expect(page.getByTestId('region-pill')).toContainText('Europe');
     await expect(page.getByTestId('state-chip')).toHaveAttribute(
       'aria-label',
-      'Showing Île-de-France. Show the whole region',
+      'Showing Île-de-France. Back to the list of states',
     );
   });
 

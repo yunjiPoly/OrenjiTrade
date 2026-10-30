@@ -48,7 +48,9 @@ test.describe('settings', () => {
     await page.getByLabel('City (optional)').fill(city);
     await page.getByTestId('location-save').click();
     await expect(page.getByTestId('location-label')).toHaveText(/Quebec, Canada/);
-    await expect(page.getByText('Hidden from the map')).toBeVisible();
+    await expect(page.getByTestId('location-discoverable')).toContainText(
+      'You are hidden from the map.',
+    );
     // The old address of this page still works.
     await page.goto('/settings/trading-area');
     await expect(page).toHaveURL(/\/settings\/location$/);
@@ -65,22 +67,21 @@ test.describe('settings', () => {
     await expect(
       page.getByRole('heading', { level: 1, name: collector.displayName }),
     ).toBeVisible();
-    await expect(page.getByTestId('collector-public-label')).toContainText('Quebec, Canada');
+    // Board W23b: "City, Province" in the header, with no space before the comma.
+    await expect(page.getByTestId('collector-public-label')).toHaveText(`${city}, Quebec`);
     await expect(page.getByTestId('collector-city')).toHaveText(city);
-    // "City, State, Country" with no space before the comma.
-    await expect(page.getByTestId('collector-public-label')).toContainText(
-      `${city}, Quebec, Canada`,
-    );
     await expect(page.getByRole('link', { name: 'Edit profile' })).toBeVisible();
 
     // Someone else's profile (seed data, discoverable, city shown): state and city, no distance.
     await page.goto('/collectors/collector2');
     await expect(page.getByRole('heading', { level: 1, name: 'Devon Okafor' })).toBeVisible();
-    await expect(page.getByTestId('collector-public-label')).toContainText('Ontario, Canada');
+    await expect(page.getByTestId('collector-public-label')).toHaveText('Toronto, Ontario');
     await expect(page.getByTestId('collector-city')).toHaveText('Toronto');
     await expect(page.getByRole('main')).not.toContainText(/\bkm\b/);
     // Phase 5: Devon accepts messages from members with a profile.
-    await expect(page.getByRole('button', { name: 'Message Devon Okafor' })).toBeEnabled();
+    await expect(
+      page.getByRole('button', { name: 'Message collector2', exact: true }),
+    ).toBeEnabled();
 
     await watcher.settle();
     expect(watcher.samples, 'lat/lng in a JSON answer').toEqual([]);

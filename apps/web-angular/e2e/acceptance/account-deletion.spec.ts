@@ -56,7 +56,9 @@ test.describe('acceptance: account deletion', () => {
     await pageV.getByLabel('Email').fill(viewer.email);
     await pageV.getByLabel('Password', { exact: true }).fill(viewer.password);
     await pageV.getByRole('button', { name: 'Sign in', exact: true }).click();
-    await expect(pageV).toHaveURL(/:\d+\/(\?region=[a-z-]+)?$/, { timeout: 20_000 });
+    await expect(pageV).toHaveURL(/:\d+\/(\?region=[a-z-]+(&game=[a-z-]+)?)?$/, {
+      timeout: 20_000,
+    });
     const before = await openState(pageV, place);
     await expect(stateBinder(before, binder.name)).toBeVisible();
     await pageV.goto(`/binders/${binder.id}`);
@@ -94,7 +96,7 @@ test.describe('acceptance: account deletion', () => {
 
     // --- The collector's binder leaves the map, the collector leaves search -----------------------
     const after = await openState(pageV, place);
-    await expect(after.getByText('No public binders here yet')).toBeVisible();
+    await expect(after.getByTestId('binders-empty')).toBeVisible();
     await expect(stateBinder(after, binder.name)).toHaveCount(0);
     const found = await api.ok<SearchAnswer>('GET', '/api/v1/search', {
       token: viewer.idToken,

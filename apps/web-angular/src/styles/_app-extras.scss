@@ -130,18 +130,8 @@
   }
 }
 
-// Notification menu of the top-bar bell (app-notification-bell): wider than a plain menu, with
-// multi-line entries.
-.notification-menu.mat-mdc-menu-panel {
-  --mat-menu-container-color: var(--color-surface);
-
-  width: min(400px, calc(100vw - 16px));
-  max-width: none;
-  max-height: min(640px, calc(100dvh - 80px));
-}
-
-// Card entries of the unified search autocomplete (app-unified-search-box renders its options in
-// a Material overlay).
+// Card entries of a card autocomplete (the wish card picker renders its options in a Material
+// overlay).
 .csb-panel {
   --mat-option-label-text-size: var(--font-size-sm);
 
@@ -203,48 +193,6 @@
 
     .mat-icon {
       color: var(--color-primary);
-    }
-  }
-}
-
-// Unified search autocomplete (app-unified-search-box): collectors, binders, sets and tags next
-// to the card entries of `.csb-panel`.
-.usb-panel {
-  --mat-optgroup-label-text-size: var(--font-size-xs);
-  --mat-optgroup-label-text-weight: var(--font-weight-semibold);
-  --mat-optgroup-label-text-color: var(--color-text-muted);
-
-  .mat-mdc-optgroup-label {
-    min-height: 32px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
-
-  .usb-option__avatar,
-  .usb-option__icon {
-    display: grid;
-    flex: 0 0 auto;
-    place-items: center;
-    width: 36px;
-    height: 36px;
-    margin: 7px 0;
-    border-radius: 50%;
-  }
-
-  .usb-option__avatar {
-    color: #fff;
-    font-family: var(--font-display);
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-semibold);
-  }
-
-  .usb-option__icon {
-    border-radius: var(--radius-md);
-    background: var(--color-surface-variant);
-    color: var(--color-accent);
-
-    .mat-icon {
-      margin: 0;
     }
   }
 }
