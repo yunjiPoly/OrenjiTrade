@@ -170,19 +170,22 @@ test.describe('web stage WD: Search, Who has this card, sets, binders and deck c
     await expect(page.locator('.leaflet-tooltip')).toHaveCount(0);
     // A state by the map's left edge keeps its tooltip inside the map (WD review R1-5), and Esc
     // hides it with the focus off the map (R1-4).
-    const edge = await page.evaluate(() => {
-      const map = document.querySelector('.leaflet-container')!.getBoundingClientRect();
-      for (let y = map.top + 80; y < map.bottom - 140; y += 8) {
-        for (let x = map.left + 3; x < map.left + 24; x += 3) {
-          const hit = document.elementFromPoint(x, y);
-          if (hit instanceof SVGPathElement && hit.getAttribute('data-code')) {
-            return { x, y, left: map.left };
+    const edgePoint = () =>
+      page.evaluate(() => {
+        const map = document.querySelector('.leaflet-container')!.getBoundingClientRect();
+        // The state nearest the left edge (a centred tooltip would spill 100 px out of the map).
+        for (let x = map.left + 3; x < map.left + 60; x += 3) {
+          for (let y = map.top + 40; y < map.bottom - 140; y += 6) {
+            const hit = document.elementFromPoint(x, y);
+            if (hit instanceof SVGPathElement && hit.getAttribute('data-code')) {
+              return { x, y, left: map.left };
+            }
           }
         }
-      }
-      return null;
-    });
-    expect(edge, "a state at the map's left edge").not.toBeNull();
+        return null;
+      });
+    await expect.poll(edgePoint, { message: "a state at the map's left edge" }).not.toBeNull();
+    const edge = await edgePoint();
     await page.mouse.move(edge!.x + 20, edge!.y);
     await page.mouse.move(edge!.x, edge!.y, { steps: 4 });
     const tip = page.locator('.leaflet-tooltip');

@@ -70,17 +70,21 @@ export function stateCardSubtitle(country: string, mine: boolean): string {
     @if (card(); as code) {
       @let place = cardPlace();
       <div class="sm__card" role="region" aria-label="Chosen state or province">
-        <div class="sm__card-text">
-          <p class="sm__card-title">{{ place ? place.name : (names().get(code) ?? code) }}</p>
-          @if (place) {
-            <p class="sm__card-sub">{{ place.subtitle }}</p>
-          }
-          <p class="sm__card-line">{{ line(code) }}</p>
+        <div class="sm__card-row">
+          <div class="sm__card-text">
+            <p class="sm__card-title">{{ place ? place.name : (names().get(code) ?? code) }}</p>
+            @if (place) {
+              <p class="sm__card-sub">{{ place.subtitle }}</p>
+            }
+          </div>
+          <button type="button" class="sm__card-close" aria-label="Close" (click)="card.set(null)">
+            <app-shell-icon name="close" [size]="18" />
+          </button>
         </div>
-        <button type="button" class="sm__card-go" (click)="seeBinders(code)">See binders</button>
-        <button type="button" class="sm__card-close" aria-label="Close" (click)="card.set(null)">
-          <app-shell-icon name="close" [size]="18" />
-        </button>
+        <div class="sm__card-row sm__card-row--foot">
+          <p class="sm__card-line">{{ line(code) }}</p>
+          <button type="button" class="sm__card-go" (click)="seeBinders(code)">See binders</button>
+        </div>
       </div>
     } @else {
       <div class="sm__legend" aria-hidden="true">
@@ -241,13 +245,22 @@ export function stateCardSubtitle(country: string, mine: boolean): string {
       left: 12px;
       z-index: 650;
       display: flex;
-      align-items: center;
+      flex-direction: column;
       gap: 12px;
-      padding: 14px 12px 14px 16px;
+      padding: 14px 14px 14px 16px;
       border: 1px solid var(--color-border);
       border-radius: var(--radius-lg);
       background: var(--color-surface-elevated);
       box-shadow: var(--elevation-menu);
+    }
+    /* Board W29: the place and Close, then the count and See binders. */
+    .sm__card-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .sm__card-row--foot {
+      align-items: center;
     }
     .sm__card-text {
       flex: 1;
@@ -255,17 +268,20 @@ export function stateCardSubtitle(country: string, mine: boolean): string {
     }
     .sm__card-title {
       margin: 0;
-      font-weight: var(--font-weight-semibold);
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-bold);
     }
     .sm__card-sub {
-      margin: 0;
+      margin: 2px 0 0;
       color: var(--color-text-secondary);
-      font-size: var(--font-size-sm);
+      font-size: var(--font-size-meta);
     }
     .sm__card-line {
-      margin: 2px 0 0;
+      flex: 1;
+      min-width: 0;
+      margin: 0;
       color: var(--color-text-muted);
-      font-size: var(--font-size-meta);
+      font-size: var(--font-size-sm);
     }
     .sm__card-go {
       min-height: 40px;
