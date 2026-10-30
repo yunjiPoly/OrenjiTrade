@@ -1,7 +1,4 @@
-import { DOCUMENT } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
-import { MatIconModule } from '@angular/material/icon';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { AppConfigService } from '../../../core/config/app-config.service';
 import { KeyboardPrefs } from '../../../core/keyboard/keyboard-prefs.service';
@@ -10,10 +7,10 @@ import { ApiVersionComponent } from '../../../core/layout/api-version/api-versio
 import { ThemePreference, ThemeService } from '../../../core/theme/theme.service';
 import { SectionCardComponent } from '../../../shared/ui/section-card/section-card.component';
 
-const THEMES: readonly { value: ThemePreference; label: string; icon: string }[] = [
-  { value: 'system', label: 'Same as the system', icon: 'brightness_auto' },
-  { value: 'light', label: 'Light', icon: 'light_mode' },
-  { value: 'dark', label: 'Dark', icon: 'dark_mode' },
+const THEMES: readonly { value: ThemePreference; label: string }[] = [
+  { value: 'system', label: 'Same as the system' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
 ];
 
 /** The switch's line on and off (board W25's wording, decision 24). */
@@ -38,8 +35,6 @@ export const KEY_CHIPS: readonly { keys: string[]; label: string }[] = [
 @Component({
   selector: 'app-appearance-settings',
   imports: [
-    MatButtonToggleModule,
-    MatIconModule,
     MatSlideToggleModule,
     SectionCardComponent,
     ApiVersionComponent,
@@ -50,19 +45,25 @@ export const KEY_CHIPS: readonly { keys: string[]; label: string }[] = [
       headingId="appearance-theme"
       description="Saved in this browser. “Same as the system” follows your computer’s light or dark setting."
     >
-      <mat-button-toggle-group
-        aria-labelledby="appearance-theme"
-        [vertical]="stacked()"
-        [value]="theme.preference()"
-        (change)="theme.setPreference($event.value)"
-      >
+      <div class="ap__tiles" role="radiogroup" aria-labelledby="appearance-theme">
         @for (option of themes; track option.value) {
-          <mat-button-toggle [value]="option.value">
-            <mat-icon aria-hidden="true">{{ option.icon }}</mat-icon>
-            {{ option.label }}
-          </mat-button-toggle>
+          <label class="ap__tile" [class.ap__tile--on]="theme.preference() === option.value">
+            <input
+              class="ap__radio"
+              type="radio"
+              name="appearance-theme"
+              [value]="option.value"
+              [checked]="theme.preference() === option.value"
+              (change)="theme.setPreference(option.value)"
+            />
+            <span class="ap__preview" [attr.data-preview]="option.value" aria-hidden="true">
+              <span class="ap__half ap__half--a"><span></span><span></span><span></span></span>
+              <span class="ap__half ap__half--b"><span></span><span></span><span></span></span>
+            </span>
+            <span class="ap__label">{{ option.label }}</span>
+          </label>
         }
-      </mat-button-toggle-group>
+      </div>
       <p class="appearance__note">Currently showing the {{ theme.resolved() }} theme.</p>
     </app-section-card>
 
@@ -93,13 +94,16 @@ export const KEY_CHIPS: readonly { keys: string[]; label: string }[] = [
       </div>
     </app-section-card>
 
-    <app-section-card heading="About this environment" headingId="appearance-env">
-      <p class="appearance__note">
-        Connected to <span class="mono">{{ config.apiBaseUrl() || 'same origin' }}</span> ·
-        environment <span class="mono">{{ config.environment() }}</span>
-      </p>
-      <div class="appearance__note"><app-api-version /></div>
-    </app-section-card>
+    <!-- The API environment line only on non-production builds (spec 13). -->
+    @if (!config.isProduction()) {
+      <app-section-card heading="About this environment" headingId="appearance-env">
+        <p class="appearance__note">
+          Connected to <span class="mono">{{ config.apiBaseUrl() || 'same origin' }}</span> ·
+          environment <span class="mono">{{ config.environment() }}</span>
+        </p>
+        <div class="appearance__note"><app-api-version /></div>
+      </app-section-card>
+    }
   `,
   styles: `
     :host {
@@ -107,17 +111,82 @@ export const KEY_CHIPS: readonly { keys: string[]; label: string }[] = [
       flex-direction: column;
       gap: var(--spacing-5);
     }
-    mat-button-toggle-group {
-      max-width: 100%;
-    }
-    /* Below 600 the three choices stack full width: no sideways scroll at 360 (spec 3). */
-    mat-button-toggle-group.mat-button-toggle-vertical {
+    /* Three preview tiles of 200x120 (spec 13, board W25); they wrap: no sideways scroll at 360. */
+    .ap__tiles {
       display: flex;
-      width: 100%;
+      flex-wrap: wrap;
+      gap: 16px;
     }
-    mat-button-toggle mat-icon {
-      margin-right: var(--spacing-1);
-      vertical-align: middle;
+    .ap__tile {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: 200px;
+      max-width: 100%;
+      cursor: pointer;
+    }
+    .ap__radio {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+    }
+    .ap__preview {
+      display: flex;
+      width: 200px;
+      max-width: 100%;
+      height: 120px;
+      overflow: hidden;
+      border: 2px solid var(--color-border);
+      border-radius: 14px;
+    }
+    .ap__tile--on .ap__preview {
+      border-color: var(--color-primary);
+    }
+    .ap__tile:has(.ap__radio:focus-visible) .ap__preview {
+      outline: var(--focus-width) solid var(--color-focus-ring);
+      outline-offset: var(--focus-offset);
+    }
+    .ap__half {
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+      gap: 8px;
+      padding: 14px 12px;
+    }
+    .ap__half span {
+      height: 10px;
+      border-radius: 5px;
+    }
+    .ap__half span:first-child {
+      width: 60%;
+      height: 14px;
+    }
+    .ap__half span:last-child {
+      width: 40%;
+    }
+    /* Light previews: off-white page, ink lines, the orange accent. */
+    .ap__preview[data-preview='light'] .ap__half,
+    .ap__preview[data-preview='system'] .ap__half--a {
+      background: #f7f5f2;
+    }
+    .ap__preview[data-preview='light'] .ap__half span,
+    .ap__preview[data-preview='system'] .ap__half--a span {
+      background: #d6d1ca;
+    }
+    .ap__preview[data-preview='dark'] .ap__half,
+    .ap__preview[data-preview='system'] .ap__half--b {
+      background: #141210;
+    }
+    .ap__preview[data-preview='dark'] .ap__half span,
+    .ap__preview[data-preview='system'] .ap__half--b span {
+      background: #3a3531;
+    }
+    .ap__half span:first-child {
+      background: #f4761a !important;
+    }
+    .ap__label {
+      font-weight: var(--font-weight-semibold);
     }
     .appearance__note {
       margin: var(--spacing-3) 0 0;
@@ -181,19 +250,4 @@ export class AppearanceSettingsComponent {
   protected readonly chips = KEY_CHIPS;
   protected readonly on = SINGLE_KEYS_ON;
   protected readonly off = SINGLE_KEYS_OFF;
-  /** The theme choices stack below 600 px. */
-  protected readonly stacked = signal(false);
-
-  constructor() {
-    const list = inject(DOCUMENT).defaultView?.matchMedia?.(STACK_QUERY);
-    if (list) {
-      this.stacked.set(list.matches);
-      const listener = (event: MediaQueryListEvent) => this.stacked.set(event.matches);
-      list.addEventListener('change', listener);
-      inject(DestroyRef).onDestroy(() => list.removeEventListener('change', listener));
-    }
-  }
 }
-
-/** Below this width the theme choices stack (one per line). */
-export const STACK_QUERY = '(max-width: 599.98px)';

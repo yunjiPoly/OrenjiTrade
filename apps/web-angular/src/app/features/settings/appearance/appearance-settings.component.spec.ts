@@ -38,7 +38,7 @@ describe('Settings › Appearance (decisions 12 and 24)', () => {
   afterEach(() => localStorage.removeItem(SINGLE_KEYS_STORAGE_KEY));
 
   it('follows the system by default', () => {
-    const pressed = element.querySelector('mat-button-toggle.mat-button-toggle-checked');
+    const pressed = element.querySelector('.ap__tile--on');
     expect(pressed?.textContent).toContain('Same as the system');
   });
 

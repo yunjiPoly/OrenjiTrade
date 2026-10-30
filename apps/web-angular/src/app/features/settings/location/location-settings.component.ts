@@ -3,11 +3,13 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSlideToggle, MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
+import { SessionService } from '../../../core/auth/session.service';
 import { isApiError } from '../../../core/http/api-error';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
+import { ShellIconComponent } from '../../../core/layout/shell-icon/shell-icon.component';
 import { LocationFieldsComponent } from '../../../shared/location/location-fields/location-fields.component';
 import {
   LocationDraft,
@@ -25,16 +27,19 @@ import { SectionCardComponent } from '../../../shared/ui/section-card/section-ca
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
 
 /**
- * Settings → Location (ADR 0017): the country, state/province and optional city the collector
- * declares, with what others see and the removal. No map, no GPS, no coordinates.
+ * Settings › Location (ADR 0017; spec 13, board W25): "Show me on the map" (409
+ * LOCATION_REQUIRED answered in place), the country, state or province and optional city the
+ * collector declares with "Show my city on my profile", what others see, how OrenjiTrade protects
+ * where you live, "Remove my location" and Save. No map, no GPS, no coordinates.
  */
 @Component({
   selector: 'app-location-settings',
   imports: [
-    RouterLink,
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
+    MatSlideToggleModule,
+    ShellIconComponent,
     LocationFieldsComponent,
     SectionCardComponent,
     ErrorStateComponent,
@@ -57,8 +62,36 @@ import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.componen
       <app-section-card
         heading="Location"
         headingId="location-heading"
-        description="Your country and state or province decide your region and where your binders appear on the map. Others never see more than your state or province (and your city on your profile, if you choose)."
+        description="Collectors find your binders by state or province. You choose it; the app never locates you."
       >
+        <div class="loc__map" data-testid="location-discoverable">
+          <span class="loc__map-icon" aria-hidden="true"><app-shell-icon name="map" [size]="20" /></span>
+          <div class="loc__map-text">
+            <span class="loc__map-title" id="location-map-label">Show me on the map</span>
+            <span class="loc__map-line" id="location-map-line">
+              @if (!store.location()?.location) {
+                Choose your state or province below first.
+              } @else if (store.location()?.discoverable) {
+                Collectors see you in {{ store.location()?.location?.label }}. Visitors without an
+                account see your cards, never your name.
+              } @else {
+                You are hidden from the map. Turn it on so collectors of your region find your
+                binders.
+              }
+            </span>
+          </div>
+          <mat-slide-toggle
+            [checked]="!!store.location()?.discoverable"
+            [disabled]="mapBusy() || !store.privacy()"
+            aria-labelledby="location-map-label"
+            aria-describedby="location-map-line"
+            (change)="setDiscoverable($event.checked, $event.source)"
+          />
+        </div>
+        @if (mapError(); as message) {
+          <p class="section-error" role="alert">{{ message }}</p>
+        }
+
         <div class="location__status">
           @if (store.location()?.location; as location) {
             <span class="location__chip" data-testid="location-label">
@@ -84,29 +117,80 @@ import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.componen
             </p>
           }
         </div>
-        @if (!store.location()?.discoverable) {
-          <p class="section-muted location__hint">
-            Visibility is controlled in <a routerLink="/settings/privacy">Privacy</a> (“Show me on
-            the map”).
-          </p>
-        }
 
+        <h3 class="loc__label">Where you ship from</h3>
         <app-location-fields
           [value]="draft()"
           [showErrors]="submitted()"
           (valueChange)="edited.set($event)"
         />
 
+        @if (store.location()?.location; as location) {
+          <h3 class="loc__label">What others see</h3>
+          <ul class="loc__others" aria-label="What others see">
+            <li>
+              <span class="loc__who">
+                <span class="loc__name">{{ session.handle() }}</span>
+                <span class="loc__place">{{ location.subdivisionName }}</span>
+              </span>
+              <span class="loc__where">Members, in search, binders and chats</span>
+            </li>
+            <li>
+              <span class="loc__who">
+                <span class="loc__name">{{ session.displayName() }}</span>
+                <span class="loc__place"
+                  >{{ location.showCity && location.city ? location.city + ', ' : ''
+                  }}{{ location.subdivisionName }}</span
+                >
+              </span>
+              <span class="loc__where">Your profile</span>
+            </li>
+            <li>
+              <span class="loc__who">
+                <span class="loc__name">A collector</span>
+                <span class="loc__place">{{ location.subdivisionName }}</span>
+              </span>
+              <span class="loc__where">Visitors without an account</span>
+            </li>
+          </ul>
+        }
+
+        <section class="loc__protect" aria-labelledby="location-protect">
+          <h3 class="loc__protect-title" id="location-protect">
+            <app-shell-icon name="shieldCheck" [size]="18" />
+            How OrenjiTrade protects where you live
+          </h3>
+          <ul>
+            <li>
+              You choose your country and state or province. Never an address, and the app never
+              uses GPS.
+            </li>
+            <li>The map counts binders per state or province: no pin, no point, no distance.</li>
+            <li>
+              Your city is optional and only on your profile. Search, binders, chats and the map
+              never show it.
+            </li>
+          </ul>
+        </section>
+
         @if (error(); as message) {
           <p class="section-error" role="alert">{{ message }}</p>
         }
-        <div class="section-actions">
+        <div class="loc__actions">
           @if (store.location()?.location) {
-            <button matButton type="button" [disabled]="busy() !== null" (click)="remove()">
-              <mat-icon aria-hidden="true">location_off</mat-icon>
-              Remove location
+            <button
+              type="button"
+              class="loc__remove"
+              [disabled]="busy() !== null"
+              (click)="remove()"
+            >
+              Remove my location
             </button>
           }
+          <span class="loc__spacer"></span>
+          <span class="loc__state" aria-live="polite">{{
+            dirty() ? 'Unsaved changes' : 'No changes yet'
+          }}</span>
           <button
             matButton="filled"
             type="button"
@@ -151,8 +235,130 @@ import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.componen
       background: var(--color-surface-variant);
       color: var(--color-text-muted);
     }
-    .location__hint {
-      margin-bottom: var(--spacing-4);
+    .loc__map {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 16px;
+      padding: 16px;
+      border: 1px solid var(--color-border);
+      border-radius: 14px;
+      background: var(--color-surface-variant);
+    }
+    .loc__map-icon {
+      display: grid;
+      flex: none;
+      place-items: center;
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: var(--color-accent-tint);
+      color: var(--color-accent);
+    }
+    .loc__map-text {
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .loc__map-title {
+      font-weight: var(--font-weight-semibold);
+    }
+    .loc__map-line {
+      color: var(--color-text-secondary);
+      font-size: 14px;
+    }
+    .loc__label {
+      margin: 24px 0 12px;
+      color: var(--color-text-secondary);
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: var(--font-weight-semibold);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .loc__others {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      border: 1px solid var(--color-border);
+      border-radius: 14px;
+      list-style: none;
+    }
+    .loc__others li {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 4px 12px;
+      padding: 12px 16px;
+    }
+    .loc__others li + li {
+      border-top: 1px solid var(--color-border);
+    }
+    .loc__who {
+      display: flex;
+      flex-direction: column;
+    }
+    .loc__name {
+      font-weight: var(--font-weight-semibold);
+    }
+    .loc__place,
+    .loc__where {
+      color: var(--color-text-secondary);
+      font-size: 13px;
+    }
+    .loc__protect {
+      margin-top: 24px;
+      padding: 16px 20px;
+      border: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+      border-radius: 14px;
+      background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+    }
+    .loc__protect-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 8px;
+      font-family: var(--font-body);
+      font-size: 15px;
+      font-weight: var(--font-weight-semibold);
+    }
+    .loc__protect-title app-shell-icon {
+      color: var(--color-accent);
+    }
+    .loc__protect ul {
+      margin: 0;
+      padding-left: 28px;
+      color: var(--color-text-secondary);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .loc__actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid var(--color-border);
+    }
+    .loc__spacer {
+      flex: 1;
+    }
+    .loc__remove {
+      padding: 6px 0;
+      border: 0;
+      background: none;
+      color: var(--color-danger);
+      font: inherit;
+      font-weight: var(--font-weight-semibold);
+      cursor: pointer;
+    }
+    .loc__state {
+      color: var(--color-text-muted);
+      font-size: 13px;
     }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -161,6 +367,9 @@ export class LocationSettingsComponent {
   private readonly snackBar = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
   protected readonly store = inject(MyLocationStore);
+  protected readonly session = inject(SessionService);
+  protected readonly mapBusy = signal(false);
+  protected readonly mapError = signal<string | null>(null);
 
   protected readonly loaded = signal(false);
   protected readonly busy = signal<'save' | 'remove' | null>(null);
@@ -206,6 +415,33 @@ export class LocationSettingsComponent {
       this.error.set(isApiError(error) ? friendlyMessage(error) : 'Please try again.');
     } finally {
       this.busy.set(null);
+    }
+  }
+
+  /**
+   * "Show me on the map" (spec 13): saved at once; without a location the API answers 409
+   * LOCATION_REQUIRED, said in place and the switch goes back.
+   */
+  protected async setDiscoverable(on: boolean, toggle: MatSlideToggle): Promise<void> {
+    const privacy = this.store.privacy();
+    if (!privacy) {
+      return;
+    }
+    this.mapBusy.set(true);
+    this.mapError.set(null);
+    try {
+      await this.store.savePrivacy({ ...privacy, discoverable: on });
+    } catch (error) {
+      toggle.checked = !on;
+      this.mapError.set(
+        isApiError(error) && error.errorCode === 'LOCATION_REQUIRED'
+          ? 'Choose your country and your state or province first, then turn this on.'
+          : isApiError(error)
+            ? friendlyMessage(error)
+            : 'Your change could not be saved.',
+      );
+    } finally {
+      this.mapBusy.set(false);
     }
   }
 

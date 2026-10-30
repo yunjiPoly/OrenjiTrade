@@ -1,141 +1,349 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { MatIconModule } from '@angular/material/icon';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { AuthService } from '../../core/auth/auth.service';
 import { SessionService } from '../../core/auth/session.service';
 import { FeatureFlagsService } from '../../core/feature-flags/feature-flags.service';
+import { ToastService } from '../../core/feedback/toast.service';
+import {
+  ShellIconComponent,
+  ShellIconName,
+} from '../../core/layout/shell-icon/shell-icon.component';
+import { ThemeService } from '../../core/theme/theme.service';
+import { MyLocationStore } from '../../shared/location/my-location.store';
 import { AvatarComponent } from '../../shared/ui/avatar/avatar.component';
 
 interface SettingsLink {
   path: string;
   label: string;
-  icon: string;
+  icon: ShellIconName;
   /** Shown only while this feature flag is on. */
   feature?: string;
 }
 
-export const SETTINGS_LINKS: readonly SettingsLink[] = [
-  { path: 'profile', label: 'Profile', icon: 'person' },
-  { path: 'privacy', label: 'Privacy', icon: 'shield_person' },
-  { path: 'notifications', label: 'Notifications', icon: 'notifications' },
-  { path: 'location', label: 'Location', icon: 'location_on' },
-  { path: 'shipping', label: 'Shipping details', icon: 'package_2' },
-  { path: 'blocked', label: 'Blocked users', icon: 'block' },
-  { path: 'reports', label: 'My reports', icon: 'flag' },
-  { path: 'account', label: 'Account', icon: 'manage_accounts' },
-  { path: 'appearance', label: 'Appearance', icon: 'palette' },
+interface SettingsGroup {
+  label: string;
+  links: readonly SettingsLink[];
+}
+
+/** The nav of spec 13 (board W25): four groups; Profile is the mini card's "Edit profile". */
+export const SETTINGS_GROUPS: readonly SettingsGroup[] = [
+  {
+    label: 'Where you ship from',
+    links: [
+      { path: 'location', label: 'Location', icon: 'mapPin' },
+      { path: 'shipping', label: 'Shipping details', icon: 'truck' },
+    ],
+  },
+  {
+    label: 'App',
+    links: [
+      { path: 'notifications', label: 'Notifications', icon: 'bell' },
+      { path: 'privacy', label: 'Privacy', icon: 'eye' },
+      { path: 'appearance', label: 'Appearance', icon: 'moon' },
+    ],
+  },
+  {
+    label: 'Safety',
+    links: [
+      { path: 'blocked', label: 'Blocked', icon: 'ban' },
+      { path: 'reports', label: 'My reports', icon: 'flag' },
+    ],
+  },
+  {
+    label: 'Account',
+    links: [
+      { path: 'account', label: 'Account', icon: 'profile' },
+      { path: 'legal', label: 'Legal', icon: 'fileText' },
+    ],
+  },
 ];
 
-/** `/settings` frame: identity header, section navigation, routed section. */
+/** Every section of the nav, Profile first (its tests and the old flat list). */
+export const SETTINGS_LINKS: readonly SettingsLink[] = [
+  { path: 'profile', label: 'Profile', icon: 'profile' },
+  ...SETTINGS_GROUPS.flatMap((group) => group.links),
+];
+
+const THEME_LABELS: Record<string, string> = {
+  system: 'Same as the system',
+  light: 'Light',
+  dark: 'Dark',
+};
+
+/**
+ * `/settings/:section` (spec 13, board W25): container 1040, a sticky nav of 248 (the mini profile
+ * card with "Edit profile", the groups Where you ship from, App, Safety and Account with a line
+ * under Location and Appearance, then Sign out and the web's version), a 64 gap and the section
+ * (680, forms at most 640). Offers and Payouts are gone (decision 2).
+ */
 @Component({
   selector: 'app-settings-shell',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, MatIconModule, AvatarComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, AvatarComponent, ShellIconComponent],
   template: `
-    <div class="page settings">
-      <header class="settings__header">
-        <app-avatar
-          size="lg"
-          [src]="session.me()?.avatarUrl"
-          [name]="session.displayName()"
-          [decorative]="true"
-        />
-        <div>
-          <h1 class="settings__title">Settings</h1>
-          <p class="settings__who">
-            {{ session.displayName() }}
-            @if (session.handle(); as handle) {
-              · <a [routerLink]="['/collectors', handle]">&#64;{{ handle }}</a>
-            }
-          </p>
-        </div>
+    <div class="st">
+      <header class="st__header">
+        <h1 class="st__title">Settings</h1>
+        @if (email(); as mail) {
+          <p class="st__who">Signed in as {{ mail }}</p>
+        }
       </header>
-
-      <div class="settings__layout">
-        <nav class="settings__nav" aria-label="Settings sections">
-          @for (link of links(); track link.path) {
-            <a
-              class="settings__link"
-              [routerLink]="link.path"
-              routerLinkActive="settings__link--active"
-              ariaCurrentWhenActive="page"
-            >
-              <mat-icon aria-hidden="true">{{ link.icon }}</mat-icon>
-              <span>{{ link.label }}</span>
-            </a>
+      <div class="st__layout">
+        <nav class="st__nav" aria-label="Settings sections">
+          <a
+            class="st__me"
+            routerLink="profile"
+            routerLinkActive="st__me--active"
+            ariaCurrentWhenActive="page"
+            aria-label="Edit profile"
+          >
+            <app-avatar class="st__avatar" [src]="session.me()?.avatarUrl" [name]="session.displayName()" [decorative]="true" />
+            <span class="st__me-text">
+              <span class="st__me-name">{{ session.displayName() }}</span>
+              @if (session.handle(); as handle) {
+                <span class="st__me-handle">&#64;{{ handle }}</span>
+              }
+              <span class="st__me-edit">Edit profile</span>
+            </span>
+          </a>
+          @for (group of groups(); track group.label) {
+            <p class="st__group" [id]="'settings-group-' + $index">{{ group.label }}</p>
+            <ul class="st__links" [attr.aria-labelledby]="'settings-group-' + $index">
+              @for (link of group.links; track link.path) {
+                <li>
+                  <a
+                    class="st__link"
+                    [routerLink]="link.path"
+                    routerLinkActive="st__link--active"
+                    ariaCurrentWhenActive="page"
+                  >
+                    <app-shell-icon [name]="link.icon" [size]="20" />
+                    <span class="st__link-text">
+                      <span>{{ link.label }}</span>
+                      @if (sub(link.path); as line) {
+                        <span class="st__link-sub">{{ line }}</span>
+                      }
+                    </span>
+                  </a>
+                </li>
+              }
+            </ul>
           }
+          <div class="st__foot">
+            <button type="button" class="st__signout" (click)="signOut()">
+              <app-shell-icon name="logOut" [size]="20" />
+              Sign out
+            </button>
+            <p class="st__version">OrenjiTrade web 1.0.0</p>
+          </div>
         </nav>
-        <div class="settings__content">
+        <div class="st__content">
           <router-outlet />
         </div>
       </div>
     </div>
   `,
   styles: `
-    .settings__header {
+    :host {
+      display: block;
+    }
+    .st {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 32px 24px 64px;
+    }
+    .st__header {
       display: flex;
-      align-items: center;
-      gap: var(--spacing-4);
-      margin-bottom: var(--spacing-6);
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 4px 12px;
+      margin-bottom: 24px;
     }
-    .settings__title {
-      font-size: var(--font-size-3xl);
+    .st__title {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: 30px;
+      font-weight: var(--font-weight-bold);
+      letter-spacing: -0.5px;
     }
-    .settings__who {
-      margin: var(--spacing-1) 0 0;
-      color: var(--color-text-muted);
+    .st__who {
+      margin: 0;
+      color: var(--color-text-secondary);
     }
-    .settings__layout {
+    .st__layout {
       display: grid;
-      grid-template-columns: 220px minmax(0, 1fr);
-      gap: var(--spacing-6);
+      grid-template-columns: 248px minmax(0, 680px);
+      gap: 64px;
       align-items: start;
     }
-    .settings__nav {
+    .st__nav {
       position: sticky;
-      top: 80px;
+      top: 88px;
+      display: flex;
+      flex-direction: column;
+    }
+    .st__me {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px;
+      border: 1px solid var(--color-border);
+      border-radius: 14px;
+      background: var(--color-surface);
+      color: var(--color-ink);
+      text-decoration: none;
+    }
+    .st__me:hover,
+    .st__me--active {
+      border-color: var(--color-border-strong);
+    }
+    .st__avatar {
+      --avatar-size: 48px;
+    }
+    .st__me-text {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    .st__me-name {
+      overflow: hidden;
+      font-weight: var(--font-weight-semibold);
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    .st__me-handle {
+      overflow: hidden;
+      color: var(--color-text-secondary);
+      font-size: 13px;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    .st__me-edit {
+      color: var(--color-accent);
+      font-size: 13px;
+      font-weight: var(--font-weight-semibold);
+    }
+    .st__group {
+      margin: 24px 12px 8px;
+      color: var(--color-text-secondary);
+      font-size: 12px;
+      font-weight: var(--font-weight-semibold);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .st__links {
       display: flex;
       flex-direction: column;
       gap: 2px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
     }
-    .settings__link {
+    .st__link {
       display: flex;
       align-items: center;
-      gap: var(--spacing-3);
-      padding: var(--spacing-2) var(--spacing-3);
-      border-radius: var(--radius-pill);
-      color: var(--color-text-muted);
+      gap: 12px;
+      min-height: 44px;
+      padding: 6px 12px;
+      border-radius: 12px;
+      color: var(--color-text-secondary);
       font-weight: var(--font-weight-medium);
       text-decoration: none;
-      transition: background var(--motion-duration-fast) var(--motion-easing-standard);
     }
-    .settings__link:hover {
+    .st__link:hover {
       background: var(--color-surface-variant);
       color: var(--color-ink);
     }
-    .settings__link--active {
-      background: var(--color-primary-container);
-      color: var(--color-on-primary-container);
+    .st__link--active {
+      background: var(--color-surface-variant);
+      color: var(--color-ink);
+      font-weight: var(--font-weight-semibold);
     }
-    .settings__content {
+    .st__link-text {
+      display: flex;
+      flex-direction: column;
       min-width: 0;
+    }
+    .st__link-sub {
+      overflow: hidden;
+      color: var(--color-text-secondary);
+      font-size: 12px;
+      font-weight: var(--font-weight-regular);
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    .st__foot {
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid var(--color-border);
+    }
+    .st__signout {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      min-height: 44px;
+      padding: 0 12px;
+      border: 0;
+      border-radius: 12px;
+      background: transparent;
+      color: var(--color-danger);
+      font: inherit;
+      font-weight: var(--font-weight-semibold);
+      cursor: pointer;
+    }
+    .st__signout:hover {
+      background: var(--color-surface-variant);
+    }
+    .st__version {
+      margin: 8px 12px 0;
+      color: var(--color-text-muted);
+      font-size: 12px;
+    }
+    .st__content {
+      min-width: 0;
+      max-width: 680px;
       display: flex;
       flex-direction: column;
       gap: var(--spacing-5);
     }
-    @media (max-width: 839px) {
-      .settings__layout {
-        grid-template-columns: 1fr;
-        gap: var(--spacing-4);
+    @media (max-width: 1279.98px) {
+      .st__layout {
+        grid-template-columns: 220px minmax(0, 1fr);
+        gap: 40px;
       }
-      .settings__nav {
+    }
+    @media (max-width: 959.98px) {
+      .st {
+        padding: 16px 16px 32px;
+      }
+      .st__title {
+        font-size: 24px;
+      }
+      .st__layout {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 20px;
+      }
+      .st__nav {
         position: static;
-        flex-direction: row;
-        overflow-x: auto;
-        padding-bottom: var(--spacing-1);
-        scrollbar-width: thin;
       }
-      .settings__link {
-        flex: 0 0 auto;
-        padding: var(--spacing-2) var(--spacing-3);
+      .st__links {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .st__link {
+        min-height: 40px;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-pill);
+      }
+      .st__link-sub {
+        display: none;
+      }
+      .st__group {
+        margin: 16px 4px 6px;
+      }
+      .st__foot {
+        display: none;
       }
     }
   `,
@@ -144,7 +352,47 @@ export const SETTINGS_LINKS: readonly SettingsLink[] = [
 export class SettingsShellComponent {
   protected readonly session = inject(SessionService);
   private readonly flags = inject(FeatureFlagsService);
-  protected readonly links = computed(() =>
-    SETTINGS_LINKS.filter((link) => !link.feature || this.flags.enabled(link.feature)()),
+  private readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
+  private readonly toasts = inject(ToastService);
+  private readonly theme = inject(ThemeService);
+  private readonly locations = inject(MyLocationStore);
+
+  protected readonly groups = computed(() =>
+    SETTINGS_GROUPS.map((group) => ({
+      ...group,
+      links: group.links.filter((link) => !link.feature || this.flags.enabled(link.feature)()),
+    })),
   );
+  protected readonly email = computed(() => this.auth.user()?.email ?? null);
+  /** The line under a nav row: where you ship from, the theme. */
+  private readonly lines = computed<Record<string, string | null>>(() => {
+    const location = this.locations.location();
+    const where = location?.location;
+    return {
+      location: where
+        ? `${where.label}${location?.discoverable ? ' · On the map' : ' · Hidden from the map'}`
+        : location
+          ? 'Not chosen yet'
+          : null,
+      shipping: 'Phone app only',
+      appearance: THEME_LABELS[this.theme.preference()] ?? null,
+    };
+  });
+
+  constructor() {
+    if (!this.locations.location() && !this.locations.loading()) {
+      void this.locations.load();
+    }
+  }
+
+  protected sub(path: string): string | null {
+    return this.lines()[path] ?? null;
+  }
+
+  protected async signOut(): Promise<void> {
+    await this.auth.signOut();
+    this.toasts.show({ title: 'You are signed out. See you soon!' });
+    await this.router.navigateByUrl('/');
+  }
 }

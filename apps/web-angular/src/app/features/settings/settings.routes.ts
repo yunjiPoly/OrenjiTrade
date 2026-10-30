@@ -75,6 +75,13 @@ export const SETTINGS_ROUTES: Routes = [
             (m) => m.AppearanceSettingsComponent,
           ),
       },
+      {
+        // Web stage WE (spec 13): the legal documents and Trading safely.
+        path: 'legal',
+        title: 'Legal',
+        loadComponent: () =>
+          import('./legal/legal-settings.component').then((m) => m.LegalSettingsComponent),
+      },
       { path: '**', redirectTo: 'profile' },
     ],
   },
