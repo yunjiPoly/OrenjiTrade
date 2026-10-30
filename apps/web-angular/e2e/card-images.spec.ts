@@ -255,7 +255,13 @@ test.describe('card pictures', () => {
     await expectPictures(cards, 1, 2);
     const games = page.getByRole('radiogroup', { name: 'Game of the cards' });
     if ((await games.count()) > 0) {
+      const first = await cards.locator('app-card-image img').first().getAttribute('src');
       await games.getByRole('radio', { checked: false }).first().click();
+      // The other game's cards replace the list (wait for the new list before reading it).
+      await expect(cards.locator('app-card-image img').first()).not.toHaveAttribute(
+        'src',
+        first ?? '',
+      );
       await expectPictures(cards, 1, 2);
     }
     await expectNoProviderSources(page);
