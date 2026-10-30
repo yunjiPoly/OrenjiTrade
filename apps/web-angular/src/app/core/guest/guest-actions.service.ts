@@ -31,6 +31,12 @@ export type GuestAskChoice = 'sign-up' | 'sign-in' | undefined;
  * ready and the guest is back on that page, the action finishes there (`guest-finish.ts`, or the
  * page itself for its Add drawer). "Not now", Esc and "Not now, keep browsing" forget it.
  *
+ * It belongs to the sign-in it was asked for and to nothing else (WG review U1, P1, F2; the phone's
+ * R15 `useGuestEntry`: every other entry forgets it): it is forgotten when the guest leaves the
+ * sign-in steps still signed out (the browser's Back, the wordmark), when the account that signed
+ * in for it signs out or another account appears, and when the ready account first lands on
+ * another page than the one it was asked on. It never waits for a later visit.
+ *
  * The action is kept in memory for this tab only, by its listing or card (never a collector), as
  * on the phone; the page's address travels as the sign-in's `returnUrl`.
  */
@@ -47,6 +53,8 @@ export class GuestActions {
   private readonly openingState = signal(false);
   private started = false;
   private running = false;
+  /** The account that signed in for the pending action (the first one after the ask). */
+  private signedInFor: string | null = null;
   /** The control that asked: the finished action's drawer gives the focus back there. */
   private opener: HTMLElement | null = null;
 
@@ -59,16 +67,17 @@ export class GuestActions {
    */
   readonly ready = computed(() => {
     const pending = this.pendingState();
-    const url = this.urlState();
-    return (
-      !!pending &&
+    // `returnUrl` is never a step page (see `ask`): the same page is never a sign-in step.
+    return !!pending && this.settled() && samePage(this.urlState(), pending.returnUrl);
+  });
+
+  /** Signed in, the account loaded and usable, the welcome done. */
+  private readonly settled = computed(
+    () =>
       this.auth.isAuthenticated() &&
       this.session.status() === 'ready' &&
-      !this.session.needsOnboarding() &&
-      !isStepPage(url) &&
-      samePage(url, pending.returnUrl)
-    );
-  });
+      !this.session.needsOnboarding(),
+  );
 
   /** Starts the runner (the shell calls it once). */
   start(): void {
@@ -78,13 +87,26 @@ export class GuestActions {
     this.started = true;
     this.router.events
       .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
-      .subscribe((event) => this.urlState.set(event.urlAfterRedirects));
+      .subscribe((event) => {
+        this.urlState.set(event.urlAfterRedirects);
+        this.review(event.urlAfterRedirects, true);
+      });
+    this.auth.changes$.subscribe((change) => this.identityChanged(change.user?.uid ?? null));
     effect(
       () => {
         if (!this.ready()) {
           return;
         }
         untracked(() => void this.runPending());
+      },
+      { injector: this.injector },
+    );
+    // The account became ready while on a page: another page than the action's forgets it.
+    effect(
+      () => {
+        if (this.settled()) {
+          untracked(() => this.review(this.urlState(), false));
+        }
       },
       { injector: this.injector },
     );
@@ -99,7 +121,8 @@ export class GuestActions {
     subject: GuestAskSubject | null = null,
     opener: EventTarget | null = null,
   ): Promise<GuestAskChoice> {
-    const returnUrl = this.router.url;
+    // The sign-in's own rule (`safeReturnUrl`): a step page is never a page to come back to.
+    const returnUrl = isStepPage(this.router.url) ? '/' : this.router.url;
     const active = this.document.activeElement;
     this.opener =
       opener instanceof HTMLElement
@@ -107,7 +130,8 @@ export class GuestActions {
         : active instanceof HTMLElement && active !== this.document.body
           ? active
           : null;
-    this.pendingState.set({ action, returnUrl });
+    // Nothing is kept while the dialog is open: only Create account or Sign in keeps the action.
+    this.forgetPending();
     this.openingState.set(true);
     let choice: GuestAskChoice;
     try {
@@ -133,6 +157,8 @@ export class GuestActions {
       this.forget();
       return undefined;
     }
+    this.pendingState.set({ action, returnUrl });
+    this.signedInFor = null;
     await this.router.navigate([choice === 'sign-up' ? '/auth/sign-up' : '/auth/sign-in'], {
       queryParams: { returnUrl },
     });
@@ -145,14 +171,59 @@ export class GuestActions {
     if (!pending || !this.ready() || !matches(pending.action)) {
       return null;
     }
-    this.pendingState.set(null);
+    this.forgetPending();
     return pending.action;
   }
 
   /** Forgets the pending action ("Not now", the dialog closed, "Not now, keep browsing"). */
   forget(): void {
-    this.pendingState.set(null);
+    this.forgetPending();
     this.opener = null;
+  }
+
+  private forgetPending(): void {
+    this.pendingState.set(null);
+    this.signedInFor = null;
+  }
+
+  /**
+   * After a navigation (`landing`) or once the account is ready: a guest who left the sign-in
+   * steps still signed out gave the action up; a ready account on another page than the action's
+   * never comes back for it. The sign-in steps (and an account still loading) keep it.
+   */
+  private review(url: string, landing: boolean): void {
+    const pending = this.pendingState();
+    if (!pending || this.running || isStepPage(url)) {
+      return;
+    }
+    if (!this.auth.isAuthenticated()) {
+      if (landing) {
+        this.forget();
+      }
+      return;
+    }
+    if (this.settled() && !samePage(url, pending.returnUrl)) {
+      this.forget();
+    }
+  }
+
+  /** The action finishes only for the account that signed in for it. */
+  private identityChanged(uid: string | null): void {
+    if (!this.pendingState()) {
+      return;
+    }
+    if (uid === null) {
+      // Signed out after signing in for it (Review our terms' Sign out, the account states').
+      if (this.signedInFor !== null) {
+        this.forget();
+      }
+      return;
+    }
+    if (this.signedInFor === null) {
+      this.signedInFor = uid;
+    } else if (this.signedInFor !== uid) {
+      this.forget();
+    }
   }
 
   private async runPending(): Promise<void> {
@@ -161,7 +232,7 @@ export class GuestActions {
       return;
     }
     this.running = true;
-    this.pendingState.set(null);
+    this.forgetPending();
     const opener = this.opener?.isConnected ? this.opener : null;
     this.opener = null;
     try {

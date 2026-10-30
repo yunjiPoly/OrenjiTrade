@@ -115,11 +115,17 @@ export function finishedByPage(action: GuestAction): boolean {
 
 /**
  * The address a pending action finishes on: the guest's page without what only a visit meant
- * (none today), compared by path and query so the action never finishes on another page.
+ * (the fragment), compared by path and query (in any order: a page merges its parameters) so the
+ * action never finishes on another page.
  */
 export function samePage(a: string, b: string): boolean {
-  const strip = (url: string) => url.split('#')[0] ?? url;
-  return strip(a) === strip(b);
+  const key = (url: string) => {
+    const [path = '', query = ''] = (url.split('#')[0] ?? '').split('?');
+    const params = new URLSearchParams(query);
+    params.sort();
+    return `${path}?${params.toString()}`;
+  };
+  return key(a) === key(b);
 }
 
 /** The pages an action never finishes on: the sign-in steps, the account states, the welcome. */

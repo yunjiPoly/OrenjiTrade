@@ -42,6 +42,17 @@ describe("a guest's actions (spec 14, decision 4)", () => {
   it("finishes on the guest's page only, never on a sign-in step or the welcome", () => {
     expect(samePage('/cards/c-1?printing=p', '/cards/c-1?printing=p#holders')).toBe(true);
     expect(samePage('/cards/c-1', '/cards/c-2')).toBe(false);
+    // A page that merged its parameters in another order is the same page; another value is not.
+    expect(
+      samePage(
+        '/search?tab=binders&open=b-1&game=yugioh',
+        '/search?game=yugioh&tab=binders&open=b-1',
+      ),
+    ).toBe(true);
+    expect(samePage('/search?tab=binders&game=yugioh', '/search?tab=binders&game=pokemon')).toBe(
+      false,
+    );
+    expect(samePage('/search?tab=binders', '/search?tab=binders&open=b-1')).toBe(false);
     expect(isStepPage('/auth/sign-in?returnUrl=%2F')).toBe(true);
     expect(isStepPage('/onboarding')).toBe(true);
     expect(isStepPage('/authors')).toBe(false);

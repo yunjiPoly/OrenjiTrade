@@ -3,9 +3,10 @@ import { TestBed } from '@angular/core/testing';
 import { MatDialog } from '@angular/material/dialog';
 import { Router, provideRouter } from '@angular/router';
 import { ListingsService } from '@orenji/api-client';
-import { of } from 'rxjs';
+import { Subject, of } from 'rxjs';
 import { ChatDrawer } from '../../shared/messaging/chat-drawer.service';
-import { AuthService } from '../auth/auth.service';
+import { AuthChange, AuthService } from '../auth/auth.service';
+import type { AuthUser } from '../auth/firebase-auth.port';
 import { SessionService, SessionStatus } from '../auth/session.service';
 import { ToastService } from '../feedback/toast.service';
 import { GuestActions } from './guest-actions.service';
@@ -29,6 +30,14 @@ describe('GuestActions: the sign-in dialog and the pending action (spec 14)', ()
   let message: ReturnType<typeof vi.fn>;
   let guest: GuestActions;
   let router: Router;
+  let changes: Subject<AuthChange>;
+
+  /** Firebase signs `uid` in (or out, `null`): the identity feed, then the auth state. */
+  function signIn(uid: string | null): void {
+    const user = uid ? ({ uid } as AuthUser) : null;
+    authenticated.set(!!uid);
+    changes.next({ user, idToken: uid ? `token-${uid}` : null });
+  }
 
   beforeEach(async () => {
     authenticated.set(false);
@@ -37,16 +46,19 @@ describe('GuestActions: the sign-in dialog and the pending action (spec 14)', ()
     choice = 'sign-in';
     open = vi.fn(() => ({ afterClosed: () => of(choice) }));
     message = vi.fn(async () => undefined);
+    changes = new Subject<AuthChange>();
     TestBed.configureTestingModule({
       providers: [
         provideRouter([
           { path: 'cards/:id', component: Blank },
           { path: 'auth/sign-in', component: Blank },
           { path: 'auth/sign-up', component: Blank },
+          { path: 'auth/consent', component: Blank },
+          { path: 'onboarding', component: Blank },
           { path: '**', component: Blank },
         ]),
         { provide: MatDialog, useValue: { open } },
-        { provide: AuthService, useValue: { isAuthenticated: authenticated } },
+        { provide: AuthService, useValue: { isAuthenticated: authenticated, changes$: changes } },
         {
           provide: SessionService,
           useValue: { status, needsOnboarding, me: () => ({ id: 'u-me' }) },
@@ -133,5 +145,114 @@ describe('GuestActions: the sign-in dialog and the pending action (spec 14)', ()
     });
     expect(guest.pending()).toBeNull();
     expect(TestBed.inject(Injector)).toBeTruthy();
+  });
+
+  // WG review U1, P1, F2: the action belongs to the sign-in it was asked for, and to nothing else.
+  it('a guest who leaves the sign-in steps still signed out (Back) gives the action up', async () => {
+    await guest.ask({ kind: 'message', listing: { itemId: 'i-1' } });
+    // Between the sign-in steps it stays.
+    await router.navigateByUrl('/auth/sign-up?returnUrl=%2Fcards%2Fc-1%3Fprinting%3Dp-1');
+    expect(guest.pending()).not.toBeNull();
+    // The browser's Back to the page, still signed out.
+    await router.navigateByUrl('/cards/c-1?printing=p-1');
+    expect(guest.pending()).toBeNull();
+    // A later sign-in from the top bar, on that very page: nothing runs.
+    signIn('fb-a');
+    status.set('ready');
+    await settle();
+    expect(guest.ready()).toBe(false);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(message).not.toHaveBeenCalled();
+  });
+
+  it('signing out after signing in for it, then another account, never finishes it', async () => {
+    await guest.ask({ kind: 'message', listing: { itemId: 'i-1' } });
+    // A signs in and must review the terms first.
+    signIn('fb-a');
+    status.set('consent-required');
+    await router.navigateByUrl('/auth/consent?returnUrl=%2Fcards%2Fc-1%3Fprinting%3Dp-1');
+    expect(guest.pending()).not.toBeNull();
+    // Review our terms' Sign out: the action goes with A.
+    signIn(null);
+    status.set('anonymous');
+    expect(guest.pending()).toBeNull();
+    // Someone else, back on the card page, signs in from the top bar.
+    await router.navigateByUrl('/cards/c-1?printing=p-1');
+    signIn('fb-b');
+    status.set('ready');
+    await settle();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(message).not.toHaveBeenCalled();
+  });
+
+  it('another account appearing in the tab (no sign-out between) forgets it', async () => {
+    await guest.ask({ kind: 'message', listing: { itemId: 'i-1' } });
+    signIn('fb-a');
+    status.set('consent-required');
+    await router.navigateByUrl('/auth/consent?returnUrl=%2Fcards%2Fc-1%3Fprinting%3Dp-1');
+    // A token refresh of the same account keeps it.
+    changes.next({ user: { uid: 'fb-a' } as AuthUser, idToken: 'token-fb-a-2' });
+    expect(guest.pending()).not.toBeNull();
+    signIn('fb-b');
+    expect(guest.pending()).toBeNull();
+  });
+
+  it('a ready account on another page never runs it, nor later on its page (no waiting)', async () => {
+    await guest.ask({ kind: 'message', listing: { itemId: 'i-1' } });
+    signIn('fb-a');
+    status.set('ready');
+    await settle();
+    // On the sign-in step: kept.
+    expect(guest.pending()).not.toBeNull();
+    // The ready account lands on Home, not on the card page: nothing runs, nothing is taken.
+    await router.navigateByUrl('/');
+    await settle();
+    expect(guest.ready()).toBe(false);
+    expect(guest.pending()).toBeNull();
+    // Later, back on the card page: still nothing.
+    await router.navigateByUrl('/cards/c-1?printing=p-1');
+    await settle();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(message).not.toHaveBeenCalled();
+  });
+
+  it('the account becoming ready on another page forgets it; on its page it runs', async () => {
+    await guest.ask({ kind: 'message', listing: { itemId: 'i-1' } });
+    signIn('fb-a');
+    status.set('loading');
+    await router.navigateByUrl('/sets/s-1');
+    await settle();
+    // Still loading: nothing decided yet.
+    expect(guest.pending()).not.toBeNull();
+    status.set('ready');
+    await settle();
+    expect(guest.pending()).toBeNull();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(message).not.toHaveBeenCalled();
+
+    // The same steps asked on that page: back on it, the page takes it.
+    signIn(null);
+    status.set('anonymous');
+    await guest.ask({ kind: 'add', cardId: 'c-1' });
+    expect(router.url).toBe('/auth/sign-in?returnUrl=%2Fsets%2Fs-1');
+    signIn('fb-a');
+    status.set('loading');
+    await router.navigateByUrl('/sets/s-1');
+    await settle();
+    status.set('ready');
+    await settle();
+    expect(guest.take((action) => action.kind === 'add')).toEqual({ kind: 'add', cardId: 'c-1' });
+  });
+
+  it('keeps nothing while the dialog is open, and never comes back to a step page', async () => {
+    const closed = new Subject<string | undefined>();
+    open.mockImplementation(() => ({ afterClosed: () => closed }));
+    const asked = guest.ask({ kind: 'wish', cardId: 'c-1' });
+    await settle();
+    expect(guest.pending()).toBeNull();
+    closed.next('sign-in');
+    closed.complete();
+    await asked;
+    expect(guest.pending()?.returnUrl).toBe('/cards/c-1?printing=p-1');
   });
 });
