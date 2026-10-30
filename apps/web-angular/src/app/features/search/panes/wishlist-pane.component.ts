@@ -2,6 +2,8 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
+  afterEveryRender,
   computed,
   effect,
   inject,
@@ -9,6 +11,7 @@ import {
   output,
   signal,
   untracked,
+  viewChild,
 } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { RouterLink } from '@angular/router';
@@ -235,7 +238,7 @@ export function wishLimitLine(used: number, limit: number | null): string | null
         }
       </div>
       @if (selecting() && picked().size > 0) {
-        <div class="wp__dock" role="region" aria-label="Selected wishes">
+        <div #dock class="wp__dock" role="region" aria-label="Selected wishes">
           @if (removeError(); as error) {
             <p class="wp__dock-error" role="alert" data-testid="wish-remove-error">
               {{ error }}
@@ -291,6 +294,7 @@ export class WishlistPaneComponent {
   /** A bulk remove that failed: what stays selected, said plainly, with Try again. */
   protected readonly removeError = signal<string | null>(null);
   private readonly layout = inject(ShellLayout);
+  private readonly dock = viewChild<ElementRef<HTMLElement>>('dock');
   private readonly available = signal<ReadonlySet<string>>(new Set());
 
   /** The browsed game's wishes only (stage G). */
@@ -312,12 +316,14 @@ export class WishlistPaneComponent {
   protected readonly terms = wishTerms;
 
   constructor() {
-    // The toasts rise above the dock while it shows (WD review U15).
+    // The toasts rise above the dock while it shows, as tall as it is with its error line and
+    // wherever the list puts it (WD review U15 and R1-3).
     effect(() => {
-      const open = this.selecting() && this.picked().size > 0;
-      untracked(() => this.layout.setDockOpen(open));
+      const dock = this.dock()?.nativeElement ?? null;
+      untracked(() => this.layout.trackDock(dock));
     });
-    inject(DestroyRef).onDestroy(() => this.layout.setDockOpen(false));
+    afterEveryRender({ read: () => this.layout.measureDock() });
+    inject(DestroyRef).onDestroy(() => this.layout.trackDock(null));
     effect(() => {
       if (this.auth.isAuthenticated()) {
         untracked(() => {

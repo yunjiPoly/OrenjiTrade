@@ -31,14 +31,16 @@ describe('WishlistPaneComponent', () => {
   let availability: ReturnType<typeof vi.fn>;
   let remove: ReturnType<typeof vi.fn>;
   let toast: ReturnType<typeof vi.fn>;
-  let dockOpen: ReturnType<typeof vi.fn>;
+  let trackDock: ReturnType<typeof vi.fn>;
+  let measureDock: ReturnType<typeof vi.fn>;
   const items = signal<WishlistItemResponse[]>([]);
 
   beforeEach(async () => {
     items.set([wish('w1', 'Pikachu'), wish('w2', 'Eevee'), wish('w3', 'Mew')]);
     availability = vi.fn(() => of({ available: ['w2'] }));
     toast = vi.fn();
-    dockOpen = vi.fn();
+    trackDock = vi.fn();
+    measureDock = vi.fn();
     // The second remove fails (offline): the first is gone, two stay selected.
     remove = vi
       .fn()
@@ -79,7 +81,7 @@ describe('WishlistPaneComponent', () => {
         { provide: WishlistService, useValue: { getWishlistAvailability: availability } },
         { provide: MatDialog, useValue: { open: () => ({ afterClosed: () => of(true) }) } },
         { provide: ToastService, useValue: { show: toast } },
-        { provide: ShellLayout, useValue: { setDockOpen: dockOpen } },
+        { provide: ShellLayout, useValue: { trackDock, measureDock } },
       ],
     });
     fixture = TestBed.createComponent(WishlistPaneComponent);
@@ -125,12 +127,16 @@ describe('WishlistPaneComponent', () => {
       box.click();
     }
     fixture.detectChanges();
-    expect(dockOpen).toHaveBeenLastCalledWith(true);
+    // The toasts keep clear of the dock: the shell measures it (WD review U15 and R1-3).
+    expect(trackDock).toHaveBeenLastCalledWith(element.querySelector('.wp__dock'));
+    measureDock.mockClear();
     element.querySelector<HTMLButtonElement>('.wp__danger')!.click();
     await vi.waitFor(() => {
       fixture.detectChanges();
       expect(element.querySelector('[data-testid="wish-remove-error"]')).not.toBeNull();
     });
+    // The error line made the dock taller and the list shorter: measured again after the render.
+    expect(measureDock).toHaveBeenCalled();
     expect(element.querySelector('[data-testid="wish-remove-error"]')?.textContent).toContain(
       '2 wishes could not be removed.',
     );
@@ -146,6 +152,6 @@ describe('WishlistPaneComponent', () => {
     });
     expect(toast).toHaveBeenLastCalledWith({ title: '2 wishes removed' });
     expect(items()).toEqual([]);
-    expect(dockOpen).toHaveBeenLastCalledWith(false);
+    expect(trackDock).toHaveBeenLastCalledWith(null);
   });
 });

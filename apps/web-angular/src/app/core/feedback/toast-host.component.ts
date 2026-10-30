@@ -165,8 +165,9 @@ import { ToastService } from './toast.service';
       }
     }
     /* Above a list pane's bulk dock (Search › Wishlist), never over its button (WD review U15). */
+    /* Above a bulk dock: its measured top plus a gap (ShellLayout.dockLift). */
     :host(.toasts-host--dock) {
-      bottom: 96px;
+      bottom: max(24px, var(--toasts-dock-lift, 96px));
     }
     @media (max-width: 959.98px) {
       :host,
@@ -177,7 +178,10 @@ import { ToastService } from './toast.service';
         bottom: calc(64px + env(safe-area-inset-bottom) + 12px);
       }
       :host(.toasts-host--dock) {
-        bottom: calc(64px + env(safe-area-inset-bottom) + 96px);
+        bottom: max(
+          calc(64px + env(safe-area-inset-bottom) + 12px),
+          var(--toasts-dock-lift, calc(64px + env(safe-area-inset-bottom) + 96px))
+        );
       }
       /* A chat above the tabs: under its header, off the composer. */
       :host(.toasts-host--chat) {
@@ -192,6 +196,7 @@ import { ToastService } from './toast.service';
     '[class.toasts-host--inbox]': "layout.area() === 'messages' && !layout.narrow()",
     '[class.toasts-host--chat]': 'layout.inChat()',
     '[class.toasts-host--dock]': 'layout.dockOpen()',
+    '[style.--toasts-dock-lift]': "layout.dockOpen() ? layout.dockLift() + 'px' : null",
   },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

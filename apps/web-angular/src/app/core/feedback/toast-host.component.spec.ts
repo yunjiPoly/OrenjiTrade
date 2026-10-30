@@ -1,4 +1,6 @@
+import { ApplicationRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { ShellLayout } from '../layout/shell-layout.service';
 import { ToastHostComponent } from './toast-host.component';
 import { TOAST_MS, ToastService } from './toast.service';
 
@@ -21,6 +23,26 @@ describe('ToastHostComponent (spec 4.8)', () => {
     const host = await render();
     expect(host.parentElement).toBe(document.body);
     expect(host.getAttribute('aria-live')).toBe('polite');
+  });
+
+  it('rises above a bulk dock by its measured lift, and drops back without one (WD R1-3)', async () => {
+    const host = await render();
+    const layout = TestBed.inject(ShellLayout);
+    const dock = document.createElement('div');
+    document.body.appendChild(dock);
+    vi.spyOn(dock, 'getBoundingClientRect').mockReturnValue({
+      top: window.innerHeight - 98,
+    } as DOMRect);
+    layout.trackDock(dock);
+    await TestBed.inject(ApplicationRef).whenStable();
+    TestBed.tick();
+    expect(host.classList).toContain('toasts-host--dock');
+    expect(host.style.getPropertyValue('--toasts-dock-lift')).toBe('110px');
+    layout.trackDock(null);
+    TestBed.tick();
+    expect(host.classList).not.toContain('toasts-host--dock');
+    expect(host.style.getPropertyValue('--toasts-dock-lift')).toBe('');
+    dock.remove();
   });
 
   it('pauses the timers while the pointer is on the toasts, and resumes after', async () => {
