@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { Router, provideRouter } from '@angular/router';
 import { LegalDocument } from '@orenji/api-client';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -174,5 +175,28 @@ describe('SignUpPageComponent', () => {
       ['/auth/verify-email'],
       expect.anything(),
     );
+  });
+
+  // WG review A5: a refused press is said, and the first field to fix takes the focus.
+  it('a blocked press says its reason again; refused fields focus the first one', async () => {
+    const announce = vi.spyOn(TestBed.inject(LiveAnnouncer), 'announce');
+    fillAccount();
+    await submit();
+    expect(announce).toHaveBeenCalledWith(
+      'Accept the documents and confirm your age to continue.',
+      'polite',
+    );
+    acceptDocuments();
+    ageBox().click();
+    type('su-name', '');
+    type('su-email', 'not-an-email');
+    await submit();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(document.activeElement?.id).toBe('su-name');
+    type('su-name', 'New Bie');
+    await submit();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(document.activeElement?.id).toBe('su-email');
+    expect(signUpWithEmail).not.toHaveBeenCalled();
   });
 });

@@ -126,4 +126,46 @@ describe('SignInPageComponent', () => {
     );
     expect(navigateByUrl).not.toHaveBeenCalled();
   });
+
+  // WG review A1, A5, U8.
+  it('keeps the keyboard on Sign in while it signs in and after a failure (never disabled)', async () => {
+    let fail!: (error: unknown) => void;
+    signInWithEmail.mockImplementationOnce(
+      () => new Promise((_resolve, reject) => (fail = reject)),
+    );
+    const button = element.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+    fill('maika@example.test', 'nope-nope');
+    button.focus();
+    element.querySelector('form')!.dispatchEvent(new Event('submit'));
+    fixture.detectChanges();
+    expect(button.disabled).toBe(false);
+    expect(button.getAttribute('aria-disabled')).toBe('true');
+    // A second press while it works sends nothing more.
+    element.querySelector('form')!.dispatchEvent(new Event('submit'));
+    expect(signInWithEmail).toHaveBeenCalledTimes(1);
+    fail({ code: 'auth/invalid-credential' });
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(button.getAttribute('aria-disabled')).toBeNull();
+    expect(document.activeElement).toBe(button);
+  });
+
+  it('a refused submit focuses the first field to fix', async () => {
+    fill('', 'secret-pass');
+    await submit();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(document.activeElement?.id).toBe('si-email');
+    fill('maika@example.test', '');
+    await submit();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(document.activeElement?.id).toBe('si-password');
+  });
+
+  it('"Forgot your password?" carries the typed email out of the address', () => {
+    fill('maika@example.test', '');
+    fixture.detectChanges();
+    const forgot = element.querySelector<HTMLAnchorElement>('a.link--forgot')!;
+    expect(forgot.getAttribute('href')).not.toContain('email');
+    expect(forgot.getAttribute('href')).not.toContain('maika');
+  });
 });

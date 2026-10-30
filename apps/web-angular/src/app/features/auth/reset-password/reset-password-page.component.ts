@@ -1,9 +1,19 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject, input, signal } from '@angular/core';
+import { Location } from '@angular/common';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  OnInit,
+  inject,
+  input,
+  signal,
+} from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { authErrorCode, authErrorMessage } from '../../../core/auth/auth-errors';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ShellIconComponent } from '../../../core/layout/shell-icon/shell-icon.component';
+import { focusFirstInvalid, focusHeading } from '../auth-focus';
 import { AuthLayoutComponent } from '../auth-layout/auth-layout.component';
 
 /**
@@ -28,7 +38,7 @@ import { AuthLayoutComponent } from '../auth-layout/auth-layout.component';
           [queryParams]="{ returnUrl: returnUrl() ?? null }"
           >Back to sign in</a
         >
-        <button type="button" class="link link--center" (click)="sent.set(false)">
+        <button type="button" class="link link--center" (click)="anotherEmail()">
           Use another email
         </button>
       </app-auth-layout>
@@ -77,7 +87,7 @@ import { AuthLayoutComponent } from '../auth-layout/auth-layout.component';
           <button
             type="submit"
             class="btn btn--primary reset__send"
-            [disabled]="submitting() || !auth.available()"
+            [attr.aria-disabled]="submitting() || !auth.available() ? 'true' : null"
           >
             {{ submitting() ? 'Sending…' : 'Send reset link' }}
           </button>
@@ -112,8 +122,14 @@ export class ResetPasswordPageComponent implements OnInit {
   private readonly fb = inject(NonNullableFormBuilder);
   protected readonly auth = inject(AuthService);
 
-  /** Prefilled from `?email=` (the sign-in form passes what was typed). */
+  /**
+   * Prefilled with what was typed on Sign in, passed in the navigation's state (never in the
+   * address, which a reload sends to the web host and history keeps: WG review U8); `?email=` of
+   * an older link still works.
+   */
   readonly email = input<string | undefined>();
+  private readonly location = inject(Location);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   /** Where "Not now" and "Back to sign in" lead on (`?returnUrl=`). */
   readonly returnUrl = input<string | undefined>();
   protected readonly submitted = signal(false);
@@ -131,31 +147,47 @@ export class ResetPasswordPageComponent implements OnInit {
   protected readonly error = signal<string | null>(null);
 
   ngOnInit(): void {
-    const email = this.email();
+    const state = this.location.getState() as { email?: unknown } | null;
+    const email = typeof state?.email === 'string' ? state.email : this.email();
     if (email) {
       this.form.controls.email.setValue(email);
     }
   }
 
+  protected anotherEmail(): void {
+    this.sent.set(false);
+    setTimeout(() => this.host.nativeElement.querySelector<HTMLElement>('#rs-email')?.focus());
+  }
+
   protected async submit(): Promise<void> {
+    if (this.submitting() || !this.auth.available()) {
+      return;
+    }
     this.submitted.set(true);
     if (this.form.invalid) {
       this.form.markAllAsTouched();
+      focusFirstInvalid(this.host.nativeElement);
       return;
     }
     this.error.set(null);
     this.submitting.set(true);
     try {
       await this.auth.sendPasswordReset(this.form.controls.email.value);
-      this.sent.set(true);
+      this.showSent();
     } catch (error) {
       if (authErrorCode(error) === 'auth/user-not-found') {
-        this.sent.set(true);
+        this.showSent();
       } else {
         this.error.set(authErrorMessage(error));
       }
     } finally {
       this.submitting.set(false);
     }
+  }
+
+  /** "Check your inbox" replaces the form: the keyboard goes to its heading (WG review A1). */
+  private showSent(): void {
+    this.sent.set(true);
+    focusHeading(this.host.nativeElement);
   }
 }

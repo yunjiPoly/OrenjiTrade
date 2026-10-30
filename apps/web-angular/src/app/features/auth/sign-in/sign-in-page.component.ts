@@ -1,10 +1,18 @@
-import { ChangeDetectionStrategy, Component, inject, input, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  inject,
+  input,
+  signal,
+} from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { authErrorCode, authErrorMessage, isPopupDismissed } from '../../../core/auth/auth-errors';
 import { AuthService } from '../../../core/auth/auth.service';
 import { SessionService } from '../../../core/auth/session.service';
 import { ShellIconComponent } from '../../../core/layout/shell-icon/shell-icon.component';
+import { focusFirstInvalid } from '../auth-focus';
 import { AuthLayoutComponent } from '../auth-layout/auth-layout.component';
 import { routeAfterSignIn } from '../auth-navigation';
 import { GoogleButtonComponent } from '../google-button/google-button.component';
@@ -34,6 +42,7 @@ export class SignInPageComponent {
   private readonly router = inject(Router);
   private readonly session = inject(SessionService);
   protected readonly auth = inject(AuthService);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   /** Bound from `?returnUrl=`. */
   readonly returnUrl = input<string | undefined>();
@@ -55,9 +64,16 @@ export class SignInPageComponent {
   }
 
   protected async submit(): Promise<void> {
+    // Waiting buttons stay focusable (aria-disabled): a failed sign-in keeps the keyboard on Sign
+    // in instead of dropping it to the page (WG review A1).
+    if (this.submitting() || !this.auth.available()) {
+      return;
+    }
     this.submitted.set(true);
     if (this.form.invalid) {
       this.form.markAllAsTouched();
+      // The first field to fix takes the focus: its message is read with it (WG review A5).
+      focusFirstInvalid(this.host.nativeElement);
       return;
     }
     this.error.set(null);
@@ -74,6 +90,9 @@ export class SignInPageComponent {
   }
 
   protected async google(): Promise<void> {
+    if (this.googleBusy() || !this.auth.available()) {
+      return;
+    }
     this.error.set(null);
     this.googleBusy.set(true);
     try {

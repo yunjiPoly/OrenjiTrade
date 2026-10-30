@@ -4,7 +4,12 @@ import { ChangeDetectionStrategy, Component, booleanAttribute, input, output } f
 @Component({
   selector: 'app-google-button',
   template: `
-    <button type="button" class="google" [disabled]="disabled() || busy()" (click)="pressed.emit()">
+    <button
+      type="button"
+      class="google"
+      [attr.aria-disabled]="disabled() || busy() ? 'true' : null"
+      (click)="press()"
+    >
       <span class="google__mark" aria-hidden="true">
         <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
           <path
@@ -50,10 +55,10 @@ import { ChangeDetectionStrategy, Component, booleanAttribute, input, output } f
       font-weight: var(--font-weight-semibold);
       cursor: pointer;
     }
-    .google:hover:not(:disabled) {
+    .google:hover:not([aria-disabled='true']) {
       background: var(--color-surface-variant);
     }
-    .google:disabled {
+    .google[aria-disabled='true'] {
       border-color: var(--color-border);
       color: var(--color-text-muted);
       cursor: not-allowed;
@@ -83,4 +88,14 @@ export class GoogleButtonComponent {
   readonly busy = input(false, { transform: booleanAttribute });
   readonly disabled = input(false, { transform: booleanAttribute });
   readonly pressed = output<void>();
+
+  /**
+   * A waiting or unavailable button stays focusable (`aria-disabled`): closing Google's pop-up
+   * leaves the keyboard on it instead of the page (WG review A1).
+   */
+  protected press(): void {
+    if (!this.disabled() && !this.busy()) {
+      this.pressed.emit();
+    }
+  }
 }

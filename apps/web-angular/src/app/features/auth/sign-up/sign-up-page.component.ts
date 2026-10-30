@@ -1,6 +1,8 @@
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
   computed,
   effect,
   inject,
@@ -32,6 +34,7 @@ import {
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
 import { LegalTextsService } from '../../legal/legal-texts.service';
+import { focusFirstInvalid } from '../auth-focus';
 import { AuthLayoutComponent } from '../auth-layout/auth-layout.component';
 import { routeAfterSignIn } from '../auth-navigation';
 import { LegalDocumentsStore } from '../data/legal-documents.store';
@@ -80,6 +83,8 @@ export class SignUpPageComponent {
   private readonly router = inject(Router);
   private readonly session = inject(SessionService);
   protected readonly auth = inject(AuthService);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly announcer = inject(LiveAnnouncer);
   protected readonly legal = inject(LegalDocumentsStore);
   private readonly legalTexts = inject(LegalTextsService);
 
@@ -171,8 +176,11 @@ export class SignUpPageComponent {
     }
     // While a box is unticked the press only turns the reason line amber (board W27); the fields
     // are checked once the button can go.
-    if (this.blocker()) {
+    const blocker = this.blocker();
+    if (blocker) {
       this.tried.set(true);
+      // The reason line is the same words as before the press: say it again (WG review A5).
+      void this.announcer.announce(SIGN_UP_BLOCKER_LINES[blocker], 'polite');
       return;
     }
     this.submitted.set(true);
@@ -184,6 +192,8 @@ export class SignUpPageComponent {
     ) {
       this.form.markAllAsTouched();
       this.nameTouched.set(true);
+      // The first field to fix takes the focus: its message is read with it (WG review A5).
+      focusFirstInvalid(this.host.nativeElement);
       return;
     }
     this.error.set(null);
@@ -217,6 +227,9 @@ export class SignUpPageComponent {
 
   /** Google sign-up: the consent page collects the legal acceptance afterwards. */
   protected async google(): Promise<void> {
+    if (this.googleBusy() || !this.auth.available()) {
+      return;
+    }
     this.error.set(null);
     this.googleBusy.set(true);
     try {

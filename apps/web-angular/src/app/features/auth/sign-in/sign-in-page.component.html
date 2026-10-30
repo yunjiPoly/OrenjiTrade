@@ -73,7 +73,8 @@
     <a
       class="link link--forgot"
       routerLink="/auth/reset-password"
-      [queryParams]="{ email: form.controls.email.value || null, returnUrl: returnUrl() ?? null }"
+      [queryParams]="{ returnUrl: returnUrl() ?? null }"
+      [state]="{ email: form.controls.email.value || null }"
     >
       Forgot your password?
     </a>
@@ -81,7 +82,7 @@
     <button
       type="submit"
       class="btn btn--primary btn--sign-in"
-      [disabled]="submitting() || !auth.available()"
+      [attr.aria-disabled]="submitting() || !auth.available() ? 'true' : null"
     >
       {{ submitting() ? 'Signing in…' : 'Sign in' }}
     </button>
