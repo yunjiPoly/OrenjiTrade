@@ -22,10 +22,12 @@
   padding: 24px 16px;
 }
 
+// The art panel runs the form's whole height (board W27: a long Create your account scrolls with
+// the panel beside it); its picture stays at the top of the window (sticky, WG review U2).
 .auth__art {
   flex: 999 1 400px;
   min-width: 0;
-  align-self: flex-start;
+  background: var(--color-surface-variant);
 }
 
 .auth__top {

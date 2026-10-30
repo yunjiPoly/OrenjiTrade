@@ -243,6 +243,39 @@ test.describe('authentication and onboarding', () => {
     await expect(page.getByTestId('auth-art')).toHaveCount(0);
   });
 
+  test('the art panel runs the whole height of a long Create your account (WG review U2)', async ({
+    page,
+  }) => {
+    for (const size of [
+      { width: 1440, height: 900 },
+      { width: 1024, height: 768 },
+    ]) {
+      await page.setViewportSize(size);
+      await page.goto('/auth/sign-up');
+      await expect(page.getByTestId('auth-art')).toBeVisible();
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+      const spot = await page.evaluate(() => {
+        const main = document.querySelector('.auth__main')!.getBoundingClientRect();
+        const panel = document.querySelector('.auth__art')!.getBoundingClientRect();
+        const art = document.querySelector('[data-testid="auth-art"]')!.getBoundingClientRect();
+        return {
+          scrolled: window.scrollY,
+          mainHeight: main.height,
+          panelHeight: panel.height,
+          artTop: art.top,
+          artBottom: art.bottom,
+          viewport: window.innerHeight,
+        };
+      });
+      // The form is taller than the window, the panel as tall as the form, and the picture
+      // still fills the window at the bottom of the page.
+      expect(spot.scrolled, `${size.width}: the page scrolls`).toBeGreaterThan(0);
+      expect(spot.panelHeight).toBeGreaterThanOrEqual(spot.mainHeight - 1);
+      expect(spot.artTop).toBeLessThanOrEqual(0.5);
+      expect(spot.artBottom).toBeGreaterThanOrEqual(spot.viewport - 0.5);
+    }
+  });
+
   test('the account states: suspended with its end, and "We could not load your account"', async ({
     page,
     browser,
