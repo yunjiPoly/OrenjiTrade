@@ -41,6 +41,12 @@
 }
 
 .account__danger {
+  // Danger text on the tinted box: in light a darker red (90% danger, 10% ink: 5.2:1 on the tint;
+  // the token alone is 4.46:1, A9); the token in dark.
+  --account-danger-text: light-dark(
+    color-mix(in srgb, var(--color-danger) 90%, var(--color-ink)),
+    var(--color-danger)
+  );
   padding: var(--spacing-5);
   border: 1px solid color-mix(in srgb, var(--color-danger) 45%, transparent);
   border-radius: var(--radius-lg);
@@ -53,11 +59,11 @@
 
 .account__danger-title {
   margin-bottom: var(--spacing-1);
-  color: var(--color-danger);
+  color: var(--account-danger-text);
   font-size: var(--font-size-lg);
 }
 
 .account__danger-button {
-  --mat-button-outlined-label-text-color: var(--color-danger);
+  --mat-button-outlined-label-text-color: var(--account-danger-text);
   --mat-button-outlined-outline-color: var(--color-danger);
 }

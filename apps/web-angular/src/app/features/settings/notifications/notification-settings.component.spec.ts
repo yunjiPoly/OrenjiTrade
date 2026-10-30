@@ -83,6 +83,10 @@ describe('NotificationSettingsComponent', () => {
     expect(element.querySelector('[data-testid="notif-push-phone"]')?.textContent).toBe(
       'Set on your phone',
     );
+    // Board W25: why there is nothing to set here.
+    expect(element.querySelector('[data-testid="notif-push-web"]')?.textContent).toBe(
+      'The website sends no push notifications.',
+    );
   });
 
   it('turns wishlist alerts off with one switch (no per-channel row for them)', async () => {
@@ -109,6 +113,7 @@ describe('NotificationSettingsComponent', () => {
     const save = Array.from(element.querySelectorAll<HTMLButtonElement>('button')).find((button) =>
       button.textContent?.includes('Save preferences'),
     );
+    save!.focus();
     save!.click();
     await fixture.whenStable();
     expect(api.updateNotificationSettings).toHaveBeenCalledWith(
@@ -117,6 +122,11 @@ describe('NotificationSettingsComponent', () => {
       false,
       expect.anything(),
     );
+    // Saved: nothing left to save, aria-disabled (never disabled), so the focus stays (A4).
+    fixture.detectChanges();
+    expect(save!.getAttribute('aria-disabled')).toBe('true');
+    expect(save!.disabled).toBe(false);
+    expect(document.activeElement).toBe(save);
   });
 
   it('says next to the switch that wishlist alerts need a country and state', async () => {
