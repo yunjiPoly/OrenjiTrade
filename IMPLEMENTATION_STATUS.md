@@ -13618,6 +13618,28 @@ Redis db 6 flushed afterwards. Two new AFTER screenshots are in
 **Could not verify**: the Android run could not be verified (no Android SDK on this Mac). Nothing
 shared with the phone changed in this round.
 
+**Left open by the verifier of fix 2 (round 2 approved; carried into stage WF, which fixes them
+first):** one minor, R2-1: on `/notifications` with the Unread filter, "Still have them" marks the
+reminder read, the Unread view drops the row, and the focus falls to BODY without "Confirmed. They
+stay in search." ever showing (`notification-row.component.ts`, `notification-feed.store.ts`; SC
+2.4.3). Nits: the deletion renames rating and sale rows by the handle alone, and handles can be
+reused (R2-2: match on an account id where the row carries one, or only rows written while the
+deleted account held the handle); at 390 a focused "Deck cores" chip stays mostly clipped in the
+chip row (R2-3); and the first round's nits, which the fix rounds were not given (some may already
+be gone: U18 through fix 1's A6, F8's Home part through U7): a few reads happen twice (F8: a bare
+Home, the account's game before a link's, Search's `/me/location` and `/me/settings/privacy`); the
+profile's load error says "Retry" and Location's shows the server's raw message (F9); the gear of
+spec 12 and boards W23b and W24 is drawn as sliders in the bell's header, the own profile and
+`/notifications` (F10, U14); the "⋯" menu's icons crowd the text and Block has no divider (U13);
+no "← Home › handle" breadcrumb above a profile (U15); a deck core's binder card cuts its name when
+the price is "Trade only" (U16); at 1024 Home has none of the rail's footer links (U17); the bell's
+tooltip shows beside the open popover (U19); the "Get started" hidden key in `localStorage` is
+named with the Firebase uid and stays after sign-out (P4: remove it on sign-out as the game key
+is, or key it by a one-way hash); the profile's fact line reads run together for screen readers,
+"No ratings yet" is a second h2, the guest profile has no h1 and the map card's picture has no
+name (A10); the jump to the ratings scrolls smoothly under reduced motion, "Everything is marked as
+read." is announced twice and Message keeps its name while it opens (A11).
+
 ## NEXT TASK
 
 > **The web resumes (owner, 2026-10-28): stages WA to WH2 of the web redesign**, one at a time
@@ -13682,8 +13704,10 @@ shared with the phone changed in this round.
 > never under Home's toolbar, Location's what others see follows the form and the hidden state)
 > and **review fix 2, round 2 of 2, is done** (section "Review fix 2" in the WE section: the mouse
 > wheel over Home's rail reaches the page again, and "Still have them" in the bell over
-> `/notifications` keeps the focus in the popover; web only). **Next for WE: the check of review
-> fix 2, then its pull request against `main`.**
+> `/notifications` keeps the focus in the popover; web only). The check of review fix 2 approved
+> it, with one minor (R2-1, the focus after "Still have them" in the Unread view) and nits left
+> open: stage WF fixes them first (the WE section's "Left open by the verifier of fix 2").
+> **Next for WE: its pull request against `main`, merged on green.**
 >
 > **The exact next stage after WE's pull request: stage WF of the web redesign, Messages ›
 > Community (board W22; spec section 10.7; decision 11; after phone R11)**, from the latest
