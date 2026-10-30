@@ -114,7 +114,7 @@ describe('RoomViewComponent (spec 10.7, board W22)', () => {
       })),
     };
     announce = vi.fn(async () => undefined);
-    rooms = { markVisited: vi.fn(), setLastPost: vi.fn(), refresh: vi.fn() };
+    rooms = { markVisited: vi.fn(), setLastPost: vi.fn(), refresh: vi.fn(), disable: vi.fn() };
   });
 
   afterEach(() => {
@@ -255,9 +255,9 @@ describe('RoomViewComponent (spec 10.7, board W22)', () => {
     expect(element.querySelector('.rc__tray')).toBeNull();
   });
 
-  it('the community turned off while open: the rooms list is read again (WF review P2)', async () => {
+  it('the community turned off while open: the rooms list is closed with it (WF P2, F9)', async () => {
     await render();
-    expect(rooms['refresh']).not.toHaveBeenCalled();
+    expect(rooms['disable']).not.toHaveBeenCalled();
     api['listCommunityPosts'].mockReturnValue(
       throwError(
         () =>
@@ -270,7 +270,7 @@ describe('RoomViewComponent (spec 10.7, board W22)', () => {
     document.dispatchEvent(new Event('visibilitychange'));
     await settle();
     expect(element.textContent).toContain('The community is closed right now');
-    expect(rooms['refresh']).toHaveBeenCalled();
+    expect(rooms['disable']).toHaveBeenCalled();
   });
 
   it('after a block the message box has the focus; Undo reads the room again (WF review)', async () => {

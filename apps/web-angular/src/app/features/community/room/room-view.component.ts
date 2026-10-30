@@ -167,8 +167,9 @@ export class RoomViewComponent {
       const posts = this.store.posts();
       untracked(() => {
         if (status === 'disabled') {
-          // The community was turned off: the rooms list says so too (WF review P2).
-          this.rooms.refresh();
+          // The community was turned off: the rooms list says so too, without its rooms (WF
+          // review P2, leftover F9).
+          this.rooms.disable();
         }
         if (status !== 'ready' || !slug) {
           return;

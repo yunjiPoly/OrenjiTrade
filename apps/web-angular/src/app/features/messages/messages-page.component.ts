@@ -247,6 +247,20 @@ export class MessagesPageComponent {
       ),
     );
     inject(DestroyRef).onDestroy(() => this.layout.setChatOpen(false));
+    // Community switched off (publicChat): a room's address, or "?tab=community", is replaced by
+    // the Chats inbox's own address once the flags are known (WF leftover F9). A guest keeps the
+    // address: signing in comes back to it.
+    effect(() => {
+      const known = this.flags.ready();
+      const on = this.communityOn();
+      const asked = this.tab() === 'community' || !!this.room();
+      const member = this.auth.isAuthenticated();
+      untracked(() => {
+        if (known && !on && asked && member) {
+          void this.router.navigate(['/messages'], { replaceUrl: true });
+        }
+      });
+    });
     // Chats | Community swap the whole column, the tabs with it: the focus would fall to the page
     // (WF review U8). It goes to the tab now active, or to the chat a room's "Message {h}" opened.
     effect(() => {
