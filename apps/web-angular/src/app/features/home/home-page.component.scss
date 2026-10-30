@@ -1,0 +1,444 @@
+// Home (spec 5.1, boards W1 and W2): a centred group of 1032, the feed 680, a 32 gap and the rail
+// 320 (lg and up); the feed 680 centred at md; the phone's Home below 960.
+:host {
+  display: block;
+}
+
+.home {
+  display: grid;
+  grid-template-columns: minmax(0, 680px);
+  justify-content: center;
+  gap: 32px;
+  padding: 32px 24px 64px;
+}
+
+.home--rail {
+  grid-template-columns: minmax(0, 680px) 320px;
+}
+
+.home__feed {
+  min-width: 0;
+}
+
+.home__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.5px;
+  outline: none;
+}
+
+.home__scope {
+  margin: 6px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 15px;
+}
+
+.home__steps-top,
+.home__guest {
+  margin-top: 20px;
+}
+
+// The toolbar (56) sticks under the top bar with a 12 px fade of the background.
+.home__toolbar {
+  position: sticky;
+  top: 64px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 56px;
+  margin-top: 16px;
+  background: var(--color-background);
+  box-shadow: 0 12px 12px -12px var(--color-background);
+}
+
+.home__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.home__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.home__chip:hover {
+  border-color: var(--color-border-strong);
+}
+
+.home__chip--on {
+  border-color: var(--color-ink);
+  background: var(--color-ink);
+  color: var(--color-background);
+}
+
+.home__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-primary);
+}
+
+.home__dot[data-tone='wanted'] {
+  background: var(--color-accent);
+}
+
+.home__dot[data-tone='deckCore'] {
+  background: var(--color-deck-core-tag-text);
+}
+
+.home__updated {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+
+.home__updated-text {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.home__refresh {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.home__refresh:hover {
+  border-color: var(--color-border-strong);
+}
+
+// "New posts · Show": centred under the toolbar, 36 tall, primaryTint, never a number.
+.home__newer-row {
+  position: sticky;
+  top: 124px;
+  z-index: 4;
+  display: flex;
+  justify-content: center;
+  height: 0;
+  overflow: visible;
+}
+
+.home__newer {
+  min-height: 36px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary-tint);
+  color: var(--app-primary-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: var(--font-weight-semibold);
+  box-shadow: var(--elevation-menu);
+  cursor: pointer;
+}
+
+.home__section {
+  margin-top: 40px;
+}
+
+.home__section:first-child {
+  margin-top: 24px;
+}
+
+.home__label {
+  margin: 0 0 12px;
+  color: var(--color-text-secondary);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.home__posts {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.home__bones {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.home__bone {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 16px;
+  padding: 20px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-surface);
+}
+
+.home__bones .home__bone {
+  margin-top: 0;
+}
+
+.home__bone-head {
+  width: 45%;
+  height: 16px;
+  border-radius: 8px;
+  background: var(--color-surface-variant);
+}
+
+.home__bone-body {
+  height: 140px;
+  border-radius: 10px;
+  background: var(--color-surface-variant);
+}
+
+.home__state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 32px;
+  padding: 32px 20px;
+  text-align: center;
+}
+
+.home__state--more {
+  margin-top: 16px;
+  padding: 16px;
+}
+
+.home__state-title {
+  margin: 0;
+  font-weight: var(--font-weight-semibold);
+}
+
+.home__more-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.home__sentinel {
+  height: 1px;
+}
+
+// Day one and the empty game: a dashed box (board W2).
+.home__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: 24px;
+  padding: 56px 32px;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: 16px;
+  text-align: center;
+}
+
+.home__empty-icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 8px;
+  border-radius: 50%;
+  background: var(--color-surface-variant);
+  color: var(--color-text-secondary);
+}
+
+.home__empty-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: var(--font-weight-bold);
+}
+
+.home__empty-text {
+  max-width: 440px;
+  margin: 0;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.home__empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+// The end of the feed: a teal check, "You're all caught up", the window and Explore the map.
+.home__end {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 48px;
+  text-align: center;
+}
+
+.home__end-check {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--color-accent-tint);
+  color: var(--color-accent);
+}
+
+.home__end-title {
+  margin: 8px 0 0;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: var(--font-weight-bold);
+}
+
+.home__end-text {
+  max-width: 400px;
+  margin: 0 0 8px;
+  color: var(--color-text-secondary);
+}
+
+.home__outline,
+.home__primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 18px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-ink);
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.home__outline:hover {
+  background: var(--color-surface-variant);
+}
+
+.home__primary {
+  border-color: transparent;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.home__primary:hover {
+  background: var(--color-primary-hover);
+}
+
+// The rail (320, sticky at top 144... under the bar and the header).
+.home__rail {
+  position: sticky;
+  top: 96px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-self: start;
+}
+
+.home__guest {
+  padding: 20px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-surface);
+}
+
+.home__rail .home__guest {
+  margin-top: 0;
+}
+
+.home__guest-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: var(--font-weight-bold);
+}
+
+.home__guest-text {
+  margin: 6px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.home__guest-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.home__links {
+  margin: 0;
+  padding: 0 4px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.home__links a {
+  color: inherit;
+}
+
+// Below 960: the phone's Home (no sticky toolbar under a bar it does not have, the content
+// centred at 640 on sm).
+@media (max-width: 959.98px) {
+  .home {
+    grid-template-columns: minmax(0, 640px);
+    padding: 16px 16px 32px;
+  }
+
+  .home__title {
+    font-size: 24px;
+  }
+
+  .home__toolbar {
+    top: 0;
+    flex-wrap: wrap;
+  }
+
+  .home__chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .home__chip {
+    flex: none;
+  }
+
+  .home__updated-text {
+    display: none;
+  }
+
+  .home__newer-row {
+    top: 64px;
+  }
+}

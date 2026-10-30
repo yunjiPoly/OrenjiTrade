@@ -5,11 +5,17 @@ import type { ConversationSummary } from '@orenji/api-client';
 import { filter } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { ShellLayout } from '../../core/layout/shell-layout.service';
+import { ChatDrafts } from './chat-drafts.service';
 import type { ChatSubjectRequest } from './conversation-starter.service';
 
 /** Who to message from a "Message" button, and what about. */
 export interface ChatRequest extends ChatSubjectRequest {
   recipientId: string;
+  /**
+   * Text waiting in the message box, never sent by itself ("I have it": "Hi! I have {card}.",
+   * spec 5.2); a draft already typed in that chat is kept instead.
+   */
+  draft?: string;
 }
 
 interface DrawerState {
@@ -32,6 +38,7 @@ export class ChatDrawer {
   private readonly layout = inject(ShellLayout);
   private readonly auth = inject(AuthService);
   private readonly document = inject(DOCUMENT);
+  private readonly drafts = inject(ChatDrafts);
 
   private readonly stateSignal = signal<DrawerState | null>(null);
   readonly state = this.stateSignal.asReadonly();
@@ -64,7 +71,7 @@ export class ChatDrawer {
       });
       return;
     }
-    const { recipientId, ...subject } = request;
+    const { recipientId, draft, ...subject } = request;
     const uid = this.auth.user()?.uid ?? null;
     this.startingState.set(recipientId);
     let conversation: ConversationSummary | null;
@@ -80,6 +87,9 @@ export class ChatDrawer {
     // Signed out (or another account) while the chat was being started: nothing opens.
     if (!conversation || uid !== (this.auth.user()?.uid ?? null)) {
       return;
+    }
+    if (draft && !this.drafts.get(conversation.id)) {
+      this.drafts.set(conversation.id, draft);
     }
     if (this.layout.narrow()) {
       await this.router.navigate(['/messages', conversation.id]);
