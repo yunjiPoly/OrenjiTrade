@@ -43,7 +43,7 @@ describe('WhoHasComponent (spec 7.3 and 7.4)', () => {
   async function render(
     rows: unknown[],
     totalPages = 1,
-    options: { region?: string; printingId?: string | null } = {},
+    options: { region?: string; printingId?: string | null; game?: string } = {},
   ) {
     holders = vi.fn(() => of({ items: rows, page: 0, totalPages }));
     message = vi.fn();
@@ -78,6 +78,9 @@ describe('WhoHasComponent (spec 7.3 and 7.4)', () => {
     fixture.componentRef.setInput('cardName', 'Ash Blossom & Joyous Spring');
     fixture.componentRef.setInput('region', options.region ?? 'americas-north');
     fixture.componentRef.setInput('regionName', 'Americas (North)');
+    if (options.game !== undefined) {
+      fixture.componentRef.setInput('game', options.game);
+    }
     if (options.printingId !== undefined) {
       fixture.componentRef.setInput('printingId', options.printingId);
     }
@@ -201,6 +204,22 @@ describe('WhoHasComponent (spec 7.3 and 7.4)', () => {
     document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     fixture.detectChanges();
     expect(row.classList).not.toContain('wh__row--tip-off');
+  });
+
+  it("sends the card's own game with the holders and the deck cores (WD review P5)", async () => {
+    await render([result('1', 'CA-QC', 'Quebec', 'a')], 1, { game: 'pokemon' });
+    expect(holders).toHaveBeenCalledWith(
+      expect.objectContaining({ cardId: 'card-1', game: 'pokemon' }),
+      'body',
+      false,
+      expect.anything(),
+    );
+    expect(cores).toHaveBeenCalledWith(
+      expect.objectContaining({ cardId: 'card-1', game: 'pokemon' }),
+      'body',
+      false,
+      expect.anything(),
+    );
   });
 
   it('one Esc hides both the focused row’s and the hovered row’s tooltip (WD review R2-1)', async () => {

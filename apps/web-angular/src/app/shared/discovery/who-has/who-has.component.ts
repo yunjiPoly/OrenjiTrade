@@ -105,6 +105,7 @@ type Status = 'loading' | 'ready' | 'error';
             <h3
               class="wh__group-title"
               [id]="anchor(group)"
+              [attr.aria-level]="groupLevel() === 3 ? null : groupLevel()"
               [style.top.px]="stickyTop()"
               tabindex="-1"
             >
@@ -246,6 +247,13 @@ export class WhoHasComponent {
   /** Any printing of one rarity (a wish of that kind). */
   readonly rarity = input<string | null>(null);
   readonly cardName = input('');
+  /**
+   * The level of the province headings: one below the heading of the list ("Who has this card"
+   * is an h2 on the card page, an h3 in Search's holder pane: WD review A21).
+   */
+  readonly groupLevel = input(3);
+  /** The card's own game: sent as `game=` with the card (WD review P5; the card decides it). */
+  readonly game = input<string | null>(null);
   readonly region = input.required<string>();
   readonly regionName = input('');
   readonly viewer = input<ViewerPlace>({ subdivisionCode: null, countryCode: null });
@@ -288,7 +296,7 @@ export class WhoHasComponent {
 
   constructor() {
     effect(() => {
-      const key = [this.cardId(), this.printingId(), this.rarity(), this.region()];
+      const key = [this.cardId(), this.printingId(), this.rarity(), this.region(), this.game()];
       untracked(() => {
         void key;
         this.reload();
@@ -318,7 +326,12 @@ export class WhoHasComponent {
       this.subscriptions.push(
         this.api
           .searchDeckCores(
-            { cardId: this.cardId(), region: this.region(), limit: WHO_HAS_DECK_CORES },
+            {
+              cardId: this.cardId(),
+              region: this.region(),
+              limit: WHO_HAS_DECK_CORES,
+              ...this.gameParam(),
+            },
             'body',
             false,
             { context: silentErrors() },
@@ -330,6 +343,11 @@ export class WhoHasComponent {
           }),
       );
     }
+  }
+
+  private gameParam(): { game?: string } {
+    const game = this.game();
+    return game ? { game } : {};
   }
 
   protected loadMore(): void {
@@ -351,6 +369,7 @@ export class WhoHasComponent {
             ...(printingId ? { printingId } : { cardId: this.cardId() }),
             ...(this.rarity() && !printingId ? { rarity: this.rarity() as string } : {}),
             region: this.region(),
+            ...this.gameParam(),
             sort: 'province',
             excludeDeckCoreItems: true,
             page,

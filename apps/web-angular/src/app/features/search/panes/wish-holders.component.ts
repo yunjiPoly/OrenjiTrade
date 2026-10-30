@@ -65,6 +65,8 @@ import { wishTerms } from './wishlist-pane.component';
               [printingId]="wish.printing?.id ?? null"
               [rarity]="wish.printing ? null : (wish.rarity ?? null)"
               [cardName]="wish.card.name"
+              [game]="wish.game ?? null"
+              [groupLevel]="4"
               [region]="region()"
               [regionName]="regionName()"
               [viewer]="viewer()"

@@ -109,6 +109,18 @@ describe('WishlistPaneComponent', () => {
     ]);
   });
 
+  it('reads "Available" once per set of wishes, not again when the same wishes are listed again (WD review F14)', async () => {
+    expect(availability).toHaveBeenCalledTimes(1);
+    items.set([...items()]);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(availability).toHaveBeenCalledTimes(1);
+    items.set(items().slice(1));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(availability).toHaveBeenCalledTimes(2);
+  });
+
   it('confirms "for it" for one wish and "for them" for several', () => {
     expect(removeConfirmation(1).message).toBe('You stop getting alerts for it.');
     expect(removeConfirmation(3)).toEqual(

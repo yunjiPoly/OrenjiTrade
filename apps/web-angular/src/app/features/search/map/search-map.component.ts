@@ -12,7 +12,7 @@ import {
 import { ShellIconComponent } from '../../../core/layout/shell-icon/shell-icon.component';
 import { RegionsStore } from '../../../shared/regions/regions.store';
 import { BoundaryMapComponent } from '../../map/boundary-map/boundary-map.component';
-import { SHADE_LEGEND, mapCountLine } from '../../map/data/boundaries';
+import { SHADE_LEGEND, mapCountLine, shadeLevel } from '../../map/data/boundaries';
 
 /** "Map of public Yu-Gi-Oh! binders by state or province in Americas (North)" (spec 6.4). */
 export function searchMapLabel(game: string, region: string): string {
@@ -83,7 +83,10 @@ export function stateCardSubtitle(country: string, mine: boolean): string {
           </button>
         </div>
         <div class="sm__card-row sm__card-row--foot">
-          <p class="sm__card-line">{{ line(code) }}</p>
+          <p class="sm__card-line">
+            <span class="sm__swatch" aria-hidden="true" [attr.data-level]="level(code)"></span
+            >{{ line(code) }}
+          </p>
           <button type="button" class="sm__card-go" (click)="seeBinders(code)">See binders</button>
         </div>
       </div>
@@ -204,6 +207,10 @@ export function stateCardSubtitle(country: string, mine: boolean): string {
       border-radius: 3px;
       background: var(--color-map-step0);
     }
+    /* "None" (step 0) is close to the legend's own surface in dark: a stronger edge (WD U18). */
+    .sm__swatch[data-level='0'] {
+      border-color: var(--color-border-strong);
+    }
     .sm__swatch[data-level='1'] {
       background: var(--color-map-step1);
     }
@@ -278,6 +285,9 @@ export function stateCardSubtitle(country: string, mine: boolean): string {
       font-size: var(--font-size-meta);
     }
     .sm__card-line {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       flex: 1;
       min-width: 0;
       margin: 0;
@@ -390,6 +400,11 @@ export class SearchMapComponent {
   /** The zoom buttons (and "Show my province"): a state's tooltip never sits under them (R2-2). */
   protected readonly controlsRect = (): DOMRect | null =>
     this.host.nativeElement.querySelector<HTMLElement>('.sm__top')?.getBoundingClientRect() ?? null;
+
+  /** The state's shade on the card, as on the map and its legend (board W29; WD review R2-3). */
+  protected level(code: string): number {
+    return shadeLevel(this.counts().get(code));
+  }
 
   protected line(code: string): string {
     return mapCountLine(this.counts().get(code), this.deckCores().get(code));

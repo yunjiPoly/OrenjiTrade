@@ -1,7 +1,7 @@
 <div class="sp" [class.sp--adding]="adding()">
   @if (notFound()) {
     <div class="sp__state" role="status">
-      <h1 class="sp__state-title">This set isn't in the catalogue</h1>
+      <h1 class="sp__state-title">This set isn't in the catalog</h1>
       <p class="sp__state-text">It may have been removed, or the link is incomplete.</p>
       <a class="sp__outline" routerLink="/search" [queryParams]="{ tab: 'cards' }">Search cards</a>
     </div>
@@ -55,7 +55,7 @@
         }
       </ul>
     } @else if (printings().length === 0) {
-      <p class="sp__empty">This set has no printings in the catalogue yet.</p>
+      <p class="sp__empty">This set has no printings in the catalog yet.</p>
     } @else {
       <ul class="sp__grid" aria-label="Printings of this set" (focusin)="onGridFocus($event)">
         @for (printing of printings(); track printing.id) {

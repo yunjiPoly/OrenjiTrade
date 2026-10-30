@@ -71,6 +71,8 @@ describe('SearchMapComponent: the state card below 960', () => {
     expect(card.querySelector('.sm__card-title')?.textContent?.trim()).toBe('Ontario');
     expect(card.querySelector('.sm__card-sub')?.textContent?.trim()).toBe('Canada');
     expect(card.querySelector('.sm__card-line')?.textContent?.trim()).toContain('binder');
+    // The state's shade beside its count, as on the map (board W29; WD review R2-3).
+    expect(card.querySelector('.sm__card-line .sm__swatch')?.getAttribute('data-level')).toBe('2');
     delete (Element.prototype as Partial<Element>).scrollIntoView;
   });
 

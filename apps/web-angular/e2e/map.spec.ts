@@ -193,7 +193,7 @@ test.describe('region map and search', () => {
     await expect(page.getByTestId('region-pill')).toContainText('Europe');
     await expect(page.getByTestId('state-chip')).toHaveAttribute(
       'aria-label',
-      'Showing Île-de-France. Show the whole region',
+      'Showing Île-de-France. Back to the list of states',
     );
   });
 
