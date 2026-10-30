@@ -203,6 +203,36 @@ describe('WhoHasComponent (spec 7.3 and 7.4)', () => {
     expect(row.classList).not.toContain('wh__row--tip-off');
   });
 
+  it('one Esc hides both the focused row’s and the hovered row’s tooltip (WD review R2-1)', async () => {
+    await render([
+      result('1', 'CA-QC', 'Quebec', 'a', 'NM, ships tracked'),
+      result('2', 'CA-ON', 'Ontario', 'b', 'Light play'),
+    ]);
+    const [focused, hovered] = Array.from(
+      element.querySelectorAll<HTMLElement>('[data-testid="holder-row"]'),
+    );
+    focused.focus();
+    hovered.dispatchEvent(new MouseEvent('mouseenter'));
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    focused.dispatchEvent(escape);
+    fixture.detectChanges();
+    expect(focused.classList).toContain('wh__row--tip-off');
+    expect(hovered.classList).toContain('wh__row--tip-off');
+    // A second Esc brings neither back.
+    focused.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    fixture.detectChanges();
+    expect(focused.classList).toContain('wh__row--tip-off');
+    expect(hovered.classList).toContain('wh__row--tip-off');
+    // The pointer leaving the hovered row clears only that row's.
+    hovered.dispatchEvent(new MouseEvent('mouseleave'));
+    fixture.detectChanges();
+    expect(hovered.classList).not.toContain('wh__row--tip-off');
+    expect(focused.classList).toContain('wh__row--tip-off');
+    focused.dispatchEvent(new FocusEvent('focusout'));
+    fixture.detectChanges();
+    expect(focused.classList).not.toContain('wh__row--tip-off');
+  });
+
   it('Message opens the chat drawer about this copy, labelled with the handle and the card', async () => {
     await render([result('1', 'CA-QC', 'Quebec', 'duelist.jp')]);
     const button = element.querySelector<HTMLButtonElement>('[data-testid="holder-message"]')!;

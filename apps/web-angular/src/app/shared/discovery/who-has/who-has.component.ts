@@ -122,7 +122,7 @@ type Status = 'loading' | 'ready' | 'error';
                 <li
                   class="wh__row"
                   [class.wh__row--guest]="!handle"
-                  [class.wh__row--tip-off]="tipOff() === result.item.id"
+                  [class.wh__row--tip-off]="tipsOff().has(result.item.id)"
                   [attr.data-item]="result.item.id"
                   [attr.tabindex]="active ? 0 : -1"
                   [attr.aria-label]="rowLabel(result)"
@@ -133,8 +133,8 @@ type Status = 'loading' | 'ready' | 'error';
                   (keydown.enter)="onRowEnter($event, result)"
                   (keydown.escape)="dismissTip($event, result)"
                   (mouseenter)="hoveredTip = result.item.publicNotes ? result.item.id : null"
-                  (mouseleave)="hoveredTip = null; tipOff.set(null)"
-                  (focusout)="tipOff.set(null)"
+                  (mouseleave)="hoveredTip = null; tipOn(result.item.id)"
+                  (focusout)="tipOn(result.item.id)"
                 >
                   <span class="wh__avatar">
                     @if (handle) {
@@ -267,8 +267,12 @@ export class WhoHasComponent {
   protected readonly rows = signal<CardHolderResult[]>([]);
   protected readonly deckCores = signal<PublicBinderSummary[]>([]);
   protected readonly activeId = signal<string | null>(null);
-  /** The row whose full-note tooltip Esc dismissed (until the pointer or the focus leaves). */
-  protected readonly tipOff = signal<string | null>(null);
+  /**
+   * The rows whose full-note tooltip Esc dismissed, each until the pointer or the focus leaves
+   * that row: one Esc hides the focused row's and the hovered row's at once (SC 1.4.13; WD review
+   * R2-1).
+   */
+  protected readonly tipsOff = signal<ReadonlySet<string>>(new Set());
   /** The row with a note under the pointer: its tooltip shows without the focus. */
   protected hoveredTip: string | null = null;
   private readonly page = signal(0);
@@ -440,19 +444,38 @@ export class WhoHasComponent {
    * is (SC 1.4.13; WD review R1-4). A focused row handles its own Esc first (`dismissTip`).
    */
   protected onDocumentEscape(): void {
-    const id = this.hoveredTip;
-    if (!id || this.tipOff() === id) {
-      return;
-    }
-    this.tipOff.set(id);
+    this.hideTips([this.hoveredTip]);
   }
 
-  /** Esc hides the row's full-note tooltip; a second Esc goes on to the page (a drawer). */
+  /**
+   * Esc on a row hides its full-note tooltip and the hovered row's in one go (WD review R2-1);
+   * when both were already hidden the Esc goes on to the page (a drawer).
+   */
   protected dismissTip(event: Event, result: CardHolderResult): void {
-    if (result.item.publicNotes && this.tipOff() !== result.item.id) {
-      this.tipOff.set(result.item.id);
+    const own = result.item.publicNotes ? result.item.id : null;
+    if (this.hideTips([own, this.hoveredTip])) {
       event.stopPropagation();
     }
+  }
+
+  /** The pointer or the focus left a row: its tooltip may show again. */
+  protected tipOn(id: string): void {
+    if (this.tipsOff().has(id)) {
+      const next = new Set(this.tipsOff());
+      next.delete(id);
+      this.tipsOff.set(next);
+    }
+  }
+
+  /** Hides these rows' tooltips; true when one of them was showing. */
+  private hideTips(ids: (string | null)[]): boolean {
+    const off = this.tipsOff();
+    const fresh = ids.filter((id): id is string => !!id && !off.has(id));
+    if (fresh.length === 0) {
+      return false;
+    }
+    this.tipsOff.set(new Set([...off, ...fresh]));
+    return true;
   }
 
   /** Enter on a row (not on its link or button) opens the holder's profile. */
