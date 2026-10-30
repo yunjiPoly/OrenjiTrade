@@ -19,6 +19,13 @@ export const REGION_LINES: Readonly<Record<string, string>> = {
   europe: 'France, Germany, Spain and more',
 };
 
+/**
+ * The popover's lead: every place that follows the region, Community's rooms included (WF leftover
+ * U12: the rooms follow the region too, from the top bar's pill or Community's own).
+ */
+export const REGION_LEAD =
+  'Home, Search, the map and the community rooms show one region at a time. Cards ship within a region.';
+
 export interface RegionRow {
   code: string;
   name: string;
@@ -46,7 +53,7 @@ export interface RegionRow {
     >
       <h2 class="pop__title" id="region-pop-title">Choose a region</h2>
       <p class="pop__lead" id="region-pop-lead">
-        Home, Search and the map show one region at a time. Cards ship within a region.
+        {{ lead }}
       </p>
       @if (away(); as home) {
         <p class="pop__away" data-testid="region-away">
@@ -91,6 +98,7 @@ export interface RegionRow {
 })
 export class RegionPopoverComponent {
   protected readonly ref = inject(PopoverRef);
+  protected readonly lead = REGION_LEAD;
   private readonly context = inject(RegionContext);
   private readonly regions = inject(RegionsStore);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
