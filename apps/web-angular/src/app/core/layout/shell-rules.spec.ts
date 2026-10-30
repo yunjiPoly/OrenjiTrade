@@ -4,12 +4,16 @@ import { SHELL_AREAS, areaOfKey, badgeText, messagesLabel } from './nav-links';
 import { messagesMatcher, routes } from '../../app.routes';
 import { SHELL_DEFAULTS, ShellRouteData, shellDataOf } from './shell-layout.service';
 
-/** A route by its path; `/messages` and `/messages/:id` share one matcher (WC review F5). */
+/**
+ * A route by its path; `/messages`, `/messages/:id` and `/messages/community/:room` share one
+ * matcher (WC review F5, web WF).
+ */
 function routeOf(path: string) {
   return routes.find(
     (route) =>
       route.path === path ||
-      ((path === 'messages' || path === 'messages/:id') && route.matcher === messagesMatcher),
+      ((path === 'messages' || path === 'messages/:id' || path === 'messages/community/:room') &&
+        route.matcher === messagesMatcher),
   );
 }
 
