@@ -23,17 +23,30 @@ import { CardImageComponent } from '../../../shared/ui/card-image/card-image.com
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
 import { itemPriceText } from '../../inventory/data/item-price';
+import { RouterLink } from '@angular/router';
+import type { BinderLinkChoice, CardLinkChoice } from '../../../shared/links/link-choices';
+import { ROOM_SHARE_COPY } from '../../community/data/community-copy';
 import { SHARE_COPY } from '../data/chat-copy';
 import { DraftAttachment } from '../data/message-draft';
 
 export interface SharePickerData {
   mode: 'card' | 'binder';
-  /** The other collector's handle. */
+  /** The other collector's handle (a chat). */
   other: string;
+  /**
+   * A community room instead of a chat (web WF, board W22): your public cards and binders of the
+   * room's game, chosen as a printing or a binder to share in a post.
+   */
+  room?: { name: string; game: string | null };
 }
 
-/** What the picker chose: one of the caller's cards (it pins the chat) or a public binder. */
+/** What the picker chose in a chat: one of the caller's cards (it pins the chat) or a binder. */
 export type ShareChoice = Extract<DraftAttachment, { kind: 'item' } | { kind: 'binder' }>;
+
+/** What the picker chose in a room: a printing of one of your cards, or a binder or deck core. */
+export type RoomShareChoice =
+  | { kind: 'card'; card: CardLinkChoice }
+  | { kind: 'binder'; binder: BinderLinkChoice; deckCore: boolean; price: string | null };
 
 interface Row {
   id: string;
@@ -43,7 +56,7 @@ interface Row {
   imageUrl: string | null;
   game: string | null;
   core: boolean;
-  choice: ShareChoice;
+  choice: ShareChoice | RoomShareChoice;
 }
 
 const SEARCH_DEBOUNCE_MS = 250;
@@ -59,6 +72,7 @@ const CARDS_PAGE = 30;
 @Component({
   selector: 'app-share-picker-dialog',
   imports: [
+    RouterLink,
     MatButtonModule,
     MatDialogModule,
     MatIconModule,
@@ -143,7 +157,18 @@ const CARDS_PAGE = 30;
                 }
               </ul>
             } @else {
-              <p class="sp__empty" role="status">{{ emptyText() }}</p>
+              <div class="sp__empty-box">
+                <p class="sp__empty" role="status">{{ emptyText() }}</p>
+                @if (room && !query().trim()) {
+                  <a
+                    class="sp__add"
+                    routerLink="/inventory"
+                    [queryParams]="isCards ? { add: 'new' } : { tab: 'binders' }"
+                    mat-dialog-close
+                    >{{ isCards ? roomCopy.addCards : roomCopy.yourBinders }}</a
+                  >
+                }
+              </div>
             }
           }
         }
@@ -203,6 +228,25 @@ const CARDS_PAGE = 30;
     }
     .sp__head,
     .sp__search,
+    .sp__empty-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      padding-bottom: 16px;
+    }
+    .sp__add {
+      display: inline-flex;
+      align-items: center;
+      height: 36px;
+      padding: 0 16px;
+      border: 1px solid var(--color-border-strong);
+      border-radius: var(--radius-pill);
+      color: var(--color-ink);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-semibold);
+      text-decoration: none;
+    }
     .sp__foot {
       flex: 0 0 auto;
     }
@@ -321,19 +365,41 @@ const CARDS_PAGE = 30;
 export class SharePickerDialogComponent {
   protected readonly data = inject<SharePickerData>(MAT_DIALOG_DATA);
   private readonly ref =
-    inject<MatDialogRef<SharePickerDialogComponent, ShareChoice>>(MatDialogRef);
+    inject<MatDialogRef<SharePickerDialogComponent, ShareChoice | RoomShareChoice>>(MatDialogRef);
   private readonly inventory = inject(InventoryService);
   private readonly binders = inject(BindersService);
   private readonly document = inject(DOCUMENT);
 
   protected readonly copy = SHARE_COPY;
+  protected readonly roomCopy = ROOM_SHARE_COPY;
+  protected readonly room = this.data.room ?? null;
   protected readonly isCards = this.data.mode === 'card';
-  protected readonly title = this.isCards ? SHARE_COPY.cardTitle : SHARE_COPY.binderTitle;
-  protected readonly lead = this.isCards
-    ? SHARE_COPY.cardBody(this.data.other)
-    : SHARE_COPY.binderBody(this.data.other);
-  protected readonly placeholder = this.isCards ? SHARE_COPY.cardSearch : SHARE_COPY.binderSearch;
-  protected readonly foot = this.isCards ? SHARE_COPY.cardFoot : SHARE_COPY.binderFoot;
+  protected readonly title = this.room
+    ? this.isCards
+      ? ROOM_SHARE_COPY.cardTitle
+      : ROOM_SHARE_COPY.binderTitle
+    : this.isCards
+      ? SHARE_COPY.cardTitle
+      : SHARE_COPY.binderTitle;
+  protected readonly lead = this.room
+    ? ROOM_SHARE_COPY.lead
+    : this.isCards
+      ? SHARE_COPY.cardBody(this.data.other)
+      : SHARE_COPY.binderBody(this.data.other);
+  protected readonly placeholder = this.room
+    ? this.isCards
+      ? ROOM_SHARE_COPY.cardSearch(this.room.name)
+      : ROOM_SHARE_COPY.binderSearch(this.room.name)
+    : this.isCards
+      ? SHARE_COPY.cardSearch
+      : SHARE_COPY.binderSearch;
+  protected readonly foot = this.room
+    ? this.isCards
+      ? ROOM_SHARE_COPY.cardFoot
+      : ROOM_SHARE_COPY.binderFoot
+    : this.isCards
+      ? SHARE_COPY.cardFoot
+      : SHARE_COPY.binderFoot;
   protected readonly errorTitle = this.isCards ? SHARE_COPY.loadError : SHARE_COPY.binderLoadError;
 
   protected readonly query = signal('');
@@ -353,12 +419,26 @@ export class SharePickerDialogComponent {
         imageUrl: printingImageUrl(item.printing),
         game: item.card.game ?? null,
         core: false,
-        choice: { kind: 'item', itemId: item.id, name: item.card.name },
+        choice: this.room
+          ? {
+              kind: 'card',
+              card: {
+                printingId: item.printing.id ?? '',
+                cardId: item.card.id,
+                name: item.card.name,
+                printingCode: printingCode(item.printing) || null,
+                imageUrl: printingImageUrl(item.printing),
+                game: item.card.game ?? null,
+              },
+            }
+          : { kind: 'item', itemId: item.id, name: item.card.name },
       }));
     }
     const needle = this.query().trim().toLowerCase();
+    const game = this.room?.game ?? null;
     return this.allBinders()
       .filter((b) => b.effectivePublic && !b.soldAt)
+      .filter((b) => !game || !b.game || b.game === game)
       .filter((b) => !needle || b.name.toLowerCase().includes(needle))
       .map((b) => ({
         id: b.id,
@@ -368,15 +448,33 @@ export class SharePickerDialogComponent {
         imageUrl: null,
         game: b.game ?? null,
         core: !!b.sellsAsCore,
-        choice: {
-          kind: 'binder',
-          binder: { binderId: b.id, name: b.name, itemCount: b.itemCount },
-        },
+        choice: this.room
+          ? {
+              kind: 'binder',
+              binder: { binderId: b.id, name: b.name, itemCount: b.itemCount },
+              deckCore: !!b.sellsAsCore,
+              price: b.sellsAsCore ? (b.askingPriceText?.trim() ?? null) : null,
+            }
+          : {
+              kind: 'binder',
+              binder: { binderId: b.id, name: b.name, itemCount: b.itemCount },
+            },
       }));
   });
 
   protected readonly emptyText = computed(() => {
     const q = this.query().trim();
+    const room = this.room;
+    if (room) {
+      if (q) {
+        return this.isCards
+          ? ROOM_SHARE_COPY.cardNoMatch(room.name, q)
+          : ROOM_SHARE_COPY.binderNoMatch(room.name, q);
+      }
+      return this.isCards
+        ? ROOM_SHARE_COPY.cardEmpty(room.name)
+        : ROOM_SHARE_COPY.binderEmpty(room.name);
+    }
     if (q) {
       return this.isCards ? SHARE_COPY.cardNoMatch(q) : SHARE_COPY.binderNoMatch(q);
     }
@@ -401,7 +499,16 @@ export class SharePickerDialogComponent {
       const query = this.query().trim() || undefined;
       this.request = this.inventory
         .listInventoryItems(
-          { query, sort: 'updated', direction: 'desc', size: CARDS_PAGE },
+          this.room
+            ? {
+                query,
+                game: this.room.game ?? undefined,
+                markedPublic: true,
+                sort: 'updated',
+                direction: 'desc',
+                size: CARDS_PAGE,
+              }
+            : { query, sort: 'updated', direction: 'desc', size: CARDS_PAGE },
           'body',
           false,
           { context: silentErrors() },

@@ -1,0 +1,240 @@
+// The room's message box (board W22): content centred at max 720 with 12 24 14 of padding, "+"
+// and the post button 40 round, the field radius 20, the hint 12 under the field.
+:host {
+  display: block;
+  flex: none;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-background);
+}
+
+.rc {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 12px 24px 14px;
+}
+
+.rc__tray {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 6px 0 2px 48px;
+}
+
+.rc__chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  padding: 6px 6px 6px 8px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 12px;
+  background: var(--color-surface);
+}
+
+.rc__chip--core {
+  border-color: var(--color-deck-core-border);
+}
+
+.rc__art {
+  flex: none;
+  width: 30px;
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+.rc__binder {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--color-surface-variant);
+  color: var(--color-text-secondary);
+}
+
+.rc__chip--core .rc__binder {
+  background: var(--color-deck-core-surface);
+  color: var(--color-deck-core-tag-text);
+}
+
+.rc__chip-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.rc__chip-name {
+  overflow: hidden;
+  color: var(--color-ink);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rc__chip-line {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.rc__chip-line--mono {
+  font-family: var(--font-mono);
+}
+
+.rc__remove {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.rc__remove:hover {
+  background: var(--color-surface-variant);
+}
+
+.rc__row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.rc__plus,
+.rc__post {
+  display: grid;
+  flex: 0 0 40px;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 50%;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.rc__plus:hover {
+  background: var(--color-surface-variant);
+}
+
+.rc__plus[aria-expanded='true'] app-shell-icon {
+  transform: rotate(45deg);
+}
+
+.rc__post {
+  border-color: transparent;
+  background: var(--color-surface-variant);
+  color: var(--color-text-muted);
+  cursor: default;
+}
+
+// The view's one orange (spec 10.3's Send), once the post has text.
+.rc__post--ready {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  cursor: pointer;
+}
+
+.rc__plus:focus-visible,
+.rc__post:focus-visible,
+.rc__remove:focus-visible,
+.rc__retry:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+.rc__field {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 40px;
+  max-height: calc(6 * 22px + 18px);
+  padding: 9px 16px;
+  overflow-y: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: var(--font-size-body);
+  line-height: 22px;
+  resize: none;
+}
+
+.rc__field::placeholder {
+  color: var(--color-text-muted);
+}
+
+.rc__field:focus-visible {
+  border-color: var(--color-accent);
+  outline: none;
+}
+
+.rc__error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 0 48px;
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+}
+
+.rc__error span {
+  flex: 1 1 auto;
+  color: var(--color-ink);
+}
+
+.rc__retry {
+  flex: none;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-accent);
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.rc__hint {
+  margin: 0 0 0 48px;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.rc__hint--warn {
+  color: var(--color-warning);
+}
+
+.rc__menu-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.rc__menu-row app-shell-icon {
+  color: var(--color-text-secondary);
+}
+
+@media (max-width: 599.98px) {
+  .rc {
+    padding: 8px 12px 10px;
+  }
+
+  .rc__tray,
+  .rc__error,
+  .rc__hint {
+    margin-left: 0;
+    padding-left: 0;
+  }
+}

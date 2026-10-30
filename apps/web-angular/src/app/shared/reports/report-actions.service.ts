@@ -6,6 +6,7 @@ import {
   ReportCollectorDialogComponent,
   ReportContextInput,
   ReportDialogData,
+  ReportPostPreview,
   ReportTarget,
 } from './report-collector-dialog.component';
 
@@ -21,13 +22,14 @@ export class ReportActionsService {
   async report(
     target: ReportTarget,
     context: ReportContextInput,
+    post?: ReportPostPreview,
   ): Promise<ReportConfirmation | null> {
     const result = await firstValueFrom(
       this.dialog
         .open<ReportCollectorDialogComponent, ReportDialogData, ReportConfirmation>(
           ReportCollectorDialogComponent,
           {
-            data: { target, context },
+            data: post ? { target, context, post } : { target, context },
             panelClass: 'app-dialog--form',
             autoFocus: 'dialog',
           },

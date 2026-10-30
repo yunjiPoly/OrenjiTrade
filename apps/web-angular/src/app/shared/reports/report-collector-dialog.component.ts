@@ -51,9 +51,25 @@ export interface ReportContextInput {
   binderId?: string;
 }
 
+/** A community post being reported ("Report this post", board W22): what the dialog shows of it. */
+export interface ReportPostPreview {
+  /** "Quebec · 9:12 AM" (the province only, never a city). */
+  meta: string;
+  /** The post's text (cut to 140 characters with "…" by the dialog). */
+  text: string;
+}
+
 export interface ReportDialogData {
   target: ReportTarget;
   context: ReportContextInput;
+  /** Reporting a post: the dialog is "Report this post" with the post's words (web WF). */
+  post?: ReportPostPreview;
+}
+
+/** A post's text in the report dialog: one line of at most 140 characters. */
+export function reportPostExcerpt(text: string): string {
+  const flat = text.replace(/\s+/g, ' ').trim();
+  return flat.length > 140 ? `${flat.slice(0, 137)}…` : flat;
 }
 
 /**
@@ -85,11 +101,19 @@ export interface ReportDialogData {
       <mat-dialog-content>
         <div class="done" role="status">
           <span class="done__icon" aria-hidden="true"><mat-icon>verified_user</mat-icon></span>
-          <p class="done__lead">
-            Thank you. Our moderation team will review your report about
-            <strong>{{ data.target.displayName }}</strong
-            >. They are not told who reported them.
-          </p>
+          @if (data.post) {
+            <p class="done__lead">
+              Thank you. Our moderators will review this post by
+              <strong>{{ data.target.handle || data.target.displayName }}</strong
+              >. They are not told who reported it.
+            </p>
+          } @else {
+            <p class="done__lead">
+              Thank you. Our moderation team will review your report about
+              <strong>{{ data.target.displayName }}</strong
+              >. They are not told who reported them.
+            </p>
+          }
           <p class="done__muted">You will get a notification once the review is complete.</p>
         </div>
       </mat-dialog-content>
@@ -102,9 +126,29 @@ export interface ReportDialogData {
         </button>
       </mat-dialog-actions>
     } @else {
-      <h2 mat-dialog-title>Report {{ data.target.handle || data.target.displayName }}</h2>
+      @if (data.post) {
+        <h2 mat-dialog-title>Report this post</h2>
+      } @else {
+        <h2 mat-dialog-title>Report {{ data.target.handle || data.target.displayName }}</h2>
+      }
       <form (submit)="submit($event)" novalidate>
         <mat-dialog-content>
+          @if (data.post; as post) {
+            <div class="who who--post" data-testid="report-post-preview">
+              <app-avatar
+                [src]="data.target.avatarUrl"
+                [name]="data.target.handle || data.target.displayName"
+                [decorative]="true"
+              />
+              <span class="who__names">
+                <span class="who__name"
+                  >{{ data.target.handle || data.target.displayName }}
+                  <span class="who__handle">{{ post.meta }}</span></span
+                >
+                <span class="who__text">{{ excerpt(post.text) }}</span>
+              </span>
+            </div>
+          } @else {
           <div class="who">
             <app-avatar
               [src]="data.target.avatarUrl"
@@ -118,8 +162,11 @@ export interface ReportDialogData {
               }
             </span>
           </div>
+          }
 
-          <p class="question" [id]="ids.question">Why are you reporting them?</p>
+          <p class="question" [id]="ids.question">
+            {{ data.post ? 'Why are you reporting it?' : 'Why are you reporting them?' }}
+          </p>
 
           @if (reasons.reasons(); as options) {
             <mat-radio-group
@@ -232,6 +279,14 @@ export interface ReportDialogData {
     .who__name {
       font-weight: var(--font-weight-semibold);
       color: var(--color-ink);
+    }
+    .who--post {
+      align-items: flex-start;
+    }
+    .who__text {
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-sm);
+      overflow-wrap: anywhere;
     }
     .who__handle {
       color: var(--color-text-muted);
@@ -354,6 +409,7 @@ export class ReportCollectorDialogComponent {
 
   protected readonly maxDetails = REPORT_DETAILS_MAX;
   protected readonly ids = { question: `report-q-${Math.random().toString(36).slice(2, 8)}` };
+  protected readonly excerpt = reportPostExcerpt;
   /** One key per dialog: a double submit or a retry after a lost answer repeats the first. */
   private readonly idempotencyKey = newRequestId();
 

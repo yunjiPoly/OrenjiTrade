@@ -7,6 +7,7 @@ import { of, throwError } from 'rxjs';
 import {
   ReportCollectorDialogComponent,
   ReportDialogData,
+  reportPostExcerpt,
 } from './report-collector-dialog.component';
 
 const REASONS = [
@@ -15,7 +16,8 @@ const REASONS = [
   { code: 'OTHER', label: 'Something else', description: 'Anything else.' },
 ] as ReportReasonOption[];
 
-const DATA: ReportDialogData = {
+let DATA: ReportDialogData;
+const CHAT_DATA: ReportDialogData = {
   target: { id: 'u-2', displayName: 'Tess Trader', handle: 'tess' },
   context: { source: 'CONVERSATION', conversationId: 'c-9' },
 };
@@ -55,6 +57,7 @@ describe('ReportCollectorDialogComponent', () => {
   }
 
   beforeEach(() => {
+    DATA = CHAT_DATA;
     listReportReasons = vi.fn(() => of(REASONS));
     reportCollector = vi.fn(() =>
       of({
@@ -128,6 +131,33 @@ describe('ReportCollectorDialogComponent', () => {
     );
     expect(confirmButton().disabled).toBe(true);
     expect(element.querySelector('h2')?.textContent).toMatch(/^Report \S+/);
+  });
+
+  it('"Report this post" shows the post, asks why "it", and thanks for the post (web WF, board W22)', async () => {
+    DATA = {
+      target: { id: 'u-3', displayName: 'Lucas', handle: 'lucas_tcg' },
+      context: { source: 'POST', postId: 'p-7' },
+      post: { meta: 'Ontario · 9:31 AM', text: 'Sorted my trade binder last night.' },
+    };
+    await create();
+    expect(element.querySelector('h2')?.textContent).toContain('Report this post');
+    const preview = element.querySelector('[data-testid="report-post-preview"]')!;
+    expect(preview.textContent).toContain('lucas_tcg');
+    expect(preview.textContent).toContain('Ontario · 9:31 AM');
+    expect(preview.textContent).toContain('Sorted my trade binder last night.');
+    expect(element.textContent).toContain('Why are you reporting it?');
+    await choose('SPAM');
+    await confirm();
+    const [request] = reportCollector.mock.calls[0];
+    expect(request.reportCollectorRequest.context).toEqual({ source: 'POST', postId: 'p-7' });
+    expect(element.textContent).toContain('Our moderators will review this post by');
+    expect(element.textContent).toContain('lucas_tcg');
+  });
+
+  it('cuts a reported post to one line of 140 characters', () => {
+    expect(reportPostExcerpt('  two\n lines ')).toBe('two lines');
+    const long = 'a'.repeat(150);
+    expect(reportPostExcerpt(long)).toBe(`${'a'.repeat(137)}…`);
   });
 
   it('offers a retry when the reasons cannot load', async () => {

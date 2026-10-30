@@ -15,7 +15,7 @@ import { FEATURE, FeatureFlagsService } from '../../core/feature-flags/feature-f
 import { ShellLayout } from '../../core/layout/shell-layout.service';
 import { ShellTabTitleDirective } from '../../core/layout/shell-tab-title.directive';
 import { UnreadChats } from '../../core/layout/unread-chats/unread-chats';
-import { CommunityPageComponent } from '../community/community-page.component';
+import { CommunityViewComponent } from '../community/community-view.component';
 import { EmptyStateComponent } from '../../shared/ui/empty-state/empty-state.component';
 import {
   UnderlineTab,
@@ -43,22 +43,26 @@ import { RealtimeStatusComponent } from './realtime-status/realtime-status.compo
     MessengerComponent,
     RealtimeStatusComponent,
     UnderlineTabsComponent,
-    CommunityPageComponent,
+    CommunityViewComponent,
     ShellTabTitleDirective,
   ],
   template: `
     @if (auth.isAuthenticated()) {
       @if (showCommunity()) {
-        <div class="page messages-page">
-          <header class="messages-page__header">
+        <app-community-view
+          class="messages"
+          [class.messages--chat]="layout.inChat()"
+          [split]="split()"
+          [slug]="room() ?? null"
+        >
+          <header inboxHeader class="inbox-head">
             <div class="messages-page__titles">
               <h1 class="messages-page__title" appShellTabTitle>Messages</h1>
               <app-realtime-status />
             </div>
             <app-underline-tabs label="Messages" [tabs]="tabs()" />
           </header>
-          <app-community-page embedded [slug]="room()" />
-        </div>
+        </app-community-view>
       } @else {
         <app-messenger
           class="messages"
@@ -206,9 +210,13 @@ export class MessagesPageComponent {
   protected readonly split = computed(() => !this.layout.narrow());
 
   constructor() {
-    // A chat below 960 opens above the tabs (no per-tab bar, no tab bar), as on the phone.
+    // A chat or a room below 960 opens above the tabs (no per-tab bar, no tab bar), as on the
+    // phone.
     effect(() =>
-      this.layout.setChatOpen(this.auth.isAuthenticated() && !this.showCommunity() && !!this.id()),
+      this.layout.setChatOpen(
+        this.auth.isAuthenticated() &&
+          (this.showCommunity() ? !!this.room() : !!this.id()),
+      ),
     );
     inject(DestroyRef).onDestroy(() => this.layout.setChatOpen(false));
   }

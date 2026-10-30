@@ -85,3 +85,18 @@
     white-space: nowrap;
   }
 }
+
+// Community's own region pill (spec 10.7, board W22): the name shows at every width.
+:host(.pill-host--wide) .pill {
+  gap: 8px;
+  padding: 0 12px 0 10px;
+}
+
+:host(.pill-host--wide) .pill__name {
+  position: static;
+  width: auto;
+  height: auto;
+  overflow: hidden;
+  clip: auto;
+  text-overflow: ellipsis;
+}

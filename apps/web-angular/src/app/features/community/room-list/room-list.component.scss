@@ -1,0 +1,228 @@
+// The inbox column of Community (board W22): the pill and "Game rooms" 24 from the edges, rows of
+// 64 (a 38 tile, 12 from the text), the open room on surfaceVariant with a 2 px orange inset.
+:host {
+  display: block;
+}
+
+.rl {
+  display: flex;
+  flex-direction: column;
+}
+
+.rl__top {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 16px 24px 8px;
+}
+
+.rl__pill {
+  max-width: 100%;
+}
+
+.rl__heading {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.rl__rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rl__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 10px 24px;
+  color: var(--color-ink);
+  text-decoration: none;
+}
+
+.rl__row:hover {
+  background: var(--color-surface);
+}
+
+.rl__row--open {
+  background: var(--color-surface-variant);
+  box-shadow: inset 2px 0 0 var(--color-primary);
+}
+
+.rl__row:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: -2px;
+}
+
+.rl__tile {
+  flex: none;
+}
+
+.rl__text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rl__line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rl__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-semibold);
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rl__when {
+  flex: none;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.rl__preview {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rl__row--unread .rl__name {
+  font-weight: var(--font-weight-bold);
+}
+
+.rl__row--unread .rl__when {
+  color: var(--app-primary-text, var(--color-primary));
+  font-weight: var(--font-weight-semibold);
+}
+
+.rl__row--unread .rl__preview {
+  color: var(--color-ink);
+  font-weight: var(--font-weight-semibold);
+}
+
+.rl__dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-primary);
+}
+
+.rl__foot {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 8px 24px 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-meta);
+  line-height: 18px;
+
+  app-shell-icon {
+    flex: none;
+    margin-top: 1px;
+    color: var(--color-accent);
+  }
+}
+
+.rl__pad {
+  padding: 8px 16px;
+}
+
+.rl__closed {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 16px 24px;
+}
+
+.rl__closed-title {
+  margin: 0;
+  font-weight: var(--font-weight-semibold);
+}
+
+.rl__closed-text {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.rl__outline {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  color: var(--color-ink);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+}
+
+.rl__bone {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 10px 24px;
+}
+
+.rl__bone-tile {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--color-surface-variant);
+}
+
+.rl__bone-lines {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+
+  span {
+    height: 12px;
+    border-radius: 6px;
+    background: var(--color-surface-variant);
+  }
+
+  span:last-child {
+    width: 70%;
+  }
+}
+
+@media (max-width: 1279.98px) {
+  .rl__top,
+  .rl__row,
+  .rl__bone,
+  .rl__closed {
+    padding-inline: 16px;
+  }
+
+  .rl__foot {
+    margin-inline: 16px;
+  }
+}

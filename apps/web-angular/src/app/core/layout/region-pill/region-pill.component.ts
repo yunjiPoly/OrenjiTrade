@@ -2,8 +2,10 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  booleanAttribute,
   computed,
   inject,
+  input,
   signal,
   viewChild,
 } from '@angular/core';
@@ -53,9 +55,12 @@ export function regionPillLabel(name: string, away = false): string {
     </button>
   `,
   styleUrl: '../top-bar/pill.scss',
+  host: { '[class.pill-host--wide]': 'wide()' },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RegionPillComponent {
+  /** Always shows the region's name (Community's own pill in the inbox column, spec 10.7). */
+  readonly wide = input(false, { transform: booleanAttribute });
   protected readonly context = inject(RegionContext);
   private readonly regions = inject(RegionsStore);
   private readonly popovers = inject(Popovers);
