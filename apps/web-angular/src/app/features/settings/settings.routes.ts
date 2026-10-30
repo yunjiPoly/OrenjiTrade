@@ -1,12 +1,19 @@
 import { inject } from '@angular/core';
-import { Routes } from '@angular/router';
+import { CanActivateFn, Router, Routes } from '@angular/router';
 import { accountGuard } from '../../core/auth/auth.guards';
 import { AuthService } from '../../core/auth/auth.service';
 
-/** `/settings`: Profile for a collector, Appearance for a guest. */
-export function settingsHome(): string {
-  return inject(AuthService).isAuthenticated() ? 'profile' : 'appearance';
-}
+/**
+ * `/settings` (and an unknown section): Profile for a collector, Appearance for a guest. A guard,
+ * not a redirect: redirects run before Firebase restored the session on a fresh load, which sent
+ * a signed-in collector to Appearance (WG review F5).
+ */
+export const settingsHomeGuard: CanActivateFn = async () => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+  await auth.ready();
+  return router.createUrlTree(['/settings', auth.isAuthenticated() ? 'profile' : 'appearance']);
+};
 
 /**
  * `/settings/*`: one child route per section inside the settings shell. Every section is the
@@ -17,7 +24,7 @@ export const SETTINGS_ROUTES: Routes = [
     path: '',
     loadComponent: () => import('./settings-shell.component').then((m) => m.SettingsShellComponent),
     children: [
-      { path: '', pathMatch: 'full', redirectTo: settingsHome },
+      { path: '', pathMatch: 'full', canActivate: [settingsHomeGuard], children: [] },
       {
         path: 'profile',
         title: 'Profile settings',
@@ -101,7 +108,7 @@ export const SETTINGS_ROUTES: Routes = [
         loadComponent: () =>
           import('./legal/legal-settings.component').then((m) => m.LegalSettingsComponent),
       },
-      { path: '**', redirectTo: settingsHome },
+      { path: '**', canActivate: [settingsHomeGuard], children: [] },
     ],
   },
 ];
