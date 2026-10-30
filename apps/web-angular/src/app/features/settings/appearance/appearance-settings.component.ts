@@ -34,11 +34,7 @@ export const KEY_CHIPS: readonly { keys: string[]; label: string }[] = [
  */
 @Component({
   selector: 'app-appearance-settings',
-  imports: [
-    MatSlideToggleModule,
-    SectionCardComponent,
-    ApiVersionComponent,
-  ],
+  imports: [MatSlideToggleModule, SectionCardComponent, ApiVersionComponent],
   template: `
     <app-section-card
       heading="Theme"

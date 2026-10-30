@@ -109,7 +109,9 @@ describe('LocationSettingsComponent', () => {
   it('says what others see: the handle and the province, the city on the profile only (W25)', async () => {
     await mount(SAVED);
     const rows = [...element.querySelectorAll('.loc__others li')].map((row) =>
-      [...row.querySelectorAll('.loc__name, .loc__place')].map((part) => part.textContent?.trim()).join(' '),
+      [...row.querySelectorAll('.loc__name, .loc__place')]
+        .map((part) => part.textContent?.trim())
+        .join(' '),
     );
     expect(rows[0]).toContain('sam_trades Quebec');
     expect(rows[0]).not.toContain('Montréal');

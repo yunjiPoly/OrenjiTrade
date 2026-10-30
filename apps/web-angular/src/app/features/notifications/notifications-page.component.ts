@@ -130,7 +130,9 @@ import { NotificationFeedStore } from './data/notification-feed.store';
                   </ul>
                 }
               }
-              @if (store.fresh().length === 0 && (store.unreadOnly() || store.earlier().length === 0)) {
+              @if (
+                store.fresh().length === 0 && (store.unreadOnly() || store.earlier().length === 0)
+              ) {
                 @if (store.unreadOnly()) {
                   <app-empty-state
                     icon="task_alt"
@@ -147,7 +149,11 @@ import { NotificationFeedStore } from './data/notification-feed.store';
                     title="No notifications yet"
                     description="We'll tell you when a card you want is listed in your region."
                   >
-                    <a actions class="nf__outline" routerLink="/search" [queryParams]="{ tab: 'wishlist' }"
+                    <a
+                      actions
+                      class="nf__outline"
+                      routerLink="/search"
+                      [queryParams]="{ tab: 'wishlist' }"
                       >Open my wishlist</a
                     >
                   </app-empty-state>
@@ -165,7 +171,11 @@ import { NotificationFeedStore } from './data/notification-feed.store';
                     (click)="store.loadMore()"
                   >
                     {{
-                      store.loadingMore() ? 'Loading…' : store.moreFailed() ? 'Try again' : 'Load more'
+                      store.loadingMore()
+                        ? 'Loading…'
+                        : store.moreFailed()
+                          ? 'Try again'
+                          : 'Load more'
                     }}
                   </button>
                 </div>

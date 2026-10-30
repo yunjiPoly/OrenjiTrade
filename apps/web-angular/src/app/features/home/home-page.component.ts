@@ -357,9 +357,14 @@ export class HomePageComponent {
     try {
       const [cards, wishes] = await Promise.all([
         firstValueFrom(
-          this.inventoryApi.listInventoryItems({ markedPublic: true, page: 0, size: 1 }, 'body', false, {
-            context: silentErrors(),
-          }),
+          this.inventoryApi.listInventoryItems(
+            { markedPublic: true, page: 0, size: 1 },
+            'body',
+            false,
+            {
+              context: silentErrors(),
+            },
+          ),
         ),
         firstValueFrom(this.wishlistApi.listWishlist('body', false, { context: silentErrors() })),
       ]);
@@ -374,7 +379,10 @@ export class HomePageComponent {
 
   private readHidden(uid: string): boolean {
     try {
-      return this.document.defaultView?.localStorage.getItem(GET_STARTED_HIDDEN_PREFIX + uid) === 'hidden';
+      return (
+        this.document.defaultView?.localStorage.getItem(GET_STARTED_HIDDEN_PREFIX + uid) ===
+        'hidden'
+      );
     } catch {
       return false;
     }

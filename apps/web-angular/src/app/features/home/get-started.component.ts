@@ -90,7 +90,10 @@ import { GetStartedSteps } from './home-rules';
             </p>
             <p class="gs__sub">Add a card and set it to Public</p>
             @if (!s.card) {
-              <a class="gs__action gs__action--primary" routerLink="/inventory" [queryParams]="{ add: 'new' }"
+              <a
+                class="gs__action gs__action--primary"
+                routerLink="/inventory"
+                [queryParams]="{ add: 'new' }"
                 >Add cards</a
               >
             }

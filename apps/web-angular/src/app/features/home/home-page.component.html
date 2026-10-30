@@ -2,7 +2,9 @@
   <div class="home__feed">
     <header class="home__header">
       <h1 class="home__title" #heading tabindex="-1">What’s new</h1>
-      <p class="home__scope">{{ gameName() }} · {{ regionName() }} · last {{ store.windowDays() }} days</p>
+      <p class="home__scope">
+        {{ gameName() }} · {{ regionName() }} · last {{ store.windowDays() }} days
+      </p>
     </header>
 
     @if (layout.narrow() || layout.medium()) {
@@ -48,7 +50,12 @@
     </div>
     @if (store.newer()) {
       <div class="home__newer-row">
-        <button type="button" class="home__newer" data-testid="home-new-posts" (click)="showNewer()">
+        <button
+          type="button"
+          class="home__newer"
+          data-testid="home-new-posts"
+          (click)="showNewer()"
+        >
           New posts · Show
         </button>
       </div>
@@ -82,7 +89,8 @@
                 /></span>
                 <h2 class="home__empty-title">Nothing new in {{ regionName() }} yet</h2>
                 <p class="home__empty-text">
-                  Be the first: the cards you make public show up here for collectors in your region.
+                  Be the first: the cards you make public show up here for collectors in your
+                  region.
                 </p>
               </div>
             }
@@ -100,20 +108,29 @@
                   <a class="home__primary" routerLink="/inventory" [queryParams]="{ add: 'new' }"
                     >Add your {{ gameName() }} cards</a
                   >
-                  <button type="button" class="home__outline" (click)="switchGame()">Switch game</button>
+                  <button type="button" class="home__outline" (click)="switchGame()">
+                    Switch game
+                  </button>
                 </div>
               </div>
             }
             @case ('chip') {
               <div class="home__empty" data-testid="home-empty-chip">
                 <p class="home__empty-text">{{ chipEmpty() }}</p>
-                <button type="button" class="home__outline" (click)="setFilter('ALL')">Show all</button>
+                <button type="button" class="home__outline" (click)="setFilter('ALL')">
+                  Show all
+                </button>
               </div>
             }
             @default {
               @for (group of sections(); track group.section) {
-                <section class="home__section" [attr.aria-labelledby]="'home-section-' + group.section">
-                  <h2 class="home__label" [id]="'home-section-' + group.section">{{ group.title }}</h2>
+                <section
+                  class="home__section"
+                  [attr.aria-labelledby]="'home-section-' + group.section"
+                >
+                  <h2 class="home__label" [id]="'home-section-' + group.section">
+                    {{ group.title }}
+                  </h2>
                   <div class="home__posts">
                     @for (post of group.posts; track post.id) {
                       <app-feed-post [post]="post" [game]="gameCode()" [now]="now()" />
@@ -130,11 +147,15 @@
               } @else if (store.more() === 'error') {
                 <div class="home__state home__state--more" role="alert">
                   <p class="home__state-title">Couldn't load more</p>
-                  <button type="button" class="home__outline" (click)="store.loadMore()">Try again</button>
+                  <button type="button" class="home__outline" (click)="store.loadMore()">
+                    Try again
+                  </button>
                 </div>
               } @else if (store.hasMore()) {
                 <div class="home__more-row">
-                  <button type="button" class="home__outline" (click)="store.loadMore()">Load more</button>
+                  <button type="button" class="home__outline" (click)="store.loadMore()">
+                    Load more
+                  </button>
                 </div>
               }
               @if (store.atEnd()) {

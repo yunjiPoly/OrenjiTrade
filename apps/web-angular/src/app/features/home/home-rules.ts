@@ -141,7 +141,10 @@ export interface FeedSectionGroup {
  * The posts in their sections; a post seen twice (a new-cards post whose newest card left between
  * two pages comes back once with a new time, R7's contract) keeps its first copy.
  */
-export function feedSections(posts: readonly FeedPost[], now: Date = new Date()): FeedSectionGroup[] {
+export function feedSections(
+  posts: readonly FeedPost[],
+  now: Date = new Date(),
+): FeedSectionGroup[] {
   const groups: FeedSectionGroup[] = [];
   const seen = new Set<string>();
   for (const post of posts) {
@@ -199,8 +202,7 @@ export function postPlace(post: Pick<FeedPost, 'place'>): string {
 
 /** One tile of a new-cards post: a card, or the "+N" tile that opens the profile. */
 export type CardTile =
-  | { kind: 'card'; card: FeedCardPreview; price: string | null }
-  | { kind: 'more'; count: number };
+  { kind: 'card'; card: FeedCardPreview; price: string | null } | { kind: 'more'; count: number };
 
 /** Tiles per row on the web (spec 5.2: 6 columns, the 6th "+N" from 7 cards). */
 export const TILE_COLUMNS = 6;

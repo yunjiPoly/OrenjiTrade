@@ -79,7 +79,8 @@ export function tooltipPlacement(
   let offsetY = below ? TOOLTIP_BELOW : 0;
   if (keepOut) {
     const top = below ? y + offsetY : y - tipHeight - 6;
-    const under = centre + half > keepOut.left - TOOLTIP_EDGE && top < keepOut.bottom + TOOLTIP_EDGE;
+    const under =
+      centre + half > keepOut.left - TOOLTIP_EDGE && top < keepOut.bottom + TOOLTIP_EDGE;
     if (under) {
       const shifted = keepOut.left - TOOLTIP_EDGE - half;
       if (shifted >= min) {

@@ -6,6 +6,7 @@ import { Subject } from 'rxjs';
 import { AuthChange, AuthService } from '../../core/auth/auth.service';
 import type { AuthUser } from '../../core/auth/firebase-auth.port';
 import { ShellLayout } from '../../core/layout/shell-layout.service';
+import { ChatDrafts } from './chat-drafts.service';
 import { ChatDrawer } from './chat-drawer.service';
 import { ConversationStarterService } from './conversation-starter.service';
 
@@ -141,5 +142,15 @@ describe('ChatDrawer (web WC, spec 10.6)', () => {
     finish(CHAT);
     await opening;
     expect(drawer.state()).toBeNull();
+  });
+
+  it('puts a draft in the message box, never over one already typed, and never sends it (WE)', async () => {
+    const drafts = TestBed.inject(ChatDrafts);
+    await drawer.message({ recipientId: 'u2', draft: 'Hi! I have Ash Blossom.' });
+    expect(start).toHaveBeenLastCalledWith('u2', {});
+    expect(drafts.get('c1')).toBe('Hi! I have Ash Blossom.');
+    drafts.set('c1', 'My own words');
+    await drawer.message({ recipientId: 'u2', draft: 'Hi! I have Ash Blossom.' });
+    expect(drafts.get('c1')).toBe('My own words');
   });
 });

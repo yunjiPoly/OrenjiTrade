@@ -26,7 +26,6 @@ export interface StaticMap {
 
 type Ring = [number, number][];
 
-
 /** Web Mercator in [0, 1] (x east, y south). */
 function project([lng, lat]: [number, number]): [number, number] {
   const clamped = Math.max(-85, Math.min(85, lat));

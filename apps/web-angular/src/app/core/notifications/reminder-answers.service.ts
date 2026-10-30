@@ -40,7 +40,9 @@ export class ReminderAnswers {
     if (!uid || (this.reading && !force)) {
       return this.reading ?? Promise.resolve();
     }
-    this.reading = firstValueFrom(this.api.listMyBinders('body', false, { context: silentErrors() }))
+    this.reading = firstValueFrom(
+      this.api.listMyBinders('body', false, { context: silentErrors() }),
+    )
       .then((binders) => {
         if (uid === this.uid) {
           this.bindersState.set(binders ?? []);
@@ -83,7 +85,10 @@ export class ReminderAnswers {
   }
 
   /** "Review the binder" (or the cards without one): where it opens. */
-  reviewLink(notification: NotificationResponse): { path: string[]; query: Record<string, string> } {
+  reviewLink(notification: NotificationResponse): {
+    path: string[];
+    query: Record<string, string>;
+  } {
     const binderId = reminderBinderId(notification);
     return binderId
       ? { path: ['/inventory'], query: { binder: binderId } }

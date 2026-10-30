@@ -102,16 +102,18 @@ export class NotificationSettingsComponent {
       return [];
     }
     const order = Object.keys(CATEGORY_LABELS);
-    return Object.keys(settings.categories)
-      // The web's topics (spec 13): no offers or trades any more (decision 2); their saved
-      // choices are kept as they are.
-      .filter((key) => !HIDDEN_CATEGORIES.has(key))
-      .sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99))
-      .map((key) => ({
-        key,
-        label: CATEGORY_LABELS[key]?.label ?? key.replace(/_/g, ' ').toLowerCase(),
-        help: CATEGORY_LABELS[key]?.help ?? '',
-      }));
+    return (
+      Object.keys(settings.categories)
+        // The web's topics (spec 13): no offers or trades any more (decision 2); their saved
+        // choices are kept as they are.
+        .filter((key) => !HIDDEN_CATEGORIES.has(key))
+        .sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99))
+        .map((key) => ({
+          key,
+          label: CATEGORY_LABELS[key]?.label ?? key.replace(/_/g, ' ').toLowerCase(),
+          help: CATEGORY_LABELS[key]?.help ?? '',
+        }))
+    );
   });
   protected readonly quietHoursInvalid = computed(() => {
     const quiet = this.draft()?.quietHours;

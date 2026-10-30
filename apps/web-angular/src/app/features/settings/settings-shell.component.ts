@@ -96,7 +96,12 @@ const THEME_LABELS: Record<string, string> = {
             ariaCurrentWhenActive="page"
             aria-label="Edit profile"
           >
-            <app-avatar class="st__avatar" [src]="session.me()?.avatarUrl" [name]="session.displayName()" [decorative]="true" />
+            <app-avatar
+              class="st__avatar"
+              [src]="session.me()?.avatarUrl"
+              [name]="session.displayName()"
+              [decorative]="true"
+            />
             <span class="st__me-text">
               <span class="st__me-name">{{ session.displayName() }}</span>
               @if (session.handle(); as handle) {

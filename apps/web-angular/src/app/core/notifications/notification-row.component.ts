@@ -37,13 +37,23 @@ import { ReminderAnswers } from './reminder-answers.service';
   template: `
     @let n = notification();
     @let words = text();
-    <div class="nr" [class.nr--unread]="!n.readAt" [class.nr--page]="page()" data-testid="notification-row">
+    <div
+      class="nr"
+      [class.nr--unread]="!n.readAt"
+      [class.nr--page]="page()"
+      data-testid="notification-row"
+    >
       <span class="nr__tile" [attr.data-tone]="visual().tone" aria-hidden="true">
         <app-shell-icon [name]="visual().icon" [size]="18" />
       </span>
       <div class="nr__text">
         @if (target(); as link) {
-          <a class="nr__link" [routerLink]="link.path" [queryParams]="link.query" (click)="opened.emit(n)">
+          <a
+            class="nr__link"
+            [routerLink]="link.path"
+            [queryParams]="link.query"
+            (click)="opened.emit(n)"
+          >
             <ng-container *ngTemplateOutlet="sentence" />
           </a>
         } @else {
@@ -106,7 +116,9 @@ import { ReminderAnswers } from './reminder-answers.service';
             <button
               type="button"
               class="nr__read"
-              [attr.aria-label]="'Mark as read: ' + words.strong + (words.rest ? ' ' + words.rest : '')"
+              [attr.aria-label]="
+                'Mark as read: ' + words.strong + (words.rest ? ' ' + words.rest : '')
+              "
               title="Mark as read"
               (click)="markRead.emit(n)"
             >

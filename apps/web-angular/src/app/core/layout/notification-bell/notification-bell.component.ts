@@ -152,11 +152,15 @@ export class NotificationBellComponent {
     this.open.set(true);
     try {
       const { NotificationPopoverComponent } = await import('./notification-popover.component');
-      const ref = this.popovers.open(this.bellButton().nativeElement, NotificationPopoverComponent, {
-        width: 400,
-        alignEnd: true,
-        panelClass: 'app-popover--bell',
-      });
+      const ref = this.popovers.open(
+        this.bellButton().nativeElement,
+        NotificationPopoverComponent,
+        {
+          width: 400,
+          alignEnd: true,
+          panelClass: 'app-popover--bell',
+        },
+      );
       this.ref = ref;
       ref.closed$.subscribe(() => {
         this.ref = null;

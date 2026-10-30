@@ -65,7 +65,9 @@ import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.componen
         description="Collectors find your binders by state or province. You choose it; the app never locates you."
       >
         <div class="loc__map" data-testid="location-discoverable">
-          <span class="loc__map-icon" aria-hidden="true"><app-shell-icon name="map" [size]="20" /></span>
+          <span class="loc__map-icon" aria-hidden="true"
+            ><app-shell-icon name="map" [size]="20"
+          /></span>
           <div class="loc__map-text">
             <span class="loc__map-title" id="location-map-label">Show me on the map</span>
             <span class="loc__map-line" id="location-map-line">

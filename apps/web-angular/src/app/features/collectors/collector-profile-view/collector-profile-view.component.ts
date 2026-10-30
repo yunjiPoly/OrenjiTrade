@@ -17,12 +17,14 @@ import { gameInfo } from '../../../shared/domain/games';
 import { printingImageUrl } from '../../../shared/inventory/inventory-labels';
 import { LAST_ACTIVE_LABELS, LastActiveBucket } from '../../../shared/domain/location-labels';
 import { MediaUrlPipe } from '../../../shared/pipes/media-url.pipe';
-import { RelativeTimePipe } from '../../../shared/pipes/relative-time.pipe';
 import { StarRatingComponent } from '../../../shared/ratings/star-rating.component';
 import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
 import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import { GameMonogramComponent } from '../../../shared/ui/game-monogram/game-monogram.component';
-import { SegmentOption, SegmentedComponent } from '../../../shared/ui/segmented/segmented.component';
+import {
+  SegmentOption,
+  SegmentedComponent,
+} from '../../../shared/ui/segmented/segmented.component';
 import { iHaveItLabel } from '../../../shared/wishlist/i-have-it.service';
 import { wishTerms } from '../../../shared/wishlist/wishlist-labels';
 import { itemPriceText } from '../../inventory/data/item-price';
@@ -113,7 +115,6 @@ export const BINDERS_PREVIEW = 3;
     CardImageComponent,
     GameMonogramComponent,
     MediaUrlPipe,
-    RelativeTimePipe,
     SegmentedComponent,
     ShellIconComponent,
     ShipNotesComponent,

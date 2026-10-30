@@ -8,13 +8,7 @@ import { IHaveIt, iHaveItLabel } from '../../shared/wishlist/i-have-it.service';
 import { wishTerms } from '../../shared/wishlist/wishlist-labels';
 import { AvatarComponent } from '../../shared/ui/avatar/avatar.component';
 import { CardImageComponent } from '../../shared/ui/card-image/card-image.component';
-import {
-  cardTiles,
-  feedTime,
-  postPlace,
-  postVerb,
-  posterName,
-} from './home-rules';
+import { cardTiles, feedTime, postPlace, postVerb, posterName } from './home-rules';
 import { itemPriceText } from '../inventory/data/item-price';
 
 /**
@@ -34,8 +28,17 @@ import { itemPriceText } from '../inventory/data/item-price';
     <article class="fp" [attr.aria-labelledby]="headId()" data-testid="feed-post">
       <header class="fp__head">
         @if (handle) {
-          <a class="fp__avatar" [routerLink]="['/collectors', handle]" tabindex="-1" aria-hidden="true">
-            <app-avatar [src]="p.collector.avatarUrl" [name]="p.collector.displayName || handle" [decorative]="true" />
+          <a
+            class="fp__avatar"
+            [routerLink]="['/collectors', handle]"
+            tabindex="-1"
+            aria-hidden="true"
+          >
+            <app-avatar
+              [src]="p.collector.avatarUrl"
+              [name]="p.collector.displayName || handle"
+              [decorative]="true"
+            />
           </a>
         } @else {
           <span class="fp__avatar fp__avatar--guest" aria-hidden="true">
@@ -59,11 +62,22 @@ import { itemPriceText } from '../inventory/data/item-price';
         @case ('NEW_CARDS') {
           @if (single(); as card) {
             <div class="fp__one">
-              <a class="fp__one-art" [routerLink]="['/cards', card.cardId]" [queryParams]="{ printing: card.printingId }" tabindex="-1" aria-hidden="true">
+              <a
+                class="fp__one-art"
+                [routerLink]="['/cards', card.cardId]"
+                [queryParams]="{ printing: card.printingId }"
+                tabindex="-1"
+                aria-hidden="true"
+              >
                 <app-card-image [src]="card.imageUrl" [game]="game()" size="xs" alt="" />
               </a>
               <div class="fp__one-text">
-                <a class="fp__name" [routerLink]="['/cards', card.cardId]" [queryParams]="{ printing: card.printingId }">{{ card.name }}</a>
+                <a
+                  class="fp__name"
+                  [routerLink]="['/cards', card.cardId]"
+                  [queryParams]="{ printing: card.printingId }"
+                  >{{ card.name }}</a
+                >
                 @if (card.printingCode || card.rarity) {
                   <p class="fp__line">
                     @if (card.printingCode) {
@@ -102,18 +116,33 @@ import { itemPriceText } from '../inventory/data/item-price';
                       class="fp__tile-link"
                       [routerLink]="['/cards', tile.card.cardId]"
                       [queryParams]="{ printing: tile.card.printingId }"
-                      [attr.aria-label]="tile.price ? tile.card.name + ', ' + tile.price : tile.card.name"
+                      [attr.aria-label]="
+                        tile.price ? tile.card.name + ', ' + tile.price : tile.card.name
+                      "
                     >
-                      <app-card-image class="fp__tile-art" [src]="tile.card.imageUrl" [game]="game()" alt="" />
+                      <app-card-image
+                        class="fp__tile-art"
+                        [src]="tile.card.imageUrl"
+                        [game]="game()"
+                        alt=""
+                      />
                       <span class="fp__tile-price" aria-hidden="true">{{ tile.price || ' ' }}</span>
                     </a>
                   } @else if (handle) {
-                    <a class="fp__tile-link" [routerLink]="['/collectors', handle]" [attr.aria-label]="moreLabel(tile.count)">
+                    <a
+                      class="fp__tile-link"
+                      [routerLink]="['/collectors', handle]"
+                      [attr.aria-label]="moreLabel(tile.count)"
+                    >
                       <span class="fp__more" aria-hidden="true">+{{ tile.count }}</span>
                       <span class="fp__tile-price" aria-hidden="true">more</span>
                     </a>
                   } @else {
-                    <span class="fp__tile-link" [attr.aria-label]="moreLabel(tile.count)" role="img">
+                    <span
+                      class="fp__tile-link"
+                      [attr.aria-label]="moreLabel(tile.count)"
+                      role="img"
+                    >
                       <span class="fp__more" aria-hidden="true">+{{ tile.count }}</span>
                       <span class="fp__tile-price" aria-hidden="true">more</span>
                     </span>
@@ -126,7 +155,12 @@ import { itemPriceText } from '../inventory/data/item-price';
         @case ('WANTED') {
           @if (p.wanted; as wish) {
             <div class="fp__one">
-              <a class="fp__one-art" [routerLink]="['/cards', wish.cardId]" tabindex="-1" aria-hidden="true">
+              <a
+                class="fp__one-art"
+                [routerLink]="['/cards', wish.cardId]"
+                tabindex="-1"
+                aria-hidden="true"
+              >
                 <app-card-image [src]="wish.imageUrl" [game]="game()" size="xs" alt="" />
               </a>
               <div class="fp__one-text">
@@ -147,20 +181,39 @@ import { itemPriceText } from '../inventory/data/item-price';
         }
         @case ('DECK_CORE') {
           @if (p.deckCore; as core) {
-            <a class="fp__core" [routerLink]="['/binders', core.binderId]" data-testid="feed-deck-core">
+            <a
+              class="fp__core"
+              [routerLink]="['/binders', core.binderId]"
+              data-testid="feed-deck-core"
+            >
               <span class="fp__band" aria-hidden="true">
                 @if (core.photoUrl) {
-                  <img class="fp__photo" [src]="core.photoUrl | mediaUrl" alt="" loading="lazy" decoding="async" />
+                  <img
+                    class="fp__photo"
+                    [src]="core.photoUrl | mediaUrl"
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                  />
                 } @else {
                   <span class="fp__fan">
                     @for (image of core.previewImages.slice(0, 3); track $index) {
-                      <app-card-image class="fp__fan-card" [src]="image" [game]="game()" size="sm" alt="" />
+                      <app-card-image
+                        class="fp__fan-card"
+                        [src]="image"
+                        [game]="game()"
+                        size="sm"
+                        alt=""
+                      />
                     }
                   </span>
                 }
                 <span class="fp__tag"><app-shell-icon name="layers" [size]="12" /> Deck core</span>
                 @if (core.photoCount > 0) {
-                  <span class="fp__photos"><app-shell-icon name="camera" [size]="12" /> {{ core.photoCount }} {{ core.photoCount === 1 ? 'photo' : 'photos' }}</span>
+                  <span class="fp__photos"
+                    ><app-shell-icon name="camera" [size]="12" /> {{ core.photoCount }}
+                    {{ core.photoCount === 1 ? 'photo' : 'photos' }}</span
+                  >
                 }
               </span>
               <span class="fp__core-row">
@@ -227,7 +280,10 @@ export class FeedPostComponent {
   /** "Message": the chat drawer with this card as the chat's subject (spec 5.2). */
   protected message(card: FeedCardPreview, opener: EventTarget | null): void {
     const recipientId = this.post().collector.id;
-    void this.drawer.message({ recipientId: recipientId ?? '', subjectItemId: card.itemId }, opener);
+    void this.drawer.message(
+      { recipientId: recipientId ?? '', subjectItemId: card.itemId },
+      opener,
+    );
   }
 
   /** "I have it": the chat drawer to the wisher with "Hi! I have {card}." (spec 5.2). */

@@ -198,7 +198,10 @@ export function rowText(notification: NotificationResponse): RowText {
  * ratings, the rest their own deep link; old deals (history), freshness rows (their buttons) and
  * a notice with nothing to open lead nowhere.
  */
-export function rowTarget(notification: NotificationResponse, ownHandle: string | null): string | null {
+export function rowTarget(
+  notification: NotificationResponse,
+  ownHandle: string | null,
+): string | null {
   if (isHistoryNotification(notification) || isFreshnessRow(notification)) {
     return null;
   }
@@ -241,9 +244,10 @@ export function reminderState(
 }
 
 /** The bell's sections: NEW (unread) and EARLIER (read), each newest first. */
-export function bellSections(
-  notifications: readonly NotificationResponse[],
-): { fresh: NotificationResponse[]; earlier: NotificationResponse[] } {
+export function bellSections(notifications: readonly NotificationResponse[]): {
+  fresh: NotificationResponse[];
+  earlier: NotificationResponse[];
+} {
   return {
     fresh: notifications.filter((n) => !n.readAt),
     earlier: notifications.filter((n) => !!n.readAt),

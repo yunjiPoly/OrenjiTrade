@@ -1,10 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  inject,
-  signal,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type { NotificationResponse } from '@orenji/api-client';
 import { AuthService } from '../../auth/auth.service';
@@ -69,7 +63,13 @@ import { ShellIconComponent } from '../shell-icon/shell-icon.component';
                 <h3 class="np__label">New</h3>
                 <ul class="np__list" aria-label="New notifications">
                   @for (n of sections().fresh; track n.id) {
-                    <li><app-notification-row [notification]="n" [now]="now" (opened)="open($event)" /></li>
+                    <li>
+                      <app-notification-row
+                        [notification]="n"
+                        [now]="now"
+                        (opened)="open($event)"
+                      />
+                    </li>
                   }
                 </ul>
               }
@@ -77,15 +77,25 @@ import { ShellIconComponent } from '../shell-icon/shell-icon.component';
                 <h3 class="np__label">Earlier</h3>
                 <ul class="np__list" aria-label="Earlier notifications">
                   @for (n of sections().earlier; track n.id) {
-                    <li><app-notification-row [notification]="n" [now]="now" (opened)="open($event)" /></li>
+                    <li>
+                      <app-notification-row
+                        [notification]="n"
+                        [now]="now"
+                        (opened)="open($event)"
+                      />
+                    </li>
                   }
                 </ul>
               }
               @if (sections().fresh.length === 0 && sections().earlier.length === 0) {
                 <div class="np__state">
-                  <span class="np__empty-icon" aria-hidden="true"><app-shell-icon name="bell" [size]="22" /></span>
+                  <span class="np__empty-icon" aria-hidden="true"
+                    ><app-shell-icon name="bell" [size]="22"
+                  /></span>
                   <p class="np__empty-title">No notifications yet</p>
-                  <p class="np__note">We'll tell you when a card you want is listed in your region.</p>
+                  <p class="np__note">
+                    We'll tell you when a card you want is listed in your region.
+                  </p>
                 </div>
               }
             }

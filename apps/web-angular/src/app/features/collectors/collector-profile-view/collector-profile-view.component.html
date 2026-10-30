@@ -37,10 +37,14 @@
       }
       <p class="cp__facts">
         @if (p.location; as location) {
-          <span data-testid="collector-public-label"
-            >@if (location.city) {<span data-testid="collector-city">{{ location.city }}</span>, }{{
-              location.subdivisionName || location.countryName
-            }}</span
+          <!-- One text after the city: a line break of the template never adds a space. -->
+          <span data-testid="collector-public-label">
+            @if (location.city) {
+              <span data-testid="collector-city">{{ location.city }}</span>
+            }
+            <span>{{
+              (location.city ? ', ' : '') + (location.subdivisionName || location.countryName)
+            }}</span></span
           >
           <span aria-hidden="true"> · </span>
         }
@@ -137,7 +141,11 @@
           }
           <span class="cp__spacer"></span>
           @if (isOwn()) {
-            <a class="cp__primary cp__primary--sm" routerLink="/inventory" [queryParams]="{ add: 'new' }">
+            <a
+              class="cp__primary cp__primary--sm"
+              routerLink="/inventory"
+              [queryParams]="{ add: 'new' }"
+            >
               <app-shell-icon name="plus" [size]="18" />
               Add cards
             </a>
@@ -156,7 +164,12 @@
                     [routerLink]="['/cards', item.card.id]"
                     [queryParams]="item.printing.id ? { printing: item.printing.id } : {}"
                   >
-                    <app-card-image class="cp__card-art" [src]="picture(item)" [game]="item.card.game" alt="" />
+                    <app-card-image
+                      class="cp__card-art"
+                      [src]="picture(item)"
+                      [game]="item.card.game"
+                      alt=""
+                    />
                     <span class="cp__card-name">{{ item.card.name }}</span>
                     <span class="cp__card-price">{{ price(item) || ' ' }}</span>
                   </a>
@@ -165,7 +178,12 @@
             </ul>
             @if (cardsExpanded() && cardsHasMore()) {
               <div class="cp__more-row">
-                <button type="button" class="cp__outline" [disabled]="cardsLoadingMore()" (click)="moreCards.emit()">
+                <button
+                  type="button"
+                  class="cp__outline"
+                  [disabled]="cardsLoadingMore()"
+                  (click)="moreCards.emit()"
+                >
                   {{ cardsLoadingMore() ? 'Loading…' : 'Load more' }}
                 </button>
               </div>
@@ -180,7 +198,9 @@
               {{
                 isOwn()
                   ? 'Your public cards show here. Set a card to Public in Inventory.'
-                  : 'No public cards' + (cardGame() ? ' of ' + gameLabel(cardGame()!) : '') + ' yet.'
+                  : 'No public cards' +
+                    (cardGame() ? ' of ' + gameLabel(cardGame()!) : '') +
+                    ' yet.'
               }}
             </p>
           }
@@ -200,9 +220,16 @@
           <h2 class="cp__h2" id="collector-binders">Binders</h2>
           <span class="cp__spacer"></span>
           @if (isOwn()) {
-            <a class="cp__see" routerLink="/inventory" [queryParams]="{ tab: 'binders' }">See all</a>
+            <a class="cp__see" routerLink="/inventory" [queryParams]="{ tab: 'binders' }"
+              >See all</a
+            >
           } @else if ((binders()?.length ?? 0) > bindersPreview) {
-            <button type="button" class="cp__see" [attr.aria-expanded]="allBinders()" (click)="toggleBinders()">
+            <button
+              type="button"
+              class="cp__see"
+              [attr.aria-expanded]="allBinders()"
+              (click)="toggleBinders()"
+            >
               {{ allBinders() ? 'Show fewer' : 'See all' }}
             </button>
           }
@@ -215,19 +242,34 @@
                   <a class="cp__binder" [routerLink]="['/binders', binder.id]">
                     <span class="cp__cover" aria-hidden="true">
                       @if (binderCover(binder); as photo) {
-                        <img class="cp__cover-photo" [src]="photo | mediaUrl" alt="" loading="lazy" />
+                        <img
+                          class="cp__cover-photo"
+                          [src]="photo | mediaUrl"
+                          alt=""
+                          loading="lazy"
+                        />
                       } @else {
                         <span class="cp__fan">
                           @for (art of binderArts(binder); track $index) {
-                            <app-card-image class="cp__fan-card" [src]="art" [game]="binder.games[0]" alt="" />
+                            <app-card-image
+                              class="cp__fan-card"
+                              [src]="art"
+                              [game]="binder.games[0]"
+                              alt=""
+                            />
                           }
                         </span>
                       }
                       @if (binder.sellsAsCore) {
-                        <span class="cp__core-tag"><app-shell-icon name="layers" [size]="12" /> Deck core</span>
+                        <span class="cp__core-tag"
+                          ><app-shell-icon name="layers" [size]="12" /> Deck core</span
+                        >
                       }
                       @if ((binder.photos?.length ?? 0) > 0) {
-                        <span class="cp__photos"><app-shell-icon name="camera" [size]="12" /> {{ binder.photos!.length }} {{ binder.photos!.length === 1 ? 'photo' : 'photos' }}</span>
+                        <span class="cp__photos"
+                          ><app-shell-icon name="camera" [size]="12" /> {{ binder.photos!.length }}
+                          {{ binder.photos!.length === 1 ? 'photo' : 'photos' }}</span
+                        >
                       }
                     </span>
                     <span class="cp__binder-row">
@@ -244,7 +286,9 @@
           } @else if (bindersFailed()) {
             <p class="cp__muted" role="alert">
               Public binders could not load.
-              <button type="button" class="cp__text" (click)="retryBinders.emit()">Try again</button>
+              <button type="button" class="cp__text" (click)="retryBinders.emit()">
+                Try again
+              </button>
             </p>
           } @else {
             <p class="cp__empty">
@@ -273,9 +317,16 @@
               <h2 class="cp__h2" id="collector-wishlist">Looking for</h2>
               <span class="cp__spacer"></span>
               @if (isOwn()) {
-                <a class="cp__see" routerLink="/search" [queryParams]="{ tab: 'wishlist' }">See all</a>
+                <a class="cp__see" routerLink="/search" [queryParams]="{ tab: 'wishlist' }"
+                  >See all</a
+                >
               } @else if (rows.length > wishesPreview) {
-                <button type="button" class="cp__see" [attr.aria-expanded]="allWishes()" (click)="toggleWishes()">
+                <button
+                  type="button"
+                  class="cp__see"
+                  [attr.aria-expanded]="allWishes()"
+                  (click)="toggleWishes()"
+                >
                   {{ allWishes() ? 'Show fewer' : 'See all' }}
                 </button>
               }
@@ -283,16 +334,23 @@
             @if (rows.length > 0) {
               <ul
                 class="cp__wishes"
-                [attr.aria-label]="isOwn() ? 'Cards you are looking for' : 'Cards ' + p.handle + ' is looking for'"
+                [attr.aria-label]="
+                  isOwn() ? 'Cards you are looking for' : 'Cards ' + p.handle + ' is looking for'
+                "
               >
-                @for (row of isOwn() ? rows.slice(0, wishesPreview) : shownWishes(); track row.key) {
+                @for (
+                  row of isOwn() ? rows.slice(0, wishesPreview) : shownWishes();
+                  track row.key
+                ) {
                   <li class="cp__wish">
                     <span class="cp__wish-art" aria-hidden="true">
                       <app-card-image [src]="row.imageUrl" [game]="row.game" size="xs" alt="" />
                     </span>
                     <span class="cp__wish-text">
                       @if (row.cardId) {
-                        <a class="cp__wish-name" [routerLink]="['/cards', row.cardId]">{{ row.name }}</a>
+                        <a class="cp__wish-name" [routerLink]="['/cards', row.cardId]">{{
+                          row.name
+                        }}</a>
                       } @else {
                         <span class="cp__wish-name">{{ row.name }}</span>
                       }
@@ -330,7 +388,9 @@
                 }
               </ul>
             } @else {
-              <p class="cp__empty">Add the cards you want: collectors see them here when you show your wishlist.</p>
+              <p class="cp__empty">
+                Add the cards you want: collectors see them here when you show your wishlist.
+              </p>
             }
           </section>
         }
@@ -343,7 +403,9 @@
         @if (p.bio) {
           <p class="cp__bio">{{ p.bio }}</p>
         } @else {
-          <p class="cp__muted">{{ isOwn() ? 'Say what you collect and trade in Edit profile.' : 'No bio yet.' }}</p>
+          <p class="cp__muted">
+            {{ isOwn() ? 'Say what you collect and trade in Edit profile.' : 'No bio yet.' }}
+          </p>
         }
         @if (p.games.length > 0 || p.tags.length > 0) {
           <dl class="cp__facts-list">
@@ -351,7 +413,9 @@
               <dt>Games</dt>
               <dd>
                 @for (game of p.games; track game) {
-                  <span class="cp__game"><app-game-monogram [game]="game" [size]="16" /> {{ gameLabel(game) }}</span>
+                  <span class="cp__game"
+                    ><app-game-monogram [game]="game" [size]="16" /> {{ gameLabel(game) }}</span
+                  >
                 }
               </dd>
             }
@@ -374,7 +438,9 @@
             <span class="cp__avg">{{ avg }}</span>
             <span class="cp__stars">
               <app-star-rating [value]="r.average" size="sm" />
-              <span class="cp__muted">{{ r.count }} {{ r.count === 1 ? 'rating' : 'ratings' }}</span>
+              <span class="cp__muted"
+                >{{ r.count }} {{ r.count === 1 ? 'rating' : 'ratings' }}</span
+              >
             </span>
           </div>
         } @else {
@@ -385,10 +451,17 @@
             <ul class="cp__refs" aria-label="Latest references">
               @for (ref of refs; track ref.id) {
                 <li class="cp__ref">
-                  <app-avatar class="cp__ref-avatar" [src]="ref.author.avatarUrl" [name]="ref.author.displayName" [decorative]="true" />
+                  <app-avatar
+                    class="cp__ref-avatar"
+                    [src]="ref.author.avatarUrl"
+                    [name]="ref.author.displayName"
+                    [decorative]="true"
+                  />
                   <span>
                     <span class="cp__ref-who"
-                      ><a [routerLink]="['/collectors', ref.author.handle]">{{ ref.author.handle }}</a>
+                      ><a [routerLink]="['/collectors', ref.author.handle]">{{
+                        ref.author.handle
+                      }}</a>
                       <span class="cp__muted"> · {{ ref.createdAt | date: 'MMM y' }}</span></span
                     >
                     <span class="cp__ref-body">{{ ref.body }}</span>
@@ -407,12 +480,16 @@
         <div class="cp__panel cp__panel--notes">
           <p class="cp__note-row">
             <app-shell-icon name="mail" [size]="18" />
-            <span>Deals happen in the chat. Cards ship by mail, and the buyer pays by e-Transfer outside OrenjiTrade.</span>
+            <span
+              >Deals happen in the chat. Cards ship by mail, and the buyer pays by e-Transfer
+              outside OrenjiTrade.</span
+            >
           </p>
           <p class="cp__note-row">
             <app-shell-icon class="cp__teal" name="lock" [size]="18" />
             <span>
-              Your city is optional and only on your profile. Search, binders, chats and the map never show it.
+              Your city is optional and only on your profile. Search, binders, chats and the map
+              never show it.
               <a routerLink="/settings/location">Location settings</a>
             </span>
           </p>
