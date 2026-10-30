@@ -3,8 +3,9 @@ import { safeReturnUrl } from '../../core/auth/auth.guards';
 import { SessionService } from '../../core/auth/session.service';
 
 /**
- * Sends a freshly signed-in collector to the right place: accept updated terms, the suspended
- * page, onboarding, or the page they were heading to.
+ * Sends a freshly signed-in collector to the right place: accept updated terms (or confirm the
+ * age), the suspended page, "We could not load your account", the welcome, or the page they were
+ * heading to.
  */
 export async function routeAfterSignIn(
   session: SessionService,
@@ -20,6 +21,10 @@ export async function routeAfterSignIn(
     case 'suspended':
     case 'deletion-pending':
       await router.navigate(['/auth/suspended']);
+      return;
+    case 'error':
+      // "We could not load your account" with Try again, which goes on to `target` (spec 14).
+      await router.navigate(['/auth/unavailable'], { queryParams: { returnUrl: target } });
       return;
     default:
       if (status === 'ready' && session.needsOnboarding()) {

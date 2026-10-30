@@ -99,6 +99,19 @@ export const SHELL_ICONS = {
     'M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z',
     'M14 3v5h5M8 13h8M8 17h6',
   ],
+  // Web stage WG (sign-in, welcome and guests): "Hide" a password, a guest's "Create account".
+  eyeOff: [
+    'M10.6 5.1A9.8 9.8 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-2.2 3.2',
+    'M6.6 6.6C3.9 8.4 2 12 2 12s3.5 7 10 7a9.6 9.6 0 0 0 5.4-1.6',
+    'M9.9 9.9a3 3 0 0 0 4.2 4.2',
+    'm3 3 18 18',
+  ],
+  userPlus: [
+    'M10 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8z',
+    'M3 21a7 7 0 0 1 12.5-4.3',
+    'M19 14v6',
+    'M16 17h6',
+  ],
   lock: [
     'M6 11h12a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z',
     'M8 11V7a4 4 0 0 1 8 0v4',

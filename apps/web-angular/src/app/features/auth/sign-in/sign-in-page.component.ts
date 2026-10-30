@@ -1,29 +1,27 @@
 import { ChangeDetectionStrategy, Component, inject, input, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Router, RouterLink } from '@angular/router';
 import { authErrorCode, authErrorMessage, isPopupDismissed } from '../../../core/auth/auth-errors';
 import { AuthService } from '../../../core/auth/auth.service';
 import { SessionService } from '../../../core/auth/session.service';
+import { ShellIconComponent } from '../../../core/layout/shell-icon/shell-icon.component';
 import { AuthLayoutComponent } from '../auth-layout/auth-layout.component';
 import { routeAfterSignIn } from '../auth-navigation';
 import { GoogleButtonComponent } from '../google-button/google-button.component';
 
-/** `/auth/sign-in`: email + password or Google, then onward to wherever the collector was going. */
+/**
+ * `/auth/sign-in` (spec 14, board W27): "Not now, keep browsing", the wordmark and "Find collectors
+ * in your region…", email and password (48 each, "Show"), "Forgot your password?", [Sign in]
+ * (orange 52), "or", [Continue with Google] (outline 52), "New to OrenjiTrade? Create an account";
+ * then onward to wherever the collector was going (`?returnUrl=`, the pending action of a guest
+ * finishing there).
+ */
 @Component({
   selector: 'app-sign-in-page',
   imports: [
     ReactiveFormsModule,
     RouterLink,
-    MatButtonModule,
-    MatFormFieldModule,
-    MatIconModule,
-    MatInputModule,
-    MatProgressSpinnerModule,
+    ShellIconComponent,
     AuthLayoutComponent,
     GoogleButtonComponent,
   ],
@@ -48,8 +46,16 @@ export class SignInPageComponent {
   protected readonly googleBusy = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly hidePassword = signal(true);
+  protected readonly submitted = signal(false);
+
+  /** A field's message shows once it was left or a submit was tried. */
+  protected shows(name: 'email' | 'password'): boolean {
+    const control = this.form.controls[name];
+    return control.invalid && (control.touched || this.submitted());
+  }
 
   protected async submit(): Promise<void> {
+    this.submitted.set(true);
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;

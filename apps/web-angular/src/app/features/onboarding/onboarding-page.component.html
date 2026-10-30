@@ -1,183 +1,249 @@
-<div class="page onboarding">
-  <header class="onboarding__header">
-    <p class="onboarding__eyebrow">Welcome to OrenjiTrade</p>
-    <h1 class="onboarding__title">Let's set up your collector profile</h1>
-    <p class="onboarding__subtitle">
-      A few quick steps so collectors in your region can find you. You can change everything later
-      in Settings.
-    </p>
-  </header>
+<div class="welcome">
+  <p class="welcome__wordmark">Orenji<span class="welcome__trade">Trade</span></p>
 
-  @if (loading()) {
-    <div class="onboarding__card" aria-busy="true">
-      <span class="visually-hidden">Loading your profile</span>
-      <app-skeleton width="40%" height="1.5rem" />
-      <app-skeleton variant="list" lines="3" />
-    </div>
-  } @else if (loadError(); as error) {
-    <app-error-state
-      title="We could not load your profile"
-      [message]="error.message"
-      [requestId]="error.requestId"
-      (retry)="load()"
-    />
-  } @else {
-    <mat-stepper
-      class="onboarding__card"
-      linear
-      labelPosition="bottom"
-      aria-label="Onboarding steps"
-    >
-      @if (ageStep()) {
-        <mat-step label="Age" [completed]="ageDone()" [editable]="false">
-          <h2 class="onboarding__step-title">Are you 18 or older?</h2>
-          <p class="onboarding__step-text">
-            OrenjiTrade is for adults. You must be 18 years of age or older to be shown on the map,
-            message collectors or post in the community. We record only your confirmation and its
-            date; no identity document is requested. Accounts found to belong to minors are closed
-            (see the
-            <a routerLink="/legal/terms" target="_blank" rel="noopener">Terms of Service</a>).
-          </p>
-          @if (legal.error(); as legalError) {
-            <app-error-state
-              compact
-              title="We could not load the confirmation"
-              [message]="legalError.message"
-              (retry)="retryLegal()"
-            />
-          } @else {
-            <app-age-confirmation-checkbox
-              [control]="ageConfirmed"
-              [showError]="ageSubmitted() && ageConfirmed.invalid"
-            />
-          }
-          @if (stepError() && busy() === null) {
-            <p class="onboarding__error" role="alert">{{ stepError() }}</p>
-          }
-          <div class="onboarding__actions">
-            <button
-              matButton="filled"
-              type="button"
-              [disabled]="busy() !== null || ageDone()"
-              (click)="confirmAge()"
-            >
-              @if (busy() === 'age') {
-                <mat-spinner diameter="18" aria-hidden="true" />
-              }
-              Continue
-            </button>
-          </div>
-        </mat-step>
-      }
-
-      <mat-step label="Profile" [completed]="profileDone()" [editable]="true">
-        <h2 class="onboarding__step-title">Who are you?</h2>
-        <p class="onboarding__step-text">
-          Your handle is your public address; your display name is what collectors see.
-        </p>
-        <form [formGroup]="form" (ngSubmit)="saveProfile()" novalidate aria-label="Profile">
-          <app-profile-fields [form]="form" />
-          @if (stepError() && busy() === null) {
-            <p class="onboarding__error" role="alert">{{ stepError() }}</p>
-          }
-          <div class="onboarding__actions">
-            <button matButton="filled" type="submit" [disabled]="busy() !== null">
-              @if (busy() === 'profile') {
-                <mat-spinner diameter="18" aria-hidden="true" />
-              }
-              Continue
-            </button>
-          </div>
-        </form>
-      </mat-step>
-
-      <mat-step label="Interests" [completed]="interestsDone()" [editable]="true">
-        <h2 class="onboarding__step-title">What do you collect?</h2>
-        <p class="onboarding__step-text">
-          Pick your games and a few tags. They appear on your profile and help collectors find you.
-        </p>
-        <app-game-picker [value]="games()" (valueChange)="games.set($event)" />
-        <h3 class="onboarding__sub">Languages</h3>
-        <app-language-picker [value]="languages()" (valueChange)="languages.set($event)" />
-        <h3 class="onboarding__sub">Tags</h3>
-        <app-tag-picker
-          [selected]="tags()"
-          (selectedChange)="tags.set($event)"
-          [customLabels]="customTags()"
-          (customLabelsChange)="customTags.set($event)"
-        />
-        @if (interestsInvalid() && !hasInterests()) {
-          <p class="onboarding__error" role="alert">Choose at least one game or one tag.</p>
+  <section class="welcome__card" [attr.aria-labelledby]="'welcome-title'">
+    @if (loading()) {
+      <div aria-busy="true" class="welcome__loading">
+        <span class="visually-hidden">{{ copy.loading }}</span>
+        <app-skeleton variant="list" lines="5" />
+      </div>
+    } @else if (loadError(); as error) {
+      <h1 class="visually-hidden" id="welcome-title">{{ copy.eyebrow }}</h1>
+      <app-error-state [title]="copy.loadError" [message]="error.message" (retry)="load()" />
+    } @else {
+      @let current = step();
+      <p class="welcome__step" data-testid="welcome-step">
+        {{ copy.step(stepNumber(), 3) }}
+      </p>
+      <div class="welcome__bar" aria-hidden="true">
+        @for (part of steps; track part; let i = $index) {
+          <span class="welcome__bar-part" [class.welcome__bar-part--on]="i < stepNumber()"></span>
         }
-        @if (stepError() && busy() === null) {
-          <p class="onboarding__error" role="alert">{{ stepError() }}</p>
-        }
-        <div class="onboarding__actions">
-          <button matButton type="button" matStepperPrevious>Back</button>
-          <button
-            matButton="filled"
-            type="button"
-            [disabled]="busy() !== null"
-            (click)="saveInterests()"
+      </div>
+
+      @switch (current) {
+        @case ('profile') {
+          <h1 class="welcome__title" id="welcome-title" tabindex="-1">
+            {{ copy.profile.title }}
+          </h1>
+          <p class="welcome__intro">{{ copy.profile.intro }}</p>
+          <form
+            class="welcome__form"
+            [formGroup]="form"
+            (ngSubmit)="saveProfile()"
+            novalidate
+            [attr.aria-label]="copy.profile.title"
           >
-            @if (busy() === 'interests') {
-              <mat-spinner diameter="18" aria-hidden="true" />
+            <div class="field field--first">
+              <label class="field__label" for="wl-handle">{{ copy.profile.handle }}</label>
+              <div class="field__wrap">
+                <span class="welcome__at" aria-hidden="true">&#64;</span>
+                <input
+                  id="wl-handle"
+                  formControlName="handle"
+                  autocomplete="username"
+                  autocapitalize="none"
+                  spellcheck="false"
+                  required
+                  [attr.maxlength]="handleMax"
+                  [attr.aria-invalid]="handleError() || check() === 'taken' ? 'true' : null"
+                  aria-describedby="wl-handle-check wl-handle-hint"
+                  (input)="onHandleInput($event)"
+                />
+              </div>
+              <p
+                class="welcome__check"
+                id="wl-handle-check"
+                aria-live="polite"
+                [attr.data-state]="handleError() ? 'error' : check()"
+              >
+                @if (handleError(); as message) {
+                  {{ message }}
+                } @else {
+                  @switch (check()) {
+                    @case ('checking') {
+                      {{ copy.profile.checking }}
+                    }
+                    @case ('free') {
+                      <app-shell-icon name="checkCircle" [size]="16" />
+                      {{ copy.profile.free(settled()) }}
+                    }
+                    @case ('yours') {
+                      <app-shell-icon name="checkCircle" [size]="16" />
+                      {{ copy.profile.yours(settled()) }}
+                    }
+                    @case ('taken') {
+                      {{ copy.profile.taken }}
+                    }
+                  }
+                }
+              </p>
+              <span class="field__help" id="wl-handle-hint">{{ copy.profile.handleHint }}</span>
+            </div>
+
+            <div class="field">
+              <label class="field__label" for="wl-name">{{ copy.profile.displayName }}</label>
+              <input
+                id="wl-name"
+                class="field__input"
+                formControlName="displayName"
+                autocomplete="nickname"
+                required
+                [attr.maxlength]="nameMax"
+                [attr.aria-invalid]="nameError() ? 'true' : null"
+                [attr.aria-describedby]="
+                  nameError() ? 'wl-name-error wl-name-hint' : 'wl-name-hint'
+                "
+              />
+              <span class="field__help" id="wl-name-hint">{{ copy.profile.displayNameHint }}</span>
+              @if (nameError(); as message) {
+                <p class="field__error" id="wl-name-error">{{ message }}</p>
+              }
+            </div>
+
+            <div class="field">
+              <label class="field__label" for="wl-bio">{{ copy.profile.bio }}</label>
+              <textarea
+                id="wl-bio"
+                class="field__input welcome__bio"
+                formControlName="bio"
+                rows="3"
+                [attr.maxlength]="bioMax"
+                [placeholder]="copy.profile.bioPlaceholder"
+                [attr.aria-invalid]="bioError() ? 'true' : null"
+                [attr.aria-describedby]="bioError() ? 'wl-bio-error wl-bio-count' : 'wl-bio-count'"
+              ></textarea>
+              <span class="field__help welcome__count" id="wl-bio-count"
+                >{{ form.controls.bio.value.length }} / {{ bioMax }}</span
+              >
+              @if (bioError(); as message) {
+                <p class="field__error" id="wl-bio-error">{{ message }}</p>
+              }
+            </div>
+
+            @if (stepError() && busy() === null) {
+              <p class="field__error welcome__error" role="alert">{{ stepError() }}</p>
             }
-            Continue
-          </button>
-        </div>
-      </mat-step>
-
-      <mat-step label="Location">
-        <ng-template matStepContent>
-          <h2 class="onboarding__step-title">Where are you?</h2>
-          <p class="onboarding__step-text">
-            Pick your country and your state or province: they set your region and where your
-            binders appear on the map. Others only ever see your state or province; your city is
-            optional and shown only on your profile if you want.
-          </p>
-          <app-location-fields
-            [value]="location()"
-            [showErrors]="locationSubmitted()"
-            (valueChange)="location.set($event)"
-          />
-
-          <div class="onboarding__discover">
-            <mat-slide-toggle
-              [checked]="discoverable()"
-              (change)="discoverable.set($event.checked)"
-              aria-describedby="discover-help"
-            >
-              Show me on the map
-            </mat-slide-toggle>
-            <p class="onboarding__step-text" id="discover-help">
-              When on, collectors of your region see your state or province and can find your public
-              binders. Off by default; change it anytime in Settings → Privacy.
-            </p>
+            <div class="welcome__actions">
+              <button
+                type="submit"
+                class="btn btn--primary"
+                [attr.aria-disabled]="busy() ? 'true' : null"
+              >
+                {{ busy() === 'profile' ? copy.saving : copy.continue }}
+              </button>
+            </div>
+          </form>
+        }
+        @case ('games') {
+          <h1 class="welcome__title" id="welcome-title" tabindex="-1">{{ copy.games.title }}</h1>
+          <p class="welcome__intro">{{ copy.games.intro }}</p>
+          <div class="welcome__group">
+            @if (gameTiles().length > 0) {
+              <app-welcome-game-tiles [games]="gameTiles()" [(value)]="games" />
+            } @else if (gamesStore.error()) {
+              <app-error-state
+                compact
+                title="We could not load the games"
+                [message]="gamesStore.error()?.message ?? ''"
+                (retry)="reloadGames()"
+              />
+            } @else {
+              <div aria-busy="true">
+                <span class="visually-hidden">Loading the games</span>
+                <app-skeleton height="96px" />
+              </div>
+            }
           </div>
-
-          @if (stepError() && busy() === null) {
-            <p class="onboarding__error" role="alert">{{ stepError() }}</p>
+          <h2 class="welcome__sub">{{ copy.games.languages }}</h2>
+          <app-language-picker [value]="languages()" (valueChange)="languages.set($event)" />
+          <h2 class="welcome__sub">{{ copy.games.tags }}</h2>
+          <app-tag-picker
+            [selected]="tags()"
+            (selectedChange)="tags.set($event)"
+            [customLabels]="customTags()"
+            (customLabelsChange)="customTags.set($event)"
+          />
+          @if (interestsInvalid() && !hasInterests()) {
+            <p class="field__error welcome__error" role="alert">{{ copy.games.needInterest }}</p>
           }
-          <div class="onboarding__actions">
-            <button matButton type="button" matStepperPrevious>Back</button>
-            <button matButton type="button" [disabled]="busy() !== null" (click)="finish(false)">
-              Skip for now
+          @if (stepError() && busy() === null) {
+            <p class="field__error welcome__error" role="alert">{{ stepError() }}</p>
+          }
+          <div class="welcome__actions">
+            <button type="button" class="btn btn--outline" (click)="goBack()">
+              {{ copy.back }}
             </button>
             <button
-              matButton="filled"
               type="button"
-              [disabled]="busy() !== null"
-              (click)="finish(true)"
+              class="btn btn--primary"
+              [attr.aria-disabled]="busy() ? 'true' : null"
+              (click)="busy() || saveInterests()"
             >
-              @if (busy() === 'location') {
-                <mat-spinner diameter="18" aria-hidden="true" />
-              }
-              Finish
+              {{ busy() === 'interests' ? copy.saving : copy.continue }}
             </button>
           </div>
-        </ng-template>
-      </mat-step>
-    </mat-stepper>
-  }
+        }
+        @case ('place') {
+          <h1 class="welcome__title" id="welcome-title" tabindex="-1">{{ copy.place.title }}</h1>
+          <p class="welcome__intro">{{ copy.place.intro }}</p>
+          <div class="welcome__group">
+            <app-location-fields
+              [value]="location()"
+              [showErrors]="locationSubmitted()"
+              (valueChange)="location.set($event)"
+            />
+          </div>
+          <div class="welcome__map">
+            <span class="welcome__map-icon" aria-hidden="true">
+              <app-shell-icon name="map" [size]="20" />
+            </span>
+            <div class="welcome__map-text">
+              <span class="welcome__map-title" id="wl-map-label">{{
+                copy.place.discoverable
+              }}</span>
+              <span class="welcome__map-line" id="wl-map-help">{{
+                copy.place.discoverableHelp
+              }}</span>
+            </div>
+            <mat-slide-toggle
+              data-testid="welcome-map-switch"
+              [checked]="discoverable()"
+              aria-labelledby="wl-map-label"
+              aria-describedby="wl-map-help"
+              (change)="discoverable.set($event.checked)"
+            />
+          </div>
+          @if (stepError() && busy() === null) {
+            <p class="field__error welcome__error" role="alert">{{ stepError() }}</p>
+          }
+          <div class="welcome__actions">
+            <button type="button" class="btn btn--outline" (click)="goBack()">
+              {{ copy.back }}
+            </button>
+            <button
+              type="button"
+              class="btn btn--primary"
+              [attr.aria-disabled]="busy() ? 'true' : null"
+              (click)="busy() || finish(true)"
+            >
+              {{ busy() === 'location' ? copy.place.finishing : copy.place.finish }}
+            </button>
+          </div>
+          <button
+            type="button"
+            class="link link--center"
+            [attr.aria-disabled]="busy() ? 'true' : null"
+            (click)="busy() || finish(false)"
+          >
+            {{ copy.place.skip }}
+          </button>
+        }
+      }
+    }
+  </section>
+
+  <button type="button" class="link link--center welcome__out" (click)="signOut()">
+    {{ copy.signOut }}
+  </button>
 </div>

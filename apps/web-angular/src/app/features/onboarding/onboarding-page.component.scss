@@ -1,91 +1,213 @@
+// The welcome (spec 14): a centred 560 card on the canvas, "Step n of 3" with a 3-part bar, Back
+// and Continue (52). The fields share the sign-in steps' styles (`../auth/auth-form.scss`).
 :host {
   display: block;
+  min-height: 100dvh;
+  background: var(--color-background);
 }
 
-.onboarding {
-  max-width: 1040px;
-}
-
-.onboarding__header {
-  margin-bottom: var(--spacing-6);
-}
-
-.onboarding__eyebrow {
-  margin: 0 0 var(--spacing-1);
-  color: var(--color-primary);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.onboarding__title {
-  font-size: var(--font-size-3xl);
-}
-
-.onboarding__subtitle {
-  margin: var(--spacing-2) 0 0;
-  color: var(--color-text-muted);
-  max-width: 60ch;
-}
-
-.onboarding__card {
-  display: block;
-  padding: var(--spacing-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
-  --mat-stepper-container-color: transparent;
-}
-
-.onboarding__step-title {
-  font-size: var(--font-size-xl);
-}
-
-.onboarding__step-text {
-  margin: var(--spacing-1) 0 var(--spacing-4);
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-}
-
-.onboarding__sub {
-  margin: var(--spacing-6) 0 var(--spacing-3);
-  font-size: var(--font-size-md);
-}
-
-.onboarding__discover {
-  margin-top: var(--spacing-5);
-  padding: var(--spacing-4);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-variant);
-
-  .onboarding__step-text {
-    margin-bottom: 0;
-    margin-top: var(--spacing-2);
-  }
-}
-
-.onboarding__error {
-  margin: var(--spacing-3) 0 0;
-  color: var(--color-danger);
-  font-size: var(--font-size-sm);
-}
-
-.onboarding__actions {
+.welcome {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: var(--spacing-2);
-  margin-top: var(--spacing-5);
-
-  mat-spinner {
-    display: inline-block;
-    margin-right: var(--spacing-2);
-  }
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
+  min-height: 100dvh;
+  padding: 32px 16px 24px;
 }
 
-@media (max-width: 599px) {
-  .onboarding__card {
-    padding: var(--spacing-2);
+.welcome__wordmark {
+  margin: 0 0 24px;
+  color: var(--color-primary);
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: var(--font-weight-bold);
+  line-height: 32px;
+  letter-spacing: -0.4px;
+}
+
+.welcome__trade {
+  color: var(--color-ink);
+}
+
+.welcome__card {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 560px;
+  padding: 32px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-dialog);
+  background: var(--color-surface);
+}
+
+.welcome__step {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 18px;
+}
+
+.welcome__bar {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.welcome__bar-part {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-surface-variant);
+}
+
+.welcome__bar-part--on {
+  background: var(--color-primary);
+}
+
+.welcome__title {
+  margin: 24px 0 0;
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: var(--font-weight-bold);
+  line-height: 32px;
+  letter-spacing: -0.4px;
+  outline: none;
+}
+
+.welcome__intro {
+  margin: 8px 0 0;
+  color: var(--color-text-muted);
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.welcome__form {
+  display: flex;
+  flex-direction: column;
+}
+
+.welcome__at {
+  color: var(--color-text-muted);
+}
+
+.welcome__wrap-input {
+  flex: 1 1 auto;
+}
+
+.welcome__check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 18px;
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.welcome__check[data-state='free'],
+.welcome__check[data-state='yours'] {
+  color: var(--color-accent);
+  font-weight: var(--font-weight-semibold);
+}
+
+.welcome__check[data-state='taken'],
+.welcome__check[data-state='error'] {
+  color: var(--color-danger);
+}
+
+.welcome__bio {
+  height: auto;
+  min-height: 88px;
+  padding: 12px 14px;
+  resize: vertical;
+}
+
+.welcome__count {
+  align-self: flex-end;
+}
+
+.welcome__group {
+  margin-top: 24px;
+}
+
+.welcome__sub {
+  margin: 24px 0 10px;
+  color: var(--color-text-secondary);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 18px;
+}
+
+.welcome__map {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+}
+
+.welcome__map-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--color-accent-tint);
+  color: var(--color-accent);
+}
+
+.welcome__map-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.welcome__map-title {
+  font-size: 15px;
+  font-weight: var(--font-weight-semibold);
+}
+
+.welcome__map-line {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.welcome__error {
+  margin-top: 16px;
+}
+
+.welcome__actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.welcome__actions .btn {
+  flex: 1 1 0;
+}
+
+.welcome__out {
+  margin-top: 16px;
+}
+
+.welcome__loading {
+  padding: 8px 0;
+}
+
+@media (max-width: 599.98px) {
+  .welcome {
+    padding-top: 20px;
+  }
+
+  .welcome__card {
+    padding: 24px 20px;
   }
 }

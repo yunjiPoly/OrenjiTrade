@@ -8,6 +8,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import {
   FormArray,
   FormControl,
@@ -15,18 +16,15 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Router, RouterLink } from '@angular/router';
+import { startWith } from 'rxjs';
 import { authErrorCode, authErrorMessage, isPopupDismissed } from '../../../core/auth/auth-errors';
 import { safeReturnUrl } from '../../../core/auth/auth.guards';
 import { AuthService } from '../../../core/auth/auth.service';
 import { SessionService } from '../../../core/auth/session.service';
 import { isApiError } from '../../../core/http/api-error';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
+import { ShellIconComponent } from '../../../core/layout/shell-icon/shell-icon.component';
 import {
   AGE_CONFIRMATION_TYPE,
   AgeConfirmationCheckboxComponent,
@@ -42,24 +40,30 @@ import {
   ConsentItem,
   LegalConsentListComponent,
 } from '../legal-consent-list/legal-consent-list.component';
+import {
+  DISPLAY_NAME_MAX,
+  SIGN_UP_BLOCKER_LINES,
+  displayNameError,
+  signUpBlocker,
+} from './sign-up-rules';
 
 export const MIN_PASSWORD_LENGTH = 8;
 
 /**
- * `/auth/sign-up`: email + password (or Google), acceptance of every legal document required at
- * registration plus the 18+ confirmation (both recorded with `POST /me/consents`), then a
- * verification email. Google sign-ups collect the same consents on the consent page.
+ * `/auth/sign-up`, Create your account (spec 14, board W27): display name, email and password,
+ * the documents card ("Accept all", each with "Read") and the 18+ confirmation in its own card,
+ * never covered by "Accept all"; "Create account" waits (aria-disabled) until every box is
+ * ticked, with one reason line under it ("Accept the documents and confirm your age to
+ * continue."), amber after a press. Then the Firebase account (with its display name), the
+ * consents (`POST /me/consents`) and the verification email. Google sign-ups collect the same
+ * consents on Review our terms.
  */
 @Component({
   selector: 'app-sign-up-page',
   imports: [
     ReactiveFormsModule,
     RouterLink,
-    MatButtonModule,
-    MatFormFieldModule,
-    MatIconModule,
-    MatInputModule,
-    MatProgressSpinnerModule,
+    ShellIconComponent,
     AuthLayoutComponent,
     GoogleButtonComponent,
     LegalConsentListComponent,
@@ -68,7 +72,7 @@ export const MIN_PASSWORD_LENGTH = 8;
     SkeletonComponent,
   ],
   templateUrl: './sign-up-page.component.html',
-  styleUrl: '../auth-form.scss',
+  styleUrls: ['../auth-form.scss', './sign-up-page.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SignUpPageComponent {
@@ -87,7 +91,10 @@ export class SignUpPageComponent {
   protected readonly ageConfirmed = this.fb.control(false, {
     validators: Validators.requiredTrue,
   });
+  protected readonly displayNameMax = DISPLAY_NAME_MAX;
+  protected readonly blockerLines = SIGN_UP_BLOCKER_LINES;
   protected readonly form = this.fb.group({
+    displayName: [''],
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(MIN_PASSWORD_LENGTH)]],
     ageConfirmed: this.ageConfirmed,
@@ -105,6 +112,39 @@ export class SignUpPageComponent {
   protected readonly submitted = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly hidePassword = signal(true);
+  /** "Create account" was pressed while something was missing: the reason line turns amber. */
+  protected readonly tried = signal(false);
+  private readonly consentValues = toSignal(
+    this.consents.valueChanges.pipe(startWith(this.consents.value)),
+    { initialValue: [] as boolean[] },
+  );
+  private readonly ageValue = toSignal(
+    this.ageConfirmed.valueChanges.pipe(startWith(this.ageConfirmed.value)),
+    { initialValue: false },
+  );
+  private readonly nameValue = toSignal(
+    this.form.controls.displayName.valueChanges.pipe(startWith('')),
+    { initialValue: '' },
+  );
+  /** What keeps "Create account" waiting (null once every box is ticked). */
+  protected readonly blocker = computed(() => {
+    const values = this.consentValues();
+    return signUpBlocker({
+      documentsAccepted:
+        this.consentItems().length > 0 &&
+        values.length === this.consentItems().length &&
+        values.every(Boolean),
+      ageNeeded: !!this.legal.ageConfirmation(),
+      ageConfirmed: this.ageValue(),
+    });
+  });
+  /** The display name's message, after a submit or once the field was left. */
+  protected readonly nameError = computed(() => {
+    this.nameValue();
+    const control = this.form.controls.displayName;
+    return this.submitted() || this.nameTouched() ? displayNameError(control.value) : null;
+  });
+  private readonly nameTouched = signal(false);
   protected readonly step = signal<'idle' | 'account' | 'consents' | 'verification'>('idle');
 
   constructor() {
@@ -119,21 +159,44 @@ export class SignUpPageComponent {
     void this.legal.load(true);
   }
 
+  /** A field's message shows once it was left or a submit was tried. */
+  protected shows(name: 'email' | 'password'): boolean {
+    const control = this.form.controls[name];
+    return control.invalid && (control.touched || this.submitted());
+  }
+
   protected async submit(): Promise<void> {
+    if (this.submitting()) {
+      return;
+    }
+    // While a box is unticked the press only turns the reason line amber (board W27); the fields
+    // are checked once the button can go.
+    if (this.blocker()) {
+      this.tried.set(true);
+      return;
+    }
     this.submitted.set(true);
-    if (this.form.invalid || this.consents.invalid || this.consentItems().length === 0) {
+    if (
+      this.form.invalid ||
+      displayNameError(this.form.controls.displayName.value) ||
+      this.consents.invalid ||
+      this.consentItems().length === 0
+    ) {
       this.form.markAllAsTouched();
-      this.consents.markAllAsTouched();
+      this.nameTouched.set(true);
       return;
     }
     this.error.set(null);
     this.submitting.set(true);
-    const { email, password } = this.form.getRawValue();
+    const { displayName, email, password } = this.form.getRawValue();
     try {
       const current = this.auth.user();
       if (!current || current.email?.toLowerCase() !== email.trim().toLowerCase()) {
         this.step.set('account');
         await this.auth.signUpWithEmail(email, password);
+        // The account takes its first display name from the token (the welcome offers it again).
+        await this.auth.updateDisplayName(displayName).catch(() => undefined);
+        await this.auth.getIdToken(true).catch(() => null);
       }
       this.step.set('consents');
       await this.session.acceptConsents(this.requiredConsents());

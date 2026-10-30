@@ -1,0 +1,181 @@
+// The split page of the sign-in steps (spec 14, board W27).
+:host {
+  display: block;
+  min-height: 100dvh;
+}
+
+.auth {
+  display: flex;
+  align-items: stretch;
+  min-height: 100dvh;
+  background: var(--color-background);
+}
+
+// The form panel: 560 at 1440 (it grows a little at xl), the art takes the rest.
+.auth__main {
+  display: flex;
+  flex: 1 1 560px;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 100dvh;
+  padding: 24px 16px;
+}
+
+.auth__art {
+  flex: 999 1 400px;
+  min-width: 0;
+  align-self: flex-start;
+}
+
+.auth__top {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 400px;
+  min-height: 40px;
+  margin: 0 auto;
+}
+
+.auth__close {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  margin-left: -12px;
+  padding: 0 14px 0 10px;
+  border-radius: var(--radius-pill);
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+}
+
+.auth__close:hover {
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.auth__middle {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: center;
+  padding: 40px 0;
+}
+
+.auth__column {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.auth__wordmark {
+  margin: 0;
+  color: var(--color-primary);
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: var(--font-weight-bold);
+  line-height: 40px;
+  letter-spacing: -0.5px;
+}
+
+.auth__trade {
+  color: var(--color-ink);
+}
+
+.auth__tile {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin-top: 32px;
+  border-radius: 16px;
+  background: var(--color-accent-tint);
+  color: var(--color-accent);
+}
+
+.auth__tile[data-tone='warning'] {
+  background: color-mix(in srgb, var(--color-warning) 16%, transparent);
+  color: var(--color-warning);
+}
+
+.auth__tile[data-tone='danger'] {
+  background: color-mix(in srgb, var(--color-danger) 14%, transparent);
+  color: var(--color-danger);
+}
+
+.auth__title {
+  margin: 28px 0 0;
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: var(--font-weight-bold);
+  line-height: 36px;
+  letter-spacing: -0.5px;
+}
+
+.auth__title--after-tile {
+  margin-top: 20px;
+}
+
+.auth__lead {
+  margin: 8px 0 0;
+  color: var(--color-text-muted);
+  font-size: 15px;
+  line-height: 24px;
+}
+
+.auth__lead--first {
+  max-width: 360px;
+  margin-top: 12px;
+}
+
+.auth__legal {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.auth__legal a {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.auth__legal a:hover {
+  color: var(--color-ink);
+}
+
+.auth__close:focus-visible,
+.auth__legal a:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+// An account state: the words in a centred 480 card on the canvas (spec 14).
+.auth--card .auth__column {
+  box-sizing: border-box;
+  max-width: 480px;
+  padding: 32px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-dialog);
+  background: var(--color-surface);
+}
+
+.auth--card .auth__top,
+.auth--card .auth__legal {
+  max-width: 480px;
+}
+
+@media (max-width: 599.98px) {
+  .auth--card .auth__column {
+    padding: 24px 20px;
+  }
+}
