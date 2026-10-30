@@ -31,6 +31,8 @@ export class ReportActionsService {
           {
             data: post ? { target, context, post } : { target, context },
             panelClass: 'app-dialog--form',
+            // A post's report uses the window's height (WF review R1-4) and never outgrows it.
+            ...(post ? { maxHeight: 'calc(100dvh - 32px)' } : {}),
             autoFocus: 'dialog',
           },
         )

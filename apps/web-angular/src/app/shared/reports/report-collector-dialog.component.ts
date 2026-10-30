@@ -82,6 +82,7 @@ export function reportPostExcerpt(text: string): string {
  */
 @Component({
   selector: 'app-report-collector-dialog',
+  host: { '[class.report--post]': '!!data.post' },
   imports: [
     ReactiveFormsModule,
     RouterLink,
@@ -308,6 +309,38 @@ export function reportPostExcerpt(text: string): string {
     }
     .reasons--lines .reason:first-child {
       border-top: 0;
+    }
+    /*
+     * Board W22 fits the post, the seven reasons, Details, the sentence and the buttons in one
+     * dialog at 1440x900 (WF review R1-4): the content may use the window's height less the title,
+     * the buttons and 16 px above and below, and the rows are compact (32 px radios, as Material's
+     * density -2, and 12 px lines under the reasons). A shorter window scrolls the content; below
+     * 600 px wide the content keeps Material's 65 % of the height, and the dialog never outgrows the
+     * window (ReportActionsService's maxHeight).
+     */
+    :host(.report--post) mat-dialog-content {
+      /* The form between the title and the content hides Material's "title + content" rule. */
+      padding-top: 0;
+    }
+    @media (min-width: 600px) {
+      :host(.report--post) mat-dialog-content {
+        max-height: max(160px, calc(100dvh - 176px));
+      }
+    }
+    :host(.report--post) .who--post {
+      margin-bottom: var(--spacing-3);
+      padding: 10px var(--spacing-3);
+    }
+    .reasons.reasons--lines {
+      --mat-radio-state-layer-size: 32px;
+      --mat-radio-touch-target-display: none;
+
+      margin-bottom: var(--spacing-2);
+    }
+    .reasons--lines .reason__description {
+      margin: -4px 0 0 36px;
+      font-size: var(--font-size-xs);
+      line-height: 16px;
     }
     .hint {
       margin-right: auto;

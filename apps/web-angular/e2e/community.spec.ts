@@ -244,7 +244,8 @@ test.describe('community rooms', () => {
     const text = `Selling a binder of Fiendsmith staples ${suffix()}`;
     const postId = await apiPost(request, author, text);
     try {
-      const page = await openSignedIn(browser, viewer);
+      // At 1440x900, as board W22 draws the report (WF review R1-4).
+      const page = await openSignedIn(browser, viewer, { width: 1440, height: 900 });
       await page.goto(`/messages/community/${ROOM}`);
       const post = postById(page, postId);
       await expect(post).toContainText(text);
@@ -256,6 +257,17 @@ test.describe('community rooms', () => {
       const report = page.getByRole('dialog', { name: 'Report this post' });
       await expect(report.getByTestId('report-post-preview')).toContainText(text);
       await expect(report).toContainText('Why are you reporting it?');
+      // Every reason, Details and the buttons show at once: the content does not scroll and the
+      // dialog stays inside the window (WF review R1-4).
+      await expect(report.getByRole('radio')).toHaveCount(7);
+      const fit = await report.locator('mat-dialog-content').evaluate((content) => ({
+        overflow: content.scrollHeight - content.clientHeight,
+        bottom: content.closest('.mat-mdc-dialog-surface')!.getBoundingClientRect().bottom,
+      }));
+      expect(fit.overflow).toBeLessThanOrEqual(1);
+      expect(fit.bottom).toBeLessThanOrEqual(900);
+      await expect(report.getByRole('textbox', { name: 'Details (optional)' })).toBeInViewport();
+      await expect(report.getByRole('button', { name: 'Send report' })).toBeInViewport();
       await report.getByRole('radio', { name: 'Spam' }).check();
       await report.getByRole('button', { name: 'Send report' }).click();
       const sent = page.getByRole('dialog', { name: 'Report sent' });

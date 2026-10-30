@@ -74,6 +74,8 @@ describe('ReportCollectorDialogComponent', () => {
     await create();
     // Spec 10.5 (web WC): "Report {handle}", "Choose a reason first." beside a disabled Send.
     expect(element.querySelector('h2')?.textContent).toMatch(/^Report \S+/);
+    // A collector's report keeps its boxed rows and Material's height (only a post's is compact).
+    expect(element.classList).not.toContain('report--post');
     expect(element.textContent).toContain('Why are you reporting them?');
     expect(element.querySelector('[data-testid="report-choose-first"]')?.textContent).toContain(
       'Choose a reason first.',
@@ -151,6 +153,9 @@ describe('ReportCollectorDialogComponent', () => {
     expect(close.getAttribute('aria-label')).toBe('Close');
     expect(close.hasAttribute('mat-dialog-close')).toBe(true);
     expect(element.querySelector('.reasons')?.classList).toContain('reasons--lines');
+    // The compact layout that fits every reason and Details at 1440x900 (WF review R1-4; the
+    // community E2E measures it).
+    expect(element.classList).toContain('report--post');
     expect(element.querySelector('.privacy')?.textContent).toContain(
       'Reports are confidential: they are never told who reported them.',
     );
