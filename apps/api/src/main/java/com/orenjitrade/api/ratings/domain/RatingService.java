@@ -365,26 +365,43 @@ public class RatingService {
     // ---------------------------------------------------------------------------------------
 
     @Transactional(readOnly = true)
-    public PageResponse<RatingView> adminList(
+    public PageResponse<AdminRatingView> adminList(
             @Nullable UUID rateeId,
             @Nullable UUID raterId,
             @Nullable RatingModerationState state,
             int page,
             int size) {
         RatingRepository.Page result = ratings.adminPage(rateeId, raterId, state, page, size);
+        return PageResponse.of(adminViews(result.rows()), page, size, result.total());
+    }
+
+    /**
+     * Ratings as staff read them (web stage WH1): the author, the rated collector and whoever hid
+     * it by name, never a bare id.
+     */
+    private List<AdminRatingView> adminViews(List<RatingRow> rows) {
         Set<UUID> ids = new LinkedHashSet<>();
-        result.rows().forEach(row -> ids.add(row.raterId()));
-        Map<UUID, MemberCard> raters = members.cards(ids);
-        return PageResponse.of(
-                result.rows().stream().map(row -> view(row, raters)).toList(),
-                page,
-                size,
-                result.total());
+        for (RatingRow row : rows) {
+            ids.add(row.raterId());
+            ids.add(row.rateeId());
+            if (row.hiddenBy() != null) {
+                ids.add(row.hiddenBy());
+            }
+        }
+        Map<UUID, MemberCard> cards = members.cards(ids);
+        return rows.stream()
+                .map(
+                        row ->
+                                new AdminRatingView(
+                                        view(row, cards),
+                                        cards.get(row.rateeId()),
+                                        row.hiddenBy() == null ? null : cards.get(row.hiddenBy())))
+                .toList();
     }
 
     /** {@code POST /admin/ratings/{id}/hide}: {@code 409} when already hidden. Audited. */
     @Transactional
-    public RatingView hide(AuthenticatedUser moderator, UUID ratingId, String reason) {
+    public AdminRatingView hide(AuthenticatedUser moderator, UUID ratingId, String reason) {
         RatingRow row =
                 ratings.findForUpdate(ratingId).orElseThrow(() -> ApiException.notFound(NOT_FOUND));
         if (row.moderationState() == RatingModerationState.HIDDEN) {
@@ -407,12 +424,12 @@ public class RatingService {
                 ratingId.toString(),
                 details);
         RatingRow updated = ratings.find(ratingId).orElseThrow();
-        return view(updated, members.cards(List.of(updated.raterId())));
+        return adminViews(List.of(updated)).get(0);
     }
 
     /** {@code POST /admin/ratings/{id}/unhide}: {@code 409} when not hidden. Audited. */
     @Transactional
-    public RatingView unhide(AuthenticatedUser moderator, UUID ratingId) {
+    public AdminRatingView unhide(AuthenticatedUser moderator, UUID ratingId) {
         RatingRow row =
                 ratings.findForUpdate(ratingId).orElseThrow(() -> ApiException.notFound(NOT_FOUND));
         if (row.moderationState() != RatingModerationState.HIDDEN) {
@@ -429,7 +446,7 @@ public class RatingService {
                 ratingId.toString(),
                 Map.of("rateeId", row.rateeId().toString()));
         RatingRow updated = ratings.find(ratingId).orElseThrow();
-        return view(updated, members.cards(List.of(updated.raterId())));
+        return adminViews(List.of(updated)).get(0);
     }
 
     // ---------------------------------------------------------------------------------------
@@ -496,6 +513,16 @@ public class RatingService {
      * @param editableUntil end of the edit window
      */
     public record RatingView(RatingRow row, @Nullable MemberCard rater, Instant editableUntil) {}
+
+    /**
+     * A rating in the moderator console.
+     *
+     * @param rating the rating with its author's card
+     * @param ratee the rated collector's card ({@code null} when unknown)
+     * @param hiddenBy the card of the staff member who hid it ({@code null} when visible)
+     */
+    public record AdminRatingView(
+            RatingView rating, @Nullable MemberCard ratee, @Nullable MemberCard hiddenBy) {}
 
     /**
      * Averages of a collector's visible ratings (one decimal).

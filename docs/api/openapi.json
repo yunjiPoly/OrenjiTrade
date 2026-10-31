@@ -22347,7 +22347,7 @@
           "admin-reports"
         ],
         "summary": "List collector reports (MODERATOR+)",
-        "description": "Newest first; every filter optional.",
+        "description": "Newest first; every filter optional. `number` finds one report by its short number (\"#1047\" is 1047; V135, web stage WH1).",
         "operationId": "listReports",
         "parameters": [
           {
@@ -22397,6 +22397,18 @@
             "schema": {
               "type": "string",
               "format": "uuid"
+            }
+          },
+          {
+            "name": "number",
+            "in": "query",
+            "description": "The report's short number (staff search)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "maximum": 9223372036854775807,
+              "minimum": 1
             }
           },
           {
@@ -22595,6 +22607,134 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RegionsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/references": {
+      "get": {
+        "tags": [
+          "admin-ratings"
+        ],
+        "summary": "List references (MODERATOR+)",
+        "description": "Newest first; filter by the collector it is about, its author or moderation state (web stage WH1, the console's References tab).",
+        "operationId": "listAdminReferences",
+        "parameters": [
+          {
+            "name": "subjectId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "authorId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "OK",
+                "HIDDEN"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0,
+              "maximum": 10000,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResponseAdminReference"
                 }
               }
             }
@@ -23295,7 +23435,7 @@
           "admin-moderation"
         ],
         "summary": "List moderation flags (MODERATOR+)",
-        "description": "Newest first. `state`: OPEN (default), RESOLVED or ALL. Flags are raised by FLAG banned-term rules, repeated-content thresholds (content) and rate thresholds (subjectType USER). No automatic ban ever follows a flag.",
+        "description": "Newest first. `state`: OPEN (default), RESOLVED or ALL. Flags are raised by FLAG banned-term rules, repeated-content thresholds (content) and rate thresholds (subjectType USER). No automatic ban ever follows a flag. A flag on a community post or reply carries its room and text (`community`); a private message's text is never sent here (web stage WH1).",
         "operationId": "listModerationFlags",
         "parameters": [
           {
@@ -33124,12 +33264,19 @@
             "type": "integer",
             "format": "int32",
             "description": "Open reports against the reported collector"
+          },
+          "number": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The short number staff read (\"#1047\", V135)",
+            "example": 1047
           }
         },
         "required": [
           "contextSource",
           "createdAt",
           "id",
+          "number",
           "openReportsAgainstUser",
           "reason",
           "reportedUser",
@@ -33214,12 +33361,31 @@
               "string",
               "null"
             ]
+          },
+          "subject": {
+            "$ref": "#/components/schemas/RatingAuthor",
+            "description": "The collector it is about, by name (web stage WH1)"
+          },
+          "hiddenByHandle": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The handle of the staff member who hid it"
+          },
+          "hiddenAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           }
         },
         "required": [
           "authorId",
           "moderationState",
           "reference",
+          "subject",
           "subjectId"
         ]
       },
@@ -33281,11 +33447,23 @@
               "null"
             ],
             "format": "date-time"
+          },
+          "ratee": {
+            "$ref": "#/components/schemas/RatingAuthor",
+            "description": "The rated collector by name (web stage WH1)"
+          },
+          "hiddenByHandle": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The handle of the staff member who hid it"
           }
         },
         "required": [
           "interactionId",
           "moderationState",
+          "ratee",
           "rateeId",
           "raterId",
           "rating"
@@ -33855,6 +34033,53 @@
           }
         }
       },
+      "FlaggedCommunityContent": {
+        "type": "object",
+        "properties": {
+          "postId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The post (a reply's post)"
+          },
+          "roomSlug": {
+            "type": "string",
+            "example": "americas-north-yugioh"
+          },
+          "roomName": {
+            "type": "string",
+            "example": "Yu-Gi-Oh!"
+          },
+          "regionCode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Platform region code of the room; null for others",
+            "example": "americas-north"
+          },
+          "game": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "yugioh"
+          },
+          "text": {
+            "type": "string"
+          },
+          "removed": {
+            "type": "boolean",
+            "description": "Removed by moderators"
+          }
+        },
+        "required": [
+          "postId",
+          "removed",
+          "roomName",
+          "roomSlug",
+          "text"
+        ]
+      },
       "ModerationFlag": {
         "type": "object",
         "description": "Automatic moderation flag",
@@ -33936,6 +34161,25 @@
               "string",
               "null"
             ]
+          },
+          "authorDisplayName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The author's display name (web stage WH1)"
+          },
+          "resolvedByHandle": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The resolving staff member's handle"
+          },
+          "community": {
+            "type": "null",
+            "$ref": "#/components/schemas/FlaggedCommunityContent",
+            "description": "A flagged community post or reply: its room and text. Null for a private message (its text is shown only inside a report) and an account"
           }
         },
         "required": [
@@ -34505,11 +34749,17 @@
               "SUSPENDED",
               "BANNED"
             ]
+          },
+          "number": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Short number (V135)"
           }
         },
         "required": [
           "createdAt",
           "id",
+          "number",
           "reason",
           "status"
         ]
@@ -39261,6 +39511,12 @@
             "type": "null",
             "$ref": "#/components/schemas/ReportedConversation",
             "description": "Only when the report names a conversation between the two (then that conversation only)"
+          },
+          "number": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The short number staff read (\"#1047\", V135)",
+            "example": 1047
           }
         },
         "required": [
@@ -39269,6 +39525,7 @@
           "history",
           "id",
           "moderatorNotes",
+          "number",
           "reason",
           "reportedUser",
           "reporter",
@@ -39321,7 +39578,8 @@
             ]
           },
           "body": {
-            "type": "string"
+            "type": "string",
+            "description": "Empty when sharedDetail is set: staff never read it"
           },
           "createdAt": {
             "type": "string",
@@ -39333,6 +39591,17 @@
               "OK",
               "FLAGGED",
               "REMOVED"
+            ]
+          },
+          "sharedDetail": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A shipping address or an e-Transfer email was shared here; its text is hidden from staff",
+            "enum": [
+              "SHIPPING_ADDRESS",
+              "ETRANSFER_EMAIL"
             ]
           }
         },
@@ -39398,6 +39667,43 @@
           "memberSince",
           "status"
         ]
+      },
+      "PageResponseAdminReference": {
+        "type": "object",
+        "description": "Offset-paginated list",
+        "properties": {
+          "items": {
+            "type": "array",
+            "description": "Items of the current page",
+            "items": {
+              "$ref": "#/components/schemas/AdminReference"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Zero-based page index",
+            "example": 0
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Requested page size",
+            "example": 20
+          },
+          "totalItems": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total number of items across all pages",
+            "example": 137
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Total number of pages",
+            "example": 7
+          }
+        }
       },
       "PageResponseAdminRating": {
         "type": "object",

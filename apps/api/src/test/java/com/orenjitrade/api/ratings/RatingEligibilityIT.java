@@ -355,6 +355,58 @@ class RatingEligibilityIT extends AbstractPhase7IT {
                 200);
         assertThat(auditActions("REFERENCE", referenceId))
                 .containsExactly("reference.hide", "reference.unhide");
+
+        // The console's References tab (web stage WH1): a moderator lists them by the collector
+        // they are about, their author and their state, with names.
+        callJson(HttpMethod.GET, "/api/v1/admin/references", carol.uid(), null, 403);
+        JsonNode about =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/admin/references?subjectId=" + bob.id(),
+                        moderator,
+                        null,
+                        200);
+        assertThat(about.path("totalItems").asLong()).isEqualTo(1);
+        JsonNode item = about.path("items").get(0);
+        assertThat(item.path("reference").path("id").asString()).isEqualTo(referenceId);
+        assertThat(item.path("reference").path("author").path("handle").asString())
+                .isEqualTo(alice.handle());
+        assertThat(item.path("subject").path("handle").asString()).isEqualTo(bob.handle());
+        assertThat(item.path("moderationState").asString()).isEqualTo("OK");
+        assertThat(item.path("hiddenByHandle").isNull()).isTrue();
+        assertThat(
+                        callJson(
+                                        HttpMethod.GET,
+                                        "/api/v1/admin/references?authorId=" + alice.id(),
+                                        moderator,
+                                        null,
+                                        200)
+                                .path("totalItems")
+                                .asLong())
+                .isEqualTo(1);
+        assertThat(
+                        callJson(
+                                        HttpMethod.GET,
+                                        "/api/v1/admin/references?subjectId="
+                                                + bob.id()
+                                                + "&state=HIDDEN",
+                                        moderator,
+                                        null,
+                                        200)
+                                .path("totalItems")
+                                .asLong())
+                .isZero();
+        JsonNode hiddenAgain =
+                callJson(
+                        HttpMethod.POST,
+                        "/api/v1/admin/references/" + referenceId + "/hide",
+                        moderator,
+                        Map.of("reason", "Spam"),
+                        200);
+        assertThat(hiddenAgain.path("subject").path("handle").asString()).isEqualTo(bob.handle());
+        assertThat(hiddenAgain.path("hiddenByHandle").asString())
+                .isEqualTo(me(moderator).path("handle").asString());
+        assertThat(hiddenAgain.path("hiddenAt").asString()).isNotBlank();
     }
 
     @Test
@@ -394,6 +446,11 @@ class RatingEligibilityIT extends AbstractPhase7IT {
         assertThat(hidden.path("moderationState").asString()).isEqualTo("HIDDEN");
         assertThat(hidden.path("hiddenReason").asString())
                 .isEqualTo("Rating left for another collector");
+        // Staff read people by name, never a bare id (web stage WH1).
+        assertThat(hidden.path("ratee").path("handle").asString()).isEqualTo(bob.handle());
+        assertThat(hidden.path("ratee").path("displayName").asString()).isNotBlank();
+        assertThat(hidden.path("hiddenByHandle").asString())
+                .isEqualTo(me(moderator).path("handle").asString());
         callJson(
                 HttpMethod.POST,
                 "/api/v1/admin/ratings/" + first + "/hide",
@@ -421,6 +478,21 @@ class RatingEligibilityIT extends AbstractPhase7IT {
                         null,
                         200);
         assertThat(adminList.path("totalItems").asLong()).isEqualTo(1);
+        JsonNode adminRow = adminList.path("items").get(0);
+        assertThat(adminRow.path("ratee").path("handle").asString()).isEqualTo(bob.handle());
+        assertThat(adminRow.path("rating").path("rater").path("handle").asString())
+                .isEqualTo(alice.handle());
+        assertThat(
+                        callJson(
+                                        HttpMethod.GET,
+                                        "/api/v1/admin/ratings?raterId=" + carol.id(),
+                                        moderator,
+                                        null,
+                                        200)
+                                .path("totalItems")
+                                .asLong())
+                .as("Rated by")
+                .isEqualTo(1);
 
         callJson(
                 HttpMethod.POST,

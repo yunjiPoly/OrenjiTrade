@@ -249,6 +249,7 @@ model/feedNewCards.ts
 model/feedPage.ts
 model/feedPost.ts
 model/feedWish.ts
+model/flaggedCommunityContent.ts
 model/freezeDisputeRequest.ts
 model/freshness.ts
 model/freshnessJobResponse.ts
@@ -331,6 +332,7 @@ model/pageResponseAdminBinder.ts
 model/pageResponseAdminDisputeSummary.ts
 model/pageResponseAdminListing.ts
 model/pageResponseAdminRating.ts
+model/pageResponseAdminReference.ts
 model/pageResponseAdminTransaction.ts
 model/pageResponseAdminUserSummary.ts
 model/pageResponseAuditLogEntry.ts

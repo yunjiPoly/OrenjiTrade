@@ -280,6 +280,10 @@ class ModerationIT extends AbstractIntegrationTest {
         assertThat(flag.toString())
                 .as("no message text in the queue")
                 .doesNotContain("fnordpromo again");
+        // A private message's flag never carries a room or a text (web stage WH1), only names.
+        assertThat(flag.path("community").isNull()).isTrue();
+        assertThat(flag.path("authorDisplayName").asString()).isEqualTo("Collector queue-a");
+        assertThat(flag.path("resolvedByHandle").isNull()).isTrue();
         callJson(
                 HttpMethod.GET,
                 "/api/v1/admin/moderation/flags?subjectType=MESSAGE",
@@ -297,6 +301,9 @@ class ModerationIT extends AbstractIntegrationTest {
         assertThat(resolved.path("state").asString()).isEqualTo("RESOLVED");
         assertThat(resolved.path("resolvedBy").asString()).isEqualTo(moderator.id().toString());
         assertThat(resolved.path("resolutionNote").asString()).isEqualTo("Checked, harmless");
+        assertThat(resolved.path("resolvedByHandle").asString())
+                .isEqualTo(me(moderator.uid()).path("handle").asString());
+        assertThat(resolved.toString()).doesNotContain("fnordpromo again");
         callJson(
                 HttpMethod.POST,
                 "/api/v1/admin/moderation/flags/" + flagId + "/resolve",

@@ -15,6 +15,7 @@ import { AdminRating } from '../model/models';
 import { AdminReference } from '../model/models';
 import { HideRatingRequest } from '../model/models';
 import { PageResponseAdminRating } from '../model/models';
+import { PageResponseAdminReference } from '../model/models';
 import { ProblemDetail } from '../model/models';
 
 
@@ -34,6 +35,14 @@ export interface HideReferenceRequestParams {
 export interface ListAdminRatingsRequestParams {
     rateeId?: string;
     raterId?: string;
+    state?: 'OK' | 'HIDDEN';
+    page?: number;
+    size?: number;
+}
+
+export interface ListAdminReferencesRequestParams {
+    subjectId?: string;
+    authorId?: string;
     state?: 'OK' | 'HIDDEN';
     page?: number;
     size?: number;
@@ -75,6 +84,14 @@ export interface AdminRatingsServiceInterface {
 * @param requestParameters
      */
     listAdminRatings(requestParameters: ListAdminRatingsRequestParams, extraHttpRequestParams?: any): Observable<PageResponseAdminRating>;
+
+    /**
+     * List references (MODERATOR+)
+     * Newest first; filter by the collector it is about, its author or moderation state (web stage WH1, the console\&#39;s References tab).
+     * @endpoint get /api/v1/admin/references
+* @param requestParameters
+     */
+    listAdminReferences(requestParameters: ListAdminReferencesRequestParams, extraHttpRequestParams?: any): Observable<PageResponseAdminReference>;
 
     /**
      * Show a hidden rating again (MODERATOR+)

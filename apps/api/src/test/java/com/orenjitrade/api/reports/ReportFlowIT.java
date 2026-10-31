@@ -61,6 +61,112 @@ class ReportFlowIT extends AbstractPhase7IT {
     }
 
     @Test
+    void reportsCarryAShortNumberAndTheConversationHidesSharedDetails() {
+        Collector reporter = member("rn-reporter");
+        Collector reported = member("rn-reported");
+        Collector other = member("rn-other");
+        String conversationId = conversation(reporter, reported);
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/conversations/" + conversationId + "/messages",
+                reporter.uid(),
+                Map.of("kind", "TEXT", "body", "Ship to:\nSam Fictional\n1 Zqaddress Lane"),
+                201);
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/conversations/" + conversationId + "/messages",
+                reported.uid(),
+                Map.of("kind", "TEXT", "body", "e-Transfer to zqpay@example.test"),
+                201);
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/conversations/" + conversationId + "/messages",
+                reporter.uid(),
+                Map.of("kind", "TEXT", "body", "e-Transfer sent!"),
+                201);
+
+        JsonNode first =
+                report(
+                        reporter,
+                        reported,
+                        "SCAM",
+                        Map.of("source", "CONVERSATION", "conversationId", conversationId),
+                        201);
+        JsonNode second = report(other, reported, "SPAM", null, 201);
+        String moderator = staff("rn-mod", Role.MODERATOR);
+        JsonNode firstDetail =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/admin/reports/" + first.path("id").asString(),
+                        moderator,
+                        null,
+                        200);
+        long firstNumber = firstDetail.path("number").asLong();
+        assertThat(firstNumber).as("numbers start at 1001").isGreaterThanOrEqualTo(1001);
+        JsonNode secondDetail =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/admin/reports/" + second.path("id").asString(),
+                        moderator,
+                        null,
+                        200);
+        assertThat(secondDetail.path("number").asLong())
+                .as("a later report takes a later number")
+                .isGreaterThan(firstNumber);
+        assertThat(
+                        secondDetail
+                                .path("history")
+                                .path("recentReports")
+                                .get(0)
+                                .path("number")
+                                .asLong())
+                .isPositive();
+
+        // Staff find a report by its number, alone.
+        JsonNode found =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/admin/reports?number=" + firstNumber,
+                        moderator,
+                        null,
+                        200);
+        assertThat(found.path("totalItems").asLong()).isEqualTo(1);
+        assertThat(found.path("items").get(0).path("id").asString())
+                .isEqualTo(first.path("id").asString());
+        assertThat(found.path("items").get(0).path("number").asLong()).isEqualTo(firstNumber);
+        assertThat(
+                        callJson(
+                                        HttpMethod.GET,
+                                        "/api/v1/admin/reports?number=99999999",
+                                        moderator,
+                                        null,
+                                        200)
+                                .path("totalItems")
+                                .asLong())
+                .isZero();
+        callJson(HttpMethod.GET, "/api/v1/admin/reports?number=0", moderator, null, 400);
+
+        // The address and the e-Transfer email are sent as their kind only (spec 15.8.4).
+        JsonNode messages = firstDetail.path("conversation").path("messages");
+        assertThat(messages).hasSize(3);
+        List<String> shared = new ArrayList<>();
+        for (JsonNode message : messages) {
+            shared.add(
+                    message.path("sharedDetail").isNull()
+                            ? "-"
+                            : message.path("sharedDetail").asString());
+            if (!message.path("sharedDetail").isNull()) {
+                assertThat(message.path("body").asString()).isEmpty();
+            }
+        }
+        assertThat(shared).containsExactly("-", "ETRANSFER_EMAIL", "SHIPPING_ADDRESS");
+        assertThat(messages.get(0).path("body").asString()).isEqualTo("e-Transfer sent!");
+        assertThat(firstDetail.toString())
+                .doesNotContain("Zqaddress")
+                .doesNotContain("zqpay@example.test");
+    }
+
+    @Test
     void reportAdminSeesItResolveAuditAndReporterNotification() {
         Collector reporter = member("rp-reporter");
         Collector reported = member("rp-reported");

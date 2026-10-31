@@ -1535,6 +1535,11 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
                         "/api/v1/admin/listings?size=100",
                         "/api/v1/admin/binders?size=100",
                         "/api/v1/admin/ratings?size=100",
+                        // Web stage WH1: references, flags with their rooms, a report by number.
+                        "/api/v1/admin/references?size=100",
+                        "/api/v1/admin/moderation/flags?state=ALL&size=100",
+                        "/api/v1/admin/reports?number=1001",
+                        "/api/v1/admin/community/channels",
                         "/api/v1/admin/moderation/rules",
                         "/api/v1/admin/dashboard",
                         "/api/v1/admin/notifications/stats",

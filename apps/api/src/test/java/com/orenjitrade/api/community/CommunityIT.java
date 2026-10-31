@@ -447,6 +447,30 @@ class CommunityIT extends AbstractIntegrationTest {
                             assertThat(row.get("reason")).isEqualTo("BANNED_TERM");
                             assertThat(row.get("rule_id")).isNotNull();
                         });
+        // The console's Flags and rules page reads the room and the text (web stage WH1).
+        JsonNode communityFlag = null;
+        for (JsonNode item :
+                callJson(
+                                HttpMethod.GET,
+                                "/api/v1/admin/moderation/flags?subjectType=COMMUNITY_POST&size=100",
+                                moderator.uid(),
+                                null,
+                                200)
+                        .path("items")) {
+            if (item.path("subjectId").asString().equals(postId)) {
+                communityFlag = item;
+            }
+        }
+        assertThat(communityFlag).as("the post's flag").isNotNull();
+        JsonNode content = communityFlag.path("community");
+        assertThat(content.path("postId").asString()).isEqualTo(postId);
+        assertThat(content.path("roomSlug").asString()).isEqualTo(ROOM);
+        assertThat(content.path("roomName").asString()).isEqualTo("Yu-Gi-Oh!");
+        assertThat(content.path("regionCode").asString()).isEqualTo("americas-north");
+        assertThat(content.path("game").asString()).isEqualTo("yugioh");
+        assertThat(content.path("text").asString()).isEqualTo("Visit fnordpromo for binder deals");
+        assertThat(content.path("removed").asBoolean()).isFalse();
+        assertThat(communityFlag.path("authorDisplayName").asString()).isNotBlank();
         callJson(
                 HttpMethod.POST,
                 "/api/v1/community/posts/" + postId + "/replies",

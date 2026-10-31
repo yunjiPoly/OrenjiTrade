@@ -335,7 +335,7 @@ export class AdminReportsService extends BaseService implements AdminReportsServ
 
     /**
      * List collector reports (MODERATOR+)
-     * Newest first; every filter optional.
+     * Newest first; every filter optional. &#x60;number&#x60; finds one report by its short number (\&quot;#1047\&quot; is 1047; V135, web stage WH1).
      * @endpoint get /api/v1/admin/reports
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -350,6 +350,7 @@ export class AdminReportsService extends BaseService implements AdminReportsServ
         const reason = requestParameters?.reason;
         const reportedUserId = requestParameters?.reportedUserId;
         const assignedTo = requestParameters?.assignedTo;
+        const number = requestParameters?.number;
         const page = requestParameters?.page;
         const size = requestParameters?.size;
 
@@ -386,6 +387,15 @@ export class AdminReportsService extends BaseService implements AdminReportsServ
             localVarQueryParameters,
             'assignedTo',
             <any>assignedTo,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'number',
+            <any>number,
             QueryParamStyle.Form,
             true,
         );

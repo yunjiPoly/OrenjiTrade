@@ -4101,7 +4101,7 @@ export interface paths {
         };
         /**
          * List collector reports (MODERATOR+)
-         * @description Newest first; every filter optional.
+         * @description Newest first; every filter optional. `number` finds one report by its short number ("#1047" is 1047; V135, web stage WH1).
          */
         get: operations["listReports"];
         put?: never;
@@ -4141,6 +4141,26 @@ export interface paths {
         };
         /** Regions with every country, inactive ones included (ADMIN, SUPER_ADMIN) */
         get: operations["listAdminRegions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/references": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List references (MODERATOR+)
+         * @description Newest first; filter by the collector it is about, its author or moderation state (web stage WH1, the console's References tab).
+         */
+        get: operations["listAdminReferences"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4275,7 +4295,7 @@ export interface paths {
         };
         /**
          * List moderation flags (MODERATOR+)
-         * @description Newest first. `state`: OPEN (default), RESOLVED or ALL. Flags are raised by FLAG banned-term rules, repeated-content thresholds (content) and rate thresholds (subjectType USER). No automatic ban ever follows a flag.
+         * @description Newest first. `state`: OPEN (default), RESOLVED or ALL. Flags are raised by FLAG banned-term rules, repeated-content thresholds (content) and rate thresholds (subjectType USER). No automatic ban ever follows a flag. A flag on a community post or reply carries its room and text (`community`); a private message's text is never sent here (web stage WH1).
          */
         get: operations["listModerationFlags"];
         put?: never;
@@ -7717,6 +7737,12 @@ export interface components {
              * @description Open reports against the reported collector
              */
             openReportsAgainstUser: number;
+            /**
+             * Format: int64
+             * @description The short number staff read ("#1047", V135)
+             * @example 1047
+             */
+            number: number;
         };
         AddReportNoteRequest: {
             body: string;
@@ -7745,6 +7771,12 @@ export interface components {
             /** @enum {string} */
             moderationState: "OK" | "HIDDEN";
             hiddenReason?: string | null;
+            /** @description The collector it is about, by name (web stage WH1) */
+            subject: components["schemas"]["RatingAuthor"];
+            /** @description The handle of the staff member who hid it */
+            hiddenByHandle?: string | null;
+            /** Format: date-time */
+            hiddenAt?: string | null;
         };
         HideRatingRequest: {
             /** @description Why (audited; never shown to members) */
@@ -7765,6 +7797,10 @@ export interface components {
             hiddenBy?: string | null;
             /** Format: date-time */
             hiddenAt?: string | null;
+            /** @description The rated collector by name (web stage WH1) */
+            ratee: components["schemas"]["RatingAuthor"];
+            /** @description The handle of the staff member who hid it */
+            hiddenByHandle?: string | null;
         };
         RefundPaymentRequest: {
             /** @example 10 */
@@ -7936,6 +7972,27 @@ export interface components {
             /** @description Optional moderator note */
             note?: string;
         };
+        FlaggedCommunityContent: {
+            /**
+             * Format: uuid
+             * @description The post (a reply's post)
+             */
+            postId: string;
+            /** @example americas-north-yugioh */
+            roomSlug: string;
+            /** @example Yu-Gi-Oh! */
+            roomName: string;
+            /**
+             * @description Platform region code of the room; null for others
+             * @example americas-north
+             */
+            regionCode?: string | null;
+            /** @example yugioh */
+            game?: string | null;
+            text: string;
+            /** @description Removed by moderators */
+            removed: boolean;
+        };
         /** @description Automatic moderation flag */
         ModerationFlag: {
             /** Format: uuid */
@@ -7963,6 +8020,12 @@ export interface components {
             /** Format: uuid */
             resolvedBy?: string | null;
             resolutionNote?: string | null;
+            /** @description The author's display name (web stage WH1) */
+            authorDisplayName?: string | null;
+            /** @description The resolving staff member's handle */
+            resolvedByHandle?: string | null;
+            /** @description A flagged community post or reply: its room and text. Null for a private message (its text is shown only inside a report) and an account */
+            community?: components["schemas"]["FlaggedCommunityContent"];
         };
         AdminListing: {
             item: components["schemas"]["AdminListingItem"];
@@ -8130,6 +8193,11 @@ export interface components {
             createdAt: string;
             /** @enum {string|null} */
             resolutionAction?: "NONE" | "WARNING" | "LISTINGS_PAUSED" | "SUSPENDED" | "BANNED" | null;
+            /**
+             * Format: int64
+             * @description Short number (V135)
+             */
+            number: number;
         };
         ModerationHistory: {
             /** Format: uuid */
@@ -10021,6 +10089,12 @@ export interface components {
             history: components["schemas"]["ModerationHistory"];
             /** @description Only when the report names a conversation between the two (then that conversation only) */
             conversation?: components["schemas"]["ReportedConversation"];
+            /**
+             * Format: int64
+             * @description The short number staff read ("#1047", V135)
+             * @example 1047
+             */
+            number: number;
         };
         ReportedConversation: {
             /** Format: uuid */
@@ -10035,11 +10109,17 @@ export interface components {
             senderId?: string | null;
             /** @enum {string} */
             kind: "TEXT" | "CARD_LINK" | "BINDER_LINK" | "OFFER_LINK" | "IMAGE" | "SYSTEM";
+            /** @description Empty when sharedDetail is set: staff never read it */
             body: string;
             /** Format: date-time */
             createdAt: string;
             /** @enum {string} */
             moderationState: "OK" | "FLAGGED" | "REMOVED";
+            /**
+             * @description A shipping address or an e-Transfer email was shared here; its text is hidden from staff
+             * @enum {string|null}
+             */
+            sharedDetail?: "SHIPPING_ADDRESS" | "ETRANSFER_EMAIL" | null;
         };
         ReportedUserSummary: {
             /** Format: uuid */
@@ -10055,6 +10135,35 @@ export interface components {
             bannedAt?: string | null;
             /** Format: date-time */
             memberSince: string;
+        };
+        /** @description Offset-paginated list */
+        PageResponseAdminReference: {
+            /** @description Items of the current page */
+            items?: components["schemas"]["AdminReference"][];
+            /**
+             * Format: int32
+             * @description Zero-based page index
+             * @example 0
+             */
+            page?: number;
+            /**
+             * Format: int32
+             * @description Requested page size
+             * @example 20
+             */
+            size?: number;
+            /**
+             * Format: int64
+             * @description Total number of items across all pages
+             * @example 137
+             */
+            totalItems?: number;
+            /**
+             * Format: int32
+             * @description Total number of pages
+             * @example 7
+             */
+            totalPages?: number;
         };
         /** @description Offset-paginated list */
         PageResponseAdminRating: {
@@ -27313,6 +27422,8 @@ export interface operations {
                 reason?: "SCAM" | "COUNTERFEIT" | "HARASSMENT" | "SPAM" | "INAPPROPRIATE_BEHAVIOR" | "MISLEADING_LISTINGS" | "OTHER";
                 reportedUserId?: string;
                 assignedTo?: string;
+                /** @description The report's short number (staff search) */
+                number?: number;
                 page?: number;
                 size?: number;
             };
@@ -27470,6 +27581,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RegionsResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    listAdminReferences: {
+        parameters: {
+            query?: {
+                subjectId?: string;
+                authorId?: string;
+                state?: "OK" | "HIDDEN";
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageResponseAdminReference"];
                 };
             };
             /** @description Unauthenticated (missing or invalid token) */
