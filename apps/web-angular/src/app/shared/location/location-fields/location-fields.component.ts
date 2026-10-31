@@ -3,20 +3,35 @@ import {
   Component,
   booleanAttribute,
   computed,
+  effect,
   inject,
   input,
   linkedSignal,
   output,
+  viewChild,
 } from '@angular/core';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
+import { MatSelect, MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { RegionContext } from '../../../core/region/region-context.service';
 import { RegionsStore } from '../../regions/regions.store';
 import { ErrorStateComponent } from '../../ui/error-state/error-state.component';
 import { SkeletonComponent } from '../../ui/skeleton/skeleton.component';
 import { CITY_MAX_LENGTH, LocationDraft } from '../my-location.store';
+
+/**
+ * The field a draft still misses, in the order the error names it ("Choose your country." first),
+ * or `null` when the country and the state or province are chosen.
+ */
+export function missingLocationField(
+  draft: Pick<LocationDraft, 'countryCode' | 'subdivisionCode'>,
+): 'country' | 'subdivision' | null {
+  if (!draft.countryCode) {
+    return 'country';
+  }
+  return draft.subdivisionCode ? null : 'subdivision';
+}
 
 const EMPTY_DRAFT: LocationDraft = {
   countryCode: '',
@@ -86,6 +101,8 @@ const EMPTY_DRAFT: LocationDraft = {
             aria-labelledby="location-country-label"
             placeholder="Choose a country"
             required
+            #tokenCountry
+            [attr.aria-describedby]="invalidField() === 'country' ? 'location-fields-error' : null"
             [value]="draft().countryCode || null"
             (selectionChange)="onCountry($event.value)"
           >
@@ -106,6 +123,10 @@ const EMPTY_DRAFT: LocationDraft = {
               aria-labelledby="location-subdivision-label"
               placeholder="Choose a state or province"
               required
+              #tokenSubdivision
+              [attr.aria-describedby]="
+                invalidField() === 'subdivision' ? 'location-fields-error' : null
+              "
               [disabled]="!draft().countryCode"
               [value]="draft().subdivisionCode || null"
               (selectionChange)="onSubdivision($event.value)"
@@ -158,7 +179,9 @@ const EMPTY_DRAFT: LocationDraft = {
         </div>
 
         @if (showErrors() && missing(); as message) {
-          <p class="location-fields__error" role="alert">{{ message }}</p>
+          <p class="location-fields__error" id="location-fields-error" role="alert">
+            {{ message }}
+          </p>
         }
       </div>
     } @else {
@@ -443,6 +466,16 @@ export class LocationFieldsComponent {
     return null;
   });
 
+  /**
+   * The token look's field the shown error is about (WG review R2-3): it carries `aria-invalid`,
+   * the error's id in its `aria-describedby` and the danger border, as the welcome's other steps.
+   */
+  protected readonly invalidField = computed(() =>
+    this.showErrors() ? missingLocationField(this.draft()) : null,
+  );
+  private readonly tokenCountry = viewChild<MatSelect>('tokenCountry');
+  private readonly tokenSubdivision = viewChild<MatSelect>('tokenSubdivision');
+
   /** The draft's state or province as places show it (a whole country by its own name). */
   private readonly placeName = computed(() => {
     const entry = this.regions.subdivision(this.draft().subdivisionCode);
@@ -474,6 +507,20 @@ export class LocationFieldsComponent {
 
   constructor() {
     void this.regions.load();
+    // The select an error names reads as invalid (`aria-invalid`, Material's error state).
+    effect(() => {
+      const invalid = this.invalidField();
+      const country = this.tokenCountry();
+      const subdivision = this.tokenSubdivision();
+      if (country) {
+        country.errorState = invalid === 'country';
+        country.stateChanges.next();
+      }
+      if (subdivision) {
+        subdivision.errorState = invalid === 'subdivision';
+        subdivision.stateChanges.next();
+      }
+    });
   }
 
   protected onRegion(code: string): void {

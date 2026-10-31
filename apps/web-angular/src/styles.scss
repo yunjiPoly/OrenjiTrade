@@ -232,6 +232,11 @@ html {
     outline: var(--focus-width) solid var(--color-focus-ring);
     outline-offset: 2px;
   }
+
+  // The field an error names (WG review R2-3): the danger border, as the token text fields.
+  &[aria-invalid='true'] {
+    border-color: var(--color-danger);
+  }
 }
 
 // Focused controls are never hidden under the sticky top bar (64 at every width) or, below 960,

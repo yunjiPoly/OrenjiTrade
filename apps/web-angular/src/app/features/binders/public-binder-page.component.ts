@@ -1,5 +1,5 @@
 import { GuestActions } from '../../core/guest/guest-actions.service';
-import { cardSubject, guestPlace, personSubject } from '../../core/guest/guest-actions';
+import { GUEST_COPY, cardSubject, guestPlace, personSubject } from '../../core/guest/guest-actions';
 import { printingImageUrl } from '../../shared/inventory/inventory-labels';
 import { itemPriceText } from '../inventory/data/item-price';
 import { DOCUMENT } from '@angular/common';
@@ -156,6 +156,8 @@ export class PublicBinderPageComponent {
     return state.kind === 'error' ? friendlyMessage(state.error) : '';
   });
   protected readonly canMessage = computed(() => !this.isOwn());
+  /** A guest's "Message this collector" says it needs an account (WG review U10). */
+  protected readonly guestMessageLabel = GUEST_COPY.messageLabel;
 
   constructor() {
     effect(() => {

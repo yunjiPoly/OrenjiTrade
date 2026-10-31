@@ -179,7 +179,9 @@ export interface SignInDialogData {
       background: var(--color-surface-variant);
     }
     .ask__quiet {
+      align-self: flex-start;
       height: 44px;
+      padding: 0 12px;
       border: 0;
       border-radius: var(--radius-pill);
       background: none;

@@ -60,31 +60,21 @@ import { itemPriceText } from '../inventory/data/item-price';
       }
       @if (handle) {
         <header class="fp__head">
-          @if (handle) {
-            <a
-              class="fp__avatar"
-              [routerLink]="['/collectors', handle]"
-              tabindex="-1"
-              aria-hidden="true"
-            >
-              <app-avatar
-                [src]="p.collector.avatarUrl"
-                [name]="p.collector.displayName || handle"
-                [decorative]="true"
-              />
-            </a>
-          } @else {
-            <span class="fp__avatar fp__avatar--guest" aria-hidden="true">
-              <app-shell-icon name="profile" [size]="18" />
-            </span>
-          }
+          <a
+            class="fp__avatar"
+            [routerLink]="['/collectors', handle]"
+            tabindex="-1"
+            aria-hidden="true"
+          >
+            <app-avatar
+              [src]="p.collector.avatarUrl"
+              [name]="p.collector.displayName || handle"
+              [decorative]="true"
+            />
+          </a>
           <div class="fp__who">
             <p class="fp__title" [id]="headId()">
-              @if (handle) {
-                <a class="fp__handle" [routerLink]="['/collectors', handle]">{{ handle }}</a>
-              } @else {
-                <span class="fp__handle">{{ name() }}</span>
-              }
+              <a class="fp__handle" [routerLink]="['/collectors', handle]">{{ handle }}</a>
               <span class="fp__verb" [attr.data-tone]="verb.tone"> {{ verb.text }}</span>
             </p>
             <p class="fp__meta">{{ time() }} · {{ place() }}</p>

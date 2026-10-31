@@ -5,12 +5,10 @@ import { FormControl, ReactiveFormsModule } from '@angular/forms';
 export const AGE_CONFIRMATION_TYPE = 'AGE_CONFIRMATION';
 
 /**
- * The checkbox's words and its validation message. English only (owner, 2026-10-20: the spec's
+ * The checkbox's words. English only (owner, 2026-10-20: the spec's
  * "in English and French" line is written in English only, as on the phone since R12).
  */
 export const AGE_CONFIRMATION_LABEL_EN = 'I confirm I am 18 years of age or older';
-export const AGE_CONFIRMATION_ERROR =
-  'You must confirm that you are 18 years of age or older to use OrenjiTrade.';
 
 /**
  * The 18+ confirmation (spec 14, board W27): its own card under the documents, never ticked by

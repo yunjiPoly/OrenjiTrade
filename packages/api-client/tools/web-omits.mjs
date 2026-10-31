@@ -39,7 +39,7 @@ export function withoutWebNulls(document, fields = WEB_CLIENT_NOT_NULL) {
     for (const key of keys) {
       const property = properties[key];
       if (property && Array.isArray(property.type)) {
-        const types = property.type.filter((type) => type !== "null");
+        const types = property.type.filter((type) => type !== 'null');
         property.type = types.length === 1 ? types[0] : types;
       }
     }
@@ -55,9 +55,7 @@ export function withoutWebOmits(document, omits = WEB_CLIENT_OMITS) {
       if (!names || !Array.isArray(operation.parameters)) {
         continue;
       }
-      operation.parameters = operation.parameters.filter(
-        (p) => !names.includes(p.name),
-      );
+      operation.parameters = operation.parameters.filter((p) => !names.includes(p.name));
       if (operation.parameters.length === 0) {
         delete operation.parameters;
       }

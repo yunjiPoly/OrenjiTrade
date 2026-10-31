@@ -97,8 +97,10 @@ import { ShellLayout } from '../shell-layout.service';
             routerLink="/auth/sign-in"
             [queryParams]="{ returnUrl: returnUrl() }"
             data-testid="top-bar-sign-in"
-            >Sign in</a
           >
+            <app-shell-icon name="profile" [size]="16" />
+            Sign in
+          </a>
         }
       </div>
     </header>
@@ -182,6 +184,7 @@ import { ShellLayout } from '../shell-layout.service';
     .bar__signin {
       display: inline-flex;
       align-items: center;
+      gap: 6px;
       height: 36px;
       padding: 0 16px;
       border: 1px solid var(--color-border-strong);

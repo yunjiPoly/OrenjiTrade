@@ -104,12 +104,29 @@ async function expectPictures(scope: Locator, minimum: number, max = 6): Promise
   await expect
     .poll(() => pictures.count(), { message: 'card pictures in the section' })
     .toBeGreaterThanOrEqual(minimum);
-  const count = Math.min(await pictures.count(), max);
+  // The count first, once it holds still (a list may render again while it settles), then each
+  // picture by its index, re-queried on every try: a picture replaced by the next render while it
+  // scrolls into view is read again, not reported as detached (WG review F6).
+  let settled = -1;
+  await expect
+    .poll(
+      async () => {
+        const now = await pictures.count();
+        const stable = now === settled;
+        settled = now;
+        return stable;
+      },
+      { message: 'the number of card pictures holds still', intervals: [250] },
+    )
+    .toBe(true);
+  const count = Math.min(settled, max);
   for (let index = 0; index < count; index++) {
     const picture = pictures.nth(index);
-    await picture.scrollIntoViewIfNeeded();
-    expect(await picture.getAttribute('src')).toMatch(OWN_PICTURE);
-    expect(await picture.getAttribute('alt')).not.toBeNull();
+    await expect(async () => {
+      await picture.scrollIntoViewIfNeeded({ timeout: 2_000 });
+      expect(await picture.getAttribute('src')).toMatch(OWN_PICTURE);
+      expect(await picture.getAttribute('alt')).not.toBeNull();
+    }).toPass({ timeout: 15_000 });
     await expect
       .poll(
         () =>
