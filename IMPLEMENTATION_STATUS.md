@@ -7,6 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
+**Last updated:** 2026-10-31 (stage WH1 merged into `main` as #103, merge commit `df6329e6`; `origin/main` merged into WH2's branch at `8dc23bc5` (no file changed); the check of WH2's review fix 2 approved it with nits only, left open since WH2 is the last stage; the fix-2 checks table's phone web E2E row corrected to 66 passed; see NEXT TASK).
 **Last updated:** 2026-10-31 (stage WH2 review fix 2, round 2 of 2: the console's own fields on Games, Auto-delist, Send an announcement and the card drawer, Usage limits' side column, the binders' count by visibility, Last sent, sync reports cleaned as they are read, key table columns in the window at 1024 and 390; see "Review fix 2" in the WH2 section).
 **Last updated:** 2026-10-31 (stage WH2 review fix 1, round 1 of 2: the audit log names every id, region and room (`AuditLogEntry.detailLabels`), a city channel stays as it is, no sideways scroll at 1024 or 390, sync reports without provider addresses, the staff search's one card per code, Add printing English only; see "Review fix 1" in the WH2 section).
 **Last updated:** 2026-10-31 (stage WG merged into `main` as #102, merge commit `f1e81069`; `origin/main` merged into WH1's branch at `16586cfc` (no file changed); the check of WH1's review fix 2 approved it with one older minor (the audit log keeps an archived city channel's slug) and nits, carried into stage WH2; WH2 waits for decision 5 ("Default Cards"), which waits for PR #92; see NEXT TASK).
@@ -15406,11 +15407,33 @@ Checks of review fix 2 (retries off):
 | `npm run test:e2e -- --retries=0` (8180/4300, under the web E2E lock) | **121 passed** (1.4 min), 0 failed |
 | mobile `typecheck`, `lint`, `format:check`, `npm run test:mobile` | clean; 128 suites, 1,782 tests + 34 node tests |
 | `npx expo export` (scratch folders) | iOS 1,975, Android 2,101, web 1,596 modules |
-| `npm run test:mobile:e2e -- --retries=0` (8090/19006, under the simulator lock) | MOBILE_**121 passed** (1.4 min), 0 failed |
+| `npm run test:mobile:e2e -- --retries=0` (8090/19006, under the simulator lock) | `--stack-only` (the served bundle names `localhost:8090`, never 8080), `--reuse-running`: **66 passed** (1.1 min), 0 failed, `--stop` |
 | `npm run test:mobile:maestro -- --platform ios` | **not run: the owner's iPhone 18 Pro simulator was not booted** (`Shutdown`); a wait from 15:31 to 16:32 never saw it booted, and nothing was booted. Due: the fix changed `apps/api` (no type change; `packages/api-client` and `packages/shared-types` unchanged). The Android run could not be verified |
 | `npm run test:scripts` | 165 / 165 |
 | `npm run audit:gate` | OK |
 | Walk (API 8580, web 4400, `orenjitrade_wh2_check`) | the changed pages at 1440, 1024 and 390, dark and light: the fields and their errors (New game, the card drawer, the announcement), the binders' breakdown, Last sent after a staff announcement on the walk database, a mock sync's run; AFTER screenshots retaken for Binders, the card drawer, New card, Card data and images, Games, New game, Usage limits, Auto-delist, Regions, Notifications and the Audit log (no page or console error) |
+
+**Left open by the verifier of fix 2** (round 2 of 2 approved, nits only; WH2 is the last stage of
+the web redesign, so they stay open for the owner or a later polish pass):
+
+- **R2-1:** the suspend dialog and the printing dialog keep Material's outlined fields (no board
+  draws them, and WH1's console dialogs use the same fields; a pass restyling every console dialog
+  together), and board A10's "41 publicly listed" line is not shown (the API has no such count).
+- **R2-3:** three data columns sit beyond the window inside their table's scroll box (Users' "Last
+  active" at 1024, System health's "Failures (24 h)" at 1024 and 390, the Games schema preview's
+  "Options" at 390); no page scrolls sideways and each is reachable by scrolling the table.
+- **R2-4:** sync runs stored before review fix 1 read awkwardly once cleaned ("image YGOPRODeck
+  answered HTTP 403", "… HTTP 403 for. The catalog already imported was kept."); no address or id
+  leaks, and new runs read well.
+- **Round 1's nits not fixed:** F7 (the audit page reruns the city-channel query for every community
+  row: compute it once per page in `toEntries`), U11 (one announcement shows two toasts), U12 (small
+  copy and layout nits on the WH2 screens), U13 (WH1's U14: the report header and panel layout
+  against board A2).
+- **Fixed by the lead after the round:** R2-2 (the fix-2 checks table's phone web E2E row read
+  "MOBILE_121 passed"; the run was 66 passed). F6 (the newest "Last updated" line) was fixed by the
+  fix rounds' own lines.
+- **Not run:** the native suite on the owner's iPhone 18 Pro (shut down during every wait of WH2,
+  as for WG and WH1); due for WG, WH1 and WH2. The owner boots it.
 
 ## NEXT TASK
 
@@ -15537,12 +15560,12 @@ Checks of review fix 2 (retries off):
 > never reach staff, neither in the console's channel list nor in a collector's history; API only,
 > no type change). The check of review fix 2 approved it, with one minor older than WH1 (R2-1, the
 > audit log keeps an archived city channel's slug) and nits, carried into stage WH2 (the WH1
-> section's "Left open by the verifier of fix 2"). **Next for WH1: its pull request against `main`,
-> merged on green.**
+> section's "Left open by the verifier of fix 2"). **WH1 is merged into `main`** (#103, merge commit
+> `df6329e6`, 2026-10-31).
 >
 > **Stage WH2 (the admin console: collectors, catalog, rules and system) is built** on
-> `feature/wh2-admin-rules`, stacked on WH1 (`feature/wh1-admin-moderation`, PR #103, not merged
-> yet) (section "Web redesign WH2: The admin console: collectors, catalog, rules and system
+> `feature/wh2-admin-rules`, made on WH1 (#103, merged; `origin/main` merged in at `8dc23bc5`, no
+> file changed) (section "Web redesign WH2: The admin console: collectors, catalog, rules and system
 > (2026-10-31)" above; contract `docs/api/contracts/wh2-admin-console.md`; no migration, the next is
 > still **V136**; every API change additive): WH1's R2-1, R2-2 and nits fixed first (an archived
 > city channel reads "An archived channel" in the audit log; every Reports tab with its count; "Open
@@ -15567,10 +15590,11 @@ Checks of review fix 2 (retries off):
 > sent; sync reports cleaned as they are read and a failed image naming its card; the Audit log,
 > sync runs and Regions with their key columns in the window at 1024 and 390; no migration, no API
 > type change).
-> **Next for WH2:** its pull request against `main` after WH1's (#103) is merged, merged on green.
+> The check of review fix 2 approved it with nits only (the WH2 section's "Left open by the verifier
+> of fix 2"). **Next for WH2: its pull request against `main`, merged on green.**
 >
-> **NEXT TASK: none: the web redesign is complete** (stages WA to WH2 are built; WA to WG merged,
-> WH1 and WH2 waiting for their pull requests). What comes next is **the owner's choice**. Already
+> **NEXT TASK: none: the web redesign is complete** (stages WA to WH2 are built; WA to WH1 merged,
+> WH2 waiting for its pull request). What comes next is **the owner's choice**. Already
 > decided and waiting: **decision 5** (owner, 2026-10-28: Magic's Scryfall file becomes "Default
 > Cards"; owner, 2026-10-31: after WH2), which starts **once the other session's PR #92
 > (`fix/scryfall-jsonl-bulk`) is on `main`**; until then Card data and images reads Magic's
