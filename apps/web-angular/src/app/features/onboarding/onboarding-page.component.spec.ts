@@ -3,7 +3,7 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
-import { GameResponse, MeResponse, ProfileService } from '@orenji/api-client';
+import { GameResponse, MeResponse, ProfileService, RegionsService } from '@orenji/api-client';
 import { of } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { SessionService } from '../../core/auth/session.service';
@@ -12,6 +12,7 @@ import { GameContext } from '../../core/game/game-context.service';
 import { GamesStore } from '../../shared/catalog/games.store';
 import { MyLocationStore } from '../../shared/location/my-location.store';
 import { MyProfileStore } from '../../shared/profile/my-profile.store';
+import { REGIONS_FIXTURE } from '../../shared/regions/testing/regions-fixtures';
 import { OnboardingPageComponent } from './onboarding-page.component';
 
 /** Lets the page's async `load()` and the promise chains of its actions settle (zoneless). */
@@ -67,6 +68,7 @@ describe('OnboardingPageComponent, the welcome (spec 14: three steps)', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: ProfileService, useValue: { getHandleAvailability: availability } },
+        { provide: RegionsService, useValue: { listRegions: vi.fn(() => of(REGIONS_FIXTURE)) } },
         { provide: ToastService, useValue: { show: vi.fn() } },
         { provide: GameContext, useValue: { select } },
         {
@@ -208,6 +210,20 @@ describe('OnboardingPageComponent, the welcome (spec 14: three steps)', () => {
         .querySelector('[data-testid="welcome-map-switch"] button')
         ?.getAttribute('aria-checked'),
     ).toBe('false');
+    // The step's fields and switches look like the welcome's other steps (spec 2.4, WG R1-1):
+    // labels above 48 px fields and the 40x24 switch, never Material's outlined fields.
+    const card = element.querySelector('.welcome__card')!;
+    expect(card.querySelector('mat-form-field')).toBeNull();
+    expect(card.querySelectorAll('.app-token-select').length).toBe(3);
+    const switches = [...card.querySelectorAll('mat-slide-toggle')];
+    expect(switches.map((toggle) => toggle.getAttribute('data-testid'))).toEqual([
+      'location-show-city',
+      'welcome-map-switch',
+    ]);
+    for (const toggle of switches) {
+      expect(toggle.classList).toContain('app-switch-40');
+      expect(toggle.querySelector('.mdc-switch__icons')).toBeNull();
+    }
     const skip = [...element.querySelectorAll<HTMLButtonElement>('button')].find(
       (button) => button.textContent?.trim() === 'Skip for now',
     )!;

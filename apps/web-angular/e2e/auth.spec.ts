@@ -113,6 +113,23 @@ test.describe('authentication and onboarding', () => {
     const mapSwitch = page.getByRole('switch', { name: 'Show me on the map' });
     await expect(mapSwitch).toHaveAttribute('aria-checked', 'false');
     await expect(page.locator('.leaflet-container')).toHaveCount(0);
+    // The step looks like the welcome's other steps (spec 2.4, WG review R1-1): each label above
+    // its 48 px field, no Material outlined field, and the 40x24 switch.
+    await expect(page.locator('.welcome__card mat-form-field')).toHaveCount(0);
+    for (const name of ['Region', 'Country', 'State or province']) {
+      const field = await page.getByRole('combobox', { name }).boundingBox();
+      const label = await page.locator('.location-fields__label', { hasText: name }).boundingBox();
+      expect(field?.height).toBe(48);
+      expect(label!.y + label!.height).toBeLessThanOrEqual(field!.y);
+    }
+    expect((await page.getByLabel('City (optional)').boundingBox())?.height).toBe(48);
+    for (const name of ['Show my city on my profile', 'Show me on the map']) {
+      const track = await page
+        .getByRole('switch', { name })
+        .locator('.mdc-switch__track')
+        .boundingBox();
+      expect([track?.width, track?.height]).toEqual([40, 24]);
+    }
     // Finishing without a state or province is explained, not sent.
     await page.getByRole('button', { name: 'Finish' }).click();
     await expect(page.getByText('Choose your country.')).toBeVisible();

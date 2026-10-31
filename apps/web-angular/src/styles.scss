@@ -178,6 +178,60 @@ html {
   );
 }
 
+// The welcome's controls (spec 2.4 and 14, WG review R1-1), as its other steps; Settings keeps
+// Material's outlined fields and its switch.
+// The 40x24 switch: Material's slide toggle at the phone's size (knob 18 on, 12 inside the
+// outlined track off; with `hideIcon`, as the mockup's plain knob).
+.app-switch-40 {
+  @include mat.slide-toggle-overrides(
+    (
+      track-width: 40px,
+      track-height: 24px,
+      selected-handle-size: 18px,
+      unselected-handle-size: 12px,
+      with-icon-handle-size: 18px,
+      pressed-handle-size: 20px,
+      selected-handle-horizontal-margin: 0 19px,
+      unselected-handle-horizontal-margin: 0 6px,
+      selected-with-icon-handle-horizontal-margin: 0 19px,
+      unselected-with-icon-handle-horizontal-margin: 0 3px,
+      selected-pressed-handle-horizontal-margin: 0 18px,
+      unselected-pressed-handle-horizontal-margin: 0 2px,
+      selected-icon-size: 12px,
+      unselected-icon-size: 12px,
+      state-layer-size: 32px,
+    )
+  );
+}
+// A select as a token field (48 tall, radius 12, borderInput, its label above it): Material's
+// mat-select without a form field, so its panel, keyboard and ARIA stay Material's.
+.app-token-select.mat-mdc-select {
+  display: block;
+  box-sizing: border-box;
+  height: 48px;
+  border: 1px solid var(--color-border-input);
+  border-radius: 12px;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 15px;
+  --mat-select-placeholder-text-color: var(--color-text-muted);
+
+  .mat-mdc-select-trigger {
+    height: 100%;
+    padding: 0 12px 0 14px;
+  }
+
+  &:hover:not(.mat-mdc-select-disabled) {
+    border-color: var(--color-border-strong);
+  }
+
+  &:focus-visible {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+}
+
 // Focused controls are never hidden under the sticky top bar (64 at every width) or, below 960,
 // the tab bar (64 plus the safe area) (WCAG 2.4.11).
 html {

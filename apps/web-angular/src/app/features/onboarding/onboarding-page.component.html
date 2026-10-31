@@ -190,6 +190,7 @@
           <div class="welcome__group">
             <app-location-fields
               stacked
+              look="token"
               [value]="location()"
               [showErrors]="locationSubmitted()"
               (valueChange)="location.set($event)"
@@ -208,6 +209,8 @@
               }}</span>
             </div>
             <mat-slide-toggle
+              class="app-switch-40"
+              hideIcon
               data-testid="welcome-map-switch"
               [checked]="discoverable()"
               aria-labelledby="wl-map-label"
