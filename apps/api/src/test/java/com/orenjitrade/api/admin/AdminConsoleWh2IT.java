@@ -329,6 +329,11 @@ class AdminConsoleWh2IT extends AbstractIntegrationTest {
         assertThat(entry.path("details").path("authorId").asString())
                 .isEqualTo(authorId.toString());
         assertThat(entry.path("targetLabel").asString()).isEqualTo("A post in an archived channel");
+        // Review fix 1: the values staff read in the details are named, never a raw id or slug.
+        assertThat(entry.path("detailLabels").path(authorId.toString()).asString())
+                .isEqualTo("@" + handleOf(author));
+        assertThat(entry.path("detailLabels").path("archived-channel").asString())
+                .isEqualTo("An archived channel");
 
         JsonNode channels =
                 callJson(
@@ -345,9 +350,12 @@ class AdminConsoleWh2IT extends AbstractIntegrationTest {
                 assertThat(update.path("details").path("slug").asString())
                         .isEqualTo("archived-channel");
             } else {
-                assertThat(update.path("targetLabel").asString()).isNotBlank();
+                assertThat(update.path("targetLabel").asString())
+                        .isEqualTo("Americas (North) · Yu-Gi-Oh!");
                 assertThat(update.path("details").path("slug").asString())
                         .isEqualTo("americas-north-yugioh");
+                assertThat(update.path("detailLabels").path("americas-north-yugioh").asString())
+                        .isEqualTo("Americas (North) · Yu-Gi-Oh!");
             }
         }
         assertThat((removed.toString() + channels).toLowerCase(Locale.ROOT))
@@ -359,6 +367,199 @@ class AdminConsoleWh2IT extends AbstractIntegrationTest {
                                         + "'channel' = 'montreal-yugioh'",
                                 post.toString()))
                 .isEqualTo(1);
+    }
+
+    /**
+     * Review fix 1 (spec 15.2: never a raw id or region code): every id in an entry's details has a
+     * readable label (an account's handle, a report's number, words for an id nothing names), and a
+     * moved country's regions are named.
+     */
+    @Test
+    void everyIdAndRegionCodeInTheDetailsIsNamed() {
+        String admin = superAdmin("wh2-labels", "Label Admin");
+        UUID adminId = testUsers.idOf(admin);
+        String collector = uniqueUid("wh2-labelled");
+        UUID collectorId = provisionCompliant(collector);
+        UUID reportId = UUID.randomUUID();
+        testUsers.update(
+                "INSERT INTO collector_report (id, reporter_id, reported_user_id, reason) VALUES"
+                        + " (?, ?, ?, 'SPAM')",
+                reportId,
+                adminId,
+                collectorId);
+        long number =
+                ((Number)
+                                testUsers
+                                        .query(
+                                                "SELECT report_number FROM collector_report WHERE"
+                                                        + " id = ?",
+                                                reportId)
+                                        .getFirst()
+                                        .get("report_number"))
+                        .longValue();
+        UUID note = UUID.randomUUID();
+        UUID conversation = UUID.randomUUID();
+        UUID message = UUID.randomUUID();
+        UUID gone = UUID.randomUUID();
+        auditService.record(
+                ActorType.ADMIN,
+                adminId,
+                "report.note",
+                "REPORT",
+                reportId.toString(),
+                Map.of("noteId", note.toString()));
+        auditService.record(
+                ActorType.ADMIN,
+                adminId,
+                "report.conversation.view",
+                "REPORT",
+                reportId.toString(),
+                Map.of("conversationId", conversation.toString()));
+        auditService.record(
+                ActorType.ADMIN,
+                adminId,
+                "user.suspend",
+                AuditService.TARGET_USER,
+                collectorId.toString(),
+                Map.of("reportId", reportId.toString(), "reason", "Spam"));
+        auditService.record(
+                ActorType.ADMIN,
+                adminId,
+                "moderation.flag.resolve",
+                "MODERATION_FLAG",
+                UUID.randomUUID().toString(),
+                Map.of(
+                        "subjectType", "MESSAGE",
+                        "subjectId", message.toString(),
+                        "reason", "BANNED_TERM"));
+        auditService.record(
+                ActorType.ADMIN,
+                adminId,
+                "binder.unpublish",
+                "BINDER",
+                UUID.randomUUID().toString(),
+                Map.of("ownerId", gone.toString(), "previousVisibility", "PUBLIC"));
+        auditService.record(
+                ActorType.ADMIN,
+                adminId,
+                "region.country.update",
+                "COUNTRY",
+                "MX",
+                Map.of(
+                        "previousRegion", "americas-north",
+                        "region", "americas-south",
+                        "active", true));
+
+        JsonNode log =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/admin/audit-logs?actorId=" + adminId + "&size=100",
+                        admin,
+                        null,
+                        200);
+        assertThat(log.path("items").size()).isEqualTo(6);
+        java.util.regex.Pattern uuid =
+                java.util.regex.Pattern.compile(
+                        "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$");
+        Map<String, JsonNode> byAction = new LinkedHashMap<>();
+        for (JsonNode item : log.path("items")) {
+            byAction.put(item.path("action").asString(), item);
+            JsonNode labels = item.path("detailLabels");
+            item.path("details")
+                    .properties()
+                    .forEach(
+                            field -> {
+                                String value = field.getValue().asString("");
+                                if (uuid.matcher(value).matches()) {
+                                    assertThat(labels.path(value).asString())
+                                            .as("label of %s in %s", field.getKey(), item)
+                                            .isNotBlank()
+                                            .doesNotMatch(uuid.pattern());
+                                }
+                            });
+        }
+        assertThat(
+                        byAction.get("report.note")
+                                .path("detailLabels")
+                                .path(note.toString())
+                                .asString())
+                .isEqualTo("A moderator note");
+        assertThat(
+                        byAction.get("report.conversation.view")
+                                .path("detailLabels")
+                                .path(conversation.toString())
+                                .asString())
+                .isEqualTo("A conversation");
+        assertThat(
+                        byAction.get("user.suspend")
+                                .path("detailLabels")
+                                .path(reportId.toString())
+                                .asString())
+                .isEqualTo("Report #" + number);
+        assertThat(
+                        byAction.get("moderation.flag.resolve")
+                                .path("detailLabels")
+                                .path(message.toString())
+                                .asString())
+                .isEqualTo("A private message");
+        assertThat(
+                        byAction.get("binder.unpublish")
+                                .path("detailLabels")
+                                .path(gone.toString())
+                                .asString())
+                .isEqualTo("A deleted account");
+        JsonNode moved = byAction.get("region.country.update").path("detailLabels");
+        assertThat(moved.path("americas-north").asString()).isEqualTo("Americas (North)");
+        assertThat(moved.path("americas-south").asString()).isEqualTo("Americas (South)");
+        assertThat(byAction.get("region.country.update").path("targetLabel").asString())
+                .isEqualTo("Mexico");
+    }
+
+    /**
+     * Review fix 1: a channel named after a city keeps its city label, so it stays archived and
+     * unnamed: a PATCH that would give it a platform region (and then restore it) or change it is
+     * refused, and nothing of it reaches members or the audit log.
+     */
+    @Test
+    void aCityChannelCannotBeMovedToARegionOrEdited() {
+        String admin = superAdmin("wh2-city-patch", "City Admin");
+        String moderator = uniqueUid("wh2-city-patch-mod");
+        provisionWithRoles(moderator, Role.MODERATOR);
+        String path = "/api/v1/admin/community/channels/" + CITY_CHANNEL;
+        for (Map<String, Object> patch :
+                List.<Map<String, Object>>of(
+                        Map.of("regionLabel", "americas-north"),
+                        Map.of("name", "Americas (North) · Yu-Gi-Oh!"),
+                        Map.of("description", "Yu-Gi-Oh! collectors."),
+                        Map.of("game", "pokemon"),
+                        Map.of("sortOrder", 1),
+                        Map.of("status", "ACTIVE"))) {
+            JsonNode refused = callJson(HttpMethod.PATCH, path, moderator, patch, 400);
+            assertThat(refused.path("errorCode").asString()).isEqualTo("VALIDATION_FAILED");
+        }
+        // Archiving it again changes nothing and is allowed.
+        callJson(HttpMethod.PATCH, path, admin, Map.of("status", "ARCHIVED"), 200);
+        Map<String, Object> stored =
+                testUsers
+                        .query(
+                                "SELECT region_label, status, name FROM community_channel WHERE id"
+                                        + " = ?::uuid",
+                                CITY_CHANNEL)
+                        .getFirst();
+        assertThat(stored.get("region_label")).isEqualTo("Montréal");
+        assertThat(stored.get("status")).isEqualTo("ARCHIVED");
+        String member = uniqueUid("wh2-city-member");
+        provisionCompliant(member);
+        JsonNode channels =
+                callJson(HttpMethod.GET, "/api/v1/community/channels", member, null, 200);
+        JsonNode log =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/admin/audit-logs?action=community.channel.update&size=100",
+                        admin,
+                        null,
+                        200);
+        assertThat((channels.toString() + log).toLowerCase(Locale.ROOT)).doesNotContain("montr");
     }
 
     /** WH1's U17: a report about a post names its room, never an archived city channel. */
@@ -482,6 +683,27 @@ class AdminConsoleWh2IT extends AbstractIntegrationTest {
                 .isEqualTo(card.code());
         assertThat(byCode.path("cards").get(0).path("id").asString())
                 .isEqualTo(card.cardId().toString());
+        // Review fix 1 (F4): a code several printings share (another rarity) lists the card once,
+        // and the card is not listed again by its name.
+        testUsers.update(
+                "INSERT INTO card_printing SELECT (jsonb_populate_record(NULL::card_printing,"
+                    + " to_jsonb(p) || jsonb_build_object('id', gen_random_uuid(), 'external_ref',"
+                    + " NULL, 'rarity', 'Zq Secret Rare'))).* FROM card_printing p WHERE p.id = ?",
+                card.printingId());
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM card_printing WHERE printing_code = ?",
+                                card.code()))
+                .isGreaterThan(1);
+        JsonNode shared =
+                callJson(HttpMethod.GET, "/api/v1/admin/search?q=" + card.code(), admin, null, 200);
+        java.util.Set<String> keys = new java.util.HashSet<>();
+        for (JsonNode hit : shared.path("cards")) {
+            assertThat(keys.add(hit.path("id").asString() + "|" + hit.path("printingCode")))
+                    .as("one row per card and code in %s", shared)
+                    .isTrue();
+        }
+        assertThat(keys).hasSize(1);
         JsonNode byCard =
                 callJson(
                         HttpMethod.GET,
@@ -493,11 +715,39 @@ class AdminConsoleWh2IT extends AbstractIntegrationTest {
         assertThat(byCard.path("cards").get(0).path("name").asString()).isEqualTo(card.name());
         assertThat(byCard.path("cards").get(0).path("printingCode").isNull()).isTrue();
 
+        callJson(HttpMethod.GET, "/api/v1/admin/search?q=" + handle, target, null, 403);
+        // Review fix 1 (F3): an email is never searched among cards, and a deleted account is
+        // never found.
+        String email = testUsers.row(targetId).get("email").toString();
+        JsonNode byEmail =
+                callJson(HttpMethod.GET, "/api/v1/admin/search?q=" + email, admin, null, 200);
+        assertThat(byEmail.path("collectors").get(0).path("handle").asString()).isEqualTo(handle);
+        assertThat(byEmail.path("cards").size()).isZero();
+        testUsers.update(
+                "UPDATE card SET name = name || ' zq@wh2.test' WHERE id = ?", card.cardId());
+        assertThat(
+                        callJson(
+                                        HttpMethod.GET,
+                                        "/api/v1/admin/search?q=zq@wh2.test",
+                                        admin,
+                                        null,
+                                        200)
+                                .path("cards")
+                                .size())
+                .as("a text with @ is never searched among cards")
+                .isZero();
+        testUsers.update("UPDATE user_account SET status = 'DELETED' WHERE id = ?", targetId);
+        JsonNode deleted =
+                callJson(HttpMethod.GET, "/api/v1/admin/search?q=zelda quin", admin, null, 200);
+        assertThat(deleted.path("collectors").size()).isZero();
+        callJson(HttpMethod.GET, "/api/v1/admin/search?q=@" + handle, admin, null, 200)
+                .path("collectors")
+                .forEach(hit -> assertThat(hit.path("handle").asString()).isNotEqualTo(handle));
+
         callJson(HttpMethod.GET, "/api/v1/admin/search?q=", admin, null, 400);
         String moderator = uniqueUid("wh2-search-mod");
         provisionWithRoles(moderator, Role.MODERATOR);
         callJson(HttpMethod.GET, "/api/v1/admin/search?q=" + handle, moderator, null, 403);
-        callJson(HttpMethod.GET, "/api/v1/admin/search?q=" + handle, target, null, 403);
     }
 
     @Test

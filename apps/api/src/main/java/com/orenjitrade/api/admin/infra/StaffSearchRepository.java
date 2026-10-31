@@ -54,20 +54,24 @@ public class StaffSearchRepository {
     }
 
     /**
-     * Cards whose printing code is the text (with its printing), then cards whose name holds it,
-     * names starting with it first.
+     * Cards whose printing code is the text (with its printing, once per card and code), then cards
+     * whose name holds it, names starting with it first.
      */
     public List<CardHit> cards(String text, int limit) {
         List<CardHit> byCode =
                 jdbc.sql(
                                 """
-                                SELECT c.id, c.name, g.slug AS game, p.printing_code
-                                  FROM card_printing p
-                                  JOIN card c ON c.id = p.card_id
-                                  JOIN game g ON g.id = c.game_id
-                                 WHERE upper(p.printing_code) LIKE :code ESCAPE '\\'
-                                 ORDER BY upper(p.printing_code) = :exact DESC, p.printing_code,
-                                          c.name
+                                SELECT id, name, game, printing_code
+                                  FROM (SELECT DISTINCT ON (c.id, upper(p.printing_code))
+                                               c.id, c.name, g.slug AS game, p.printing_code,
+                                               upper(p.printing_code) = :exact AS exact
+                                          FROM card_printing p
+                                          JOIN card c ON c.id = p.card_id
+                                          JOIN game g ON g.id = c.game_id
+                                         WHERE upper(p.printing_code) LIKE :code ESCAPE '\\'
+                                         ORDER BY c.id, upper(p.printing_code), p.printing_code)
+                                       AS one_per_card_and_code
+                                 ORDER BY exact DESC, printing_code, name, id
                                  LIMIT :limit
                                 """)
                         .param("code", escape(text.toUpperCase()) + "%")
@@ -108,8 +112,12 @@ public class StaffSearchRepository {
                                                 rs.getString("game"),
                                                 null))
                         .list();
+        // One row per card and code (several printings, rarities or sets, may share a code), and
+        // a card found by its code is not listed again by its name (web stage WH2 review fix 1).
+        java.util.Set<UUID> found = new java.util.HashSet<>();
+        byCode.forEach(hit -> found.add(hit.id()));
         List<CardHit> hits = new java.util.ArrayList<>(byCode);
-        hits.addAll(byName);
+        byName.stream().filter(hit -> !found.contains(hit.id())).forEach(hits::add);
         return hits;
     }
 

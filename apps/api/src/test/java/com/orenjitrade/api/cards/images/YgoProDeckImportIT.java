@@ -228,6 +228,13 @@ class YgoProDeckImportIT extends AbstractCardImageIT {
         assertThat(report.imagesMissingAtSource()).isEqualTo(1);
         assertThat(report.imagesFailed()).isEqualTo(1);
         assertThat(String.join(" ", report.errors())).contains("unexpected content type text/html");
+        // Web stage WH2 review fix 1: the report reaches the console's Report drawer, so it never
+        // carries the provider's host and path (ADR 0015) or an image's raw id (spec 15.2).
+        assertThat(String.join(" ", report.errors()))
+                .contains("An image could not be cached")
+                .doesNotContain("127.0.0.1", "/images/cards/")
+                .doesNotContainPattern(
+                        "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
         assertThat(imageRow("900000001").get("cache_status")).isEqualTo("MISSING_AT_SOURCE");
         assertThat(imageRow("900000002").get("cache_status")).isEqualTo("FAILED");
         assertThat(imageRow("900000003").get("cache_status"))
@@ -250,7 +257,9 @@ class YgoProDeckImportIT extends AbstractCardImageIT {
         STUB.apiDown(true);
         SyncRunView run = importCatalog(ImageMode.REFERENCED, null);
         assertThat(run.status()).isEqualTo(SyncRunStatus.FAILED);
-        assertThat(run.error()).contains("ygoprodeck is unavailable", "kept");
+        assertThat(run.error())
+                .contains("ygoprodeck is unavailable", "kept")
+                .doesNotContain("127.0.0.1", "/api/v7");
         assertThat(run.report()).isNotNull();
         assertThat(cards()).isEqualTo(before);
     }

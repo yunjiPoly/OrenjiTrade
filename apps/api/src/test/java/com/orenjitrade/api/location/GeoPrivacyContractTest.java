@@ -1708,61 +1708,204 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
     void adminConsoleOfStageWh2CarriesNoPlace(CapturedOutput output) {
         UUID admin = idOf("admin");
         UUID author = idOf("collector3");
+        UUID collector1 = idOf("collector1");
+        UUID collector4 = idOf("collector4");
+        UUID collector5 = idOf("collector5");
         String cityChannel = "00000000-0000-4000-8e00-000000000001";
+        String room = "00000000-0000-4000-8e00-000000000021";
         String post = UUID.randomUUID().toString();
-        testUsers.update(
-                "INSERT INTO community_post (id, channel_id, author_id, body, body_hash) VALUES"
-                        + " (?::uuid, ?::uuid, ?, 'Zqold local post',"
-                        + " encode(sha256(convert_to(?, 'UTF8')), 'hex'))",
-                post,
-                cityChannel,
-                author,
-                "zq-geo-wh2-" + post);
-        List<String> audits = new ArrayList<>();
-        for (Object[] row :
+        String roomPost = UUID.randomUUID().toString();
+        for (String[] inserted :
+                List.of(new String[] {post, cityChannel}, new String[] {roomPost, room})) {
+            testUsers.update(
+                    "INSERT INTO community_post (id, channel_id, author_id, body, body_hash) VALUES"
+                            + " (?::uuid, ?::uuid, ?, 'Zqold local post',"
+                            + " encode(sha256(convert_to(?, 'UTF8')), 'hex'))",
+                    inserted[0],
+                    inserted[1],
+                    author,
+                    "zq-geo-wh2-" + inserted[0]);
+        }
+        // Review fix 1 (P5): one entry per target type, each about a collector whose Zqcity must
+        // never show (in a label, an actor's name or a detail's label), and entries a collector
+        // wrote themself.
+        String binder = firstId("SELECT id::text AS id FROM binder WHERE owner_id = ?", collector1);
+        String item =
+                firstId("SELECT id::text AS id FROM inventory_item WHERE owner_id = ?", collector1);
+        String rating = firstId("SELECT id::text AS id FROM rating WHERE ratee_id = ?", collector1);
+        String handle1 = "collector1";
+        List<Object[]> rows =
                 List.of(
-                        new Object[] {
-                            "community.post.remove",
-                            "COMMUNITY_POST",
-                            post,
-                            "{\"channel\": \"montreal-yugioh\", \"authorId\": \""
-                                    + author
-                                    + "\", \"reason\": \"Zqspam\"}"
-                        },
-                        new Object[] {
-                            "community.post.delete",
-                            "COMMUNITY_POST",
-                            post,
-                            "{\"channel\": \"montreal-yugioh\", \"authorId\": \"" + author + "\"}"
-                        },
-                        new Object[] {
-                            "community.channel.update",
-                            "COMMUNITY_CHANNEL",
-                            cityChannel,
-                            "{\"slug\": \"montreal-yugioh\", \"status\": \"ARCHIVED\"}"
-                        })) {
-            String id = UUID.randomUUID().toString();
-            audits.add(id);
+                        auditRow(
+                                "ADMIN",
+                                admin,
+                                "community.post.remove",
+                                "COMMUNITY_POST",
+                                post,
+                                "{\"channel\": \"montreal-yugioh\", \"authorId\": \""
+                                        + author
+                                        + "\", \"reason\": \"Zqspam\"}"),
+                        auditRow(
+                                "ADMIN",
+                                admin,
+                                "community.post.delete",
+                                "COMMUNITY_POST",
+                                post,
+                                "{\"channel\": \"montreal-yugioh\", \"authorId\": \""
+                                        + author
+                                        + "\"}"),
+                        auditRow(
+                                "ADMIN",
+                                admin,
+                                "community.channel.update",
+                                "COMMUNITY_CHANNEL",
+                                cityChannel,
+                                "{\"slug\": \"montreal-yugioh\", \"status\": \"ARCHIVED\"}"),
+                        auditRow(
+                                "ADMIN",
+                                admin,
+                                "community.post.remove",
+                                "COMMUNITY_POST",
+                                roomPost,
+                                "{\"channel\": \"americas-north-yugioh\", \"authorId\": \""
+                                        + author
+                                        + "\"}"),
+                        auditRow(
+                                "ADMIN",
+                                admin,
+                                "user.suspend",
+                                "USER",
+                                collector1.toString(),
+                                "{\"reason\": \"Zqspam\"}"),
+                        auditRow(
+                                "ADMIN",
+                                admin,
+                                "binder.unpublish",
+                                "BINDER",
+                                binder,
+                                "{\"ownerId\": \""
+                                        + collector1
+                                        + "\", \"previousVisibility\": \"PUBLIC\"}"),
+                        auditRow(
+                                "ADMIN",
+                                admin,
+                                "listing.hide",
+                                "INVENTORY_ITEM",
+                                item,
+                                "{\"ownerId\": \""
+                                        + collector1
+                                        + "\", \"previousVisibility\": \"PUBLIC\"}"),
+                        auditRow(
+                                "ADMIN",
+                                admin,
+                                "rating.hide",
+                                "RATING",
+                                rating,
+                                "{\"rateeId\": \""
+                                        + collector1
+                                        + "\", \"raterId\": \""
+                                        + collector5
+                                        + "\"}"),
+                        auditRow(
+                                "ADMIN",
+                                admin,
+                                "reference.hide",
+                                "REFERENCE",
+                                UUID.randomUUID().toString(),
+                                "{\"subjectId\": \""
+                                        + collector5
+                                        + "\", \"authorId\": \""
+                                        + collector1
+                                        + "\"}"),
+                        auditRow(
+                                "ADMIN",
+                                admin,
+                                "report.assign",
+                                "REPORT",
+                                "00000000-0000-4000-9e00-000000000001",
+                                "{\"previousStatus\": \"OPEN\", \"assigneeId\": \""
+                                        + admin
+                                        + "\"}"),
+                        auditRow(
+                                "ADMIN",
+                                admin,
+                                "moderation.flag.resolve",
+                                "MODERATION_FLAG",
+                                UUID.randomUUID().toString(),
+                                "{\"subjectType\": \"USER\", \"subjectId\": \""
+                                        + collector5
+                                        + "\", \"reason\": \"RATE_THRESHOLD\"}"),
+                        auditRow(
+                                "ADMIN",
+                                admin,
+                                "region.country.update",
+                                "COUNTRY",
+                                "CA",
+                                "{\"previousRegion\": \"americas-north\", \"region\":"
+                                        + " \"americas-north\", \"active\": true}"),
+                        auditRow(
+                                "USER",
+                                collector1,
+                                "user.handle.change",
+                                "USER",
+                                collector1.toString(),
+                                "{\"handle\": \""
+                                        + handle1
+                                        + "\", \"previousHandle\": \"zq_old_handle\"}"),
+                        auditRow(
+                                "USER",
+                                collector5,
+                                "consent.accept",
+                                "USER",
+                                collector5.toString(),
+                                "{\"documentType\": \"TERMS\", \"version\": \"1\"}"));
+        List<String> audits = new ArrayList<>();
+        for (Object[] row : rows) {
+            audits.add((String) row[0]);
             testUsers.update(
                     "INSERT INTO audit_log (id, occurred_at, actor_type, actor_user_id, action,"
-                            + " target_type, target_id, details) VALUES (?::uuid, now(), 'ADMIN',"
-                            + " ?, ?, ?, ?, ?::jsonb)",
-                    id,
-                    admin,
-                    row[0],
-                    row[1],
-                    row[2],
-                    row[3]);
+                            + " target_type, target_id, details) VALUES (?::uuid, now(), ?, ?, ?,"
+                            + " ?, ?, ?::jsonb)",
+                    row);
+        }
+        // P5: a post's report in the city channel and one in a room (ReportDetail's room).
+        String cityReport = UUID.randomUUID().toString();
+        String roomReport = UUID.randomUUID().toString();
+        for (Object[] report :
+                List.of(
+                        new Object[] {cityReport, collector4, post},
+                        new Object[] {roomReport, collector5, roomPost})) {
+            testUsers.update(
+                    "INSERT INTO collector_report (id, reporter_id, reported_user_id, reason,"
+                        + " context) VALUES (?::uuid, ?, ?, 'SPAM', jsonb_build_object('source',"
+                        + " 'POST', 'postId', ?::text))",
+                    report[0],
+                    report[1],
+                    author,
+                    report[2]);
         }
         try {
+            // P3: a city channel is never given a platform region (which would restore it).
+            callJson(
+                    HttpMethod.PATCH,
+                    "/api/v1/admin/community/channels/00000000-0000-4000-8e00-000000000003",
+                    SEED_ADMIN,
+                    Map.of("regionLabel", "americas-north"),
+                    400);
             JsonNode log = null;
+            JsonNode inCity = null;
+            JsonNode inRoom = null;
             for (String path :
                     List.of(
                             "/api/v1/admin/audit-logs?size=100",
                             "/api/v1/admin/audit-logs?action=community.post.remove&size=100",
                             "/api/v1/admin/audit-logs?target=%231001",
                             "/api/v1/admin/audit-logs?target=@collector6",
+                            "/api/v1/admin/audit-logs?target=@collector1",
                             "/api/v1/admin/audit-logs?actorType=SYSTEM",
+                            "/api/v1/admin/audit-logs?actorType=USER",
+                            "/api/v1/admin/reports/" + cityReport,
+                            "/api/v1/admin/reports/" + roomReport,
                             "/api/v1/admin/search?q=collector",
                             "/api/v1/admin/search?q=1001",
                             "/api/v1/admin/catalog/games",
@@ -1778,26 +1921,85 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
                 if (path.equals("/api/v1/admin/audit-logs?size=100")) {
                     log = document;
                 }
+                if (path.endsWith(cityReport)) {
+                    inCity = document;
+                }
+                if (path.endsWith(roomReport)) {
+                    inRoom = document;
+                }
                 assertThat(document.toString().toLowerCase(Locale.ROOT))
                         .as("no archived city channel in %s", path)
                         .doesNotContain("montr");
             }
+            JsonNode members =
+                    fetch(
+                            "/api/v1/community/channels",
+                            "seed-collector1:collector1@orenjitrade.test");
+            assertThat(members.toString().toLowerCase(Locale.ROOT))
+                    .as("no city channel listed to members")
+                    .doesNotContain("montr");
+            assertThat(inCity).isNotNull();
+            assertThat(inCity.path("contextRoomSlug").isNull()).isTrue();
+            assertThat(inRoom).isNotNull();
+            assertThat(inRoom.path("contextRoomSlug").asString())
+                    .isEqualTo("americas-north-yugioh");
             assertThat(log).isNotNull();
             int seen = 0;
             for (JsonNode entry : log.path("items")) {
-                if (audits.contains(entry.path("id").asString())) {
-                    seen++;
+                if (!audits.contains(entry.path("id").asString())) {
+                    continue;
+                }
+                seen++;
+                if (entry.path("targetId").asString().equals(post)
+                        || entry.path("targetId").asString().equals(cityChannel)) {
                     assertThat(entry.path("targetLabel").asString()).contains("archived channel");
                 }
+                JsonNode labels = entry.path("detailLabels");
+                entry.path("details")
+                        .properties()
+                        .forEach(
+                                field -> {
+                                    String value = field.getValue().asString("");
+                                    if (value.matches("[0-9a-f-]{36}")) {
+                                        assertThat(labels.path(value).asString())
+                                                .as("label of %s", field.getKey())
+                                                .isNotBlank();
+                                    }
+                                });
             }
-            assertThat(seen).as("the three city channel entries are listed").isEqualTo(3);
+            assertThat(seen).as("every entry of this test is listed").isEqualTo(rows.size());
         } finally {
+            testUsers.update(
+                    "DELETE FROM collector_report WHERE id IN (?::uuid, ?::uuid)",
+                    cityReport,
+                    roomReport);
             for (String id : audits) {
                 testUsers.update("DELETE FROM audit_log WHERE id = ?::uuid", id);
             }
-            testUsers.update("DELETE FROM community_post WHERE id = ?::uuid", post);
+            testUsers.update(
+                    "DELETE FROM community_post WHERE id IN (?::uuid, ?::uuid)", post, roomPost);
         }
         assertContract(output);
+    }
+
+    private static Object[] auditRow(
+            String actorType,
+            UUID actor,
+            String action,
+            String targetType,
+            String targetId,
+            String details) {
+        return new Object[] {
+            UUID.randomUUID().toString(), actorType, actor, action, targetType, targetId, details
+        };
+    }
+
+    /** The first id a query returns, or a fresh one when the seed has none. */
+    private String firstId(String sql, Object... args) {
+        List<Map<String, Object>> found = testUsers.query(sql + " ORDER BY id LIMIT 1", args);
+        return found.isEmpty()
+                ? UUID.randomUUID().toString()
+                : found.getFirst().get("id").toString();
     }
 
     @Test

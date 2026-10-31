@@ -49,6 +49,22 @@ public interface AuditTargetLabels {
     }
 
     /**
+     * Readable names of plain values in the details staff read for this implementation's entries
+     * (web stage WH2 review fix 1, spec 15.2: regions are always named, never {@code
+     * americas-north}): a platform region code ({@code "americas-north"} to "Americas (North)"), a
+     * room's slug to its name. Called once per page with the details of the entries of one target
+     * type, as {@link #staffDetails} returns them; values it does not know are absent. Never a
+     * place below the region.
+     *
+     * @param targetType one of {@link #targetTypes()}
+     * @param shownDetails the details staff read, one map per entry
+     */
+    default Map<String, String> valueLabels(
+            String targetType, Collection<Map<String, Object>> shownDetails) {
+        return Map.of();
+    }
+
+    /**
      * One audit entry's target.
      *
      * @param id the stored target id

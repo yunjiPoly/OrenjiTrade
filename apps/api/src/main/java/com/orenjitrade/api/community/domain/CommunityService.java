@@ -597,6 +597,17 @@ public class CommunityService {
                 patch.regionLabel() == null
                         ? current.regionLabel()
                         : validateRegion(patch.regionLabel(), errors);
+        int sortOrder = patch.sortOrder() == null ? current.sortOrder() : patch.sortOrder();
+        if (CityChannels.isCity(current.regionLabel(), regions)) {
+            // A channel of the old model named after a city stays as it is (ADR 0017, web stage
+            // WH2 review fix 1): its city label is what keeps it archived and unnamed for staff,
+            // so it is never replaced by a platform region, and nothing else of it is edited.
+            cityChannelUnchanged("regionLabel", current.regionLabel(), region, errors);
+            cityChannelUnchanged("name", current.name(), name, errors);
+            cityChannelUnchanged("description", current.description(), description, errors);
+            cityChannelUnchanged("game", current.gameSlug(), game, errors);
+            cityChannelUnchanged("sortOrder", current.sortOrder(), sortOrder, errors);
+        }
         if (!errors.isEmpty()) {
             throw ApiException.validation("Validation failed", errors);
         }
@@ -612,7 +623,6 @@ public class CommunityService {
                             new ProblemFieldError(
                                     "status", "a channel named after a city stays archived")));
         }
-        int sortOrder = patch.sortOrder() == null ? current.sortOrder() : patch.sortOrder();
         channels.update(
                 id, name, description, status, rate, sortOrder, game, region, actor.userId(), now);
         Map<String, Object> details = new LinkedHashMap<>();
@@ -1063,6 +1073,16 @@ public class CommunityService {
      * The region of a region channel: a platform region code (ADR 0017: one channel per platform
      * region, never a city). Blank means none; anything else that is not a code is refused.
      */
+    private static void cityChannelUnchanged(
+            String field,
+            @Nullable Object current,
+            @Nullable Object wanted,
+            List<ProblemFieldError> errors) {
+        if (!java.util.Objects.equals(current, wanted)) {
+            errors.add(new ProblemFieldError(field, "a channel named after a city stays as it is"));
+        }
+    }
+
     private @Nullable String validateRegion(
             @Nullable String region, List<ProblemFieldError> errors) {
         if (region == null || region.isBlank()) {

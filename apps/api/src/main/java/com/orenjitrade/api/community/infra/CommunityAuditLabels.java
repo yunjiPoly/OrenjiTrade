@@ -54,14 +54,15 @@ public class CommunityAuditLabels implements AuditTargetLabels {
         String sql =
                 switch (targetType) {
                     case TARGET_CHANNEL ->
-                            "SELECT c.id, c.name, c.region_label FROM community_channel c"
-                                    + " WHERE c.id IN (:ids)";
+                            "SELECT c.id, c.name, c.region_label, c.game_slug FROM"
+                                    + " community_channel c WHERE c.id IN (:ids)";
                     case TARGET_POST ->
-                            "SELECT p.id, c.name, c.region_label FROM community_post p JOIN"
-                                    + " community_channel c ON c.id = p.channel_id WHERE p.id IN"
-                                    + " (:ids)";
+                            "SELECT p.id, c.name, c.region_label, c.game_slug FROM community_post"
+                                    + " p JOIN community_channel c ON c.id = p.channel_id WHERE"
+                                    + " p.id IN (:ids)";
                     default ->
-                            "SELECT r.id, c.name, c.region_label FROM community_reply r JOIN"
+                            "SELECT r.id, c.name, c.region_label, c.game_slug FROM"
+                                    + " community_reply r JOIN"
                                     + " community_post p ON p.id = r.post_id JOIN"
                                     + " community_channel c ON c.id = p.channel_id WHERE r.id IN"
                                     + " (:ids)";
@@ -77,9 +78,11 @@ public class CommunityAuditLabels implements AuditTargetLabels {
                 .param("ids", ids)
                 .query(
                         (rs, rowNum) -> {
-                            boolean city =
-                                    CityChannels.isCity(rs.getString("region_label"), regions);
-                            String room = city ? null : rs.getString("name");
+                            String room =
+                                    roomName(
+                                            rs.getString("name"),
+                                            rs.getString("region_label"),
+                                            rs.getString("game_slug"));
                             return labels.put(
                                     rs.getObject("id", UUID.class).toString(),
                                     roomLabel(prefix, room));
@@ -101,6 +104,70 @@ public class CommunityAuditLabels implements AuditTargetLabels {
         Map<String, Object> shown = new LinkedHashMap<>(details);
         shown.put(key, CityChannels.ARCHIVED_SLUG);
         return shown;
+    }
+
+    /**
+     * The rooms named by the details' slugs ({@code channel} of a post's removal or deletion,
+     * {@code slug} of a room's creation or change): "Americas (North) · Yu-Gi-Oh!", and "An
+     * archived channel" for {@link CityChannels#ARCHIVED_SLUG} (web stage WH2 review fix 1, spec
+     * 15.2: a room is named, never by its slug "americas-north-yugioh").
+     */
+    @Override
+    public Map<String, String> valueLabels(
+            String targetType, Collection<Map<String, Object>> shownDetails) {
+        Set<String> slugs = new java.util.HashSet<>();
+        for (Map<String, Object> details : shownDetails) {
+            for (String key : List.of("channel", "slug")) {
+                if (details.get(key) instanceof String slug && !slug.isBlank()) {
+                    slugs.add(slug);
+                }
+            }
+        }
+        if (slugs.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, String> labels = new LinkedHashMap<>();
+        if (slugs.remove(CityChannels.ARCHIVED_SLUG)) {
+            labels.put(CityChannels.ARCHIVED_SLUG, ARCHIVED);
+        }
+        if (slugs.isEmpty()) {
+            return labels;
+        }
+        jdbc.sql(
+                        "SELECT slug, name, region_label, game_slug FROM community_channel WHERE"
+                                + " slug IN (:slugs)")
+                .param("slugs", slugs)
+                .query(
+                        (rs, rowNum) -> {
+                            @Nullable String room =
+                                    roomName(
+                                            rs.getString("name"),
+                                            rs.getString("region_label"),
+                                            rs.getString("game_slug"));
+                            // A city channel's slug never reaches staff (staffDetails swapped it).
+                            return room == null ? null : labels.put(rs.getString("slug"), room);
+                        })
+                .list();
+        return labels;
+    }
+
+    /**
+     * A room's name staff read: "Americas (North) · Yu-Gi-Oh!" for a room of a region and a game,
+     * its own name otherwise, {@code null} for a channel named after a city.
+     */
+    private @Nullable String roomName(
+            String name, @Nullable String regionLabel, @Nullable String gameSlug) {
+        if (CityChannels.isCity(regionLabel, regions)) {
+            return null;
+        }
+        @Nullable String region =
+                regionLabel == null
+                        ? null
+                        : regions.region(regionLabel).map(view -> view.name()).orElse(null);
+        if (region == null || gameSlug == null || name.startsWith(region)) {
+            return name;
+        }
+        return region + " · " + name;
     }
 
     /** "Americas (North) · Yu-Gi-Oh!", "A post in …", or the archived wording for a city. */

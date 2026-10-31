@@ -360,7 +360,7 @@ public class CatalogImportService {
                     runId,
                     run.provider()
                             + " is unavailable: "
-                            + e.getMessage()
+                            + ProviderMessages.clientSafe(e.getMessage())
                             + ". The catalog already imported was kept; retry later.",
                     report,
                     start);
@@ -370,7 +370,7 @@ public class CatalogImportService {
                     runId,
                     run.provider()
                             + " request failed: "
-                            + e.getMessage()
+                            + ProviderMessages.clientSafe(e.getMessage())
                             + ". The catalog already imported was kept.",
                     report,
                     start);

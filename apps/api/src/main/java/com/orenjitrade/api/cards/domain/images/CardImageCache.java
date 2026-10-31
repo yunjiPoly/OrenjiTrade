@@ -1,6 +1,7 @@
 package com.orenjitrade.api.cards.domain.images;
 
 import com.orenjitrade.api.cards.domain.ImageMode;
+import com.orenjitrade.api.cards.domain.ProviderMessages;
 import com.orenjitrade.api.cards.domain.provider.CardProvider;
 import com.orenjitrade.api.cards.domain.provider.ImageDownload;
 import com.orenjitrade.api.cards.domain.provider.ImageHostingPolicy;
@@ -652,12 +653,18 @@ public class CardImageCache implements DisposableBean {
                                                     notDownloadable.incrementAndGet();
                                             case FAILED -> {
                                                 failed.incrementAndGet();
+                                                // The report reaches the console: the provider's
+                                                // host, path and the image's id stay in this log
+                                                // (ADR 0015, web stage WH2 review fix 1).
+                                                log.warn(
+                                                        "Card image {} could not be cached: {}",
+                                                        candidate.id(),
+                                                        result.error());
                                                 if (errors.size() < MAX_REPORTED_ERRORS) {
                                                     errors.add(
-                                                            "image "
-                                                                    + candidate.id()
-                                                                    + ": "
-                                                                    + result.error());
+                                                            "An image could not be cached: "
+                                                                    + ProviderMessages.clientSafe(
+                                                                            result.error()));
                                                 }
                                             }
                                         }

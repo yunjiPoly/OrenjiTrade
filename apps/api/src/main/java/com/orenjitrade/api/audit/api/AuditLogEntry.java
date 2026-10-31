@@ -34,4 +34,15 @@ public record AuditLogEntry(
                                     + " setting key; null when it is gone or has no name",
                         example = "Report #1047")
                 @JsonInclude(JsonInclude.Include.ALWAYS)
-                @Nullable String targetLabel) {}
+                @Nullable String targetLabel,
+        @Schema(
+                        requiredMode = RequiredMode.REQUIRED,
+                        description =
+                                "Readable names of the values in details, by value (web stage WH2"
+                                    + " review fix 1, spec 15.2: never a raw id or region code): an"
+                                    + " account's id \"@handle\", a report's \"Report #1047\", an"
+                                    + " id nothing names in words (\"A moderator note\"), a"
+                                    + " platform region code \"Americas (North)\", a room's slug"
+                                    + " its name; every id in details has one",
+                        example = "{\"americas-north\": \"Americas (North)\"}")
+                Map<String, String> detailLabels) {}

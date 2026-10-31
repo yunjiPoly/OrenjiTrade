@@ -134,21 +134,47 @@ public class AuditQueryService {
                 uuid(row.getTargetId()).ifPresent(people::add);
             }
         }
+        List<Map<String, Object>> shown = new ArrayList<>(rows.size());
         for (int i = 0; i < rows.size(); i++) {
-            String subject = subjectKey(rows.get(i).getTargetType());
-            if (subject != null) {
-                uuid(details.get(i).get(subject)).ifPresent(people::add);
+            shown.add(staffDetails(rows.get(i), details.get(i)));
+            // Every id in the details may name an account (an author, a ratee, an assignee).
+            for (Object value : shown.get(i).values()) {
+                uuid(value).ifPresent(people::add);
             }
         }
         @Nullable AccountNames names = accountNames.getIfAvailable();
         Map<UUID, AccountName> named = names == null ? Map.of() : names.namesOf(people);
         Map<String, Map<String, String>> labels = moduleLabels(rows, details);
+        Map<String, Map<String, String>> idLabels = idLabels(shown);
+        Map<String, Map<String, String>> valueLabels = valueLabels(rows, shown);
         List<AuditLogEntry> entries = new ArrayList<>(rows.size());
         for (int i = 0; i < rows.size(); i++) {
             AuditLog row = rows.get(i);
-            entries.add(toEntry(row, details.get(i), named, labels));
+            Map<String, String> detailLabels =
+                    detailLabels(
+                            shown.get(i),
+                            named,
+                            idLabels,
+                            valueLabels.getOrDefault(row.getTargetType(), Map.of()));
+            entries.add(toEntry(row, details.get(i), shown.get(i), detailLabels, named, labels));
         }
         return entries;
+    }
+
+    /** The details staff may read: each module's {@link AuditTargetLabels#staffDetails}. */
+    private Map<String, Object> staffDetails(AuditLog entry, Map<String, Object> stored) {
+        Map<String, Object> details = stored;
+        for (AuditTargetLabels labeler : labelers.orderedStream().toList()) {
+            if (labeler.targetTypes().contains(entry.getTargetType())) {
+                details =
+                        labeler.staffDetails(
+                                entry.getAction(),
+                                entry.getTargetType(),
+                                entry.getTargetId(),
+                                details);
+            }
+        }
+        return details;
     }
 
     /** Labels from the modules' {@link AuditTargetLabels}, by target type then target id. */
@@ -162,6 +188,29 @@ public class AuditQueryService {
                         .add(new Target(row.getTargetId(), details.get(i)));
             }
         }
+        return labelsByType(byType);
+    }
+
+    /**
+     * Labels of the objects the details name by id ({@code reportId} "Report #1047", a flag's
+     * {@code subjectId} "A post in …"), from the modules' {@link AuditTargetLabels}.
+     */
+    private Map<String, Map<String, String>> idLabels(List<Map<String, Object>> shown) {
+        Map<String, List<Target>> byType = new LinkedHashMap<>();
+        for (Map<String, Object> details : shown) {
+            details.forEach(
+                    (key, value) -> {
+                        @Nullable String type = idTargetType(key, details);
+                        if (type != null && uuid(value).isPresent()) {
+                            byType.computeIfAbsent(type, t -> new ArrayList<>())
+                                    .add(new Target((String) value, Map.of()));
+                        }
+                    });
+        }
+        return labelsByType(byType);
+    }
+
+    private Map<String, Map<String, String>> labelsByType(Map<String, List<Target>> byType) {
         Map<String, Map<String, String>> labels = new HashMap<>();
         for (AuditTargetLabels labeler : labelers.orderedStream().toList()) {
             for (String type : labeler.targetTypes()) {
@@ -175,9 +224,127 @@ public class AuditQueryService {
         return labels;
     }
 
+    /** The modules' names of plain values (region codes, room slugs), by target type. */
+    private Map<String, Map<String, String>> valueLabels(
+            List<AuditLog> rows, List<Map<String, Object>> shown) {
+        Map<String, List<Map<String, Object>>> byType = new LinkedHashMap<>();
+        for (int i = 0; i < rows.size(); i++) {
+            byType.computeIfAbsent(rows.get(i).getTargetType(), type -> new ArrayList<>())
+                    .add(shown.get(i));
+        }
+        Map<String, Map<String, String>> labels = new HashMap<>();
+        for (AuditTargetLabels labeler : labelers.orderedStream().toList()) {
+            for (String type : labeler.targetTypes()) {
+                List<Map<String, Object>> details = byType.get(type);
+                if (details != null && !details.isEmpty()) {
+                    labels.computeIfAbsent(type, key -> new HashMap<>())
+                            .putAll(labeler.valueLabels(type, details));
+                }
+            }
+        }
+        return labels;
+    }
+
+    /**
+     * One entry's labels of the values in its details (web stage WH2 review fix 1, spec 15.2: never
+     * a raw id): an account's id reads "@handle", a report's "Report #1047", an id nothing names
+     * reads in words ("A moderator note"), a region code and a room's slug read as their names.
+     */
+    static Map<String, String> detailLabels(
+            Map<String, Object> shown,
+            Map<UUID, AccountName> named,
+            Map<String, Map<String, String>> idLabels,
+            Map<String, String> valueLabels) {
+        Map<String, String> labels = new LinkedHashMap<>();
+        shown.forEach(
+                (key, value) -> {
+                    if (!(value instanceof String text) || labels.containsKey(text)) {
+                        return;
+                    }
+                    Optional<UUID> id = uuid(text);
+                    if (id.isPresent()) {
+                        @Nullable AccountName account = named.get(id.get());
+                        @Nullable String type = idTargetType(key, shown);
+                        @Nullable String module =
+                                type == null
+                                        ? null
+                                        : idLabels.getOrDefault(type, Map.of()).get(text);
+                        labels.put(
+                                text,
+                                account != null
+                                        ? "@" + account.handle()
+                                        : module != null ? module : idWords(key, shown));
+                    } else if (valueLabels.containsKey(text)) {
+                        labels.put(text, valueLabels.get(text));
+                    }
+                });
+        return labels;
+    }
+
+    /** The target type of an id the details name under {@code key}, or {@code null}. */
+    private static @Nullable String idTargetType(String key, Map<String, Object> details) {
+        return switch (key) {
+            case "reportId" -> "REPORT";
+            case "postId" -> "COMMUNITY_POST";
+            case "replyId" -> "COMMUNITY_REPLY";
+            case "ratingId" -> "RATING";
+            case "binderId" -> "BINDER";
+            case "cardId" -> "CARD";
+            case "setId" -> "CARD_SET";
+            case "printingId", "cardPrintingId" -> "CARD_PRINTING";
+            case "subjectId" ->
+                    details.get("subjectType") instanceof String type
+                                    && type.startsWith("COMMUNITY_")
+                            ? type
+                            : null;
+            default -> null;
+        };
+    }
+
+    /** Words for an id nothing names (gone, or a kind of object staff never open by id). */
+    private static String idWords(String key, Map<String, Object> details) {
+        return switch (key) {
+            case "authorId",
+                    "rateeId",
+                    "raterId",
+                    "ownerId",
+                    "assigneeId",
+                    "reportedUserId",
+                    "userId" ->
+                    "A deleted account";
+            case "subjectId" ->
+                    switch (String.valueOf(details.get("subjectType"))) {
+                        case "MESSAGE" -> "A private message";
+                        case "COMMUNITY_POST" -> "A post";
+                        case "COMMUNITY_REPLY" -> "A reply";
+                        default -> "A deleted account";
+                    };
+            case "noteId" -> "A moderator note";
+            case "conversationId" -> "A conversation";
+            case "postId" -> "A post";
+            case "replyId" -> "A reply";
+            case "reportId" -> "A report";
+            case "requestId" -> "A deletion request";
+            case "tradeId" -> "A trade";
+            case "paymentId" -> "A payment";
+            case "disputeId" -> "A dispute";
+            case "evidenceId" -> "A piece of evidence";
+            case "messageId" -> "A message";
+            case "broadcastId" -> "An announcement";
+            case "ratingId" -> "A rating";
+            case "binderId" -> "A binder";
+            case "cardId" -> "A card";
+            case "setId" -> "A card set";
+            case "printingId", "cardPrintingId" -> "A printing";
+            default -> "Not shown";
+        };
+    }
+
     private AuditLogEntry toEntry(
             AuditLog entry,
             Map<String, Object> stored,
+            Map<String, Object> shown,
+            Map<String, String> detailLabels,
             Map<UUID, AccountName> named,
             Map<String, Map<String, String>> labels) {
         @Nullable UUID actorId = entry.getActorUserId();
@@ -191,17 +358,6 @@ public class AuditQueryService {
                         actorName == null || actorName.staffRole() == null
                                 ? null
                                 : actorName.staffRole().name());
-        Map<String, Object> details = stored;
-        for (AuditTargetLabels labeler : labelers.orderedStream().toList()) {
-            if (labeler.targetTypes().contains(entry.getTargetType())) {
-                details =
-                        labeler.staffDetails(
-                                entry.getAction(),
-                                entry.getTargetType(),
-                                entry.getTargetId(),
-                                details);
-            }
-        }
         return new AuditLogEntry(
                 entry.getId(),
                 entry.getOccurredAt(),
@@ -209,9 +365,10 @@ public class AuditQueryService {
                 entry.getAction(),
                 entry.getTargetType(),
                 entry.getTargetId(),
-                details,
+                shown,
                 entry.getRequestId(),
-                targetLabel(entry, stored, named, labels));
+                targetLabel(entry, stored, named, labels),
+                detailLabels);
     }
 
     /** A readable name of the entry's target, {@code null} when none is known. */
