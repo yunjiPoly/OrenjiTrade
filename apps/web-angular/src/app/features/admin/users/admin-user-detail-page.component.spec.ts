@@ -20,9 +20,9 @@ class ModerationPanelStub {
   readonly changed = output<void>();
   readonly status = signal<string | null>(null);
   readonly busy = signal(false);
-  load(): void {}
-  pause(): void {}
-  resume(): void {}
+  readonly load = vi.fn();
+  readonly pause = vi.fn();
+  readonly resume = vi.fn();
 }
 
 @Component({ selector: 'app-roles-editor', template: '' })
