@@ -14874,7 +14874,7 @@ Contract: [`docs/api/contracts/wh1-admin-console.md`](docs/api/contracts/wh1-adm
 | `npm run test:mobile` | **128 suites / 1,782 tests** |
 | `npx expo export` (scratch folders) | iOS 1,975 modules, Android 2,101 modules, web 1,596 modules and 68 static routes |
 | `npm run test:mobile:e2e -- --retries=0` (8090/19006, under the simulator lock) | `--stack-only` (the served export names `localhost:8090` three times and never 8080), `--reuse-running`: 65 passed, 1 failed (`binders.spec.ts` "make a binder a deck core…", the deck core's price not found within 30 s; nothing of WH1); that spec alone 5 / 5, then the full suite again **66 passed**; `--stop` |
-| `npm run test:mobile:maestro -- --platform ios` | NATIVE_RESULT |
+| `npm run test:mobile:maestro -- --platform ios` | **not run: the owner's iPhone 18 Pro simulator was not booted.** Xcode's first launch is not pending (no `xcodebuild -runFirstLaunch` process; CoreSimulator 1174.21); one background wait of an hour (about 23:58 to 00:58 EDT) and the checks after it never listed the simulator as booted; no agent booted it. Needed (the fix changed `apps/api`, `packages/api-client` and `packages/shared-types`: admin endpoints the phone never calls; the phone's typecheck, unit tests, exports and web E2E are green) |
 | `npm run test:scripts` | **165 / 165** |
 | `npm run audit:gate` | OK (no unreviewed high or critical advisory) |
 
