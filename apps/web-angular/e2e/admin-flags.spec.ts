@@ -19,6 +19,8 @@ import {
 
 const SUPER_ADMIN = 'superadmin@orenjitrade.test';
 const FLAG = 'publicChat';
+// Its readable name (board A18): dialogs and toasts name a flag so (WH2 review fix 1, U7).
+const FLAG_NAME = 'Community rooms';
 
 interface FeatureFlag {
   key: string;
@@ -78,7 +80,7 @@ test.describe('admin feature flags', () => {
 
       // Cancelling the confirmation changes nothing.
       await toggle.click();
-      let dialog = page.getByRole('dialog', { name: `Turn off ${FLAG}?` });
+      let dialog = page.getByRole('dialog', { name: `Turn off ${FLAG_NAME}?` });
       await expect(dialog).toBeVisible();
       await dialog.getByRole('button', { name: 'Cancel' }).click();
       await expect(dialog).toBeHidden();
@@ -87,9 +89,9 @@ test.describe('admin feature flags', () => {
 
       // Confirming switches it off.
       await toggle.click();
-      dialog = page.getByRole('dialog', { name: `Turn off ${FLAG}?` });
+      dialog = page.getByRole('dialog', { name: `Turn off ${FLAG_NAME}?` });
       await dialog.getByRole('button', { name: 'Turn off' }).click();
-      await expect(page.getByText(`${FLAG} is now off.`)).toBeVisible();
+      await expect(page.getByText(`${FLAG_NAME} is now off.`)).toBeVisible();
       await expect(state).toHaveText('Off');
       await expect(toggle).not.toBeChecked();
 
@@ -102,10 +104,10 @@ test.describe('admin feature flags', () => {
       // And back on.
       await page.getByRole('switch', { name: FLAG }).click();
       await page
-        .getByRole('dialog', { name: `Turn on ${FLAG}?` })
+        .getByRole('dialog', { name: `Turn on ${FLAG_NAME}?` })
         .getByRole('button', { name: 'Turn on' })
         .click();
-      await expect(page.getByText(`${FLAG} is now on.`)).toBeVisible();
+      await expect(page.getByText(`${FLAG_NAME} is now on.`)).toBeVisible();
       await page.reload();
       await expect(page.getByTestId(`flag-state-${FLAG}`)).toHaveText('On');
 
