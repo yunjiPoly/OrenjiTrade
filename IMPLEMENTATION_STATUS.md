@@ -7,6 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
+**Last updated:** 2026-10-31 (stage WH1 review fix 2, round 2 of 2: an archived city channel's slug, name and description never reach staff, in `GET /admin/community/channels` (R1-1) or a collector's moderation history (R1-2); API only, no type change; see "Review fix 2" in the WH1 section).
 **Last updated:** 2026-10-31 (stage WH1 review fix 1, round 1 of 2: the 39 findings of its four reviewers (shared details appended after typed text hidden from staff, archived city channels never named in the console or a flag, the payments routes closed while `protectedPayments` is off, the resolve dialog's radio groups, focus after every action, light contrast, the Rules tab as board A4); see "Review fix 1" in the WH1 section).
 **Last updated:** 2026-10-30 (stage WH1 of the web redesign, builder: the admin console's own shell (the staff search, the role pill, the grouped nav with open counts, PAYMENTS only while `protectedPayments` is on), the Overview (A1; a moderator's A24), Reports as one split view with the resolve dialog, Flags and rules, the 15 Community rooms with their drawer, Ratings with References; V135 report numbers and the additive API of spec 15.8 (names on ratings and flags, a flagged post's room and text, shipping addresses and e-Transfer emails hidden from staff, `GET /admin/references`); WG's nits first; see the WH1 section and NEXT TASK).
 **Last updated:** 2026-10-30 (stage WF merged into `main` as #101, merge commit `5998be3e`; `origin/main` merged into WG's branch at `dd64b0e2`; `node-forge` 1.4.2 for five high advisories published that evening, which failed the audit gate on `main` too, and its stale exception dropped (`fc3d6276`); the check of WG's review fix 2 left nothing of WG's own above a nit (one minor, an older API rate limit, for the owner); its nits carried into stage WH1; see NEXT TASK).
@@ -14893,12 +14894,73 @@ the row's new button; at 390 the top bar is static; an email in the staff search
 
 **Left for the owner (not this stage)**
 
-- The reported collector's history still sends a removed post's channel slug
-  (`HistoryRemovedContent.channelSlug`, before WH1): for a post removed in an archived city channel
-  it is "montreal-…". The console names it "An archived channel"; nulling it would retype a field.
+- (Fixed by review fix 2 below: the reported collector's history sent "montreal-…" as a removed
+  post's `HistoryRemovedContent.channelSlug`.)
 - WG's leftovers that are design calls, unchanged: the light scrim and the guest Home map card's
   legend (U9), text-field borders below 3:1 (A13), the "Orenji" logotype at 2.74:1 in light (A14,
   exempt), the deletion page's shared rate limit (R2-2), phone photos public (WF's P4).
+
+### Review fix 2 (2026-10-31)
+
+Round 2 of 2: the check of review fix 1 (on `4433b1ae`) approved it with two minors and two nits
+left. Both minors are fixed at their cause in the API, in `CityChannels` (no migration, the next
+is still **V136**; no type changes: the OpenAPI and the clients gained descriptions only); the web
+is unchanged.
+
+- R1-1, `GET /admin/community/channels` still sent an archived city channel's `name` ("Montréal /
+  Yu-Gi-Oh!"), `slug` ("montreal-yugioh") and `description` ("… around Montréal …"), against the
+  contract's "no admin list carries a place, a city never": `adminView` now sends `slug`
+  `CityChannels.ARCHIVED_SLUG` ("archived-channel"), `name` `CityChannels.ARCHIVED_NAME`
+  ("Archived channel") and an empty `description` for a channel with `cityChannel: true` (the
+  console already named it "Archived channel · {game}" and ignored the three; a `PATCH` answers
+  the same way).
+- R1-2, a collector's history (`GET /admin/users/{id}/history`, the report detail's history) sent
+  `HistoryRemovedContent.channelSlug` "montreal-…" for a post removed in such a channel, tying the
+  city to its author: `PostRepository.removedOf` now reads the channel's region label and
+  `CommunityService.removedContentOf` sends `CityChannels.staffSlug(…)`, "archived-channel" for a
+  city channel (a room keeps its slug). The field stays a required string, so nothing is retyped;
+  the console's report history already read "An archived channel", and the older users panel
+  (stage WH2's) now reads "Post in archived-channel" instead of the city's slug.
+- Tests that would have caught them: `CityChannelsTest` (unit: `isCity`, `platformRegion`,
+  `staffSlug`); `CommunityIT.anArchivedCityChannelIsNeverNamedToStaff` asserts the neutral slug,
+  name and empty description, no "montr" in the whole list, then removes the city post and a room
+  post and reads the author's history ("archived-channel" and the room's slug, no "montr");
+  `GeoPrivacyContractTest` removes a post of collector6 in V041's channel and fails on "montr" in
+  collector6's history or the console's channel list. Both integration tests fail on `4433b1ae`
+  ("montreal-yugioh").
+- On the walk stack (this branch's jar on API 8580, `orenjitrade_wh1_check`, Redis db 6, dropped and
+  flushed afterwards), as the seed's moderator and admin: the 4 `cityChannel` rows read
+  "archived-channel", "Archived channel" and "" with their game, no "montr" in the list; a post of
+  collector6 removed in V041's channel reads "archived-channel" in collector6's history.
+- Contract: [`docs/api/contracts/wh1-admin-console.md`](docs/api/contracts/wh1-admin-console.md),
+  row 4b. No screen of the stage changed (the city channels' sort order is their own, 10 to 40),
+  so the AFTER screenshots stand.
+
+Not changed, for the owner: the audit trail keeps the old slug where it was written
+(`community.post.remove`'s `details.channel` with the author's id, `community.channel.update`'s
+`details.slug`) for a post removed in, or a `PATCH` of, an archived city channel; the Audit log
+(today's page, redesigned in stage WH2) shows them (audit records are evidence and are not
+rewritten). The nits R1-3 (board A4's "The same pattern is a separate rule for …" line) and R1-4
+(city channels can no longer be renamed in the console, by design of review fix 1) are left as
+they are.
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | clean |
+| New tests on the code before the fix (`4433b1ae`'s `src/main`) | `CommunityIT.anArchivedCityChannelIsNeverNamedToStaff` and `GeoPrivacyContractTest.ratingsReportsAndAdminConsoleResponsesNeverCarryGeography` **fail** (expected "archived-channel", was "montreal-yugioh"); with the fix: `CityChannelsTest` 3 / 3, `CommunityIT` 9 / 9, `GeoPrivacyContractTest` 18 / 18 |
+| `npm run test:api` | **212 classes / 1,324 tests** (`test`; 1,321 before: `CityChannelsTest` +3) and 13 (`catalogTest`), 0 failures, 4 min 48 s |
+| `exportOpenApi` then `generate:api` | committed (descriptions only on `AdminCommunityChannel.slug`, `name`, `description`, `cityChannel` and `HistoryRemovedContent.channelSlug`; no type changed); git clean afterwards |
+| `npm run lint`, `format:check -w apps/web-angular` | clean |
+| `npm test -w apps/web-angular`, `npm run test:web` | **225 files / 1,153 tests** |
+| `npm run build -w apps/web-angular`, `build:prod` | initial total **771.61 kB** (195.01 kB transferred; budget 900 kB), no warning |
+| `npm run test:e2e -- --retries=0` (8180/4300, under the lock) | **118 passed** (1.4 min), 0 failed |
+| `npm run typecheck`, `lint`, `format:check -w apps/mobile` | clean |
+| `npm run test:mobile` | **128 suites / 1,782 tests** |
+| `npx expo export` (scratch folders) | iOS 1,975 modules, Android 2,101 modules, web 767 entry modules (Metro's cache warm) and 68 static routes |
+| `npm run test:mobile:e2e -- --retries=0` (8090/19006, under the simulator lock) | `--stack-only` (the served entry bundle names `localhost:8090` twice and 8080 never), `--reuse-running`: **66 passed** (1.1 min), `--stop` |
+| `npm run test:mobile:maestro -- --platform ios` | **not run: the owner's iPhone 18 Pro simulator was not booted.** This round changed `apps/api`, `packages/api-client` and `packages/shared-types` (descriptions only), so the suite was due; Xcode's first launch is not pending (no `xcodebuild -runFirstLaunch` process; CoreSimulator 1174.21); one background wait of an hour (02:08 to 03:08) never saw it booted, and nothing was booted. The Android run could not be verified |
+| `npm run test:scripts` | **165 / 165** |
+| `npm run audit:gate` | OK (no unreviewed high or critical advisory) |
 
 ## NEXT TASK
 
@@ -15019,8 +15081,12 @@ the row's new button; at 390 the top bar is static; an email in the staff search
 > findings: **review fix 1 is done** (section "Review fix 1" in the WH1 section: shared details
 > appended after typed text hidden, archived city channels never named, the payments routes
 > closed while the flag is off, the resolve dialog's radio groups, focus after every action, light
-> contrast, the Rules tab in board A4's look; no migration, the next is still **V136**). **Next for
-> WH1: its reviewers' round 2**, then its pull request against `main`, merged on green after WG's.
+> contrast, the Rules tab in board A4's look; no migration, the next is still **V136**). The check of
+> review fix 1 approved it with two minors and two nits: **review fix 2, round 2 of 2, is done**
+> (section "Review fix 2" in the WH1 section: an archived city channel's slug, name and description
+> never reach staff, neither in the console's channel list nor in a collector's history; API only,
+> no type change). **Next for WH1: the check of review fix 2**, then its pull request against
+> `main`, merged on green after WG's.
 >
 > **The exact next stage after WH1's pull request: stage WH2 of the web redesign, the admin
 > console: collectors, catalog, rules and system (boards A7 to A23; spec sections 15.5 to 15.7,
