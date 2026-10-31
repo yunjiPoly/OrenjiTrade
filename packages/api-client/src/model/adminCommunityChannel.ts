@@ -25,6 +25,10 @@ export interface AdminCommunityChannel {
     sortOrder: number;
     postCount24h: number;
     updatedAt: string;
+    /**
+     * A channel of the old model named after a city: it stays archived and the console names it by its game only
+     */
+    cityChannel: boolean;
 }
 export enum AdminCommunityChannelKindEnum {
     Game = 'GAME',

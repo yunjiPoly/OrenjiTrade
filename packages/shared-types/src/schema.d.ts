@@ -7978,10 +7978,16 @@ export interface components {
              * @description The post (a reply's post)
              */
             postId: string;
-            /** @example americas-north-yugioh */
-            roomSlug: string;
-            /** @example Yu-Gi-Oh! */
-            roomName: string;
+            /**
+             * @description The room's slug; null for an archived channel named after a city (ADR 0017)
+             * @example americas-north-yugioh
+             */
+            roomSlug?: string | null;
+            /**
+             * @description The room's name; null for an archived channel named after a city (ADR 0017)
+             * @example Yu-Gi-Oh!
+             */
+            roomName?: string | null;
             /**
              * @description Platform region code of the room; null for others
              * @example americas-north
@@ -8287,6 +8293,8 @@ export interface components {
             postCount24h: number;
             /** Format: date-time */
             updatedAt: string;
+            /** @description A channel of the old model named after a city: it stays archived and the console names it by its game only */
+            cityChannel: boolean;
         };
         CardImageCacheClearRequest: {
             game?: string;

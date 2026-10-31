@@ -255,9 +255,22 @@ public class AdminModerationController {
     public record CommunityContentResponse(
             @Schema(requiredMode = RequiredMode.REQUIRED, description = "The post (a reply's post)")
                     UUID postId,
-            @Schema(requiredMode = RequiredMode.REQUIRED, example = "americas-north-yugioh")
-                    String roomSlug,
-            @Schema(requiredMode = RequiredMode.REQUIRED, example = "Yu-Gi-Oh!") String roomName,
+            @Schema(
+                            nullable = true,
+                            example = "americas-north-yugioh",
+                            description =
+                                    "The room's slug; null for an archived channel named after a"
+                                            + " city (ADR 0017)")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable String roomSlug,
+            @Schema(
+                            nullable = true,
+                            example = "Yu-Gi-Oh!",
+                            description =
+                                    "The room's name; null for an archived channel named after a"
+                                            + " city (ADR 0017)")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable String roomName,
             @Schema(
                             nullable = true,
                             description = "Platform region code of the room; null for others",

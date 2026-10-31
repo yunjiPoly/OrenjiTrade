@@ -34042,11 +34042,19 @@
             "description": "The post (a reply's post)"
           },
           "roomSlug": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The room's slug; null for an archived channel named after a city (ADR 0017)",
             "example": "americas-north-yugioh"
           },
           "roomName": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The room's name; null for an archived channel named after a city (ADR 0017)",
             "example": "Yu-Gi-Oh!"
           },
           "regionCode": {
@@ -34075,8 +34083,6 @@
         "required": [
           "postId",
           "removed",
-          "roomName",
-          "roomSlug",
           "text"
         ]
       },
@@ -35023,9 +35029,14 @@
           "updatedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "cityChannel": {
+            "type": "boolean",
+            "description": "A channel of the old model named after a city: it stays archived and the console names it by its game only"
           }
         },
         "required": [
+          "cityChannel",
           "description",
           "id",
           "kind",

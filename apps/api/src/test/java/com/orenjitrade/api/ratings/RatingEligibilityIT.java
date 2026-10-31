@@ -357,8 +357,23 @@ class RatingEligibilityIT extends AbstractPhase7IT {
                 .containsExactly("reference.hide", "reference.unhide");
 
         // The console's References tab (web stage WH1): a moderator lists them by the collector
-        // they are about, their author and their state, with names.
+        // they are about, their author and their state, with names. A second reference about bob,
+        // by carol, makes each filter count (review fix 1: dropping the author filter was missed).
         callJson(HttpMethod.GET, "/api/v1/admin/references", carol.uid(), null, 403);
+        interaction(carol, bob, InteractionKind.OFFER_ACCEPTED);
+        String carolsReference =
+                callJson(
+                                HttpMethod.POST,
+                                "/api/v1/references",
+                                carol.uid(),
+                                Map.of(
+                                        "subjectId",
+                                        bob.id().toString(),
+                                        "body",
+                                        "Carol got her cards well packed."),
+                                201)
+                        .path("id")
+                        .asString();
         JsonNode about =
                 callJson(
                         HttpMethod.GET,
@@ -366,8 +381,14 @@ class RatingEligibilityIT extends AbstractPhase7IT {
                         moderator,
                         null,
                         200);
-        assertThat(about.path("totalItems").asLong()).isEqualTo(1);
-        JsonNode item = about.path("items").get(0);
+        assertThat(about.path("totalItems").asLong()).isEqualTo(2);
+        JsonNode item = null;
+        for (JsonNode candidate : about.path("items")) {
+            if (candidate.path("reference").path("id").asString().equals(referenceId)) {
+                item = candidate;
+            }
+        }
+        assertThat(item).as("alice's reference").isNotNull();
         assertThat(item.path("reference").path("id").asString()).isEqualTo(referenceId);
         assertThat(item.path("reference").path("author").path("handle").asString())
                 .isEqualTo(alice.handle());
@@ -384,6 +405,19 @@ class RatingEligibilityIT extends AbstractPhase7IT {
                                 .path("totalItems")
                                 .asLong())
                 .isEqualTo(1);
+        JsonNode byCarol =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/admin/references?authorId="
+                                + carol.id()
+                                + "&subjectId="
+                                + bob.id(),
+                        moderator,
+                        null,
+                        200);
+        assertThat(byCarol.path("totalItems").asLong()).isEqualTo(1);
+        assertThat(byCarol.path("items").get(0).path("reference").path("id").asString())
+                .isEqualTo(carolsReference);
         assertThat(
                         callJson(
                                         HttpMethod.GET,

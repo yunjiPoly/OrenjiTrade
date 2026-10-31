@@ -14,6 +14,7 @@ import com.orenjitrade.api.moderation.domain.ModerationService;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -674,6 +675,98 @@ class CommunityIT extends AbstractIntegrationTest {
                                 id))
                 .extracting(row -> row.get("action"))
                 .containsExactly("community.channel.create", "community.channel.update");
+    }
+
+    /**
+     * An archived channel of the old model named after a city (V041's "Montréal / Yu-Gi-Oh!") is
+     * never named to staff (spec 15.2, ADR 0017; web stage WH1 review fix 1): a flag on one of its
+     * posts carries no room slug, name or region, the console's channel list no city label, and the
+     * channel cannot be restored.
+     */
+    @Test
+    void anArchivedCityChannelIsNeverNamedToStaff() {
+        Member author = member("city-author");
+        Member moderator = member("city-mod", Role.MODERATOR);
+        String montreal = "00000000-0000-4000-8e00-000000000001";
+        String postId = UUID.randomUUID().toString();
+        testUsers.update(
+                "INSERT INTO community_post (id, channel_id, author_id, body, body_hash,"
+                        + " moderation_state) VALUES (?::uuid, ?::uuid, ?, ?,"
+                        + " encode(sha256(convert_to(?, 'UTF8')), 'hex'), 'FLAGGED')",
+                postId,
+                montreal,
+                author.id(),
+                "An old post about binder deals",
+                "zq-city-" + postId);
+        testUsers.update(
+                "INSERT INTO moderation_flag (subject_type, subject_id, reason, author_id) VALUES"
+                        + " ('COMMUNITY_POST', ?::uuid, 'BANNED_TERM', ?)",
+                postId,
+                author.id());
+
+        JsonNode flags =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/admin/moderation/flags?subjectType=COMMUNITY_POST&size=100",
+                        moderator.uid(),
+                        null,
+                        200);
+        JsonNode flag = null;
+        for (JsonNode item : flags.path("items")) {
+            if (item.path("subjectId").asString().equals(postId)) {
+                flag = item;
+            }
+        }
+        assertThat(flag).as("the flag on the city channel's post").isNotNull();
+        JsonNode content = flag.path("community");
+        assertThat(content.path("postId").asString()).isEqualTo(postId);
+        assertThat(content.path("roomSlug").isNull()).as("no slug").isTrue();
+        assertThat(content.path("roomName").isNull()).as("no name").isTrue();
+        assertThat(content.path("regionCode").isNull()).as("no region").isTrue();
+        assertThat(content.path("game").asString()).isEqualTo("yugioh");
+        assertThat(content.path("text").asString()).isEqualTo("An old post about binder deals");
+        assertThat(flags.toString().toLowerCase(Locale.ROOT)).doesNotContain("montr");
+
+        JsonNode channels =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/admin/community/channels",
+                        moderator.uid(),
+                        null,
+                        200);
+        boolean seen = false;
+        for (JsonNode channel : channels) {
+            String label =
+                    channel.path("regionLabel").isNull()
+                            ? null
+                            : channel.path("regionLabel").asString();
+            assertThat(label)
+                    .as("%s's region label", channel.path("slug").asString())
+                    .isIn(null, "americas-north", "americas-south", "europe");
+            if (channel.path("id").asString().equals(montreal)) {
+                seen = true;
+                assertThat(channel.path("regionLabel").isNull()).isTrue();
+                assertThat(channel.path("cityChannel").asBoolean()).isTrue();
+            } else if (channel.path("slug").asString().equals(ROOM)) {
+                assertThat(channel.path("cityChannel").asBoolean()).isFalse();
+            }
+        }
+        assertThat(seen).as("the archived city channel is listed").isTrue();
+
+        JsonNode refused =
+                callJson(
+                        HttpMethod.PATCH,
+                        "/api/v1/admin/community/channels/" + montreal,
+                        moderator.uid(),
+                        Map.of("status", "ACTIVE"),
+                        400);
+        assertThat(refused.toString()).contains("status");
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM community_channel WHERE id = ?::uuid AND"
+                                        + " status = 'ARCHIVED'",
+                                montreal))
+                .isEqualTo(1);
     }
 
     @Test

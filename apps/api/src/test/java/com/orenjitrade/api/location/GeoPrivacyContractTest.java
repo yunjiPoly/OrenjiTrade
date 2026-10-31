@@ -1513,11 +1513,70 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
     /** Phase 7: ratings, references, reports, listing status and every admin console response. */
     @Test
     void ratingsReportsAndAdminConsoleResponsesNeverCarryGeography(CapturedOutput output) {
-        String collector1 = "seed-collector1:collector1@orenjitrade.test";
-        String collector4 = "seed-collector4:collector4@orenjitrade.test";
         String seededReport = "00000000-0000-4000-9e00-000000000001";
         UUID collector6 = idOf("collector6");
+        // Real flags (the seed has none; review fix 1 of web stage WH1): a post of collector2 in a
+        // room, a post of collector3 in V041's archived "Montréal / Yu-Gi-Oh!" channel and a
+        // private
+        // message of a seeded conversation. Their authors' cities (Zqcity…) must never show.
+        String roomPost = UUID.randomUUID().toString();
+        String cityPost = UUID.randomUUID().toString();
+        Map<String, Object> message =
+                testUsers
+                        .query(
+                                "SELECT id, sender_id FROM message WHERE conversation_id ="
+                                        + " '00000000-0000-4000-8d00-000000000001'::uuid ORDER BY"
+                                        + " created_at LIMIT 1")
+                        .getFirst();
+        insertFlaggedPost(roomPost, "00000000-0000-4000-8e00-000000000021", idOf("collector2"));
+        insertFlaggedPost(cityPost, "00000000-0000-4000-8e00-000000000001", idOf("collector3"));
+        testUsers.update(
+                "INSERT INTO moderation_flag (subject_type, subject_id, reason, author_id) VALUES"
+                        + " ('MESSAGE', ?, 'BANNED_TERM', ?)",
+                message.get("id"),
+                message.get("sender_id"));
+        try {
+            readTheConsole(output, collector6, seededReport, roomPost, cityPost, message.get("id"));
+        } finally {
+            testUsers.update(
+                    "DELETE FROM moderation_flag WHERE subject_id IN (?::uuid, ?::uuid, ?)",
+                    roomPost,
+                    cityPost,
+                    message.get("id"));
+            testUsers.update(
+                    "DELETE FROM community_post WHERE id IN (?::uuid, ?::uuid)",
+                    roomPost,
+                    cityPost);
+        }
+    }
 
+    private void insertFlaggedPost(String postId, String channelId, UUID authorId) {
+        testUsers.update(
+                "INSERT INTO community_post (id, channel_id, author_id, body, body_hash,"
+                        + " moderation_state) VALUES (?::uuid, ?::uuid, ?, ?,"
+                        + " encode(sha256(convert_to(?, 'UTF8')), 'hex'), 'FLAGGED')",
+                postId,
+                channelId,
+                authorId,
+                "Zqflagged binder deals " + postId.substring(0, 8),
+                "zq-geo-" + postId);
+        testUsers.update(
+                "INSERT INTO moderation_flag (subject_type, subject_id, reason, author_id) VALUES"
+                        + " ('COMMUNITY_POST', ?::uuid, 'BANNED_TERM', ?)",
+                postId,
+                authorId);
+    }
+
+    private void readTheConsole(
+            CapturedOutput output,
+            UUID collector6,
+            String seededReport,
+            String roomPost,
+            String cityPost,
+            Object messageId) {
+        String collector1 = "seed-collector1:collector1@orenjitrade.test";
+        String collector4 = "seed-collector4:collector4@orenjitrade.test";
+        JsonNode flags = null;
         JsonNode ratings = fetch("/api/v1/collectors/collector1/ratings", collector4);
         fetch("/api/v1/collectors/collector1/references", collector4);
         fetch("/api/v1/ratings/eligibility?userId=" + idOf("collector2"), collector1);
@@ -1551,7 +1610,37 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
             if (path.endsWith(seededReport)) {
                 report = document;
             }
+            if (path.startsWith("/api/v1/admin/moderation/flags")) {
+                flags = document;
+            }
         }
+        assertThat(flags).isNotNull();
+        Map<String, JsonNode> bySubject = new LinkedHashMap<>();
+        flags.path("items").forEach(flag -> bySubject.put(flag.path("subjectId").asString(), flag));
+        JsonNode room = bySubject.get(roomPost);
+        assertThat(room).as("the room post's flag").isNotNull();
+        assertThat(room.path("authorHandle").asString()).isEqualTo("collector2");
+        assertThat(room.path("community").path("roomSlug").asString())
+                .isEqualTo("americas-north-yugioh");
+        assertThat(room.path("community").path("regionCode").asString())
+                .isEqualTo("americas-north");
+        assertThat(room.path("community").path("text").asString()).startsWith("Zqflagged");
+        JsonNode city = bySubject.get(cityPost);
+        assertThat(city).as("the city channel post's flag").isNotNull();
+        assertThat(city.path("authorHandle").asString()).isEqualTo("collector3");
+        assertThat(city.path("community").path("roomSlug").isNull()).isTrue();
+        assertThat(city.path("community").path("roomName").isNull()).isTrue();
+        assertThat(city.path("community").path("regionCode").isNull()).isTrue();
+        JsonNode privateMessage = bySubject.get(messageId.toString());
+        assertThat(privateMessage).as("the private message's flag").isNotNull();
+        assertThat(privateMessage.path("community").isNull())
+                .as("a private message has no community block")
+                .isTrue();
+        assertThat(privateMessage.has("text")).isFalse();
+        assertThat(privateMessage.path("authorDisplayName").asString()).isNotBlank();
+        assertThat(flags.toString().toLowerCase(Locale.ROOT))
+                .as("no city channel in the flags")
+                .doesNotContain("montr");
         assertThat(ratings.path("summary").path("count").asInt())
                 .as("collector1's seeded ratings")
                 .isEqualTo(2);

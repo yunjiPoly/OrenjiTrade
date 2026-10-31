@@ -78,12 +78,49 @@ class ReportFlowIT extends AbstractPhase7IT {
                 reported.uid(),
                 Map.of("kind", "TEXT", "body", "e-Transfer to zqpay@example.test"),
                 201);
+        // The phone puts a saved detail after what is already typed, on a line of its own.
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/conversations/" + conversationId + "/messages",
+                reporter.uid(),
+                Map.of(
+                        "kind",
+                        "TEXT",
+                        "body",
+                        "Great, thanks!\nShip to:\nRae Zqappended\n88 Zqappendstreet"),
+                201);
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/conversations/" + conversationId + "/messages",
+                reported.uid(),
+                Map.of(
+                        "kind",
+                        "TEXT",
+                        "body",
+                        "Total is $20.\ne-Transfer to zqappended@example.test"),
+                201);
         callJson(
                 HttpMethod.POST,
                 "/api/v1/conversations/" + conversationId + "/messages",
                 reporter.uid(),
                 Map.of("kind", "TEXT", "body", "e-Transfer sent!"),
                 201);
+
+        // A flag on the reported collector's private message counts among their open flags.
+        Object flaggedMessage =
+                testUsers
+                        .query(
+                                "SELECT id FROM message WHERE conversation_id = ?::uuid AND"
+                                        + " sender_id = ? ORDER BY created_at LIMIT 1",
+                                conversationId,
+                                reported.id())
+                        .getFirst()
+                        .get("id");
+        testUsers.update(
+                "INSERT INTO moderation_flag (subject_type, subject_id, reason, author_id) VALUES"
+                        + " ('MESSAGE', ?, 'BANNED_TERM', ?)",
+                flaggedMessage,
+                reported.id());
 
         JsonNode first =
                 report(
@@ -146,9 +183,13 @@ class ReportFlowIT extends AbstractPhase7IT {
                 .isZero();
         callJson(HttpMethod.GET, "/api/v1/admin/reports?number=0", moderator, null, 400);
 
+        JsonNode openFlags = firstDetail.path("history").path("openFlags");
+        assertThat(openFlags).as("the message's flag counts (board A2)").hasSize(1);
+        assertThat(openFlags.get(0).path("reason").asString()).isEqualTo("BANNED_TERM");
+
         // The address and the e-Transfer email are sent as their kind only (spec 15.8.4).
         JsonNode messages = firstDetail.path("conversation").path("messages");
-        assertThat(messages).hasSize(3);
+        assertThat(messages).hasSize(5);
         List<String> shared = new ArrayList<>();
         for (JsonNode message : messages) {
             shared.add(
@@ -159,11 +200,21 @@ class ReportFlowIT extends AbstractPhase7IT {
                 assertThat(message.path("body").asString()).isEmpty();
             }
         }
-        assertThat(shared).containsExactly("-", "ETRANSFER_EMAIL", "SHIPPING_ADDRESS");
+        assertThat(shared)
+                .containsExactly(
+                        "-",
+                        "ETRANSFER_EMAIL",
+                        "SHIPPING_ADDRESS",
+                        "ETRANSFER_EMAIL",
+                        "SHIPPING_ADDRESS");
         assertThat(messages.get(0).path("body").asString()).isEqualTo("e-Transfer sent!");
         assertThat(firstDetail.toString())
                 .doesNotContain("Zqaddress")
-                .doesNotContain("zqpay@example.test");
+                .doesNotContain("zqpay@example.test")
+                .doesNotContain("Zqappend")
+                .doesNotContain("zqappended@example.test")
+                .doesNotContain("Great, thanks!")
+                .doesNotContain("Total is $20.");
     }
 
     @Test

@@ -500,7 +500,7 @@ public class CommunityService {
     @Transactional(readOnly = true)
     public List<AdminChannelView> adminChannels() {
         return channels.list(false, null, null, timeProvider.now()).stream()
-                .map(CommunityService::adminView)
+                .map(this::adminView)
                 .toList();
     }
 
@@ -601,6 +601,17 @@ public class CommunityService {
             throw ApiException.validation("Validation failed", errors);
         }
         String status = patch.status() == null ? current.status() : patch.status().name();
+        if (ChannelStatus.ACTIVE.name().equals(status)
+                && !ChannelStatus.ACTIVE.name().equals(current.status())
+                && CityChannels.isCity(current.regionLabel(), regions)) {
+            // A channel of the old model named after a city stays archived (ADR 0017): restoring it
+            // would list a city to members.
+            throw ApiException.validation(
+                    "Validation failed",
+                    List.of(
+                            new ProblemFieldError(
+                                    "status", "a channel named after a city stays archived")));
+        }
         int sortOrder = patch.sortOrder() == null ? current.sortOrder() : patch.sortOrder();
         channels.update(
                 id, name, description, status, rate, sortOrder, game, region, actor.userId(), now);
@@ -1080,20 +1091,22 @@ public class CommunityService {
                 lastPost);
     }
 
-    private static AdminChannelView adminView(ChannelRow row) {
+    /** A channel for the console: an old city label is never sent (ADR 0017, spec 15.2). */
+    private AdminChannelView adminView(ChannelRow row) {
         return new AdminChannelView(
                 row.id(),
                 row.slug(),
                 row.name(),
                 ChannelKind.valueOf(row.kind()),
                 row.gameSlug(),
-                row.regionLabel(),
+                CityChannels.platformRegion(row.regionLabel(), regions),
                 row.description(),
                 ChannelStatus.valueOf(row.status()),
                 row.postRateLimitPerHour(),
                 row.sortOrder(),
                 row.postCount24h(),
-                row.updatedAt());
+                row.updatedAt(),
+                CityChannels.isCity(row.regionLabel(), regions));
     }
 
     private static @Nullable UUID uuid(JsonNode node) {

@@ -27,8 +27,10 @@ public interface FlaggedContentPreviews {
      * A flagged post or reply as staff read it.
      *
      * @param postId the post (a reply's post), for "Open the post"
-     * @param roomSlug the room's slug ({@code americas-north-yugioh}), its address in the apps
-     * @param roomName the room's name (the game's, for a room)
+     * @param roomSlug the room's slug ({@code americas-north-yugioh}), its address in the apps;
+     *     {@code null} for an archived channel named after a city (never sent)
+     * @param roomName the room's name (the game's, for a room); {@code null} for an archived
+     *     channel named after a city (never sent)
      * @param regionCode the room's platform region code, {@code null} when the channel is not a
      *     platform region's (an archived channel): never a city
      * @param game the room's game slug, {@code null} for a channel without one
@@ -37,8 +39,8 @@ public interface FlaggedContentPreviews {
      */
     record FlaggedContent(
             UUID postId,
-            String roomSlug,
-            String roomName,
+            @Nullable String roomSlug,
+            @Nullable String roomName,
             @Nullable String regionCode,
             @Nullable String game,
             String text,

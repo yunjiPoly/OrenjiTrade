@@ -225,7 +225,11 @@ public class ModerationService {
                 FlagSubjectType.USER, userId, reason, moderatorId, note, timeProvider.now());
     }
 
-    /** Open flags on an account (moderator history). */
+    /**
+     * Open flags on an account or on what it wrote (a private message, a post, a reply), newest
+     * first (moderator history; the content's flags since web stage WH1's review fix 1, as board A2
+     * counts them).
+     */
     @Transactional(readOnly = true)
     public List<ModerationFlagView> openAccountFlags(UUID userId) {
         return flags.openForAccount(userId);

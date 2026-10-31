@@ -14,8 +14,14 @@ export interface FlaggedCommunityContent {
      * The post (a reply\'s post)
      */
     postId: string;
-    roomSlug: string;
-    roomName: string;
+    /**
+     * The room\'s slug; null for an archived channel named after a city (ADR 0017)
+     */
+    roomSlug?: string | null;
+    /**
+     * The room\'s name; null for an archived channel named after a city (ADR 0017)
+     */
+    roomName?: string | null;
     /**
      * Platform region code of the room; null for others
      */
