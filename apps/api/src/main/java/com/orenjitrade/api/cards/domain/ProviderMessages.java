@@ -1,5 +1,6 @@
 package com.orenjitrade.api.cards.domain;
 
+import java.util.List;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
@@ -38,5 +39,73 @@ public final class ProviderMessages {
         String safe = HOST_AND_PATH.matcher(message).replaceAll("");
         safe = UUID.matcher(safe).replaceAll("").strip();
         return safe.isEmpty() ? "the download failed" : safe;
+    }
+
+    /**
+     * A stored run as the console reads it (web stage WH2 review fix 2): its error and its report's
+     * messages through {@link #clientSafe(String)}. Messages are cleaned when written since review
+     * fix 1; a run saved before that (an earlier real import's failed image read "image {id}:
+     * YGOPRODeck images.ygoprodeck.com/… answered HTTP 403") is cleaned here as it is read. The
+     * stored row stays as it is.
+     */
+    public static SyncRunView safeRun(SyncRunView run) {
+        @Nullable CatalogImportReport report = run.report();
+        @Nullable String error = run.error();
+        return new SyncRunView(
+                run.id(),
+                run.provider(),
+                run.game(),
+                run.mode(),
+                run.status(),
+                run.requestedBy(),
+                run.createdAt(),
+                run.startedAt(),
+                run.finishedAt(),
+                run.setsUpserted(),
+                run.cardsUpserted(),
+                run.printingsUpserted(),
+                error == null ? null : clientSafe(error),
+                run.imageMode(),
+                run.imageLimit(),
+                run.providerDbVersion(),
+                run.phase(),
+                report == null ? null : safeReport(report));
+    }
+
+    /** A stored report with its errors and warnings through {@link #clientSafe(String)}. */
+    public static CatalogImportReport safeReport(CatalogImportReport report) {
+        return new CatalogImportReport(
+                report.provider(),
+                report.providerDbVersion(),
+                report.imageMode(),
+                report.imageLimit(),
+                report.totalCardsProcessed(),
+                report.cardsCreated(),
+                report.cardsUpdated(),
+                report.cardsUnchanged(),
+                report.cardsFailed(),
+                report.setsUpserted(),
+                report.printingsUpserted(),
+                report.printingsSkipped(),
+                report.imagesReferenced(),
+                report.imagesSelected(),
+                report.imagesAlreadyCached(),
+                report.imagesDownloaded(),
+                report.imagesDeduplicated(),
+                report.imagesSkippedCacheFull(),
+                report.imagesFailed(),
+                report.imagesMissingAtSource(),
+                report.bytesDownloaded(),
+                report.cacheUsedMb(),
+                report.cacheReservedMb(),
+                report.cacheLimitMb(),
+                report.cacheLimitReached(),
+                report.durationSeconds(),
+                safe(report.errors()),
+                safe(report.warnings()));
+    }
+
+    private static List<String> safe(List<String> messages) {
+        return messages.stream().map(ProviderMessages::clientSafe).toList();
     }
 }

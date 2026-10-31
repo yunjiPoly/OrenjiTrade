@@ -655,16 +655,17 @@ public class CardImageCache implements DisposableBean {
                                                 failed.incrementAndGet();
                                                 // The report reaches the console: the provider's
                                                 // host, path and the image's id stay in this log
-                                                // (ADR 0015, web stage WH2 review fix 1).
+                                                // (ADR 0015, web stage WH2 review fix 1); the line
+                                                // names the card (review fix 2).
                                                 log.warn(
                                                         "Card image {} could not be cached: {}",
                                                         candidate.id(),
                                                         result.error());
                                                 if (errors.size() < MAX_REPORTED_ERRORS) {
                                                     errors.add(
-                                                            "An image could not be cached: "
-                                                                    + ProviderMessages.clientSafe(
-                                                                            result.error()));
+                                                            fillError(
+                                                                    candidate.cardName(),
+                                                                    result.error()));
                                                 }
                                             }
                                         }
@@ -687,6 +688,15 @@ public class CardImageCache implements DisposableBean {
                 bytes.get(),
                 full.get(),
                 List.copyOf(errors));
+    }
+
+    /**
+     * A failed fill's line in the run's report: "An image of Dark Magician could not be cached:
+     * YGOPRODeck answered HTTP 403", never the provider's host, path or the image's id.
+     */
+    static String fillError(@Nullable String cardName, @Nullable String error) {
+        String of = cardName == null || cardName.isBlank() ? "" : " of " + cardName.strip();
+        return "An image" + of + " could not be cached: " + ProviderMessages.clientSafe(error);
     }
 
     /** Provider artworks known for a game (cached or not). */

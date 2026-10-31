@@ -67,6 +67,8 @@ public final class YgoProDeckStub {
     public enum Behaviour {
         OK,
         NOT_FOUND,
+        /** HTTP 403: the client's failure names the host and the path (web stage WH2 fix 2). */
+        FORBIDDEN,
         HTML,
         EMPTY,
         TRUNCATED,
@@ -298,6 +300,12 @@ public final class YgoProDeckStub {
                                 404,
                                 "text/html",
                                 "<html>404</html>".getBytes(StandardCharsets.UTF_8));
+                case FORBIDDEN ->
+                        respond(
+                                out,
+                                403,
+                                "text/html",
+                                "<html>403</html>".getBytes(StandardCharsets.UTF_8));
                 case HTML ->
                         respond(
                                 out,
@@ -351,6 +359,7 @@ public final class YgoProDeckStub {
         String reason =
                 switch (status) {
                     case 200 -> "OK";
+                    case 403 -> "Forbidden";
                     case 404 -> "Not Found";
                     case 503 -> "Service Unavailable";
                     default -> "Status";

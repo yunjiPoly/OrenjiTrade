@@ -218,21 +218,31 @@ class YgoProDeckImportIT extends AbstractCardImageIT {
     @Test
     void imageProblemsAreReportedWithoutFailingTheRun() {
         importCatalog(ImageMode.NONE, null);
-        reference("ZTST-EN001", "ZTST-EN002", "ZTST-EN003");
+        reference("ZTST-EN001", "ZTST-EN002", "ZTST-EN003", "ZTPR-EN001");
         STUB.behave("900000001", YgoProDeckStub.Behaviour.NOT_FOUND);
         STUB.behave("900000002", YgoProDeckStub.Behaviour.HTML);
         STUB.behave("900000003", YgoProDeckStub.Behaviour.SERVER_ERROR_ONCE);
+        STUB.behave("900000005", YgoProDeckStub.Behaviour.FORBIDDEN);
         SyncRunView run = importCatalog(ImageMode.REFERENCED, null);
         assertThat(run.status()).isEqualTo(SyncRunStatus.SUCCEEDED);
         CatalogImportReport report = run.report();
         assertThat(report.imagesMissingAtSource()).isEqualTo(1);
-        assertThat(report.imagesFailed()).isEqualTo(1);
-        assertThat(String.join(" ", report.errors())).contains("unexpected content type text/html");
-        // Web stage WH2 review fix 1: the report reaches the console's Report drawer, so it never
-        // carries the provider's host and path (ADR 0015) or an image's raw id (spec 15.2).
+        assertThat(report.imagesFailed()).isEqualTo(2);
+        // Web stage WH2 review fixes 1 and 2: the report reaches the console's Report drawer, so it
+        // never carries the provider's host and path (ADR 0015) or an image's raw id (spec 15.2),
+        // and each line names its card. The 403's own message names the stub's host and path
+        // ("YGOPRODeck images 127.0.0.1/images/cards/900000005.jpg answered HTTP 403").
+        assertThat(report.errors())
+                .anyMatch(
+                        line ->
+                                line.startsWith(
+                                        "An image of Quokka Spellcaster of Tests could not be"
+                                                + " cached: unexpected content type text/html"))
+                .contains(
+                        "An image of Pendulum Test Sage could not be cached: YGOPRODeck images"
+                                + " answered HTTP 403");
         assertThat(String.join(" ", report.errors()))
-                .contains("An image could not be cached")
-                .doesNotContain("127.0.0.1", "/images/cards/")
+                .doesNotContain("127.0.0.1", "/images/cards/", "900000005", "Forbidden")
                 .doesNotContainPattern(
                         "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
         assertThat(imageRow("900000001").get("cache_status")).isEqualTo("MISSING_AT_SOURCE");
@@ -248,6 +258,91 @@ class YgoProDeckImportIT extends AbstractCardImageIT {
         SyncRunView next = importCatalog(ImageMode.REFERENCED, null);
         assertThat(STUB.hits("/images/cards/900000001.jpg")).isEqualTo(hits);
         assertThat(next.report().imagesMissingAtSource()).isEqualTo(1);
+    }
+
+    @Test
+    void aRunStoredBeforeTheCleaningIsReadWithoutProviderAddresses() {
+        // Web stage WH2 review fix 2 (R1-4): a run saved before review fix 1 kept the provider's
+        // host, path and the image's id in its report and error; the console reads them clean,
+        // and the stored row stays as it was written.
+        String admin = uniqueUid("img-old-report");
+        provisionWithRoles(admin, Role.ADMIN);
+        String image = "3f1c2a9e-5b7d-4c11-9a2e-7d0b6c1e4f20";
+        String report =
+                """
+                {"provider": "ygoprodeck", "imageMode": "REFERENCED", "totalCardsProcessed": 1,
+                 "cardsCreated": 0, "cardsUpdated": 0, "cardsUnchanged": 1, "cardsFailed": 0,
+                 "setsUpserted": 0, "printingsUpserted": 0, "printingsSkipped": 0,
+                 "imagesReferenced": 1, "imagesSelected": 1, "imagesAlreadyCached": 0,
+                 "imagesDownloaded": 0, "imagesDeduplicated": 0, "imagesSkippedCacheFull": 0,
+                 "imagesFailed": 1, "imagesMissingAtSource": 0, "bytesDownloaded": 0,
+                 "cacheUsedMb": 0, "cacheReservedMb": 0, "cacheLimitMb": 5120,
+                 "cacheLimitReached": false, "durationSeconds": 1.5,
+                 "errors": ["image %s: YGOPRODeck images.ygoprodeck.com/images/cards/46986414.jpg answered HTTP 403"],
+                 "warnings": ["Kept as imported: https://db.ygoprodeck.com/api/v7/cardinfo.php"]}
+                """
+                        .formatted(image);
+        UUID runId = UUID.randomUUID();
+        testUsers.update(
+                """
+                INSERT INTO catalog_sync_run (id, provider, game_id, mode, status, created_at,
+                    started_at, finished_at, error, image_mode, phase, report)
+                SELECT ?, 'ygoprodeck', g.id, 'FULL', 'FAILED', now() + interval '1 hour',
+                    now() + interval '1 hour', now() + interval '1 hour', ?, 'REFERENCED', 'DONE',
+                    CAST(? AS jsonb)
+                  FROM game g WHERE g.slug = ?
+                """,
+                runId,
+                "ygoprodeck request failed: YGOPRODeck db.ygoprodeck.com/api/v7/cardinfo.php"
+                        + " answered HTTP 403. The catalog already imported was kept.",
+                report,
+                GAME);
+
+        JsonNode detail =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/admin/catalog/sync-runs/" + runId,
+                        admin,
+                        null,
+                        200);
+        JsonNode drawer =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/admin/catalog/sync-runs/" + runId + "/report",
+                        admin,
+                        null,
+                        200);
+        JsonNode list =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/admin/catalog/sync-runs?game=" + GAME,
+                        admin,
+                        null,
+                        200);
+        JsonNode games = callJson(HttpMethod.GET, "/api/v1/admin/catalog/games", admin, null, 200);
+        assertThat(detail.path("error").asString())
+                .isEqualTo(
+                        "ygoprodeck request failed: YGOPRODeck answered HTTP 403. The catalog"
+                                + " already imported was kept.");
+        assertThat(drawer.path("errors").get(0).asString())
+                .isEqualTo("image YGOPRODeck answered HTTP 403");
+        assertThat(drawer.path("warnings").get(0).asString()).isEqualTo("Kept as imported:");
+        for (JsonNode body : List.of(detail, drawer, list, games)) {
+            assertThat(body.toString())
+                    .doesNotContain("ygoprodeck.com", "/images/cards/", "/api/v7", image);
+        }
+        assertThat(
+                        testUsers
+                                .query(
+                                        "SELECT report::text AS report FROM catalog_sync_run"
+                                                + " WHERE id = ?",
+                                        runId)
+                                .get(0)
+                                .get("report"))
+                .as("the stored report stays as written")
+                .asString()
+                .contains("images.ygoprodeck.com");
+        testUsers.update("DELETE FROM catalog_sync_run WHERE id = ?", runId);
     }
 
     @Test
