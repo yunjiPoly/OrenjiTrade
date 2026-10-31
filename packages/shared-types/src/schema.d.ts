@@ -8183,6 +8183,7 @@ export interface components {
             kind: "POST" | "REPLY";
             /** Format: uuid */
             id: string;
+            /** @description The channel's slug; "archived-channel" for a channel of the old model named after a city (its own slug names the city, ADR 0017) */
             channelSlug: string;
             /** Format: date-time */
             removedAt?: string | null;
@@ -8273,12 +8274,15 @@ export interface components {
         AdminCommunityChannel: {
             /** Format: uuid */
             id: string;
+            /** @description URL slug; "archived-channel" for a channel named after a city (cityChannel): its own slug names the city */
             slug: string;
+            /** @description Display name; "Archived channel" for a channel named after a city (cityChannel): its own name names the city */
             name: string;
             /** @enum {string} */
             kind: "GAME" | "REGION" | "LOOKING_FOR" | "NEW_LISTINGS" | "TRADES" | "GENERAL";
             game?: string | null;
             regionLabel?: string | null;
+            /** @description Description; empty for a channel named after a city (cityChannel) */
             description: string;
             /** @enum {string} */
             status: "ACTIVE" | "ARCHIVED";
@@ -8293,7 +8297,7 @@ export interface components {
             postCount24h: number;
             /** Format: date-time */
             updatedAt: string;
-            /** @description A channel of the old model named after a city: it stays archived and the console names it by its game only */
+            /** @description A channel of the old model named after a city: it stays archived, its slug, name and description are not sent and the console names it by its game only */
             cityChannel: boolean;
         };
         CardImageCacheClearRequest: {

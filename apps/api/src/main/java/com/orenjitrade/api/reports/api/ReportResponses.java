@@ -260,7 +260,13 @@ public final class ReportResponses {
                             allowableValues = {"POST", "REPLY"})
                     String kind,
             @Schema(requiredMode = RequiredMode.REQUIRED) UUID id,
-            @Schema(requiredMode = RequiredMode.REQUIRED) String channelSlug,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            description =
+                                    "The channel's slug; \"archived-channel\" for a channel of"
+                                            + " the old model named after a city (its own slug"
+                                            + " names the city, ADR 0017)")
+                    String channelSlug,
             @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
                     @Nullable Instant removedAt,
             @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)

@@ -711,7 +711,9 @@ public class CommunityService {
 
     /**
      * Posts and replies of an author removed by moderators, newest first (Phase 7 moderator history
-     * of a reported collector).
+     * of a reported collector). A channel named after a city reads {@link
+     * CityChannels#ARCHIVED_SLUG}: its own slug would tie the city to the author (ADR 0017; web
+     * stage WH1 review fix 2).
      */
     @Transactional(readOnly = true)
     public List<RemovedContent> removedContentOf(UUID authorId, int limit) {
@@ -721,7 +723,10 @@ public class CommunityService {
                                 new RemovedContent(
                                         row.kind(),
                                         row.id(),
-                                        row.channelSlug(),
+                                        CityChannels.staffSlug(
+                                                row.channelSlug(),
+                                                row.channelRegionLabel(),
+                                                regions),
                                         row.removedAt(),
                                         row.reason()))
                 .toList();
@@ -732,7 +737,8 @@ public class CommunityService {
      *
      * @param kind POST or REPLY
      * @param id post or reply id
-     * @param channelSlug its channel
+     * @param channelSlug its channel's slug, {@link CityChannels#ARCHIVED_SLUG} for a channel named
+     *     after a city
      * @param removedAt when
      * @param reason the moderator's reason
      */
@@ -1091,22 +1097,26 @@ public class CommunityService {
                 lastPost);
     }
 
-    /** A channel for the console: an old city label is never sent (ADR 0017, spec 15.2). */
+    /**
+     * A channel for the console: an old city label is never sent, nor the slug, name or description
+     * of a channel named after a city (ADR 0017, spec 15.2; web stage WH1 review fix 2).
+     */
     private AdminChannelView adminView(ChannelRow row) {
+        boolean city = CityChannels.isCity(row.regionLabel(), regions);
         return new AdminChannelView(
                 row.id(),
-                row.slug(),
-                row.name(),
+                CityChannels.staffSlug(row.slug(), row.regionLabel(), regions),
+                city ? CityChannels.ARCHIVED_NAME : row.name(),
                 ChannelKind.valueOf(row.kind()),
                 row.gameSlug(),
                 CityChannels.platformRegion(row.regionLabel(), regions),
-                row.description(),
+                city ? "" : row.description(),
                 ChannelStatus.valueOf(row.status()),
                 row.postRateLimitPerHour(),
                 row.sortOrder(),
                 row.postCount24h(),
                 row.updatedAt(),
-                CityChannels.isCity(row.regionLabel(), regions));
+                city);
     }
 
     private static @Nullable UUID uuid(JsonNode node) {

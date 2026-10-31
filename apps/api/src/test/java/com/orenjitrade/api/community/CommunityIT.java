@@ -679,9 +679,10 @@ class CommunityIT extends AbstractIntegrationTest {
 
     /**
      * An archived channel of the old model named after a city (V041's "Montréal / Yu-Gi-Oh!") is
-     * never named to staff (spec 15.2, ADR 0017; web stage WH1 review fix 1): a flag on one of its
-     * posts carries no room slug, name or region, the console's channel list no city label, and the
-     * channel cannot be restored.
+     * never named to staff (spec 15.2, ADR 0017; web stage WH1 review fixes 1 and 2): a flag on one
+     * of its posts carries no room slug, name or region, the console's channel list neither its
+     * city label nor its slug, name or description, the author's history reads "archived-channel"
+     * for a post removed there, and the channel cannot be restored.
      */
     @Test
     void anArchivedCityChannelIsNeverNamedToStaff() {
@@ -747,11 +748,59 @@ class CommunityIT extends AbstractIntegrationTest {
                 seen = true;
                 assertThat(channel.path("regionLabel").isNull()).isTrue();
                 assertThat(channel.path("cityChannel").asBoolean()).isTrue();
+                // Review fix 2: its slug, name and description carry the city too.
+                assertThat(channel.path("slug").asString()).isEqualTo("archived-channel");
+                assertThat(channel.path("name").asString()).isEqualTo("Archived channel");
+                assertThat(channel.path("description").asString()).isEmpty();
+                assertThat(channel.path("game").asString()).isEqualTo("yugioh");
             } else if (channel.path("slug").asString().equals(ROOM)) {
                 assertThat(channel.path("cityChannel").asBoolean()).isFalse();
+                assertThat(channel.path("name").asString()).isNotEqualTo("Archived channel");
+                assertThat(channel.path("description").asString()).isNotEmpty();
             }
         }
         assertThat(seen).as("the archived city channel is listed").isTrue();
+        assertThat(channels.toString().toLowerCase(Locale.ROOT))
+                .as("no city in the console's channel list")
+                .doesNotContain("montr");
+
+        // The author's history: a post removed in the city channel reads "archived-channel", one
+        // removed in a room keeps the room's slug (review fix 2).
+        String roomPost =
+                post(author, ROOM, "A room post about binder deals", 201).path("id").asString();
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/admin/community/posts/" + postId + "/remove",
+                moderator.uid(),
+                Map.of("reason", "Old city channel"),
+                204);
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/admin/community/posts/" + roomPost + "/remove",
+                moderator.uid(),
+                Map.of("reason", "Advertising"),
+                204);
+        Member admin = member("city-admin", Role.ADMIN);
+        JsonNode history =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/admin/users/" + author.id() + "/history",
+                        admin.uid(),
+                        null,
+                        200);
+        Map<String, String> removedSlugs = new LinkedHashMap<>();
+        history.path("recentPostsRemoved")
+                .forEach(
+                        item ->
+                                removedSlugs.put(
+                                        item.path("id").asString(),
+                                        item.path("channelSlug").asString()));
+        assertThat(removedSlugs)
+                .containsEntry(postId, "archived-channel")
+                .containsEntry(roomPost, ROOM);
+        assertThat(history.toString().toLowerCase(Locale.ROOT))
+                .as("no city in the author's history")
+                .doesNotContain("montr");
 
         JsonNode refused =
                 callJson(

@@ -1519,8 +1519,11 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
         // room, a post of collector3 in V041's archived "Montréal / Yu-Gi-Oh!" channel and a
         // private
         // message of a seeded conversation. Their authors' cities (Zqcity…) must never show.
+        // Review fix 2: a post of collector6 removed in that city channel, which collector6's
+        // history lists, and the console's channel list: neither names Montréal.
         String roomPost = UUID.randomUUID().toString();
         String cityPost = UUID.randomUUID().toString();
+        String removedCityPost = UUID.randomUUID().toString();
         Map<String, Object> message =
                 testUsers
                         .query(
@@ -1530,23 +1533,38 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
                         .getFirst();
         insertFlaggedPost(roomPost, "00000000-0000-4000-8e00-000000000021", idOf("collector2"));
         insertFlaggedPost(cityPost, "00000000-0000-4000-8e00-000000000001", idOf("collector3"));
+        insertFlaggedPost(removedCityPost, "00000000-0000-4000-8e00-000000000001", collector6);
+        testUsers.update(
+                "UPDATE community_post SET moderation_state = 'REMOVED', removed_reason ="
+                        + " 'Zqremoved', removed_at = now() WHERE id = ?::uuid",
+                removedCityPost);
         testUsers.update(
                 "INSERT INTO moderation_flag (subject_type, subject_id, reason, author_id) VALUES"
                         + " ('MESSAGE', ?, 'BANNED_TERM', ?)",
                 message.get("id"),
                 message.get("sender_id"));
         try {
-            readTheConsole(output, collector6, seededReport, roomPost, cityPost, message.get("id"));
-        } finally {
-            testUsers.update(
-                    "DELETE FROM moderation_flag WHERE subject_id IN (?::uuid, ?::uuid, ?)",
+            readTheConsole(
+                    output,
+                    collector6,
+                    seededReport,
                     roomPost,
                     cityPost,
+                    removedCityPost,
+                    message.get("id"));
+        } finally {
+            testUsers.update(
+                    "DELETE FROM moderation_flag WHERE subject_id IN (?::uuid, ?::uuid, ?::uuid,"
+                            + " ?)",
+                    roomPost,
+                    cityPost,
+                    removedCityPost,
                     message.get("id"));
             testUsers.update(
-                    "DELETE FROM community_post WHERE id IN (?::uuid, ?::uuid)",
+                    "DELETE FROM community_post WHERE id IN (?::uuid, ?::uuid, ?::uuid)",
                     roomPost,
-                    cityPost);
+                    cityPost,
+                    removedCityPost);
         }
     }
 
@@ -1573,10 +1591,13 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
             String seededReport,
             String roomPost,
             String cityPost,
+            String removedCityPost,
             Object messageId) {
         String collector1 = "seed-collector1:collector1@orenjitrade.test";
         String collector4 = "seed-collector4:collector4@orenjitrade.test";
         JsonNode flags = null;
+        JsonNode history = null;
+        JsonNode channels = null;
         JsonNode ratings = fetch("/api/v1/collectors/collector1/ratings", collector4);
         fetch("/api/v1/collectors/collector1/references", collector4);
         fetch("/api/v1/ratings/eligibility?userId=" + idOf("collector2"), collector1);
@@ -1613,7 +1634,31 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
             if (path.startsWith("/api/v1/admin/moderation/flags")) {
                 flags = document;
             }
+            if (path.endsWith("/history")) {
+                history = document;
+            }
+            if (path.equals("/api/v1/admin/community/channels")) {
+                channels = document;
+            }
         }
+        // Review fix 2: a city channel's slug, name and description never reach staff, neither in
+        // the console's channel list nor tied to an author in a history.
+        assertThat(history).isNotNull();
+        assertThat(channels).isNotNull();
+        boolean removedListed = false;
+        for (JsonNode removed : history.path("recentPostsRemoved")) {
+            if (removed.path("id").asString().equals(removedCityPost)) {
+                removedListed = true;
+                assertThat(removed.path("channelSlug").asString()).isEqualTo("archived-channel");
+            }
+        }
+        assertThat(removedListed).as("the post removed in the city channel is listed").isTrue();
+        assertThat(history.toString().toLowerCase(Locale.ROOT))
+                .as("no city channel in collector6's history")
+                .doesNotContain("montr");
+        assertThat(channels.toString().toLowerCase(Locale.ROOT))
+                .as("no city channel's name, slug or description in the console's list")
+                .doesNotContain("montr");
         assertThat(flags).isNotNull();
         Map<String, JsonNode> bySubject = new LinkedHashMap<>();
         flags.path("items").forEach(flag -> bySubject.put(flag.path("subjectId").asString(), flag));
