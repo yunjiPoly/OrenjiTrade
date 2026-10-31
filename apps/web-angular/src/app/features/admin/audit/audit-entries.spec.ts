@@ -188,7 +188,109 @@ describe('the audit log’s words (spec 15.5, board A23)', () => {
           details: { ownerId: '7b1c2d3e-0000-4000-8000-000000000001', reason: 'Spam' },
         }),
       ),
-    ).toBe('reason: Spam');
+    ).toBe('“Spam”');
+  });
+
+  it('names regions and rooms, never their codes or slugs (review fix 1, U1)', () => {
+    const moved = entry({
+      action: 'region.country.update',
+      targetType: 'COUNTRY',
+      targetId: 'BZ',
+      targetLabel: 'Belize',
+      details: { previousRegion: 'americas-north', region: 'americas-south', active: true },
+      detailLabels: { 'americas-north': 'Americas (North)', 'americas-south': 'Americas (South)' },
+    });
+    expect(detailSummary(moved)).toBe('Americas (North) → Americas (South)');
+    expect(staffJson(moved)).not.toMatch(/americas-/);
+    // Without the API's names, the console's own region names.
+    expect(detailSummary({ ...moved, detailLabels: {} })).toBe(
+      'Americas (North) → Americas (South)',
+    );
+    expect(
+      detailSummary(
+        entry({
+          action: 'community.post.remove',
+          targetType: 'COMMUNITY_POST',
+          details: {
+            reason: 'Spam',
+            channel: 'americas-north-yugioh',
+            authorId: '00000000-0000-4000-8000-000000000003',
+            flagsResolved: 2,
+          },
+          detailLabels: {
+            'americas-north-yugioh': 'Americas (North) · Yu-Gi-Oh!',
+            '00000000-0000-4000-8000-000000000003': '@collector3',
+          },
+        }),
+      ),
+    ).toBe('“Spam” · In Americas (North) · Yu-Gi-Oh! · 2 flags resolved');
+    expect(
+      detailSummary(
+        entry({
+          action: 'community.channel.update',
+          targetType: 'COMMUNITY_CHANNEL',
+          details: {
+            slug: 'americas-north',
+            previousStatus: 'ARCHIVED',
+            status: 'ARCHIVED',
+            previousPostRateLimitPerHour: 10,
+            postRateLimitPerHour: 20,
+          },
+          detailLabels: { 'americas-north': 'Americas (North)' },
+        }),
+      ),
+    ).toBe('Americas (North) · Archived · posts per hour 10 → 20');
+    expect(
+      detailSummary(
+        entry({
+          action: 'community.post.delete',
+          details: { channel: 'archived-channel' },
+          detailLabels: { 'archived-channel': 'An archived channel' },
+        }),
+      ),
+    ).toBe('In An archived channel');
+  });
+
+  it('reads stored values as sentences (review fix 1, U5)', () => {
+    const summary = (action: string, details: Record<string, unknown>) =>
+      detailSummary(entry({ action, details }));
+    expect(
+      summary('listing.hide', { reason: 'Fake', previousVisibility: 'TEMPORARILY_PUBLIC' }),
+    ).toBe('“Fake” · was temporarily public');
+    expect(summary('listing.restore', { previousState: 'STALE' })).toBe('Was stale');
+    expect(summary('listings.resume', { source: 'ADMIN' })).toBe('Paused by staff');
+    expect(
+      summary('user.roles.update', { previousRoles: ['USER'], roles: ['MODERATOR', 'USER'] }),
+    ).toBe('Collector → Moderator');
+    expect(summary('card.create', { game: 'yugioh', slug: 'ux-review-lantern-sprite' })).toBe(
+      'Yu-Gi-Oh!',
+    );
+    expect(
+      summary('card_printing.create', {
+        set: 'YDKR',
+        card: 'azure-eyes-sky-dragon',
+        collectorNumber: '001',
+        finish: 'NORMAL',
+        edition: 'UNLIMITED',
+        language: 'en',
+      }),
+    ).not.toMatch(/azure-eyes|NORMAL|UNLIMITED/);
+    expect(
+      summary('card_images.cache.reconcile', { usedBytes: 0, orphanFiles: 0, missingFiles: 0 }),
+    ).toBe('Nothing to fix · 0.0 MB in use');
+    expect(
+      summary('inventory.import.settings.update', { 'inventory.import.ydk_max_kb': 150 }),
+    ).toBe('Largest .ydk file 150 kB');
+    expect(
+      summary('delist_policy.update', {
+        previous: { agingAfterDays: 14, staleAfterDays: 30 },
+        updated: { agingAfterDays: 21, staleAfterDays: 30 },
+      }),
+    ).toBe('Aging after 14 → 21 days');
+    // Any other action: words for keys and values, never an enum code.
+    expect(summary('moderation.rule.update', { kind: 'BANNED_TERM', active: true })).toBe(
+      'kind: banned term · active: yes',
+    );
   });
 
   it('names games in the summary, never their slug', () => {
@@ -213,6 +315,34 @@ describe('the audit log’s words (spec 15.5, board A23)', () => {
     );
     expect(json).toContain('"assigneeId": "@alex_m"');
     expect(json).toContain('"report": "Report #1047"');
+  });
+
+  it('names every id of the details in the JSON and never shows one raw (review fix 1, F1)', () => {
+    const json = staffJson(
+      entry({
+        action: 'community.post.remove',
+        targetType: 'COMMUNITY_POST',
+        targetId: '00000000-0000-4000-8000-0000000000aa',
+        targetLabel: 'A post in Americas (North) · Yu-Gi-Oh!',
+        details: {
+          reason: 'Spam',
+          channel: 'americas-north-yugioh',
+          authorId: '00000000-0000-4000-8000-000000000003',
+          noteId: '00000000-0000-4000-8000-000000000004',
+          unknownId: '00000000-0000-4000-8000-000000000005',
+        },
+        detailLabels: {
+          'americas-north-yugioh': 'Americas (North) · Yu-Gi-Oh!',
+          '00000000-0000-4000-8000-000000000003': '@collector3',
+          '00000000-0000-4000-8000-000000000004': 'A moderator note',
+        },
+      }),
+    );
+    expect(json).toContain('"authorId": "@collector3"');
+    expect(json).toContain('"noteId": "A moderator note"');
+    expect(json).toContain('"channel": "Americas (North) · Yu-Gi-Oh!"');
+    expect(json).toContain('"unknownId": "Not shown"');
+    expect(json).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-/);
   });
 
   it('turns Who into the API’s filters', () => {
