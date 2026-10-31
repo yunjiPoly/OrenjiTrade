@@ -415,23 +415,28 @@ test.describe('community rooms', () => {
       // A post the rules flag (banned term with a FLAG action) reaches the console's flag list.
       const flaggedId = await apiPost(request, member, `Great fnordpromo bundle here ${suffix()}`);
       await page.goto('/admin/community');
-      const channelList = page.getByRole('list', { name: 'Community channels' });
-      await expect(channelList.locator(`[data-channel="${ROOM}"]`)).toContainText(ROOM_NAME);
-      // The channels before the rooms are archived, not deleted (V134).
-      await expect(channelList.locator('[data-channel="looking-for"]')).toContainText('Archived');
-      await page.getByRole('tab', { name: 'Moderation flags' }).click();
-      await expect(page).toHaveURL(/\/admin\/community\?tab=flags$/);
+      // The 15 rooms (web stage WH1, board A5); the channels before them are archived (V134).
+      await expect(page.locator(`[data-room="${ROOM}"]`)).toContainText('Open');
+      await page.getByRole('button', { name: /^Archived channels/ }).click();
+      await expect(page.locator('[data-channel="looking-for"]')).toContainText('Archived');
+      // Its flags are in Flags and rules, with the room and the text (board A4).
+      await page.goto('/admin/moderation?subject=COMMUNITY_POST');
       const flag = page
         .getByRole('list', { name: 'Moderation flags' })
         .getByRole('listitem')
         .filter({ hasText: `@${member.handle}` });
       await expect(flag).toContainText('Banned term');
       await expect(flag).toContainText('Community post');
-      await flag.getByRole('button', { name: /^Resolve flag/ }).click();
+      await expect(flag).toContainText('Great fnordpromo bundle here');
+      await expect(flag.getByRole('link', { name: /^Open the post/ })).toHaveAttribute(
+        'href',
+        `/messages/community/${ROOM}`,
+      );
+      await flag.getByRole('button', { name: /^Resolve the flag/ }).click();
       const resolveDialog = page.getByRole('dialog', { name: 'Resolve this flag?' });
       await resolveDialog.getByRole('textbox', { name: 'Note (optional)' }).fill('Checked (E2E)');
       await resolveDialog.getByRole('button', { name: 'Resolve' }).click();
-      await expect(page.getByText('Flag resolved. The action is in the audit log.')).toBeVisible();
+      await expect(page.getByText('Flag resolved.')).toBeVisible();
       await expect(flag).toHaveCount(0);
       await apiDeletePost(request, member, flaggedId);
       await page.context().close();

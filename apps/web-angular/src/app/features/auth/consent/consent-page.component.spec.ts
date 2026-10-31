@@ -159,6 +159,9 @@ describe('ConsentPageComponent (Review our terms)', () => {
     expect(ageBox()).not.toBeNull();
     await press();
     expect(acceptConsents).not.toHaveBeenCalled();
+    // The refusal names the age only: the page shows no document (WG review A10).
+    const refusal = element.querySelector('[role="alert"]')?.textContent?.trim();
+    expect(refusal).toBe(CONSENT_COPY.ageOnlyMissing);
     tick('[data-testid="age-confirmation"] input');
     await press();
     expect(acceptConsents).toHaveBeenCalledWith([

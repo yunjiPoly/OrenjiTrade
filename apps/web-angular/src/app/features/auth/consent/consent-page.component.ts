@@ -36,6 +36,8 @@ export const CONSENT_COPY = {
   intro: 'Please accept the current versions of these documents to keep using OrenjiTrade.',
   ageOnlyIntro: 'Please confirm your age to keep using OrenjiTrade.',
   missing: 'Accept every document and confirm your age to continue.',
+  /** The age alone was asked: the refusal names no document (WG review A10). */
+  ageOnlyMissing: 'Confirm that you are 18 or older to continue.',
   welcomeBack: 'Thanks for confirming. Welcome back!',
 } as const;
 
@@ -95,7 +97,9 @@ export const CONSENT_COPY = {
             <app-age-confirmation-checkbox [control]="ageConfirmed" [warn]="tried()" />
           }
           @if (tried() && missing()) {
-            <p class="field__error consent__missing" role="alert">{{ copy.missing }}</p>
+            <p class="field__error consent__missing" role="alert">
+              {{ items().length === 0 ? copy.ageOnlyMissing : copy.missing }}
+            </p>
           }
           <button
             type="button"

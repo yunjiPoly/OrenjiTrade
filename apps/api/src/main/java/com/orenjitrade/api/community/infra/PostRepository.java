@@ -103,13 +103,16 @@ public class PostRepository {
     public List<RemovedRow> removedOf(UUID authorId, int limit) {
         return jdbc.sql(
                         """
-                        SELECT x.kind, x.id, x.channel_slug, x.removed_at, x.removed_reason FROM (
-                            SELECT 'POST' AS kind, p.id, c.slug AS channel_slug, p.removed_at,
+                        SELECT x.kind, x.id, x.channel_slug, x.channel_region_label,
+                               x.removed_at, x.removed_reason FROM (
+                            SELECT 'POST' AS kind, p.id, c.slug AS channel_slug,
+                                   c.region_label AS channel_region_label, p.removed_at,
                                    p.removed_reason
                               FROM community_post p JOIN community_channel c ON c.id = p.channel_id
                              WHERE p.author_id = :author AND p.moderation_state = 'REMOVED'
                             UNION ALL
-                            SELECT 'REPLY' AS kind, r.id, c.slug AS channel_slug, r.removed_at,
+                            SELECT 'REPLY' AS kind, r.id, c.slug AS channel_slug,
+                                   c.region_label AS channel_region_label, r.removed_at,
                                    r.removed_reason
                               FROM community_reply r
                               JOIN community_post p ON p.id = r.post_id
@@ -126,17 +129,22 @@ public class PostRepository {
                                     rs.getString("kind"),
                                     rs.getObject("id", UUID.class),
                                     rs.getString("channel_slug"),
+                                    rs.getString("channel_region_label"),
                                     removedAt == null ? null : removedAt.toInstant(),
                                     rs.getString("removed_reason"));
                         })
                 .list();
     }
 
-    /** A removed post or reply (moderator history). */
+    /**
+     * A removed post or reply (moderator history). The channel's region label tells a channel named
+     * after a city ({@code CityChannels}); it is never sent.
+     */
     public record RemovedRow(
             String kind,
             UUID id,
             String channelSlug,
+            @Nullable String channelRegionLabel,
             @Nullable Instant removedAt,
             @Nullable String reason) {}
 

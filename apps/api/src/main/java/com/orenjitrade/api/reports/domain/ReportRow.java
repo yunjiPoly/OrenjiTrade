@@ -22,6 +22,7 @@ import org.jspecify.annotations.Nullable;
  * @param resolvedBy deciding moderator
  * @param resolutionNote moderator note of the decision (moderators only)
  * @param resolutionAction the decision
+ * @param number the short number staff read ("#1047", V135)
  */
 public record ReportRow(
         UUID id,
@@ -38,4 +39,5 @@ public record ReportRow(
         @Nullable Instant resolvedAt,
         @Nullable UUID resolvedBy,
         @Nullable String resolutionNote,
-        @Nullable ResolutionAction resolutionAction) {}
+        @Nullable ResolutionAction resolutionAction,
+        long number) {}

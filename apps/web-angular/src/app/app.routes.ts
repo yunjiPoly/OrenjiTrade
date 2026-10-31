@@ -219,8 +219,8 @@ export const routes: Routes = [
   },
   {
     path: 'admin',
-    // The rail's Admin item is the current one (WH1 rebuilds the console's own shell).
-    data: { shell: { area: 'admin' } satisfies ShellRouteData },
+    // The console's own shell (spec 15.1, web stage WH1): its top bar and grouped nav.
+    data: { shell: { area: 'admin', console: true } satisfies ShellRouteData },
     canActivate: [adminGuard],
     loadChildren: () => import('./features/admin/admin.routes').then((m) => m.ADMIN_ROUTES),
   },

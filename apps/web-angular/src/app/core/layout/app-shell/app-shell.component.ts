@@ -53,34 +53,39 @@ import { UnreadChatsProbeComponent } from '../unread-chats/unread-chats-probe.co
         >
       }
     </div>
-    @if (!layout.inChat() && !layout.bare()) {
-      <app-top-bar />
-    }
-    <div
-      class="shell"
-      [class.shell--narrow]="layout.narrow()"
-      [class.shell--bare]="layout.bare()"
-      [class.shell--drawer]="drawerPushes()"
-      [class.shell--chat]="layout.inChat()"
-    >
-      @if (!layout.narrow() && !layout.bare()) {
-        <app-rail class="shell__rail" />
+    @if (layout.console()) {
+      <!-- The admin console (spec 15.1): its shell draws the banner, the nav and the main. -->
+      <router-outlet />
+    } @else {
+      @if (!layout.inChat() && !layout.bare()) {
+        <app-top-bar />
       }
-      <div class="shell__content" [attr.data-layout]="layout.layout()">
-        <!-- In the content column: the rail keeps its full height under the bar (spec 4.1). -->
-        @if (!layout.bare()) {
-          <app-session-banner />
+      <div
+        class="shell"
+        [class.shell--narrow]="layout.narrow()"
+        [class.shell--bare]="layout.bare()"
+        [class.shell--drawer]="drawerPushes()"
+        [class.shell--chat]="layout.inChat()"
+      >
+        @if (!layout.narrow() && !layout.bare()) {
+          <app-rail class="shell__rail" />
         }
-        <main id="main-content" class="shell__main" tabindex="-1">
-          <router-outlet />
-        </main>
-        @if (layout.layout() === 'reading' && !layout.bare()) {
-          <app-footer class="shell__footer" />
-        }
+        <div class="shell__content" [attr.data-layout]="layout.layout()">
+          <!-- In the content column: the rail keeps its full height under the bar (spec 4.1). -->
+          @if (!layout.bare()) {
+            <app-session-banner />
+          }
+          <main id="main-content" class="shell__main" tabindex="-1">
+            <router-outlet />
+          </main>
+          @if (layout.layout() === 'reading' && !layout.bare()) {
+            <app-footer class="shell__footer" />
+          }
+        </div>
       </div>
-    </div>
-    @if (layout.narrow() && !layout.inChat() && !layout.bare()) {
-      <app-tab-bar />
+      @if (layout.narrow() && !layout.inChat() && !layout.bare()) {
+        <app-tab-bar />
+      }
     }
     <app-toast-host />
     @defer (on idle) {

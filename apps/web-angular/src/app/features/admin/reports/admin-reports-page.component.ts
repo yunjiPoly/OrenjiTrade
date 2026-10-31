@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { DOCUMENT } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -10,327 +10,73 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
-import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
-import { MatSelectModule } from '@angular/material/select';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { MatTableModule } from '@angular/material/table';
-import { Router, RouterLink } from '@angular/router';
-import {
-  AdminReportsService,
-  ListReportsRequestParams,
-  PageResponseReportSummary,
-} from '@orenji/api-client';
-import { Subscription } from 'rxjs';
+import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
+import { AdminReportsService, PageResponseReportSummary, ReportSummary } from '@orenji/api-client';
+import { Subscription, filter } from 'rxjs';
 import { SessionService } from '../../../core/auth/session.service';
+import { ShellLayout } from '../../../core/layout/shell-layout.service';
 import { ApiError, toApiError } from '../../../core/http/api-error';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
 import { silentErrors } from '../../../core/http/http-context';
 import { RelativeTimePipe } from '../../../shared/pipes/relative-time.pipe';
-import {
-  REPORT_REASONS,
-  REPORT_STATUSES,
-  contextSourceLabel,
-  reportReasonLabel,
-  reportStatusLabel,
-  resolutionActionLabel,
-} from '../../../shared/reports/report-labels';
-import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
+import { REPORT_REASONS, reportReasonLabel } from '../../../shared/reports/report-labels';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
-import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
-import { AdminChipComponent } from '../shared/admin-chip.component';
-import { reportStatusTone, resolutionTone } from './report-tones';
+import { AdminCounts } from '../console/admin-counts.service';
+import { AdminIconComponent } from '../console/admin-icon.component';
+import { contextPhrase, initialsOf } from '../console/console-labels';
+import { reportNumberLabel } from '../console/staff-search';
+import {
+  REPORT_TABS,
+  ReportTab,
+  pageRangeLine,
+  reportCountLine,
+  reportListParams,
+  reportTabOf,
+  scopedQuery,
+} from './report-filters';
+import { ReportsSync } from './reports-sync.service';
 
 const PAGE_SIZE = 20;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function toPage(value: string | undefined): number {
-  const parsed = Number.parseInt(value ?? '', 10);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
-}
 
 /**
- * `/admin/reports` (moderators and admins): collector reports newest first, filtered by status,
- * reason, "assigned to me" and reported collector (all in the URL:
- * `?status=&reason=&mine=1&reportedUserId=&page=`). Each row opens the report detail.
+ * `/admin/reports` and `/admin/reports/:id` (spec 15.4, board A2; moderators and admins): one
+ * split view instead of a list page and a detail page. The left list (400) has the status tabs
+ * (Open, Under review, Action taken, Dismissed, All), Reason, "Assigned to me" and "Only @handle"
+ * when filtered to one collector, all in the URL; its rows show the reported collector (a red
+ * "3 open" pill when several), the reason, the context, the time, the number and the assignee.
+ * The open report fills the right (its route, `:id`). Below 1280 one pane shows at a time.
  */
 @Component({
   selector: 'app-admin-reports-page',
   imports: [
-    DatePipe,
     RouterLink,
-    MatButtonModule,
-    MatFormFieldModule,
-    MatIconModule,
-    MatPaginatorModule,
-    MatSelectModule,
-    MatSlideToggleModule,
-    MatTableModule,
-    AdminChipComponent,
-    AvatarComponent,
+    RouterOutlet,
+    AdminIconComponent,
     EmptyStateComponent,
     ErrorStateComponent,
-    PageHeaderComponent,
     RelativeTimePipe,
     SkeletonComponent,
   ],
-  template: `
-    <div class="admin-page">
-      <app-page-header
-        title="Collector reports"
-        subtitle="Reports members filed about other collectors. Review the context and history, then resolve with a proportionate action."
-      />
-
-      <div class="admin-filters" role="search" aria-label="Filter reports">
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Status</mat-label>
-          <mat-select
-            [value]="params().status ?? null"
-            (selectionChange)="set('status', $event.value)"
-          >
-            <mat-option [value]="null">Any status</mat-option>
-            @for (status of statuses; track status) {
-              <mat-option [value]="status">{{ statusLabel(status) }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Reason</mat-label>
-          <mat-select
-            [value]="params().reason ?? null"
-            (selectionChange)="set('reason', $event.value)"
-          >
-            <mat-option [value]="null">Any reason</mat-option>
-            @for (reason of reasons; track reason) {
-              <mat-option [value]="reason">{{ reasonLabel(reason) }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-        <mat-slide-toggle
-          class="reports__mine"
-          [checked]="mine() === '1'"
-          (change)="set('mine', $event.checked ? '1' : null)"
-        >
-          Assigned to me
-        </mat-slide-toggle>
-        @if (params().reportedUserId) {
-          <button
-            matButton="tonal"
-            type="button"
-            class="reports__subject"
-            (click)="set('reportedUserId', null)"
-          >
-            <mat-icon aria-hidden="true">close</mat-icon>
-            One collector only
-          </button>
-        }
-      </div>
-
-      @if (error(); as error) {
-        <app-error-state
-          title="Reports could not load"
-          [message]="errorMessage()"
-          [requestId]="error.requestId"
-          (retry)="reload()"
-        />
-      } @else if (loading() && !result()) {
-        <div aria-busy="true">
-          <span class="visually-hidden">Loading reports</span>
-          <app-skeleton variant="list" lines="6" />
-        </div>
-      } @else if (result(); as page) {
-        @if ((page.items ?? []).length === 0) {
-          <app-empty-state
-            icon="verified_user"
-            title="No reports match"
-            [description]="
-              hasFilters()
-                ? 'Try another status or reason, or clear the filters.'
-                : 'Nobody has reported a collector yet.'
-            "
-          >
-            @if (hasFilters()) {
-              <button actions matButton="outlined" type="button" (click)="clear()">
-                Clear filters
-              </button>
-            }
-          </app-empty-state>
-        } @else {
-          <p class="admin-count" aria-live="polite">
-            {{ page.totalItems }} {{ page.totalItems === 1 ? 'report' : 'reports' }}
-            @if (loading()) {
-              · updating…
-            }
-          </p>
-          <div class="table-wrap" [class.admin-dim]="loading()">
-            <table mat-table [dataSource]="page.items ?? []" aria-label="Collector reports">
-              <ng-container matColumnDef="reported">
-                <th mat-header-cell *matHeaderCellDef scope="col">Reported collector</th>
-                <td mat-cell *matCellDef="let report">
-                  <a
-                    class="who"
-                    [routerLink]="['/admin/reports', report.id]"
-                    [attr.aria-label]="
-                      'Report about ' +
-                      report.reportedUser.displayName +
-                      ', ' +
-                      reasonLabel(report.reason) +
-                      ', ' +
-                      statusLabel(report.status)
-                    "
-                  >
-                    <app-avatar
-                      size="sm"
-                      [src]="report.reportedUser.avatarUrl"
-                      [name]="report.reportedUser.displayName"
-                      [decorative]="true"
-                    />
-                    <span class="who__names">
-                      <span class="who__name">{{ report.reportedUser.displayName }}</span>
-                      <span class="who__handle">&#64;{{ report.reportedUser.handle }}</span>
-                    </span>
-                  </a>
-                  @if (report.openReportsAgainstUser > 1) {
-                    <span class="reports__open">{{ report.openReportsAgainstUser }} open</span>
-                  }
-                </td>
-              </ng-container>
-              <ng-container matColumnDef="reason">
-                <th mat-header-cell *matHeaderCellDef scope="col">Reason</th>
-                <td mat-cell *matCellDef="let report">
-                  <span class="reports__reason">{{ reasonLabel(report.reason) }}</span>
-                  <span class="reports__context">{{ contextLabel(report.contextSource) }}</span>
-                </td>
-              </ng-container>
-              <ng-container matColumnDef="reporter">
-                <th mat-header-cell *matHeaderCellDef scope="col" class="opt">Reported by</th>
-                <td mat-cell *matCellDef="let report" class="opt">
-                  &#64;{{ report.reporter.handle }}
-                </td>
-              </ng-container>
-              <ng-container matColumnDef="status">
-                <th mat-header-cell *matHeaderCellDef scope="col">Status</th>
-                <td mat-cell *matCellDef="let report">
-                  <app-admin-chip [tone]="statusTone(report.status)">
-                    {{ statusLabel(report.status) }}
-                  </app-admin-chip>
-                  @if (report.resolutionAction && report.resolutionAction !== 'NONE') {
-                    <app-admin-chip [tone]="actionTone(report.resolutionAction)">
-                      {{ actionLabel(report.resolutionAction) }}
-                    </app-admin-chip>
-                  }
-                </td>
-              </ng-container>
-              <ng-container matColumnDef="assignee">
-                <th mat-header-cell *matHeaderCellDef scope="col" class="opt">Assignee</th>
-                <td mat-cell *matCellDef="let report" class="opt">
-                  {{ report.assignee ? '@' + report.assignee.handle : '—' }}
-                </td>
-              </ng-container>
-              <ng-container matColumnDef="created">
-                <th mat-header-cell *matHeaderCellDef scope="col" class="opt">Filed</th>
-                <td mat-cell *matCellDef="let report" class="opt nowrap">
-                  <time
-                    [attr.datetime]="report.createdAt"
-                    [title]="report.createdAt | date: 'medium'"
-                    >{{ report.createdAt | relativeTime }}</time
-                  >
-                </td>
-              </ng-container>
-              <tr mat-header-row *matHeaderRowDef="columns"></tr>
-              <tr mat-row *matRowDef="let row; columns: columns" [attr.data-report]="row.id"></tr>
-            </table>
-          </div>
-          @if ((page.totalItems ?? 0) > pageSize) {
-            <mat-paginator
-              [length]="page.totalItems ?? 0"
-              [pageIndex]="page.page ?? 0"
-              [pageSize]="pageSize"
-              [hidePageSize]="true"
-              aria-label="Report pages"
-              (page)="onPage($event)"
-            />
-          }
-        }
-      }
-    </div>
-  `,
-  styleUrls: ['../shared/admin-page.scss'],
-  styles: `
-    .reports__mine {
-      align-self: center;
-    }
-    .reports__subject {
-      align-self: center;
-    }
-    .table-wrap {
-      overflow-x: auto;
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-lg);
-      background: var(--color-surface);
-    }
-    table {
-      width: 100%;
-      --mat-table-background-color: transparent;
-    }
-    td app-admin-chip + app-admin-chip {
-      margin-left: 4px;
-    }
-    .who {
-      display: inline-flex;
-      align-items: center;
-      gap: var(--spacing-3);
-      padding: var(--spacing-1) 0;
-      color: inherit;
-      text-decoration: none;
-    }
-    .who:hover .who__name {
-      color: var(--color-primary);
-      text-decoration: underline;
-    }
-    .who__names {
-      display: flex;
-      flex-direction: column;
-    }
-    .who__name {
-      font-weight: var(--font-weight-semibold);
-    }
-    .who__handle,
-    .reports__context {
-      color: var(--color-text-muted);
-      font-size: var(--font-size-sm);
-    }
-    .reports__reason {
-      display: block;
-      font-weight: var(--font-weight-medium);
-    }
-    .reports__open {
-      margin-left: var(--spacing-2);
-      padding: 0 var(--spacing-2);
-      border-radius: var(--radius-pill);
-      background: color-mix(in srgb, var(--color-danger) 14%, var(--color-surface));
-      font-size: var(--font-size-xs);
-      font-weight: var(--font-weight-semibold);
-    }
-    .nowrap {
-      white-space: nowrap;
-    }
-    @media (max-width: 719px) {
-      .opt {
-        display: none;
-      }
-    }
-  `,
+  providers: [ReportsSync],
+  templateUrl: './admin-reports-page.component.html',
+  styleUrls: [
+    '../console/console-page.scss',
+    '../console/console-controls.scss',
+    './admin-reports-page.component.scss',
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AdminReportsPageComponent {
   private readonly api = inject(AdminReportsService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   private readonly session = inject(SessionService);
+  private readonly sync = inject(ReportsSync);
+  private readonly document = inject(DOCUMENT);
+  protected readonly counts = inject(AdminCounts);
+  protected readonly layout = inject(ShellLayout);
 
   /** Query parameters (bound by the router). */
   readonly status = input<string | undefined>();
@@ -339,71 +85,138 @@ export class AdminReportsPageComponent {
   readonly reportedUserId = input<string | undefined>();
   readonly page = input<string | undefined>();
 
-  protected readonly statuses = REPORT_STATUSES;
+  protected readonly tabs = REPORT_TABS;
   protected readonly reasons = REPORT_REASONS;
-  protected readonly pageSize = PAGE_SIZE;
-  protected readonly columns = ['reported', 'reason', 'reporter', 'status', 'assignee', 'created'];
-  protected readonly statusLabel = reportStatusLabel;
   protected readonly reasonLabel = reportReasonLabel;
-  protected readonly contextLabel = contextSourceLabel;
-  protected readonly actionLabel = resolutionActionLabel;
-  protected readonly statusTone = reportStatusTone;
-  protected readonly actionTone = resolutionTone;
+  protected readonly context = contextPhrase;
+  protected readonly initials = initialsOf;
+  protected readonly number = reportNumberLabel;
+  protected readonly pageSize = PAGE_SIZE;
 
   protected readonly result = signal<PageResponseReportSummary | null>(null);
   protected readonly loading = signal(true);
   protected readonly error = signal<ApiError | null>(null);
+  /** The report the panel shows (its route's id), `null` without one. */
+  protected readonly openId = signal<string | null>(null);
+
+  protected readonly tab = computed<ReportTab>(() =>
+    reportTabOf(
+      this.status(),
+      scopedQuery({ mine: this.mine(), reportedUserId: this.reportedUserId() }),
+    ),
+  );
+  protected readonly params = computed(() =>
+    reportListParams(
+      {
+        status: this.status(),
+        reason: this.reason(),
+        mine: this.mine(),
+        reportedUserId: this.reportedUserId(),
+        page: this.page(),
+      },
+      this.session.me()?.id ?? null,
+      PAGE_SIZE,
+    ),
+  );
+  protected readonly hasFilters = computed(() => {
+    const params = this.params();
+    return !!(params.reason || params.reportedUserId || params.assignedTo);
+  });
+  protected readonly items = computed(() => this.result()?.items ?? []);
+  protected readonly total = computed(() => this.result()?.totalItems ?? 0);
+  protected readonly countLine = computed(() => reportCountLine(this.tab(), this.total()));
+  protected readonly rangeLine = computed(() =>
+    pageRangeLine(this.params().page ?? 0, PAGE_SIZE, this.total()),
+  );
+  protected readonly lastPage = computed(
+    () => ((this.params().page ?? 0) + 1) * PAGE_SIZE >= this.total(),
+  );
+  /** "Only @handle" when the list is one collector's. */
+  protected readonly onlyHandle = computed(() => {
+    if (!this.params().reportedUserId) {
+      return null;
+    }
+    const first = this.items()[0];
+    return first ? `@${first.reportedUser.handle}` : 'one collector';
+  });
   protected readonly errorMessage = computed(() => {
     const error = this.error();
     return error ? friendlyMessage(error) : '';
   });
-  protected readonly params = computed<ListReportsRequestParams>(() => {
-    const status = this.status();
-    const reason = this.reason();
-    const subject = this.reportedUserId();
-    const me = this.session.me()?.id;
-    return {
-      status: (REPORT_STATUSES as readonly string[]).includes(status ?? '')
-        ? (status as ListReportsRequestParams['status'])
-        : undefined,
-      reason: (REPORT_REASONS as readonly string[]).includes(reason ?? '')
-        ? (reason as ListReportsRequestParams['reason'])
-        : undefined,
-      reportedUserId: subject && UUID.test(subject) ? subject : undefined,
-      assignedTo: this.mine() === '1' && me ? me : undefined,
-      page: toPage(this.page()),
-      size: PAGE_SIZE,
-    };
-  });
-  protected readonly hasFilters = computed(() => {
-    const params = this.params();
-    return !!(params.status || params.reason || params.reportedUserId || params.assignedTo);
-  });
+  /** Below 1280 the list and the report share the page: one shows at a time. */
+  protected readonly onePane = computed(() => this.layout.narrow() || this.layout.medium());
 
   private subscription: Subscription | null = null;
+  /** After Clear filters or the "Only @handle" chip, the focus goes to the count line. */
+  private focusAfterLoad = false;
 
   constructor() {
     effect(() => {
       const params = this.params();
+      this.sync.version();
       untracked(() => this.load(params));
     });
-    inject(DestroyRef).onDestroy(() => this.subscription?.unsubscribe());
+    this.readOpenId();
+    const navigations = this.router.events
+      .pipe(filter((event) => event instanceof NavigationEnd))
+      .subscribe(() => this.readOpenId());
+    inject(DestroyRef).onDestroy(() => {
+      this.subscription?.unsubscribe();
+      navigations.unsubscribe();
+    });
   }
 
-  protected set(key: string, value: string | null): void {
-    void this.router.navigate([], {
-      queryParams: { [key]: value, page: null },
-      queryParamsHandling: 'merge',
-    });
+  protected tabCount(tab: ReportTab): number | null {
+    const counts = this.counts.counts();
+    if (!counts) {
+      return null;
+    }
+    if (tab === 'OPEN') {
+      return counts.unassigned;
+    }
+    return tab === 'UNDER_REVIEW' ? counts.underReview : null;
+  }
+
+  protected setTab(tab: ReportTab): void {
+    // Open is the URL's default, except for a scoped list ("mine", one collector): All is.
+    const scoped = scopedQuery({ mine: this.mine(), reportedUserId: this.reportedUserId() });
+    this.navigate({ status: tab === (scoped ? 'ALL' : 'OPEN') ? null : tab });
+  }
+
+  protected setReason(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value;
+    this.navigate({ reason: value || null });
+  }
+
+  protected toggleMine(): void {
+    // A tab chosen stays chosen; the default Open becomes All with "mine" (Open could list
+    // nothing: assigning moves a report to Under review).
+    this.navigate({ mine: this.mine() === '1' ? null : '1', status: this.explicitStatus() });
+  }
+
+  protected clearSubject(): void {
+    this.focusAfterLoad = true;
+    this.navigate({ reportedUserId: null, status: this.explicitStatus() });
   }
 
   protected clear(): void {
-    void this.router.navigate([], { queryParams: {} });
+    this.focusAfterLoad = true;
+    const status = this.tab();
+    void this.router.navigate(['/admin/reports'], {
+      queryParams: { status: status === 'OPEN' ? null : status },
+    });
   }
 
-  protected onPage(event: PageEvent): void {
+  /** The tab on screen written into the URL (Open as the default), so a scope change keeps it. */
+  private explicitStatus(): string | null {
+    const tab = this.tab();
+    return tab === 'OPEN' ? null : tab;
+  }
+
+  protected goPage(delta: number): void {
+    const next = Math.max(0, (this.params().page ?? 0) + delta);
     void this.router.navigate([], {
-      queryParams: { page: event.pageIndex || null },
+      queryParams: { page: next || null },
       queryParamsHandling: 'merge',
     });
   }
@@ -412,7 +225,44 @@ export class AdminReportsPageComponent {
     this.load(this.params());
   }
 
-  private load(params: ListReportsRequestParams): void {
+  /** Refresh: the list and the open counts again. */
+  protected refresh(): void {
+    this.reload();
+    void this.counts.refresh();
+  }
+
+  /**
+   * The open report's id from the child route: read on every navigation, since the router keeps
+   * the same panel when only the id changes (another row of the list).
+   */
+  private readOpenId(): void {
+    const previous = this.openId();
+    const next = this.route.snapshot?.firstChild?.paramMap.get('id') ?? null;
+    this.openId.set(next);
+    if (previous && !next && this.onePane()) {
+      // "All reports" in one pane (review fix 1): the focus goes back to the row that was open.
+      setTimeout(() => {
+        const row = this.document.querySelector<HTMLElement>(`[data-report="${previous}"]`);
+        (row ?? this.document.getElementById('reports-count'))?.focus();
+      });
+    }
+  }
+
+  protected assigneeLabel(report: ReportSummary): string {
+    if (!report.assignee) {
+      return 'Unassigned';
+    }
+    return report.assignee.id === this.session.me()?.id ? 'You' : `@${report.assignee.handle}`;
+  }
+
+  private navigate(changes: Record<string, string | null>): void {
+    void this.router.navigate([], {
+      queryParams: { ...changes, page: null },
+      queryParamsHandling: 'merge',
+    });
+  }
+
+  private load(params: ReturnType<typeof reportListParams>): void {
     this.subscription?.unsubscribe();
     this.loading.set(true);
     this.error.set(null);
@@ -422,6 +272,10 @@ export class AdminReportsPageComponent {
         next: (result) => {
           this.result.set(result);
           this.loading.set(false);
+          if (this.focusAfterLoad) {
+            this.focusAfterLoad = false;
+            setTimeout(() => this.document.getElementById('reports-count')?.focus());
+          }
         },
         error: (error: unknown) => {
           this.error.set(toApiError(error));

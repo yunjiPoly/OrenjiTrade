@@ -6,8 +6,9 @@ import com.orenjitrade.api.ratings.api.RatingResponses.AdminRatingResponse;
 import com.orenjitrade.api.ratings.api.RatingResponses.AdminReferenceResponse;
 import com.orenjitrade.api.ratings.domain.RatingModerationState;
 import com.orenjitrade.api.ratings.domain.RatingService;
-import com.orenjitrade.api.ratings.domain.RatingService.RatingView;
+import com.orenjitrade.api.ratings.domain.RatingService.AdminRatingView;
 import com.orenjitrade.api.ratings.domain.ReferenceService;
+import com.orenjitrade.api.ratings.domain.ReferenceService.AdminReferenceView;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -58,7 +59,7 @@ public class AdminRatingController {
             @RequestParam(required = false) @Nullable RatingModerationState state,
             @RequestParam(defaultValue = "0") @Min(0) @Max(10_000) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
-        PageResponse<RatingView> result =
+        PageResponse<AdminRatingView> result =
                 ratingService.adminList(rateeId, raterId, state, page, size);
         return new PageResponse<>(
                 result.items().stream().map(AdminRatingResponse::from).toList(),
@@ -103,6 +104,29 @@ public class AdminRatingController {
     public AdminRatingResponse unhide(
             @AuthenticationPrincipal AuthenticatedUser moderator, @PathVariable UUID id) {
         return AdminRatingResponse.from(ratingService.unhide(moderator, id));
+    }
+
+    @GetMapping(path = "/api/v1/admin/references", produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(
+            operationId = "listAdminReferences",
+            summary = "List references (MODERATOR+)",
+            description =
+                    "Newest first; filter by the collector it is about, its author or moderation"
+                            + " state (web stage WH1, the console's References tab).")
+    public PageResponse<AdminReferenceResponse> listReferences(
+            @RequestParam(required = false) @Nullable UUID subjectId,
+            @RequestParam(required = false) @Nullable UUID authorId,
+            @RequestParam(required = false) @Nullable RatingModerationState state,
+            @RequestParam(defaultValue = "0") @Min(0) @Max(10_000) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+        PageResponse<AdminReferenceView> result =
+                referenceService.adminList(subjectId, authorId, state, page, size);
+        return new PageResponse<>(
+                result.items().stream().map(AdminReferenceResponse::from).toList(),
+                result.page(),
+                result.size(),
+                result.totalItems(),
+                result.totalPages());
     }
 
     @PostMapping(

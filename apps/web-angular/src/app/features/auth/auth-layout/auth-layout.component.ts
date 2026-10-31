@@ -66,7 +66,19 @@ import { AuthArtComponent } from '../auth-art/auth-art.component';
           </div>
         </div>
         <p class="auth__legal">
-          <a routerLink="/legal">Terms, privacy and community guidelines</a>
+          <!-- On the sign-in steps a new tab, as the consent rows' "Read": the same tab would
+               drop a guest's pending action (WG review R1-4). -->
+          @if (card()) {
+            <a routerLink="/legal">Terms, privacy and community guidelines</a>
+          } @else {
+            <a
+              routerLink="/legal"
+              target="_blank"
+              rel="noopener"
+              aria-label="Terms, privacy and community guidelines, opens in a new tab"
+              >Terms, privacy and community guidelines</a
+            >
+          }
         </p>
       </div>
       @if (!card() && !layout.narrow()) {

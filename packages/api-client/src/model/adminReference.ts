@@ -8,6 +8,7 @@
  * Do not edit the class manually.
  */
 import { ReferenceResponse } from './referenceResponse';
+import { RatingAuthor } from './ratingAuthor';
 
 
 export interface AdminReference { 
@@ -16,6 +17,15 @@ export interface AdminReference {
     subjectId: string;
     moderationState: AdminReferenceModerationStateEnum;
     hiddenReason?: string | null;
+    /**
+     * The collector it is about, by name (web stage WH1)
+     */
+    subject: RatingAuthor;
+    /**
+     * The handle of the staff member who hid it
+     */
+    hiddenByHandle?: string | null;
+    hiddenAt?: string | null;
 }
 export enum AdminReferenceModerationStateEnum {
     Ok = 'OK',

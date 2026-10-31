@@ -23,6 +23,7 @@ import com.orenjitrade.api.reports.domain.ReportReason;
 import com.orenjitrade.api.reports.domain.ReportRow;
 import com.orenjitrade.api.reports.domain.ReportStatus;
 import com.orenjitrade.api.reports.domain.ResolutionAction;
+import com.orenjitrade.api.reports.domain.SharedDetail;
 import com.orenjitrade.api.users.domain.UserAccountSnapshot;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
@@ -131,7 +132,12 @@ public final class ReportResponses {
             @Schema(
                             requiredMode = RequiredMode.REQUIRED,
                             description = "Open reports against the reported collector")
-                    int openReportsAgainstUser) {
+                    int openReportsAgainstUser,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            description = "The short number staff read (\"#1047\", V135)",
+                            example = "1047")
+                    long number) {
 
         static ReportSummaryResponse from(ReportSummaryView view) {
             ReportRow row = view.report();
@@ -148,7 +154,8 @@ public final class ReportResponses {
                     row.createdAt(),
                     row.resolvedAt(),
                     row.resolutionAction(),
-                    view.openReportsAgainstUser());
+                    view.openReportsAgainstUser(),
+                    row.number());
         }
     }
 
@@ -208,11 +215,18 @@ public final class ReportResponses {
             @Schema(requiredMode = RequiredMode.REQUIRED) ReportStatus status,
             @Schema(requiredMode = RequiredMode.REQUIRED) Instant createdAt,
             @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
-                    @Nullable ResolutionAction resolutionAction) {
+                    @Nullable ResolutionAction resolutionAction,
+            @Schema(requiredMode = RequiredMode.REQUIRED, description = "Short number (V135)")
+                    long number) {
 
         static HistoryReportResponse from(ReportRow row) {
             return new HistoryReportResponse(
-                    row.id(), row.reason(), row.status(), row.createdAt(), row.resolutionAction());
+                    row.id(),
+                    row.reason(),
+                    row.status(),
+                    row.createdAt(),
+                    row.resolutionAction(),
+                    row.number());
         }
     }
 
@@ -246,7 +260,13 @@ public final class ReportResponses {
                             allowableValues = {"POST", "REPLY"})
                     String kind,
             @Schema(requiredMode = RequiredMode.REQUIRED) UUID id,
-            @Schema(requiredMode = RequiredMode.REQUIRED) String channelSlug,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            description =
+                                    "The channel's slug; \"archived-channel\" for a channel of"
+                                            + " the old model named after a city (its own slug"
+                                            + " names the city, ADR 0017)")
+                    String channelSlug,
             @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
                     @Nullable Instant removedAt,
             @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
@@ -320,25 +340,41 @@ public final class ReportResponses {
         }
     }
 
-    /** A private message of the reported conversation (moderators acting on the report only). */
+    /**
+     * A private message of the reported conversation (moderators acting on the report only). A
+     * shipping address or an e-Transfer email is sent as its kind only ({@code sharedDetail}), its
+     * text empty (spec 15.8.4).
+     */
     @Schema(name = "ReportedConversationMessage")
     public record MessageResponse(
             @Schema(requiredMode = RequiredMode.REQUIRED) UUID id,
             @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
                     @Nullable UUID senderId,
             @Schema(requiredMode = RequiredMode.REQUIRED) MessageKind kind,
-            @Schema(requiredMode = RequiredMode.REQUIRED) String body,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            description = "Empty when sharedDetail is set: staff never read it")
+                    String body,
             @Schema(requiredMode = RequiredMode.REQUIRED) Instant createdAt,
-            @Schema(requiredMode = RequiredMode.REQUIRED) ContentModerationState moderationState) {
+            @Schema(requiredMode = RequiredMode.REQUIRED) ContentModerationState moderationState,
+            @Schema(
+                            nullable = true,
+                            description =
+                                    "A shipping address or an e-Transfer email was shared here;"
+                                            + " its text is hidden from staff")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable SharedDetail sharedDetail) {
 
         static MessageResponse from(ModerationMessage message) {
+            @Nullable SharedDetail shared = SharedDetail.of(message.body());
             return new MessageResponse(
                     message.id(),
                     message.senderId(),
                     message.kind(),
-                    message.body(),
+                    shared == null ? message.body() : "",
                     message.createdAt(),
-                    message.moderationState());
+                    message.moderationState(),
+                    shared);
         }
     }
 
@@ -378,7 +414,12 @@ public final class ReportResponses {
                                     "Only when the report names a conversation between the two"
                                             + " (then that conversation only)")
                     @JsonInclude(JsonInclude.Include.ALWAYS)
-                    @Nullable ConversationResponse conversation) {
+                    @Nullable ConversationResponse conversation,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            description = "The short number staff read (\"#1047\", V135)",
+                            example = "1047")
+                    long number) {
 
         static ReportDetailResponse from(ReportDetailView view) {
             ReportRow row = view.report();
@@ -406,7 +447,8 @@ public final class ReportResponses {
                     row.resolutionNote(),
                     view.notes().stream().map(NoteResponse::from).toList(),
                     HistoryResponse.from(view.history()),
-                    conversation);
+                    conversation,
+                    row.number());
         }
     }
 }

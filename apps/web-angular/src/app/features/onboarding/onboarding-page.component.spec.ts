@@ -144,6 +144,9 @@ describe('OnboardingPageComponent, the welcome (spec 14: three steps)', () => {
     await mount({ profileComplete: false, locationSet: false, interestsSet: false });
     expect(step()).toBe('Step 1 of 3');
     expect(title()).toBe('Who are you?');
+    // The focused heading says which step it is (WG review A8).
+    const describedBy = element.querySelector('h1')?.getAttribute('aria-describedby') ?? '';
+    expect(element.querySelector(`#${describedBy}`)?.textContent?.trim()).toBe('Step 1 of 3');
     expect(element.querySelectorAll('.welcome__bar-part--on')).toHaveLength(1);
     expect(element.querySelector<HTMLInputElement>('#wl-name')?.value).toBe('Maïka T.');
     // The 18+ confirmation is never a welcome step.

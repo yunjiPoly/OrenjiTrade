@@ -7,7 +7,7 @@ import { of } from 'rxjs';
 import { SessionService } from '../../../core/auth/session.service';
 import { REGIONS_FIXTURE } from '../../regions/testing/regions-fixtures';
 import { LocationDraft } from '../my-location.store';
-import { LocationFieldsComponent } from './location-fields.component';
+import { LocationFieldsComponent, missingLocationField } from './location-fields.component';
 
 async function settle(): Promise<void> {
   for (let i = 0; i < 3; i++) {
@@ -199,5 +199,38 @@ describe('LocationFieldsComponent', () => {
     expect(element.querySelector('[role="alert"]')?.textContent).toContain(
       'Choose your state or province.',
     );
+  });
+
+  it('names the missing field first: the country, then the state or province', () => {
+    expect(missingLocationField({ countryCode: '', subdivisionCode: '' })).toBe('country');
+    expect(missingLocationField({ countryCode: '', subdivisionCode: 'CA-QC' })).toBe('country');
+    expect(missingLocationField({ countryCode: 'CA', subdivisionCode: '' })).toBe('subdivision');
+    expect(missingLocationField({ countryCode: 'CA', subdivisionCode: 'CA-QC' })).toBeNull();
+  });
+
+  it("ties the token look's error to the field it names (WG R2-3)", async () => {
+    await mount(null);
+    fixture.componentRef.setInput('look', 'token');
+    fixture.detectChanges();
+    const country = element.querySelector('[data-testid="location-country"]')!;
+    expect(country.getAttribute('aria-invalid')).toBe('false');
+
+    fixture.componentRef.setInput('showErrors', true);
+    fixture.detectChanges();
+    fixture.detectChanges();
+    const error = element.querySelector('#location-fields-error')!;
+    expect(error.textContent?.trim()).toBe('Choose your country.');
+    expect(country.getAttribute('aria-invalid')).toBe('true');
+    expect(country.getAttribute('aria-describedby')).toBe('location-fields-error');
+
+    choose(selects()[1], 'CA');
+    fixture.componentRef.setInput('value', emitted.at(-1));
+    fixture.detectChanges();
+    fixture.detectChanges();
+    expect(country.getAttribute('aria-invalid')).toBe('false');
+    expect(country.getAttribute('aria-describedby')).toBeNull();
+    const subdivision = element.querySelector('[data-testid="location-subdivision"]')!;
+    expect(subdivision.getAttribute('aria-invalid')).toBe('true');
+    expect(subdivision.getAttribute('aria-describedby')).toBe('location-fields-error');
   });
 });

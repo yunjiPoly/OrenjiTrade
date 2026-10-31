@@ -154,7 +154,7 @@
       <p class="create__why" id="su-why" aria-live="polite" [class.create__why--warn]="tried()">
         @if (blocker(); as reason) {
           @if (tried()) {
-            <app-shell-icon name="alert" [size]="16" />
+            <app-shell-icon name="info" [size]="16" />
           }
           {{ blockerLines[reason] }}
         }

@@ -191,7 +191,7 @@ export class AdminModerationService extends BaseService implements AdminModerati
 
     /**
      * List moderation flags (MODERATOR+)
-     * Newest first. &#x60;state&#x60;: OPEN (default), RESOLVED or ALL. Flags are raised by FLAG banned-term rules, repeated-content thresholds (content) and rate thresholds (subjectType USER). No automatic ban ever follows a flag.
+     * Newest first. &#x60;state&#x60;: OPEN (default), RESOLVED or ALL. Flags are raised by FLAG banned-term rules, repeated-content thresholds (content) and rate thresholds (subjectType USER). No automatic ban ever follows a flag. A flag on a community post or reply carries its room and text (&#x60;community&#x60;); a private message\&#39;s text is never sent here (web stage WH1).
      * @endpoint get /api/v1/admin/moderation/flags
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.

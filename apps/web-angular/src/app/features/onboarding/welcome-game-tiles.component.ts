@@ -43,8 +43,10 @@ import { WelcomeGame, openingGame } from './welcome-rules';
         </button>
       }
     </div>
-    <span class="visually-hidden" id="tile-first">{{ copy.opensFirst }}</span>
-    <span class="visually-hidden" id="tile-soon">{{ copy.comingSoon }}</span>
+    <!-- Descriptions only (the hidden attribute, WG review A11): aria-describedby still reads them; browse
+         mode never meets them as stray text. -->
+    <span hidden id="tile-first">{{ copy.opensFirst }}</span>
+    <span hidden id="tile-soon">{{ copy.comingSoon }}</span>
   `,
   styles: `
     :host {

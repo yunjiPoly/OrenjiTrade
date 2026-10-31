@@ -37,6 +37,10 @@ export interface ReportDetail {
      * Only when the report names a conversation between the two (then that conversation only)
      */
     conversation?: ReportedConversation;
+    /**
+     * The short number staff read (\"#1047\", V135)
+     */
+    number: number;
 }
 export enum ReportDetailStatusEnum {
     Open = 'OPEN',
