@@ -14177,7 +14177,7 @@ still open first)
 - **P4** (phone photos public for a year with the author's id in the path): an owner follow-up,
   not changed here (R11's media rule).
 
-**What the stage built (web)**
+**What the stage built (web)** (`3ac2ea46`)
 
 - **Shell**: `ShellRouteData.bare` (no top bar, rail, tab bar, session banner or footer) for
   `/auth/**` and `/onboarding`; the top bar's "Sign in" with `returnUrl`.
@@ -14717,8 +14717,8 @@ each checked still open first):
 | `exportOpenApi` then `generate:api` | committed with the API (`6f28bc92`); run again at the end: git clean |
 | `npm run lint`, `format:check -w apps/web-angular` | clean |
 | `npm test -w apps/web-angular`, `npm run test:web` | **220 files / 1,128 tests** (WG's last: 211 / 1,080 at its builder) |
-| `npm run build -w apps/web-angular`, `build:prod` | initial total **771.36 kB** (budget 900 kB; WG's last 771.70 kB), no warning (a first build had the console's shared styles and the Community page 277 and 367 bytes over the 6 kB component style budget: split into two files each, `7736909d`) |
-| `npm run test:e2e -- --retries=0` (8180/4300, under the lock) | **118 passed** (1.3 min), 0 failed, on the final web code. On the way: the first full run failed 5 specs that read the old console (fixed in `deb926fa`); a later run caught the Reports list reading the open report too early (its route not activated yet: the page was blank), fixed with a unit test (`admin-reports-page.component.spec.ts`) and the list now follows another row's click |
+| `npm run build -w apps/web-angular`, `build:prod` | initial total **771.36 kB** (budget 900 kB; WG's last 771.70 kB), no warning (a first build had the console's shared styles and the Community page 277 and 367 bytes over the 6 kB component style budget: split into two files each, in `3ac2ea46`) |
+| `npm run test:e2e -- --retries=0` (8180/4300, under the lock) | **118 passed** (1.3 min), 0 failed, on the final web code. On the way: the first full run failed 5 specs that read the old console (fixed before the commit `3ac2ea46`); a later run caught the Reports list reading the open report too early (its route not activated yet: the page was blank), fixed with a unit test (`admin-reports-page.component.spec.ts`) and the list now follows another row's click |
 | `npm run typecheck`, `lint`, `format:check -w apps/mobile` | clean |
 | `npm run test:mobile` | **128 suites / 1,782 tests** (one run beside the web E2E failed `chatSafetyTip` "selling" once, element not found; it passed alone 11 / 11 and the full suite again) |
 | `npx expo export` (scratch folders) | iOS 1,975 modules, Android 2,101 modules, web 1,596 modules and 68 static routes |
