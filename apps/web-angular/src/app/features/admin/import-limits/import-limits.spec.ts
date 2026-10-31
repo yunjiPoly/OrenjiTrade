@@ -22,6 +22,21 @@ describe('import limits (board A15)', () => {
     expect(allowedLine(IMPORT_LIMIT_FIELDS.previewTtlMinutes)).toBe('Allowed: 5 to 1,440 minutes.');
   });
 
+  it('keeps every field to the API’s bounds (InventoryImportSettings, review fix 1)', () => {
+    const bounds = Object.fromEntries(
+      Object.values(IMPORT_LIMIT_FIELDS).map((field) => [field.key, [field.min, field.max]]),
+    );
+    expect(bounds).toEqual({
+      ydkMaxKb: [1, 1024],
+      ydkMaxLines: [10, 5000],
+      csvMaxKb: [16, 8192],
+      csvMaxRows: [10, 20000],
+      previewTtlMinutes: [5, 1440],
+    });
+    expect(limitError(IMPORT_LIMIT_FIELDS.ydkMaxLines, '5001')).toBe('Use 10 to 5,000 lines.');
+    expect(limitError(IMPORT_LIMIT_FIELDS.ydkMaxLines, '5000')).toBeNull();
+  });
+
   it('refuses an empty, decimal or out-of-range value', () => {
     const kb = IMPORT_LIMIT_FIELDS.csvMaxKb;
     expect(limitError(kb, '')).toBe('Enter the largest file.');

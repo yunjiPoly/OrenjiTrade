@@ -34,7 +34,7 @@ import {
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
-import { CONSENT_LABELS, auditActionLabel } from '../shared/admin-labels';
+import { CONSENT_LABELS, auditActionLabel, visibleConsents } from '../shared/admin-labels';
 import { StatusChipComponent } from '../shared/status-chip.component';
 import { FEATURE, FeatureFlagsService } from '../../../core/feature-flags/feature-flags.service';
 import { ToastService } from '../../../core/feedback/toast.service';
@@ -95,12 +95,7 @@ export class AdminUserDetailPageComponent {
   protected readonly account = computed(() => this.detail()?.account ?? null);
   /** The Payment Protection and Refund lines only while `protectedPayments` is on (spec 15.5). */
   protected readonly consents = computed(() =>
-    (this.detail()?.consents ?? []).filter(
-      (consent) =>
-        this.paymentsOn() ||
-        (consent.documentType !== 'PAYMENT_PROTECTION' &&
-          consent.documentType !== 'REFUND_DISPUTE'),
-    ),
+    visibleConsents(this.detail()?.consents ?? [], this.paymentsOn()),
   );
   protected readonly roles = computed<Role[]>(() => roleList(this.account()?.roles));
   protected readonly isSelf = computed(() => this.account()?.id === this.session.me()?.id);

@@ -126,7 +126,81 @@ test.describe('admin console (WH2)', () => {
         const text = await visibleText(page);
         expect(text, `${path}: a UUID on screen`).not.toMatch(UUID);
         expect(text, `${path}: a region code on screen`).not.toMatch(REGION_CODE);
+        // Review fix 1 (F2, U3): no page scrolls sideways at 1024 or 390 (a table scrolls in its
+        // own box).
+        for (const [width, height] of [
+          [1024, 768],
+          [390, 844],
+        ]) {
+          await page.setViewportSize({ width, height });
+          await expect
+            .poll(
+              () => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth),
+              { message: `${path} at ${width}: the page scrolls sideways` },
+            )
+            .toBeLessThanOrEqual(0);
+        }
+        await page.setViewportSize({ width: 1280, height: 720 });
       }
+
+      // Review fix 1 (F1, U1, U2, P1): audit rows that carry a person's id, a region code and a
+      // room's slug read as names, in the summary and expanded (the request id is the only id).
+      const auth = authHeader(superAdmin.idToken);
+      const regions = (await (
+        await request.get(`${API_URL}/api/v1/admin/regions`, { headers: auth })
+      ).json()) as { code: string; countries: { code: string }[] }[];
+      const home = regions.find((region) => region.countries.some((c) => c.code === 'BZ'))!.code;
+      const away = regions.find((region) => region.code !== home)!.code;
+      for (const regionCode of [away, home]) {
+        const moved = await request.put(`${API_URL}/api/v1/admin/regions/countries/BZ`, {
+          headers: auth,
+          data: { regionCode, active: true },
+        });
+        expect(moved.status(), 'PUT country').toBe(200);
+      }
+      const posted = await request.post(
+        `${API_URL}/api/v1/community/channels/americas-north-yugioh/posts`,
+        { headers: authHeader(collector.idToken), data: { body: 'WH2 review fix 1: audit names' } },
+      );
+      expect(posted.status(), 'POST community post').toBe(201);
+      const postId = ((await posted.json()) as { id: string }).id;
+      const removed = await request.post(
+        `${API_URL}/api/v1/admin/community/posts/${postId}/remove`,
+        {
+          headers: auth,
+          data: { reason: 'E2E audit names' },
+        },
+      );
+      expect(removed.status(), 'remove the post').toBe(204);
+      for (const action of ['region.country.update', 'community.post.remove']) {
+        await page.goto(`/admin/audit-logs?action=${action}`);
+        await expect(page.locator('main h1')).toBeVisible();
+        await page.waitForLoadState('networkidle');
+        const toggles = page.locator('button.au__toggle');
+        await expect(toggles.first()).toBeVisible();
+        const rows = Math.min(await toggles.count(), 6);
+        for (let row = 0; row < rows; row++) {
+          await toggles.nth(row).click();
+          const panel = page.locator('tr.au__expanded .au__panel');
+          await expect(panel).toBeVisible();
+          // Everything on screen but the request id.
+          const shown = await page.evaluate(() => {
+            const main = document.querySelector('main')!.cloneNode(true) as HTMLElement;
+            main
+              .querySelectorAll('.au__facts dd:first-of-type .cp-mono')
+              .forEach((id) => id.remove());
+            return main.innerText;
+          });
+          expect(shown, `${action} row ${row}: a UUID on screen`).not.toMatch(UUID);
+          expect(shown, `${action} row ${row}: a region code on screen`).not.toMatch(REGION_CODE);
+        }
+      }
+      const mine = page.locator('button.au__toggle', { hasText: 'E2E audit names' }).first();
+      await expect(mine).toContainText('In Americas (North) · Yu-Gi-Oh!');
+      if ((await mine.getAttribute('aria-expanded')) !== 'true') {
+        await mine.click();
+      }
+      await expect(page.locator('tr.au__expanded pre')).toContainText(`@${collector.handle}`);
       // mlScanning stays off and locked (the owner's hold).
       await page.goto('/admin/feature-flags');
       await expect(page.locator('[data-flag="mlScanning"]')).toContainText('On hold by the owner.');

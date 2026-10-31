@@ -50,3 +50,19 @@ export function summarizeDetails(details: Record<string, unknown> | null | undef
     .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : String(value)}`)
     .join(' · ');
 }
+
+/** The legal documents of protected payments (ADR 0018): listed only while the flag is on. */
+const PAYMENT_DOCUMENTS: readonly string[] = ['PAYMENT_PROTECTION', 'REFUND_DISPUTE'];
+
+/**
+ * An account's consents as the account page lists them (spec 15.5): the Payment Protection and
+ * Refund lines only while `protectedPayments` is on.
+ */
+export function visibleConsents<T extends { documentType?: string | null }>(
+  consents: readonly T[],
+  paymentsOn: boolean,
+): T[] {
+  return consents.filter(
+    (consent) => paymentsOn || !PAYMENT_DOCUMENTS.includes(consent.documentType ?? ''),
+  );
+}
