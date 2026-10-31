@@ -221,6 +221,13 @@ export class ReportHistoryComponent {
   readonly history = input.required<ModerationHistory>();
   /** The report the panel shows ("This report"). */
   readonly currentId = input<string | null>(null);
+  /**
+   * The account page's view (board A8, web stage WH2 review fix 1): "Reports about them" and
+   * every section open, where the report page opens Recent reports only.
+   */
+  readonly accountView = input(false);
+  /** Sections the reader toggled away from their default state. */
+  private readonly toggled = signal<ReadonlySet<SectionId>>(new Set<SectionId>());
 
   private readonly opened = signal<ReadonlySet<SectionId>>(new Set<SectionId>(['reports']));
 
@@ -232,7 +239,11 @@ export class ReportHistoryComponent {
   protected readonly sections = computed(() => {
     const h = this.history();
     return [
-      { id: 'reports' as const, label: 'Recent reports', count: h.recentReports.length },
+      {
+        id: 'reports' as const,
+        label: this.accountView() ? 'Reports about them' : 'Recent reports',
+        count: h.recentReports.length,
+      },
       { id: 'ratings' as const, label: 'Ratings received', count: h.recentRatings.length },
       { id: 'flags' as const, label: 'Open flags', count: h.openFlags.length },
       {
@@ -257,10 +268,20 @@ export class ReportHistoryComponent {
   protected readonly audit = auditActionLabel;
 
   protected isOpen(id: SectionId): boolean {
-    return this.opened().has(id);
+    return this.accountView() ? !this.toggled().has(id) : this.opened().has(id);
   }
 
   protected toggle(id: SectionId): void {
+    if (this.accountView()) {
+      const closed = new Set(this.toggled());
+      if (closed.has(id)) {
+        closed.delete(id);
+      } else {
+        closed.add(id);
+      }
+      this.toggled.set(closed);
+      return;
+    }
     const next = new Set(this.opened());
     if (next.has(id)) {
       next.delete(id);

@@ -176,7 +176,7 @@ const SOURCE_LABELS: Record<string, string> = {
               <dd>{{ status() ? (status()?.paused ? 'Paused' : 'Live') : '—' }}</dd>
             </div>
           </dl>
-          <app-report-history [history]="h" />
+          <app-report-history [history]="h" [accountView]="true" />
         } @else {
           <app-skeleton variant="list" lines="4" />
         }

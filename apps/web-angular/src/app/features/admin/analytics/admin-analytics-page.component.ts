@@ -7,6 +7,7 @@ import { silentErrors } from '../../../core/http/http-context';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
 import { AdminIconComponent } from '../console/admin-icon.component';
+import { shareWords } from '../console/console-labels';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
 import { dailyTotals, derivedTiles, eventTotals } from './analytics-summary';
 
@@ -119,6 +120,25 @@ const PERIODS = [7, 14, 30] as const;
                 </div>
               }
             </div>
+            <details class="numbers">
+              <summary>Show the numbers</summary>
+              <table class="numbers__table" aria-label="Events per day, in numbers">
+                <thead>
+                  <tr>
+                    <th scope="col">Day</th>
+                    <th scope="col">Events</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (day of dailyCounts(); track day.day) {
+                    <tr>
+                      <th scope="row">{{ day.day | date: 'EEE, MMM d' }}</th>
+                      <td>{{ day.count.toLocaleString('en-US') }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </details>
           </section>
 
           <section class="admin-card totals" aria-labelledby="analytics-types">
@@ -132,6 +152,7 @@ const PERIODS = [7, 14, 30] as const;
                     <span class="bar__fill" [style.width.%]="event.percent"></span>
                   </span>
                   <span class="bar__value">{{ event.count }}</span>
+                  <span class="bar__share">{{ share(event.count, s.total) }}</span>
                 </li>
               }
             </ul>
@@ -256,7 +277,7 @@ const PERIODS = [7, 14, 30] as const;
     }
     .bar {
       display: grid;
-      grid-template-columns: minmax(170px, auto) 1fr 3.5em;
+      grid-template-columns: minmax(170px, auto) 1fr 3.5em 3em;
       align-items: center;
       gap: var(--spacing-2);
       font-size: var(--font-size-sm);
@@ -277,6 +298,42 @@ const PERIODS = [7, 14, 30] as const;
       font-weight: var(--font-weight-semibold);
       text-align: right;
     }
+    .bar__share {
+      color: var(--color-text-secondary);
+      text-align: right;
+    }
+    .numbers {
+      margin-top: var(--spacing-3);
+      font-size: var(--font-size-sm);
+    }
+    .numbers summary {
+      cursor: pointer;
+      color: var(--color-accent);
+      font-weight: var(--font-weight-semibold);
+    }
+    .numbers__table {
+      margin-top: var(--spacing-2);
+      border-collapse: collapse;
+    }
+    .numbers__table th,
+    .numbers__table td {
+      padding: 4px var(--spacing-3) 4px 0;
+      border-bottom: 1px solid var(--color-border);
+      text-align: left;
+      font-weight: normal;
+    }
+    .numbers__table td {
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+    @media (max-width: 599.98px) {
+      .bar {
+        grid-template-columns: minmax(0, 1fr) 3.5em 3em;
+      }
+      .bar__track {
+        display: none;
+      }
+    }
     @media (prefers-reduced-motion: reduce) {
       .column__bar {
         transition: none;
@@ -293,6 +350,7 @@ export class AdminAnalyticsPageComponent {
   protected readonly summary = signal<AnalyticsSummary | null>(null);
   protected readonly error = signal<ApiError | null>(null);
   protected readonly totals = computed(() => eventTotals(this.summary()));
+  protected readonly share = shareWords;
   protected readonly dailyCounts = computed(() => dailyTotals(this.summary()));
   protected readonly derived = computed(() => derivedTiles(this.summary()));
 

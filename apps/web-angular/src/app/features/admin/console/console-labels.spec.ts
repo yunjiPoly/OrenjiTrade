@@ -8,6 +8,7 @@ import {
   moderationStateLabel,
   regionName,
   roomNameOfSlug,
+  shareWords,
   sharedDetailLine,
 } from './console-labels';
 
@@ -82,5 +83,14 @@ describe("a flag's room line (review fix 1)", () => {
 
   it('has no line for a private message or an account', () => {
     expect(flagRoomLine({ community: undefined })).toBeNull();
+  });
+});
+
+describe('shareWords (boards A20 and A22, review fix 1)', () => {
+  it('prints a share of the total, rounded, and <1% for a sliver', () => {
+    expect(shareWords(870, 1904)).toBe('46%');
+    expect(shareWords(9, 1904)).toBe('<1%');
+    expect(shareWords(0, 1904)).toBe('0%');
+    expect(shareWords(3, 0)).toBe('0%');
   });
 });

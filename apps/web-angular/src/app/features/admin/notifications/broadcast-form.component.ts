@@ -113,6 +113,10 @@ function deepLinkValidator(control: AbstractControl<string>): ValidationErrors |
               Opens <code>{{ form.controls.deepLink.value.trim() }}</code>
             </p>
           }
+          <p class="bc__line">
+            Audience ·
+            {{ form.controls.audience.value === 'ALL' ? 'Every collector' : 'Staff only' }}
+          </p>
         </div>
         <p class="bc__line">
           Announcements appear only in the app's notifications: no push, no email.

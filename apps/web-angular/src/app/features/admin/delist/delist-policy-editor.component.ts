@@ -20,6 +20,7 @@ import {
   DelistPolicyField,
   DelistPolicyValue,
   delistPolicyErrors,
+  freshnessSentence,
   freshnessStages,
 } from './delist-policy-validation';
 
@@ -103,6 +104,9 @@ const RESPONSIVENESS_FIELDS: readonly FieldInfo[] = [
       </div>
 
       <h3 class="policy__section">Listing freshness</h3>
+      @if (sentence()?.reminderDay; as day) {
+        <p class="policy__reminder">Reminder · day {{ day }}</p>
+      }
       <div
         class="timeline"
         role="img"
@@ -122,6 +126,9 @@ const RESPONSIVENESS_FIELDS: readonly FieldInfo[] = [
           <span class="timeline__invalid">Fix the thresholds to preview the timeline.</span>
         }
       </div>
+      @if (sentence(); as summary) {
+        <p class="policy__sentence" data-testid="delist-sentence">{{ summary.sentence }}</p>
+      }
       <div class="policy__grid">
         @for (field of freshnessFields; track field.key) {
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -191,10 +198,22 @@ const RESPONSIVENESS_FIELDS: readonly FieldInfo[] = [
       margin: var(--spacing-5) 0 var(--spacing-2);
       font-size: var(--font-size-md);
     }
+    .policy__reminder {
+      margin: 0 0 var(--spacing-1);
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-semibold);
+      text-align: right;
+    }
+    .policy__sentence {
+      margin: 0 0 var(--spacing-4);
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-sm);
+    }
     .timeline {
       display: flex;
       overflow: hidden;
-      margin-bottom: var(--spacing-3);
+      margin-bottom: var(--spacing-2);
       border-radius: var(--radius-md);
       border: 1px solid var(--color-border);
       min-height: 52px;
@@ -232,7 +251,7 @@ const RESPONSIVENESS_FIELDS: readonly FieldInfo[] = [
     .policy__grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: var(--spacing-1) var(--spacing-3);
+      gap: var(--spacing-4) var(--spacing-3);
     }
     .policy__error {
       color: var(--color-danger);
@@ -284,6 +303,7 @@ export class DelistPolicyEditorComponent {
   protected readonly errors = computed(() => delistPolicyErrors(this.current()));
   protected readonly hasErrors = computed(() => Object.keys(this.errors()).length > 0);
   protected readonly stages = computed(() => freshnessStages(this.current()));
+  protected readonly sentence = computed(() => freshnessSentence(this.current()));
   protected readonly timelineLabel = computed(() => {
     const stages = this.stages();
     return stages.length

@@ -25,6 +25,7 @@ import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.componen
 import { confirmAdminAction } from '../shared/admin-actions';
 import { ToastService } from '../../../core/feedback/toast.service';
 import { RECORDED, runConsoleAction } from '../console/console-actions';
+import { shareWords } from '../console/console-labels';
 import { BroadcastFormComponent } from './broadcast-form.component';
 
 const PERIODS = [1, 7, 30] as const;
@@ -116,6 +117,11 @@ const CHANNEL_LABELS: Record<string, string> = {
         <div class="grid">
           <section class="admin-card" aria-labelledby="notif-types">
             <h2 id="notif-types">By type</h2>
+            @if (types().length > 0) {
+              <p class="admin-muted notif__total">
+                {{ typeTotal().toLocaleString('en-US') }} notices
+              </p>
+            }
             @if (types().length === 0) {
               <p class="admin-muted">No notifications in this period.</p>
             } @else {
@@ -130,6 +136,7 @@ const CHANNEL_LABELS: Record<string, string> = {
                       <span class="bar__fill" [style.width.%]="type.percent"></span>
                     </span>
                     <span class="bar__value">{{ type.count }}</span>
+                    <span class="bar__share">{{ type.share }}</span>
                   </li>
                 }
               </ul>
@@ -239,6 +246,9 @@ const CHANNEL_LABELS: Record<string, string> = {
       gap: var(--spacing-4);
       margin: var(--spacing-4) 0;
     }
+    .notif__total {
+      margin: 0 0 var(--spacing-3);
+    }
     .bars {
       display: flex;
       flex-direction: column;
@@ -249,7 +259,7 @@ const CHANNEL_LABELS: Record<string, string> = {
     }
     .bar {
       display: grid;
-      grid-template-columns: minmax(150px, auto) 1fr 3em;
+      grid-template-columns: minmax(150px, auto) 1fr 3em 3em;
       align-items: center;
       gap: var(--spacing-2);
       font-size: var(--font-size-sm);
@@ -279,6 +289,10 @@ const CHANNEL_LABELS: Record<string, string> = {
     }
     .bar__value {
       font-weight: var(--font-weight-semibold);
+      text-align: right;
+    }
+    .bar__share {
+      color: var(--color-text-secondary);
       text-align: right;
     }
     .channels {
@@ -324,11 +338,22 @@ export class AdminNotificationsPageComponent {
     const byType = this.stats()?.byType ?? {};
     const entries = Object.entries(byType).sort((a, b) => b[1] - a[1]);
     const max = Math.max(1, ...entries.map(([, count]) => count));
+    const total = entries.reduce((sum, [, count]) => sum + count, 0);
     return entries.map(([key, count]) => {
       const kind = notificationKind({ type: key as NotificationResponse['type'], data: {} });
-      return { key, count, label: kind.label, icon: kind.icon, percent: (count / max) * 100 };
+      return {
+        key,
+        count,
+        label: kind.label,
+        icon: kind.icon,
+        percent: (count / max) * 100,
+        share: shareWords(count, total),
+      };
     });
   });
+  protected readonly typeTotal = computed(() =>
+    this.types().reduce((sum, type) => sum + type.count, 0),
+  );
   protected readonly channels = computed(() =>
     Object.entries(this.stats()?.channels ?? {}).map(([name, counts]) => ({ name, counts })),
   );
