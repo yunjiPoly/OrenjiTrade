@@ -146,9 +146,9 @@ test.describe('admin console (WH2)', () => {
       // Review fix 1 (F1, U1, U2, P1): audit rows that carry a person's id, a region code and a
       // room's slug read as names, in the summary and expanded (the request id is the only id).
       const auth = authHeader(superAdmin.idToken);
-      const regions = (await (
+      const { regions } = (await (
         await request.get(`${API_URL}/api/v1/admin/regions`, { headers: auth })
-      ).json()) as { code: string; countries: { code: string }[] }[];
+      ).json()) as { regions: { code: string; countries: { code: string }[] }[] };
       const home = regions.find((region) => region.countries.some((c) => c.code === 'BZ'))!.code;
       const away = regions.find((region) => region.code !== home)!.code;
       for (const regionCode of [away, home]) {
