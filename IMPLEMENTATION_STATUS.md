@@ -7,6 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
+**Last updated:** 2026-10-30 (stage WF merged into `main` as #101, merge commit `5998be3e`; `origin/main` merged into WG's branch at `dd64b0e2`; `node-forge` 1.4.2 for five high advisories published that evening, which failed the audit gate on `main` too, and its stale exception dropped (`fc3d6276`); the check of WG's review fix 2 left nothing of WG's own above a nit (one minor, an older API rate limit, for the owner); its nits carried into stage WH1; see NEXT TASK).
 **Last updated:** 2026-10-30 (stage WG review fix 2, round 2 of 2: the welcome's step 3 with the token fields (labels above, 48 px) and the 40x24 switch, Settings › Location unchanged; the deletion page's shared rate limit left to the owner with its cause; web only; see "Review fix 2" in the WG section).
 **Last updated:** 2026-10-30 (stage WG review fix 1: a guest's pending action belongs to its own sign-in only (forgotten on Back out of the sign-in steps, a sign-out, another account, or the ready account on another page), Search keeps its game and binder after signing in, `/settings` on a fresh load, the art panel's height, the welcome's step 3, the guest notices, the sign-in steps' focus and announcements, the WG E2E's Legal locator and the resumes of every action; web only; see "Review fix 1" in the WG section).
 **Last updated:** 2026-10-30 (stage WG of the web redesign, builder: sign-in, Create your account, Reset and Verify as pages of their own (board W27, the 18+ line apart and in English only), the account states as cards (Review our terms with the age alone for older accounts, suspended, scheduled for deletion, "We could not load your account"), the welcome's three steps, and guests (board W26: places only, the guest pages of Inventory, Messages and Profile, Appearance and Legal open, the sign-in dialog for every action, finished after signing in); WF's 11 nits first; no API change, no migration; the native suite blocked by Xcode's first launch; see the WG section and NEXT TASK).
@@ -14484,6 +14485,48 @@ logged one console error, Chrome's "AbortError: Transition was skipped" of the r
 transitions, when a new navigation replaced the one after signing in; nothing on the page was
 affected.
 
+**Left open by the verifier of fix 2** (round 2 of 2; its one blocker was outside WG and is fixed
+below; the nits are carried into stage WH1, which fixes them first):
+
+- **R2-1 (blocker, outside WG, fixed by the lead after the round, `fc3d6276`):** `npm run
+  audit:gate` failed on five high `node-forge` advisories published on 2026-10-30
+  (GHSA-7wch-p9px-956x, GHSA-jc66-7q78-782g, GHSA-8hrf-8g6f-7xwp, GHSA-hqq3-7jhf-c5jx,
+  GHSA-5x38-2vff-x55p, all ≤ 1.4.0), on `main` as on this branch. `node-forge` 1.4.0 → 1.4.2 in
+  the lockfile only (`@expo/cli` and `@expo/code-signing-certificates` ask for `^1.3.3`; same
+  publisher as 1.4.0). 1.4.2 also fixes GHSA-86w9-cpqp-85rv, so its allowlist entry and its row in
+  `docs/security/README.md` are removed. After it: `audit:gate` OK, `test:scripts` 165 / 165, the
+  phone's `typecheck`, an iOS `expo export`, `npm ls node-forge --all` (one 1.4.2, deduped) and
+  `@expo/code-signing-certificates` loading.
+- **R2-2 (minor, owner follow-up, older than WG):** the deletion page's rate limit ("Left as a
+  report" in "Review fix 2" above). Not for WH1.
+- **R2-3 (nit):** on the welcome's step 3, "Choose your country." is not tied to the Country field
+  (no `aria-invalid`, no `aria-describedby`, no danger border), as steps 1 and 2 do.
+- **From the check of fix 1:** R1-3 (nit: no unit test asks from a step page, `/auth/sign-up`, and
+  expects `returnUrl` `/`), R1-4 (nit: the auth layout's footer "Terms, privacy and community
+  guidelines" opens in the same tab and so drops a guest's pending action; a new tab, as the
+  consent rows' "Read" links), R1-5 (nit: `docs/development/local-setup.md`'s new sentence about
+  the age line reads awkwardly).
+- **Round 1's nits not fixed:** F6 (`card-images.spec.ts:189` fails under the full suite's load,
+  "Element is not attached to the DOM", and passes alone; WG did not change that page), F7
+  (`packages/api-client/tools/generate.mjs` and part of `web-omits.mjs` reformatted from single to
+  double quotes with no change), F8 (the unused `AGE_CONFIRMATION_ERROR` export and unreachable
+  `@if (handle)` branches in `feed-post.component.ts`), U9 (the boards' small differences: the top
+  bar's Sign in without its person icon, a warning triangle instead of W27's circle-i, "Not now"
+  centred instead of left-aligned, the guest Home map card without the "Fewer…More" legend, an
+  "ACCOUNT" header over Legal alone in a guest's Settings, a faint dialog scrim in light), U10 (a
+  deck core's and a plain binder's "Message this collector" lack "Needs an account" in a guest's
+  name), A8 (the focused step heading does not say which step), A9 (the focused Resend button's
+  name changes every second for 30 s), A10 (the age-only refusal mentions documents the page does
+  not show), A11 (the hidden description spans read as stray text in browse mode), A12 (Room
+  rules' `aria-controls` points at nothing while the pane is closed), A13 (text-field borders below
+  3:1; the labels above carry the identification; a design call for the owner), A14 (the "Orenji"
+  logotype is 2.74:1 in light, exempt, recorded so axe runs are not misread). P2 (the email in the
+  reset link's address) was fixed with U8 in fix 1.
+- **Not run:** the native suite on the owner's iPhone 18 Pro: Xcode 27.2 waits for its first-launch
+  install (seven `xcodebuild -runFirstLaunch` processes since 14:14 that day, started outside the
+  stage), which the owner has to finish. The phone does not import `@orenji/api-client`, the only
+  shared package WG changed.
+
 ## NEXT TASK
 
 > **The web resumes (owner, 2026-10-28): stages WA to WH2 of the web redesign**, one at a time
@@ -14572,11 +14615,11 @@ affected.
 > posts only, "Try again" posts the box as it is, every public binder in the picker, the post's
 > report fits 1440x900; web only). The check of review fix 2 approved it with nothing above a nit
 > open: the first round's 11 nits go into stage WG, which fixes them first (the WF section's "Left
-> open by the verifier of fix 2"). **Next for WF: its pull request against `main`, merged on
-> green.**
+> open by the verifier of fix 2"). **WF is merged into `main`** (#101, merge commit `5998be3e`,
+> 2026-10-30).
 >
-> **Stage WG (Sign-in, welcome and guests) is built** on `feature/wg-sign-in-guests`, stacked on
-> WF (#101, not merged yet; section "Web redesign WG: Sign-in, welcome and guests (2026-10-30)"
+> **Stage WG (Sign-in, welcome and guests) is built** on `feature/wg-sign-in-guests`, made on WF
+> (#101, merged; `origin/main` merged in at `dd64b0e2`; section "Web redesign WG: Sign-in, welcome and guests (2026-10-30)"
 > above; contract `docs/api/contracts/wg-web-sign-in-guests.md`; no API change, no migration, the
 > next is still **V135**): WF's 11 nits fixed first; the sign-in steps as pages of their own (W27),
 > the account states as cards, the welcome's three steps, guests (W26) with the sign-in dialog and
@@ -14584,8 +14627,11 @@ affected.
 > for an install prompt: an owner follow-up). Its reviewers' round 1 (functional, product and UX,
 > privacy, accessibility) asked for changes; **review fixes 1 and 2 are done** (the WG section's
 > "Review fix 1" and "Review fix 2": the second, the last round, gave the welcome's step 3 the token
-> fields and the 40x24 switch and left the deletion page's rate limit to the owner). **Next for WG:
-> the check of review fix 2, then its pull request after WF's (#101) is merged into `main`.**
+> fields and the 40x24 switch and left the deletion page's rate limit to the owner). The check of
+> review fix 2 left nothing of WG's own above a nit; its one blocker, the audit gate's five new
+> `node-forge` advisories (on `main` too), is fixed by `node-forge` 1.4.2 (`fc3d6276`), and the nits
+> go into stage WH1, which fixes them first (the WG section's "Left open by the verifier of fix
+> 2"). **Next for WG: its pull request against `main`, merged on green.**
 >
 > **The exact next stage after WG's pull request: stage WH1 of the web redesign, the admin console:
 > the shell, the overview and moderation (boards A1 to A6 and A24; spec sections 15.1 to 15.4 and
