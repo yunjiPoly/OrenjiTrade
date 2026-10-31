@@ -1,5 +1,6 @@
 package com.orenjitrade.api.wishlist.api;
 
+import com.orenjitrade.api.auth.domain.AccountNames;
 import com.orenjitrade.api.auth.domain.AuthenticatedUser;
 import com.orenjitrade.api.wishlist.api.WishlistRequests.UpdateWishlistSettingsRequest;
 import com.orenjitrade.api.wishlist.api.WishlistResponses.SettingsResponse;
@@ -25,9 +26,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminWishlistController {
 
     private final WishlistSettings settings;
+    private final AccountNames accountNames;
 
-    public AdminWishlistController(WishlistSettings settings) {
+    public AdminWishlistController(WishlistSettings settings, AccountNames accountNames) {
         this.settings = settings;
+        this.accountNames = accountNames;
     }
 
     @GetMapping("/settings")
@@ -35,7 +38,7 @@ public class AdminWishlistController {
             operationId = "getAdminWishlistSettings",
             summary = "The price terms a wish may choose (ADMIN)")
     public SettingsResponse getSettings() {
-        return SettingsResponse.from(settings.current());
+        return SettingsResponse.from(settings.current(), accountNames);
     }
 
     @PutMapping(path = "/settings", consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -57,6 +60,6 @@ public class AdminWishlistController {
     public SettingsResponse updateSettings(
             @AuthenticationPrincipal AuthenticatedUser principal,
             @Valid @RequestBody UpdateWishlistSettingsRequest body) {
-        return SettingsResponse.from(settings.update(principal, body.priceTerms()));
+        return SettingsResponse.from(settings.update(principal, body.priceTerms()), accountNames);
     }
 }

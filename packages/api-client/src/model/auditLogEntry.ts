@@ -21,9 +21,13 @@ export interface AuditLogEntry {
     targetType: string;
     targetId?: string | null;
     /**
-     * Structured details; never contains coordinates
+     * Structured details; never contains coordinates, and an archived channel named after a city reads \"archived-channel\" (web stage WH2)
      */
     details: { [key: string]: any | null; };
     requestId?: string | null;
+    /**
+     * A readable name of the target (web stage WH2, spec 15.8): \"@handle\", \"Report #1047\", a card\'s or a room\'s name, a setting key; null when it is gone or has no name
+     */
+    targetLabel?: string | null;
 }
 

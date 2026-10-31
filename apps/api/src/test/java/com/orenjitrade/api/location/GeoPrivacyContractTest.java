@@ -1697,6 +1697,109 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
         assertContract(output);
     }
 
+    /**
+     * Web stage WH2: the audit log names its actors and targets, the staff search, each game's
+     * catalogue summary, the rule pages' editors and the binders' deck-core filter carry no place;
+     * an archived city channel (V041's "Montréal / …") never reaches staff through the audit log
+     * (WH1's R2-1): its slug in a removal's {@code channel} and an update's {@code slug} reads
+     * "archived-channel" and its label "An archived channel".
+     */
+    @Test
+    void adminConsoleOfStageWh2CarriesNoPlace(CapturedOutput output) {
+        UUID admin = idOf("admin");
+        UUID author = idOf("collector3");
+        String cityChannel = "00000000-0000-4000-8e00-000000000001";
+        String post = UUID.randomUUID().toString();
+        testUsers.update(
+                "INSERT INTO community_post (id, channel_id, author_id, body, body_hash) VALUES"
+                        + " (?::uuid, ?::uuid, ?, 'Zqold local post',"
+                        + " encode(sha256(convert_to(?, 'UTF8')), 'hex'))",
+                post,
+                cityChannel,
+                author,
+                "zq-geo-wh2-" + post);
+        List<String> audits = new ArrayList<>();
+        for (Object[] row :
+                List.of(
+                        new Object[] {
+                            "community.post.remove",
+                            "COMMUNITY_POST",
+                            post,
+                            "{\"channel\": \"montreal-yugioh\", \"authorId\": \""
+                                    + author
+                                    + "\", \"reason\": \"Zqspam\"}"
+                        },
+                        new Object[] {
+                            "community.post.delete",
+                            "COMMUNITY_POST",
+                            post,
+                            "{\"channel\": \"montreal-yugioh\", \"authorId\": \"" + author + "\"}"
+                        },
+                        new Object[] {
+                            "community.channel.update",
+                            "COMMUNITY_CHANNEL",
+                            cityChannel,
+                            "{\"slug\": \"montreal-yugioh\", \"status\": \"ARCHIVED\"}"
+                        })) {
+            String id = UUID.randomUUID().toString();
+            audits.add(id);
+            testUsers.update(
+                    "INSERT INTO audit_log (id, occurred_at, actor_type, actor_user_id, action,"
+                            + " target_type, target_id, details) VALUES (?::uuid, now(), 'ADMIN',"
+                            + " ?, ?, ?, ?, ?::jsonb)",
+                    id,
+                    admin,
+                    row[0],
+                    row[1],
+                    row[2],
+                    row[3]);
+        }
+        try {
+            JsonNode log = null;
+            for (String path :
+                    List.of(
+                            "/api/v1/admin/audit-logs?size=100",
+                            "/api/v1/admin/audit-logs?action=community.post.remove&size=100",
+                            "/api/v1/admin/audit-logs?target=%231001",
+                            "/api/v1/admin/audit-logs?target=@collector6",
+                            "/api/v1/admin/audit-logs?actorType=SYSTEM",
+                            "/api/v1/admin/search?q=collector",
+                            "/api/v1/admin/search?q=1001",
+                            "/api/v1/admin/catalog/games",
+                            "/api/v1/admin/feature-flags",
+                            "/api/v1/admin/usage-limits",
+                            "/api/v1/admin/inventory/import-settings",
+                            "/api/v1/admin/wishlist/settings",
+                            "/api/v1/admin/delist-policies",
+                            "/api/v1/admin/binders?deckCore=true&size=100",
+                            "/api/v1/admin/binders?deckCore=false&size=100",
+                            "/api/v1/admin/users/" + idOf("collector6"))) {
+                JsonNode document = fetch(path, SEED_ADMIN);
+                if (path.equals("/api/v1/admin/audit-logs?size=100")) {
+                    log = document;
+                }
+                assertThat(document.toString().toLowerCase(Locale.ROOT))
+                        .as("no archived city channel in %s", path)
+                        .doesNotContain("montr");
+            }
+            assertThat(log).isNotNull();
+            int seen = 0;
+            for (JsonNode entry : log.path("items")) {
+                if (audits.contains(entry.path("id").asString())) {
+                    seen++;
+                    assertThat(entry.path("targetLabel").asString()).contains("archived channel");
+                }
+            }
+            assertThat(seen).as("the three city channel entries are listed").isEqualTo(3);
+        } finally {
+            for (String id : audits) {
+                testUsers.update("DELETE FROM audit_log WHERE id = ?::uuid", id);
+            }
+            testUsers.update("DELETE FROM community_post WHERE id = ?::uuid", post);
+        }
+        assertContract(output);
+    }
+
     @Test
     void offersAndTradesCarryPartyPlacesOnly(CapturedOutput output) {
         String collector1 = "seed-collector1:collector1@orenjitrade.test";

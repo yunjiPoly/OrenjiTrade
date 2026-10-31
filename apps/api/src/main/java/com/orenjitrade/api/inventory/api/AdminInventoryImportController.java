@@ -1,5 +1,6 @@
 package com.orenjitrade.api.inventory.api;
 
+import com.orenjitrade.api.auth.domain.AccountNames;
 import com.orenjitrade.api.auth.domain.AuthenticatedUser;
 import com.orenjitrade.api.inventory.api.InventoryImportResponses.SettingsResponse;
 import com.orenjitrade.api.inventory.domain.imports.InventoryImportSettings;
@@ -28,9 +29,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminInventoryImportController {
 
     private final InventoryImportSettings settings;
+    private final AccountNames accountNames;
 
-    public AdminInventoryImportController(InventoryImportSettings settings) {
+    public AdminInventoryImportController(
+            InventoryImportSettings settings, AccountNames accountNames) {
         this.settings = settings;
+        this.accountNames = accountNames;
     }
 
     @GetMapping("/import-settings")
@@ -38,7 +42,7 @@ public class AdminInventoryImportController {
             operationId = "getAdminInventoryImportSettings",
             summary = "The limits of an inventory import (ADMIN)")
     public SettingsResponse getSettings() {
-        return SettingsResponse.from(settings.current());
+        return SettingsResponse.from(settings.current(), accountNames);
     }
 
     @PutMapping(path = "/import-settings", consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -70,7 +74,8 @@ public class AdminInventoryImportController {
                                 body.ydkMaxLines(),
                                 body.csvMaxKb(),
                                 body.csvMaxRows(),
-                                body.previewTtlMinutes())));
+                                body.previewTtlMinutes())),
+                accountNames);
     }
 
     /** {@code PUT /admin/inventory/import-settings}. */

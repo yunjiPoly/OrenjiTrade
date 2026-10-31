@@ -121,6 +121,7 @@ public class BinderRepository {
             @Nullable String query,
             @Nullable UUID ownerId,
             @Nullable ListingVisibility visibility,
+            @Nullable Boolean deckCore,
             int page,
             int size,
             Instant now) {
@@ -146,6 +147,9 @@ public class BinderRepository {
         if (visibility != null) {
             where.append(" AND b.visibility = :visibility");
             params.put("visibility", visibility.name());
+        }
+        if (deckCore != null) {
+            where.append(deckCore ? " AND b.kind = 'DECK'" : " AND b.kind <> 'DECK'");
         }
         long total =
                 jdbc.sql("SELECT count(*)" + FROM + where)

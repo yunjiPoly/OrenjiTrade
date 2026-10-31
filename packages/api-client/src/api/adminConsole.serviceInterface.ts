@@ -13,11 +13,17 @@ import { Observable }                                        from 'rxjs';
 
 import { AdminDashboard } from '../model/models';
 import { ProblemDetail } from '../model/models';
+import { StaffSearchResponse } from '../model/models';
 import { SystemHealth } from '../model/models';
 
 
 import { Configuration }                                     from '../configuration';
 
+
+export interface StaffSearchRequestParams {
+    q: string;
+    limit?: number;
+}
 
 
 export interface AdminConsoleServiceInterface {
@@ -37,5 +43,13 @@ export interface AdminConsoleServiceInterface {
      * @endpoint get /api/v1/admin/system/health
 */
     getSystemHealth(extraHttpRequestParams?: any): Observable<SystemHealth>;
+
+    /**
+     * Find a collector, a card or a report (ADMIN)
+     * One text, grouped: accounts by handle (with or without \&quot;@\&quot;), email or display name; cards by printing code (\&quot;LOB-EN005\&quot;) or name; a report by its number (\&quot;#1047\&quot; or \&quot;1047\&quot;). A text of one character finds nothing but a report number. At most &#x60;limit&#x60; per group. No place is ever returned.
+     * @endpoint get /api/v1/admin/search
+* @param requestParameters
+     */
+    staffSearch(requestParameters: StaffSearchRequestParams, extraHttpRequestParams?: any): Observable<StaffSearchResponse>;
 
 }

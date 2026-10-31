@@ -33,6 +33,8 @@ import { CardImageCacheReconcileResult } from '../model/cardImageCacheReconcileR
 // @ts-ignore
 import { CardImageCacheStatus } from '../model/cardImageCacheStatus';
 // @ts-ignore
+import { CatalogGameSummary } from '../model/catalogGameSummary';
+// @ts-ignore
 import { CatalogImportReport } from '../model/catalogImportReport';
 // @ts-ignore
 import { CatalogSyncRequest } from '../model/catalogSyncRequest';
@@ -733,6 +735,63 @@ export class AdminCatalogService extends BaseService implements AdminCatalogServ
         let localVarPath = `/api/v1/admin/games`;
         const { basePath, withCredentials } = this.configuration;
         return this.httpClient.request<Array<GameResponse>>('get', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * Each game\&#39;s catalogue, sources and newest sync (ADMIN, SUPER_ADMIN)
+     * Every game in display order (hidden ones too): cards, sets and printings in the catalogue, the sources that serve it (empty for a game without a source yet) and its newest sync run. Counts only.
+     * @endpoint get /api/v1/admin/catalog/games
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public listCatalogGames(observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<Array<CatalogGameSummary>>;
+    public listCatalogGames(observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<Array<CatalogGameSummary>>>;
+    public listCatalogGames(observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<Array<CatalogGameSummary>>>;
+    public listCatalogGames(observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/v1/admin/catalog/games`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<Array<CatalogGameSummary>>('get', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
                 responseType: <any>responseType_,

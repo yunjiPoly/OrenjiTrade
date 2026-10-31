@@ -19,7 +19,19 @@ public record AuditLogEntry(
         @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS) @Nullable String targetId,
         @Schema(
                         requiredMode = RequiredMode.REQUIRED,
-                        description = "Structured details; never contains coordinates")
+                        description =
+                                "Structured details; never contains coordinates, and an archived"
+                                        + " channel named after a city reads"
+                                        + " \"archived-channel\" (web stage WH2)")
                 Map<String, Object> details,
         @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
-                @Nullable String requestId) {}
+                @Nullable String requestId,
+        @Schema(
+                        nullable = true,
+                        description =
+                                "A readable name of the target (web stage WH2, spec 15.8):"
+                                    + " \"@handle\", \"Report #1047\", a card's or a room's name, a"
+                                    + " setting key; null when it is gone or has no name",
+                        example = "Report #1047")
+                @JsonInclude(JsonInclude.Include.ALWAYS)
+                @Nullable String targetLabel) {}

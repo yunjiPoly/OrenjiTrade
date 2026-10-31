@@ -24,6 +24,7 @@ export interface ListAdminBindersRequestParams {
     query?: string;
     ownerId?: string;
     visibility?: 'PRIVATE' | 'PUBLIC' | 'TEMPORARILY_PUBLIC';
+    deckCore?: boolean;
     page?: number;
     size?: number;
 }

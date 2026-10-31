@@ -30,5 +30,13 @@ export interface DelistPolicyResponse {
      * Hours after which a conversation waiting for the owner\'s answer counts as unanswered (one strike each)
      */
     unansweredAfterHours: number;
+    /**
+     * The last editor\'s handle (spec 15.8)
+     */
+    updatedByHandle?: string | null;
+    /**
+     * The last editor\'s display name
+     */
+    updatedByName?: string | null;
 }
 

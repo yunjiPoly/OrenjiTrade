@@ -5,6 +5,7 @@ import com.orenjitrade.api.cards.domain.CatalogImportReport;
 import com.orenjitrade.api.cards.domain.CatalogImportService;
 import com.orenjitrade.api.cards.domain.ImageMode;
 import com.orenjitrade.api.cards.domain.SyncRunView;
+import com.orenjitrade.api.cards.infra.CatalogQueryRepository;
 import com.orenjitrade.api.cards.infra.SyncRunRepository;
 import com.orenjitrade.api.common.ApiException;
 import com.orenjitrade.api.common.PageResponse;
@@ -25,6 +26,7 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -45,12 +47,47 @@ public class AdminCatalogSyncController {
     private final CatalogImportService importService;
     private final SyncRunRepository runs;
     private final GameService gameService;
+    private final CatalogQueryRepository catalog;
 
     public AdminCatalogSyncController(
-            CatalogImportService importService, SyncRunRepository runs, GameService gameService) {
+            CatalogImportService importService,
+            SyncRunRepository runs,
+            GameService gameService,
+            CatalogQueryRepository catalog) {
         this.importService = importService;
         this.runs = runs;
         this.gameService = gameService;
+        this.catalog = catalog;
+    }
+
+    @GetMapping("/games")
+    @Transactional(readOnly = true)
+    @Operation(
+            operationId = "listCatalogGames",
+            summary = "Each game's catalogue, sources and newest sync (ADMIN, SUPER_ADMIN)",
+            description =
+                    "Every game in display order (hidden ones too): cards, sets and printings in"
+                            + " the catalogue, the sources that serve it (empty for a game without"
+                            + " a source yet) and its newest sync run. Counts only.")
+    public List<CatalogGameSummary> games() {
+        Map<UUID, long[]> counts = catalog.countsByGame();
+        Map<String, List<String>> providers = importService.providers();
+        return gameService.all().stream()
+                .map(
+                        game -> {
+                            long[] c = counts.getOrDefault(game.id(), new long[3]);
+                            List<String> sources =
+                                    providers.entrySet().stream()
+                                            .filter(entry -> entry.getValue().contains(game.slug()))
+                                            .map(Map.Entry::getKey)
+                                            .sorted()
+                                            .toList();
+                            @Nullable SyncRunView last =
+                                    runs.page(game.id(), 0, 1).stream().findFirst().orElse(null);
+                            return new CatalogGameSummary(
+                                    game.slug(), c[0], c[1], c[2], sources, last);
+                        })
+                .toList();
     }
 
     @GetMapping("/providers")

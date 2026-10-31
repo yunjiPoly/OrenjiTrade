@@ -469,10 +469,12 @@ public class BinderService {
             @Nullable String query,
             @Nullable UUID ownerId,
             @Nullable ListingVisibility visibility,
+            @Nullable Boolean deckCore,
             int page,
             int size) {
         BinderRepository.AdminPage result =
-                repository.adminPage(query, ownerId, visibility, page, size, timeProvider.now());
+                repository.adminPage(
+                        query, ownerId, visibility, deckCore, page, size, timeProvider.now());
         return PageResponse.of(result.rows(), page, size, result.total());
     }
 

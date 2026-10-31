@@ -167,11 +167,25 @@ public final class WishlistResponses {
             @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
                     @Nullable UUID updatedBy,
             @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
-                    @Nullable Instant updatedAt) {
+                    @Nullable Instant updatedAt,
+            @Schema(nullable = true, description = "The last editor's handle (spec 15.8)")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable String updatedByHandle,
+            @Schema(nullable = true, description = "The last editor's display name")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable String updatedByName) {
 
-        static SettingsResponse from(WishlistSettings.Values values) {
+        static SettingsResponse from(
+                WishlistSettings.Values values,
+                com.orenjitrade.api.auth.domain.AccountNames names) {
+            com.orenjitrade.api.auth.domain.AccountNames.@Nullable AccountName editor =
+                    names.nameOf(values.updatedBy()).orElse(null);
             return new SettingsResponse(
-                    values.priceTerms(), values.updatedBy(), values.updatedAt());
+                    values.priceTerms(),
+                    values.updatedBy(),
+                    values.updatedAt(),
+                    editor == null ? null : editor.handle(),
+                    editor == null ? null : editor.displayName());
         }
     }
 }

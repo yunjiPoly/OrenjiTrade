@@ -1,5 +1,6 @@
 package com.orenjitrade.api.audit.api;
 
+import com.orenjitrade.api.audit.domain.ActorType;
 import com.orenjitrade.api.audit.domain.AuditLogFilter;
 import com.orenjitrade.api.audit.domain.AuditQueryService;
 import com.orenjitrade.api.common.PageResponse;
@@ -8,6 +9,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -37,7 +39,8 @@ public class AdminAuditLogController {
             operationId = "listAuditLogs",
             summary = "List audit-log entries (ADMIN, SUPER_ADMIN)",
             description =
-                    "Newest first. Every filter is optional; `from` is inclusive, `to` exclusive.")
+                    "Newest first. Every filter is optional; `from` is inclusive, `to` exclusive."
+                            + " Each entry names its actor and carries a readable `targetLabel`.")
     public PageResponse<AuditLogEntry> list(
             @Parameter(description = "Acting account id") @RequestParam(required = false)
                     @Nullable UUID actorId,
@@ -56,9 +59,24 @@ public class AdminAuditLogController {
                     @RequestParam(required = false)
                     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
                     @Nullable Instant to,
+            @Parameter(
+                            description =
+                                    "Who acted: ADMIN (staff), USER (a collector on their own"
+                                            + " account) or SYSTEM")
+                    @RequestParam(required = false)
+                    @Nullable ActorType actorType,
+            @Parameter(
+                            description =
+                                    "A readable target: \"@handle\", a report number"
+                                            + " (\"#1047\") or a setting key; matches the target"
+                                            + " it names, else the stored target id")
+                    @RequestParam(required = false)
+                    @Size(max = 120)
+                    @Nullable String target,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
-        AuditLogFilter filter = new AuditLogFilter(actorId, targetType, targetId, action, from, to);
-        return PageResponse.from(auditQueryService.search(filter, page, size));
+        AuditLogFilter filter =
+                new AuditLogFilter(actorId, targetType, targetId, action, from, to, actorType);
+        return PageResponse.from(auditQueryService.search(filter, target, page, size));
     }
 }

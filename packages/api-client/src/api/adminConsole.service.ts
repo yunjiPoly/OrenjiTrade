@@ -21,6 +21,8 @@ import { AdminDashboard } from '../model/adminDashboard';
 // @ts-ignore
 import { ProblemDetail } from '../model/problemDetail';
 // @ts-ignore
+import { StaffSearchResponse } from '../model/staffSearchResponse';
+// @ts-ignore
 import { SystemHealth } from '../model/systemHealth';
 
 // @ts-ignore
@@ -28,7 +30,8 @@ import { BASE_PATH, COLLECTION_FORMATS }                     from '../variables'
 import { Configuration }                                     from '../configuration';
 import { BaseService } from '../api.base.service';
 import {
-    AdminConsoleServiceInterface
+    AdminConsoleServiceInterface,
+    StaffSearchRequestParams
 } from './adminConsole.serviceInterface';
 
 
@@ -146,6 +149,90 @@ export class AdminConsoleService extends BaseService implements AdminConsoleServ
         return this.httpClient.request<SystemHealth>('get', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * Find a collector, a card or a report (ADMIN)
+     * One text, grouped: accounts by handle (with or without \&quot;@\&quot;), email or display name; cards by printing code (\&quot;LOB-EN005\&quot;) or name; a report by its number (\&quot;#1047\&quot; or \&quot;1047\&quot;). A text of one character finds nothing but a report number. At most &#x60;limit&#x60; per group. No place is ever returned.
+     * @endpoint get /api/v1/admin/search
+     * @param requestParameters
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public staffSearch(requestParameters: StaffSearchRequestParams, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<StaffSearchResponse>;
+    public staffSearch(requestParameters: StaffSearchRequestParams, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<StaffSearchResponse>>;
+    public staffSearch(requestParameters: StaffSearchRequestParams, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<StaffSearchResponse>>;
+    public staffSearch(requestParameters: StaffSearchRequestParams, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        const q = requestParameters?.q;
+        if (q === null || q === undefined) {
+            throw new Error('Required parameter q was null or undefined when calling staffSearch.');
+        }
+        const limit = requestParameters?.limit;
+
+        let localVarQueryParameters = new OpenApiHttpParams(this.encoder);
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'q',
+            <any>q,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'limit',
+            <any>limit,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/v1/admin/search`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<StaffSearchResponse>('get', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                params: localVarQueryParameters.toHttpParams(),
                 responseType: <any>responseType_,
                 ...(withCredentials ? { withCredentials } : {}),
                 headers: localVarHeaders,
