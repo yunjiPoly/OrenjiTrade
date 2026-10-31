@@ -1,3 +1,12 @@
+import { GuestActions } from '../../../core/guest/guest-actions.service';
+import {
+  GUEST_COPY,
+  cardSubject,
+  guestPlace,
+  personSubject,
+} from '../../../core/guest/guest-actions';
+import { printingImageUrl } from '../../../shared/inventory/inventory-labels';
+import { itemPriceText } from '../../inventory/data/item-price';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -133,18 +142,34 @@ import { ReportActionsService } from '../../../shared/reports/report-actions.ser
                     <span class="di__price">{{ binder.askingPriceText }}</span>
                   }
                 </div>
-                <a
-                  class="di__seller"
-                  [routerLink]="binder.owner.handle ? ['/collectors', binder.owner.handle] : null"
-                >
-                  <app-binder-owner
-                    [owner]="binder.owner"
-                    [rating]="rating()"
-                    [binderCount]="binder.ownerPublicBinderCount"
-                    [linked]="false"
-                  />
-                  <app-shell-icon class="di__muted" name="chevronRight" [size]="18" />
-                </a>
+                @if (binder.owner.handle) {
+                  <a class="di__seller" [routerLink]="['/collectors', binder.owner.handle]">
+                    <app-binder-owner
+                      [owner]="binder.owner"
+                      [rating]="rating()"
+                      [binderCount]="binder.ownerPublicBinderCount"
+                      [linked]="false"
+                    />
+                    <app-shell-icon class="di__muted" name="chevronRight" [size]="18" />
+                  </a>
+                } @else {
+                  <!-- A guest: the seller row asks to sign in, then opens the profile (spec 14). -->
+                  <button
+                    type="button"
+                    class="di__seller di__seller--guest"
+                    data-testid="drill-in-guest-seller"
+                    [attr.aria-label]="guestSellerLabel(binder)"
+                    (click)="askProfile(binder, $event.currentTarget)"
+                  >
+                    <app-binder-owner
+                      [owner]="binder.owner"
+                      [rating]="rating()"
+                      [binderCount]="binder.ownerPublicBinderCount"
+                      [linked]="false"
+                    />
+                    <app-shell-icon class="di__muted" name="chevronRight" [size]="18" />
+                  </button>
+                }
                 @if (binder.description) {
                   <p class="di__note">{{ binder.description }}</p>
                 }
@@ -159,6 +184,7 @@ import { ReportActionsService } from '../../../shared/reports/report-actions.ser
                   [owner]="binder.owner"
                   [rating]="rating()"
                   [binderCount]="binder.ownerPublicBinderCount"
+                  (askProfile)="askProfile(binder, $event)"
                 />
                 <label class="di__search">
                   <app-shell-icon class="di__muted" name="search" [size]="18" />
@@ -244,6 +270,7 @@ export class BinderDrillInComponent {
   private readonly session = inject(SessionService);
   private readonly chatDrawer = inject(ChatDrawer);
   private readonly reports = inject(ReportActionsService);
+  private readonly guest = inject(GuestActions);
   private readonly router = inject(Router);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
@@ -302,14 +329,22 @@ export class BinderDrillInComponent {
     this.searchTimer = setTimeout(() => this.store.setFilters(value.trim(), 'recent'), 300);
   }
 
+  /** "Message": the chat drawer (a guest: the sign-in dialog, the chat after; spec 14). */
   protected message(binder: PublicBinderResponse, opener: EventTarget | null): void {
-    if (!this.auth.isAuthenticated() || !binder.owner?.id) {
-      this.signIn();
+    const ownerId = binder.owner?.id;
+    if (!this.auth.isAuthenticated() || !ownerId) {
+      void this.guest.ask(
+        binder.sellsAsCore
+          ? { kind: 'message', listing: { binderId: binder.id } }
+          : { kind: 'message', listing: { binderId: binder.id }, pin: false },
+        personSubject(guestPlace(binder.owner?.place)),
+        opener,
+      );
       return;
     }
     void this.chatDrawer.message(
       {
-        recipientId: binder.owner.id,
+        recipientId: ownerId,
         ...(binder.sellsAsCore ? { subjectBinderId: binder.id } : {}),
       },
       opener,
@@ -321,30 +356,54 @@ export class BinderDrillInComponent {
     item: PublicInventoryItem,
     opener: EventTarget | null,
   ): void {
-    if (!this.auth.isAuthenticated() || !binder.owner?.id) {
-      this.signIn();
+    const ownerId = binder.owner?.id;
+    if (!this.auth.isAuthenticated() || !ownerId) {
+      void this.guest.ask(
+        { kind: 'message', listing: { itemId: item.id } },
+        cardSubject(
+          { name: item.card.name, imageUrl: printingImageUrl(item.printing), game: this.game() },
+          guestPlace(binder.owner?.place),
+          itemPriceText(item),
+        ),
+        opener,
+      );
       return;
     }
-    void this.chatDrawer.message({ recipientId: binder.owner.id, subjectItemId: item.id }, opener);
+    void this.chatDrawer.message({ recipientId: ownerId, subjectItemId: item.id }, opener);
+  }
+
+  /** A guest's seller row: the sign-in dialog, the profile after (spec 14). */
+  protected guestSellerLabel(binder: PublicBinderResponse): string {
+    return GUEST_COPY.whoLabel(
+      [GUEST_COPY.aCollector, guestPlace(binder.owner?.place)].filter(Boolean).join(', '),
+    );
+  }
+
+  protected askProfile(binder: PublicBinderResponse, opener: EventTarget | null): void {
+    void this.guest.ask(
+      { kind: 'profile', listing: { binderId: binder.id } },
+      personSubject(guestPlace(binder.owner?.place)),
+      opener,
+    );
   }
 
   protected async report(binder: PublicBinderResponse): Promise<void> {
-    if (!this.auth.isAuthenticated() || !binder.owner?.id) {
-      this.signIn();
+    const owner = binder.owner;
+    if (!this.auth.isAuthenticated() || !owner?.id) {
+      void this.guest.ask(
+        { kind: 'report', binderId: binder.id },
+        personSubject(guestPlace(owner?.place)),
+      );
       return;
     }
     await this.reports.report(
       {
-        id: binder.owner.id,
-        displayName: binder.owner.displayName,
-        handle: binder.owner.handle,
-        avatarUrl: binder.owner.avatarUrl,
+        id: owner.id,
+        displayName: owner.displayName ?? owner.handle ?? '',
+        handle: owner.handle,
+        avatarUrl: owner.avatarUrl,
       },
       { source: 'BINDER', binderId: binder.id },
     );
-  }
-
-  private signIn(): void {
-    void this.router.navigate(['/auth/sign-in'], { queryParams: { returnUrl: this.router.url } });
   }
 }

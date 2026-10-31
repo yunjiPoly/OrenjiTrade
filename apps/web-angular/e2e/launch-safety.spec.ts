@@ -41,10 +41,11 @@ test.describe('launch readiness: trading safety and French legal pages', () => {
 
     // --- Sign up: the 18+ checkbox is explicit and unticked ---------------------------------
     await page.goto('/auth/sign-up');
+    await page.getByLabel('Display name').fill('E2E Safety Tester');
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password', { exact: true }).fill(TEST_PASSWORD);
     await page.getByRole('checkbox', { name: 'Accept all' }).check();
-    const ageBox = page.getByRole('checkbox', { name: /I confirm I am 18 years of age or older/ });
+    const ageBox = page.getByRole('checkbox', { name: 'I confirm I am 18 years of age or older' });
     await expect(ageBox).not.toBeChecked();
     await ageBox.check();
     await page.getByRole('button', { name: 'Create account' }).click();
@@ -55,16 +56,16 @@ test.describe('launch readiness: trading safety and French legal pages', () => {
     // --- Onboarding: profile, interests, location with "Show me on the map" ---------------------
     await expect(page).toHaveURL(/\/onboarding/, { timeout: 20_000 });
     await page.getByLabel('Handle').fill(handle);
-    await page.getByLabel('Display name').fill('E2E Safety Tester');
+    await expect(page.getByLabel('Display name')).toHaveValue('E2E Safety Tester');
     const next = page.getByRole('button', { name: 'Continue', exact: true });
-    await next.filter({ visible: true }).click();
+    await next.click();
     await expect(page.getByRole('heading', { name: 'What do you collect?' })).toBeVisible();
     await page
       .getByRole('group', { name: 'Games you collect or play' })
       .getByRole('button', { name: 'Pokémon' })
       .click();
-    await next.filter({ visible: true }).click();
-    await expect(page.getByRole('heading', { name: 'Where are you?' })).toBeVisible();
+    await next.click();
+    await expect(page.getByRole('heading', { name: 'Where do you ship from?' })).toBeVisible();
     await chooseOption(page, 'Country', 'Canada');
     await chooseOption(page, 'State or province', 'Quebec');
     await page.getByRole('switch', { name: 'Show me on the map' }).click();

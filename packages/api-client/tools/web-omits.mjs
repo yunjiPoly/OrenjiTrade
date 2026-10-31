@@ -25,9 +25,10 @@ export const WEB_CLIENT_OMITS = {
  * phone's types (packages/shared-types) keep the nullable fields of docs/api/openapi.json.
  */
 export const WEB_CLIENT_NOT_NULL = {
-  CollectorMarker: ['id', 'handle', 'displayName'],
-  // FeedCollector is typed nullable on the web since stage WE: Home shows a guest "A collector".
-  PublicBinderOwner: ['id', 'handle', 'displayName'],
+  // Empty since web stage WG (sign-in, welcome and guests): the web's guest pages read who a
+  // collector is as the API sends it, `null` for a signed-out visitor ("A collector" and the
+  // province). FeedCollector became nullable on the web in stage WE, CollectorMarker and
+  // PublicBinderOwner in stage WG.
 };
 
 /** The OpenAPI document (changed in place) without the null of the fields of `fields`. */
@@ -38,7 +39,7 @@ export function withoutWebNulls(document, fields = WEB_CLIENT_NOT_NULL) {
     for (const key of keys) {
       const property = properties[key];
       if (property && Array.isArray(property.type)) {
-        const types = property.type.filter((type) => type !== 'null');
+        const types = property.type.filter((type) => type !== "null");
         property.type = types.length === 1 ? types[0] : types;
       }
     }
@@ -54,7 +55,9 @@ export function withoutWebOmits(document, omits = WEB_CLIENT_OMITS) {
       if (!names || !Array.isArray(operation.parameters)) {
         continue;
       }
-      operation.parameters = operation.parameters.filter((p) => !names.includes(p.name));
+      operation.parameters = operation.parameters.filter(
+        (p) => !names.includes(p.name),
+      );
       if (operation.parameters.length === 0) {
         delete operation.parameters;
       }

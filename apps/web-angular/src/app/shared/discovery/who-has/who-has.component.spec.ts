@@ -4,6 +4,10 @@ import { Router, provideRouter } from '@angular/router';
 import { SearchService } from '@orenji/api-client';
 import { of, throwError } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
+import {
+  fakeGuestActions,
+  provideFakeGuestActions,
+} from '../../../core/guest/testing/fake-guest-actions';
 import { SessionService } from '../../../core/auth/session.service';
 import { ChatDrawer } from '../../messaging/chat-drawer.service';
 import { WhoHasComponent } from './who-has.component';
@@ -39,6 +43,7 @@ describe('WhoHasComponent (spec 7.3 and 7.4)', () => {
   let message: ReturnType<typeof vi.fn>;
   let cores: ReturnType<typeof vi.fn>;
   const authenticated = signal(true);
+  let guest = fakeGuestActions(vi.fn);
 
   async function render(
     rows: unknown[],
@@ -69,6 +74,7 @@ describe('WhoHasComponent (spec 7.3 and 7.4)', () => {
           },
         },
         { provide: AuthService, useValue: { isAuthenticated: authenticated } },
+        provideFakeGuestActions(guest),
         { provide: SessionService, useValue: { me: signal({ id: 'me' }) } },
         { provide: ChatDrawer, useValue: { message, starting: signal(null) } },
       ],
@@ -91,7 +97,10 @@ describe('WhoHasComponent (spec 7.3 and 7.4)', () => {
     fixture.detectChanges();
   }
 
-  beforeEach(() => authenticated.set(true));
+  beforeEach(() => {
+    authenticated.set(true);
+    guest = fakeGuestActions(vi.fn);
+  });
 
   it("asks for the holders by province without a deck core's cards, and shows no count", async () => {
     await render([
@@ -273,15 +282,32 @@ describe('WhoHasComponent (spec 7.3 and 7.4)', () => {
     expect(rows[0].getAttribute('tabindex')).toBe('-1');
   });
 
-  it('shows a guest "A collector", and Message asks them to sign in', async () => {
+  it('shows a guest "A collector"; Message and the row open the sign-in dialog (spec 14)', async () => {
     authenticated.set(false);
     await render([result('1', 'CA-QC', 'Quebec', null)]);
     expect(element.querySelector('.wh__handle')?.textContent?.trim()).toBe('A collector');
     expect(element.querySelector('.wh__online')).toBeNull();
-    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
-    element.querySelector<HTMLButtonElement>('[data-testid="holder-message"]')!.click();
+    const button = element.querySelector<HTMLButtonElement>('[data-testid="holder-message"]')!;
+    expect(button.getAttribute('aria-label')).toContain('Needs an account');
+    button.click();
     expect(message).not.toHaveBeenCalled();
-    expect(navigate).toHaveBeenCalledWith(['/auth/sign-in'], expect.anything());
+    expect(guest.ask).toHaveBeenCalledWith(
+      { kind: 'message', listing: { itemId: expect.any(String) } },
+      expect.objectContaining({
+        kind: 'card',
+        line: expect.stringContaining('A collector · Quebec'),
+      }),
+      button,
+    );
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    const row = element.querySelector<HTMLElement>('[data-testid="holder-row"]')!;
+    row.click();
+    expect(navigate).not.toHaveBeenCalled();
+    expect(guest.ask).toHaveBeenLastCalledWith(
+      { kind: 'profile', listing: { itemId: expect.any(String) } },
+      { kind: 'person', title: 'A collector', line: 'Quebec' },
+      expect.anything(),
+    );
   });
 
   it('says "On your wishlist" instead of offering it when the card is wished already', async () => {

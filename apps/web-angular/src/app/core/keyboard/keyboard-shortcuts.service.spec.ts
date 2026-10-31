@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
+import { ShellLayout } from '../layout/shell-layout.service';
 import { SINGLE_KEYS_STORAGE_KEY, KeyboardPrefs } from './keyboard-prefs.service';
 import {
   G_TIMEOUT_MS,
@@ -165,5 +166,21 @@ describe('KeyboardShortcuts (spec 4.9, decision 24)', () => {
     expect(document.activeElement?.id).toBe(GLOBAL_SEARCH_ID);
     TestBed.inject(KeyboardPrefs).setSingleKeys(true);
     expect(localStorage.getItem(SINGLE_KEYS_STORAGE_KEY)).toBeNull();
+  });
+
+  it('keeps the bare pages\' keys (sign-in steps, the welcome): only "?" and Ctrl/Cmd+K', () => {
+    const layout = TestBed.inject(ShellLayout);
+    Object.defineProperty(layout, 'bare', { value: () => true });
+    for (const key of ['n', 'N', '/']) {
+      expect(press(key).defaultPrevented, key).toBe(false);
+    }
+    press('g');
+    press('h');
+    expect(navigate).not.toHaveBeenCalled();
+    expect(navigateByUrl).not.toHaveBeenCalled();
+    press('?', { shiftKey: true });
+    expect(openHelp).toHaveBeenCalled();
+    press('k', { ctrlKey: true });
+    expect(document.activeElement?.id).toBe(GLOBAL_SEARCH_ID);
   });
 });

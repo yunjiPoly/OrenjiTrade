@@ -22,6 +22,7 @@ import { NotificationCenter } from '../../core/notifications/notification-center
 import { NotificationRowComponent } from '../../core/notifications/notification-row.component';
 import { isFreshnessRow } from '../../core/notifications/notification-rows';
 import { ReminderAnswers } from '../../core/notifications/reminder-answers.service';
+import { GuestPageComponent } from '../../shared/guest/guest-page.component';
 import { EmptyStateComponent } from '../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../shared/ui/error-state/error-state.component';
 import { SegmentOption, SegmentedComponent } from '../../shared/ui/segmented/segmented.component';
@@ -39,6 +40,7 @@ import { NotificationFeedStore } from './data/notification-feed.store';
   imports: [
     RouterLink,
     EmptyStateComponent,
+    GuestPageComponent,
     ErrorStateComponent,
     NotificationRowComponent,
     SegmentedComponent,
@@ -193,20 +195,7 @@ import { NotificationFeedStore } from './data/notification-feed.store';
           }
         </section>
       } @else {
-        <app-empty-state
-          icon="lock_person"
-          title="Notifications are for members"
-          description="Sign in to get wishlist alerts, sales and ratings in one place."
-        >
-          <a
-            actions
-            class="nf__outline"
-            routerLink="/auth/sign-in"
-            [queryParams]="{ returnUrl: '/notifications' }"
-          >
-            Sign in
-          </a>
-        </app-empty-state>
+        <app-guest-page kind="notifications" />
       }
     </div>
   `,

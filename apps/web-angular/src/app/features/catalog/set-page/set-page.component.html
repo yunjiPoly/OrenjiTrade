@@ -28,7 +28,7 @@
             type="button"
             class="sp__toggle"
             data-testid="add-from-set"
-            (click)="toggleAdding()"
+            (click)="toggleAdding($event)"
           >
             <app-shell-icon [name]="adding() ? 'close' : 'plus'" [size]="18" />
             {{ adding() ? 'Stop adding' : 'Add from this set' }}

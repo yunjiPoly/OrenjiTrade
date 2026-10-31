@@ -13,8 +13,12 @@ describe('SettingsShellComponent (spec 13, board W25)', () => {
   let fixture: ComponentFixture<SettingsShellComponent>;
   let element: HTMLElement;
   let signOut: ReturnType<typeof vi.fn>;
+  const member = signal(true);
+  let load: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    member.set(true);
+    load = vi.fn();
     signOut = vi.fn(async () => undefined);
     TestBed.configureTestingModule({
       imports: [SettingsShellComponent],
@@ -30,7 +34,11 @@ describe('SettingsShellComponent (spec 13, board W25)', () => {
         },
         {
           provide: AuthService,
-          useValue: { user: signal({ email: 'sam@example.test' }), signOut },
+          useValue: {
+            user: signal({ email: 'sam@example.test' }),
+            isAuthenticated: member,
+            signOut,
+          },
         },
         { provide: FeatureFlagsService, useValue: { enabled: () => signal(true) } },
         { provide: ToastService, useValue: { show: vi.fn() } },
@@ -40,7 +48,7 @@ describe('SettingsShellComponent (spec 13, board W25)', () => {
           useValue: {
             location: signal({ discoverable: true, location: { label: 'Quebec, Canada' } }),
             loading: signal(false),
-            load: vi.fn(),
+            load,
           },
         },
       ],
@@ -80,5 +88,40 @@ describe('SettingsShellComponent (spec 13, board W25)', () => {
     await fixture.whenStable();
     expect(signOut).toHaveBeenCalled();
     expect(navigate).toHaveBeenCalledWith('/');
+  });
+
+  it('a guest reads Appearance and Legal only, without the profile card or Sign out (spec 14)', () => {
+    TestBed.resetTestingModule();
+    member.set(false);
+    load.mockClear();
+    TestBed.configureTestingModule({
+      imports: [SettingsShellComponent],
+      providers: [
+        provideRouter([]),
+        {
+          provide: SessionService,
+          useValue: { me: signal(null), displayName: signal('Collector'), handle: signal(null) },
+        },
+        {
+          provide: AuthService,
+          useValue: { user: signal(null), isAuthenticated: member, signOut },
+        },
+        { provide: FeatureFlagsService, useValue: { enabled: () => signal(true) } },
+        { provide: ToastService, useValue: { show: vi.fn() } },
+        { provide: ThemeService, useValue: { preference: signal('system') } },
+        {
+          provide: MyLocationStore,
+          useValue: { location: signal(null), loading: signal(false), load },
+        },
+      ],
+    });
+    const guestFixture = TestBed.createComponent(SettingsShellComponent);
+    guestFixture.detectChanges();
+    const guest = guestFixture.nativeElement as HTMLElement;
+    const links = [...guest.querySelectorAll('.st__link')].map((a) => a.getAttribute('href'));
+    expect(links).toEqual(['/appearance', '/legal']);
+    expect(guest.querySelector('.st__me')).toBeNull();
+    expect(guest.querySelector('.st__signout')).toBeNull();
+    expect(load).not.toHaveBeenCalled();
   });
 });

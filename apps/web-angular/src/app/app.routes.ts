@@ -68,6 +68,8 @@ const MESSAGES: ShellRouteData = {
 /** Settings belongs to Profile too, but keeps the bar with the wordmark below 960. */
 const PROFILE: ShellRouteData = { area: 'profile', pills: 'none', layout: 'reading' };
 const PROFILE_TAB: ShellRouteData = { ...PROFILE, tabBar: true };
+/** The sign-in steps, the account states and the welcome: pages of their own (spec 14). */
+const BARE: ShellRouteData = { bare: true };
 
 /**
  * Top-level routes (web redesign spec 4.11). Every page is lazy (`loadComponent` /
@@ -177,7 +179,8 @@ export const routes: Routes = [
     path: 'profile',
     title: 'Profile',
     data: { shell: PROFILE_TAB },
-    canActivate: [authGuard, onboardingGuard],
+    // A guest reads Profile's guest page (spec 14), with Appearance, Trading safely and Legal.
+    canActivate: [onboardingGuard],
     loadComponent: () =>
       import('./features/profile/my-profile-page.component').then((m) => m.MyProfilePageComponent),
   },
@@ -192,11 +195,14 @@ export const routes: Routes = [
   },
   {
     path: 'auth',
+    // The sign-in steps and the account states stand alone (spec 14: no rail, no top bar).
+    data: { shell: BARE },
     loadChildren: () => import('./features/auth/auth.routes').then((m) => m.AUTH_ROUTES),
   },
   {
     path: 'onboarding',
     title: 'Welcome',
+    data: { shell: BARE },
     canActivate: [authGuard, accountGuard],
     loadComponent: () =>
       import('./features/onboarding/onboarding-page.component').then(
@@ -206,7 +212,8 @@ export const routes: Routes = [
   {
     path: 'settings',
     data: { shell: PROFILE },
-    canActivate: [accountGuard],
+    // Appearance and Legal open to guests too (spec 14); every other section is the account's.
+    canActivate: [accountStateGuard],
     loadChildren: () =>
       import('./features/settings/settings.routes').then((m) => m.SETTINGS_ROUTES),
   },

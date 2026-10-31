@@ -19,15 +19,15 @@ export interface CollectorMarker {
     /**
      * Null for a signed-out caller (stage R15)
      */
-    id: string;
+    id: string | null;
     /**
      * Null for a signed-out caller (stage R15)
      */
-    handle: string;
+    handle: string | null;
     /**
      * Null for a signed-out caller (stage R15)
      */
-    displayName: string;
+    displayName: string | null;
     avatarUrl?: string | null;
     place: Place;
     /**

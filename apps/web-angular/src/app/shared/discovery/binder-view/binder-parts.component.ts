@@ -61,6 +61,17 @@ export function ownerLine(
             <a class="own__handle own__handle--link" [routerLink]="['/collectors', o?.handle]">{{
               o?.handle
             }}</a>
+          } @else if (!o?.handle && !card() && linked()) {
+            <!-- A guest: "A collector" asks to sign in, then opens the profile (spec 14). -->
+            <button
+              type="button"
+              class="own__handle own__handle--link own__handle--button"
+              aria-label="A collector. Sign in to see collector profiles"
+              data-testid="owner-guest-profile"
+              (click)="askProfile.emit($event.currentTarget)"
+            >
+              A collector
+            </button>
           } @else {
             <span class="own__handle">{{ o?.handle ?? 'A collector' }}</span>
           }
@@ -72,6 +83,18 @@ export function ownerLine(
       </span>
       @if (o?.handle && card()) {
         <a class="own__profile" [routerLink]="['/collectors', o?.handle]">View profile</a>
+      } @else if (card() && !o?.handle) {
+        <!-- A guest: "View profile" asks to sign in first (spec 14, "Sign in to see collector
+          profiles"), then opens the profile. -->
+        <button
+          type="button"
+          class="own__profile own__profile--button"
+          aria-label="View profile. Needs an account"
+          data-testid="owner-guest-profile"
+          (click)="askProfile.emit($event.currentTarget)"
+        >
+          View profile
+        </button>
       }
     </div>
   `,
@@ -143,6 +166,29 @@ export function ownerLine(
     .own__profile:hover {
       text-decoration: underline;
     }
+    .own__handle--button {
+      padding: 0;
+      border: 0;
+      background: none;
+      font: inherit;
+      font-weight: var(--font-weight-semibold);
+      cursor: pointer;
+    }
+    .own__handle--button:focus-visible {
+      outline: var(--focus-width) solid var(--color-focus-ring);
+      outline-offset: var(--focus-offset);
+    }
+    .own__profile--button {
+      padding: 4px 0;
+      border: 0;
+      background: none;
+      font: inherit;
+      cursor: pointer;
+    }
+    .own__profile--button:focus-visible {
+      outline: var(--focus-width) solid var(--color-focus-ring);
+      outline-offset: var(--focus-offset);
+    }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -154,6 +200,8 @@ export class BinderOwnerComponent {
   readonly card = input(false);
   /** False inside a row that is itself the profile link (no link in a link, WD review A10). */
   readonly linked = input(true);
+  /** A guest's "View profile" on the seller card (the page opens the sign-in dialog). */
+  readonly askProfile = output<EventTarget | null>();
   // A guest sees the province only (spec 8.3): no handle, rating, presence or binder count.
   protected readonly line = computed(() =>
     ownerLine(this.owner(), this.owner()?.handle ? this.binderCount() : null),

@@ -91,6 +91,17 @@ describe('CommunityRoomsStore (web WF)', () => {
     expect(store.status()).toBe('error');
   });
 
+  it('disable(): the list leaves its rooms and says the community is closed (WF leftover F9)', () => {
+    store.load('americas-north');
+    expect(store.rooms().length).toBe(3);
+    store.disable();
+    expect(store.status()).toBe('disabled');
+    expect(store.rooms()).toEqual([]);
+    // A quiet refresh afterwards reads nothing (the list is no longer "ready").
+    store.refresh();
+    expect(api['listCommunityChannels']).toHaveBeenCalledTimes(1);
+  });
+
   it('a room someone else posted in is unread until visited; the visit is kept per account', () => {
     store.load('americas-north');
     expect([...store.unread()]).toEqual(['americas-north-yugioh']);

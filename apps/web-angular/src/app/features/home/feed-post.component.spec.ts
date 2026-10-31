@@ -2,6 +2,10 @@ import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { FeedPost, FeedPostKindEnum as Kind } from '@orenji/api-client';
+import {
+  fakeGuestActions,
+  provideFakeGuestActions,
+} from '../../core/guest/testing/fake-guest-actions';
 import { ChatDrawer } from '../../shared/messaging/chat-drawer.service';
 import { IHaveIt } from '../../shared/wishlist/i-have-it.service';
 import { FeedPostComponent } from './feed-post.component';
@@ -38,7 +42,10 @@ describe('FeedPostComponent (spec 5.2, board W1)', () => {
   let message: ReturnType<typeof vi.fn>;
   let offer: ReturnType<typeof vi.fn>;
 
+  let guest: ReturnType<typeof fakeGuestActions>;
+
   function render(post: Partial<FeedPost>): void {
+    guest = fakeGuestActions(vi.fn);
     message = vi.fn(async () => undefined);
     offer = vi.fn(async () => undefined);
     TestBed.configureTestingModule({
@@ -47,6 +54,7 @@ describe('FeedPostComponent (spec 5.2, board W1)', () => {
         provideRouter([]),
         { provide: ChatDrawer, useValue: { message, starting: signal(null) } },
         { provide: IHaveIt, useValue: { offer } },
+        provideFakeGuestActions(guest),
       ],
     });
     fixture = TestBed.createComponent(FeedPostComponent);
@@ -145,5 +153,72 @@ describe('FeedPostComponent (spec 5.2, board W1)', () => {
     expect(element.querySelector('a[href^="/collectors"]')).toBeNull();
     expect(element.querySelector('.fp__avatar--guest')).not.toBeNull();
     expect(element.querySelector('.fp__meta')?.textContent).toContain('Quebec');
+  });
+
+  it('a guest\'s header and "+N" open "Sign in to see collector profiles" (spec 14, W26)', () => {
+    render({
+      kind: Kind.NewCards,
+      collector: GUEST,
+      newCards: { total: 9, previews: ['1', '2', '3', '4', '5', '6'].map(preview) },
+    });
+    const who = element.querySelector<HTMLButtonElement>('[data-testid="feed-guest-who"]')!;
+    expect(who.getAttribute('aria-label')).toBe(
+      'A collector listed 9 cards, 5 min, Quebec. Sign in to see collector profiles',
+    );
+    who.click();
+    expect(guest.ask).toHaveBeenCalledWith(
+      { kind: 'profile', listing: { itemId: 'i1' } },
+      { kind: 'person', title: 'A collector', line: 'Quebec' },
+      who,
+    );
+    const more = element.querySelector<HTMLButtonElement>('[data-testid="feed-guest-more"]')!;
+    expect(more.getAttribute('aria-label')).toBe(
+      '4 more cards from this collector. Needs an account',
+    );
+    more.click();
+    expect(guest.ask).toHaveBeenCalledTimes(2);
+  });
+
+  it('a guest\'s Message and "I have it" open the dialog with the card, never the chat', () => {
+    render({
+      kind: Kind.NewCards,
+      collector: GUEST,
+      newCards: { total: 1, previews: [preview('1')] },
+    });
+    const button = element.querySelector<HTMLButtonElement>('[data-testid="feed-message"]')!;
+    expect(button.getAttribute('aria-label')).toBe(
+      'Message this collector about Card 1. Needs an account',
+    );
+    button.click();
+    expect(message).not.toHaveBeenCalled();
+    expect(guest.ask).toHaveBeenCalledWith(
+      { kind: 'message', listing: { itemId: 'i1' } },
+      expect.objectContaining({ title: 'Card 1', line: 'A collector · Quebec · $1.00' }),
+      button,
+    );
+    TestBed.resetTestingModule();
+    render({
+      kind: Kind.Wanted,
+      collector: GUEST,
+      wanted: {
+        wishId: 'w-1',
+        cardId: 'c-9',
+        name: 'Ash Blossom',
+        nearMintOnly: true,
+      },
+    });
+    const have = element.querySelector<HTMLButtonElement>('[data-testid="feed-have-it"]')!;
+    expect(have.getAttribute('aria-label')).toBe('I have it: Ash Blossom. Needs an account');
+    have.click();
+    expect(offer).not.toHaveBeenCalled();
+    expect(guest.ask).toHaveBeenCalledWith(
+      {
+        kind: 'have',
+        wishId: 'w-1',
+        card: { cardId: 'c-9', name: 'Ash Blossom', printingId: null, rarity: null },
+      },
+      expect.objectContaining({ line: 'Wanted by a collector · Quebec' }),
+      have,
+    );
   });
 });

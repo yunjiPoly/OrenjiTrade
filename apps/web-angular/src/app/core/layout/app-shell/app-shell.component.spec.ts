@@ -185,8 +185,9 @@ describe('AppShellComponent (spec 4, boards W1 and W3)', () => {
   });
 
   it('gives a guest a "Sign in" pill instead of the bell and the avatar (spec 4.3)', async () => {
-    expect(element.querySelector('[data-testid="top-bar-sign-in"]')?.getAttribute('href')).toBe(
-      '/auth/sign-in',
+    // Back to the page after signing in (spec 14).
+    expect(element.querySelector('[data-testid="top-bar-sign-in"]')?.getAttribute('href')).toMatch(
+      /^\/auth\/sign-in\?returnUrl=%2F/,
     );
     expect(element.querySelector('[data-testid="notification-bell"]')).toBeNull();
     expect(element.querySelector('[data-testid="account-menu-trigger"]')).toBeNull();

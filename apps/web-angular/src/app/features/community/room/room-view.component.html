@@ -17,7 +17,12 @@
         <app-game-monogram class="room__tile" [game]="r.game" [size]="36" />
       }
       <div class="room__titles">
-        <h2 class="room__name" [id]="headingId">{{ r.name }}</h2>
+        <!-- Below 960 the room is its own page: its name is the page's h1 (WF leftover A10). -->
+        @if (showBack()) {
+          <h1 class="room__name" [id]="headingId">{{ r.name }}</h1>
+        } @else {
+          <h2 class="room__name" [id]="headingId">{{ r.name }}</h2>
+        }
         <span class="room__sub">{{ copy.subtitle(regionName()) }}</span>
       </div>
       <button
@@ -25,7 +30,7 @@
         class="room__rules-toggle"
         data-testid="room-rules-toggle"
         aria-controls="room-rules"
-        [attr.aria-pressed]="rulesOpen()"
+        [attr.aria-pressed]="rulesMode() === 'pane' ? rulesOpen() : null"
         [attr.aria-expanded]="rulesMode() === 'pane' ? null : rulesOpen()"
         [attr.aria-haspopup]="rulesMode() === 'pane' ? null : 'dialog'"
         title="Show or hide the room rules"
@@ -170,7 +175,11 @@
     @if (mode !== 'pane') {
       <div class="rules-scrim" aria-hidden="true" data-rules-scrim></div>
     }
-    <aside
+    <!--
+      A labelled region beside the posts at 1280 and wider, a dialog at md and below 960; a div,
+      never a complementary landmark inside the room's region (WF leftover A7).
+    -->
+    <div
       id="room-rules"
       tabindex="-1"
       class="rules-host"
@@ -179,7 +188,7 @@
       [class.rules-host--drawer]="mode === 'drawer'"
       [class.rules-host--sheet]="mode === 'sheet'"
       [attr.aria-labelledby]="rulesTitleId"
-      [attr.role]="mode === 'pane' ? 'complementary' : 'dialog'"
+      [attr.role]="mode === 'pane' ? 'region' : 'dialog'"
       [attr.aria-modal]="mode === 'pane' ? null : 'true'"
       [cdkTrapFocus]="mode !== 'pane'"
       [cdkTrapFocusAutoCapture]="mode !== 'pane'"
@@ -191,6 +200,6 @@
         (closed)="closeRules()"
         (unblock)="unblock($event)"
       />
-    </aside>
+    </div>
   }
 </section>

@@ -1,4 +1,6 @@
-// Shared styles of the authentication forms (sign in, sign up, reset, verify, consent).
+// Shared styles of the sign-in steps (spec 14, board W27): sign in, create account, reset
+// password, verify email, the account states and Review our terms. Fields 48 tall with their
+// label above, the orange 52 button, the outline 52 one, teal text links.
 :host {
   display: block;
 }
@@ -6,109 +8,325 @@
 .form {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-2);
 }
 
-.form__field {
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 18px;
+}
+
+.field--first {
+  margin-top: 32px;
+}
+
+.field--sign-in {
+  margin-top: 16px;
+}
+
+.field--sign-in.field--first {
+  margin-top: 40px;
+}
+
+.field__label {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 18px;
+}
+
+.field__input,
+.field__wrap {
+  box-sizing: border-box;
   width: 100%;
+  height: 48px;
+  border: 1px solid var(--color-border-input);
+  border-radius: 12px;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 15px;
 }
 
-.form__row {
+.field__input {
+  padding: 0 14px;
+}
+
+.field__input:hover,
+.field__wrap:hover {
+  border-color: var(--color-border-strong);
+}
+
+.field__input:focus-visible,
+.field__wrap:focus-within {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.field__input[aria-invalid='true'],
+.field__wrap:has(input[aria-invalid='true']) {
+  border-color: var(--color-danger);
+}
+
+.field__wrap {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--spacing-3);
-  font-size: var(--font-size-sm);
+  gap: 8px;
+  padding: 0 5px 0 14px;
 }
 
-.form__row--end {
-  justify-content: flex-end;
+.field__wrap input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  outline: none;
 }
 
-.form__submit {
+.field__toggle {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.field__toggle:hover {
+  background: var(--color-surface-variant);
+  color: var(--color-ink);
+}
+
+.field__help {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.field__error {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+// Buttons: orange 52 (the step's action), outline 52, and teal text links.
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-sizing: border-box;
   width: 100%;
-  height: 44px;
-  margin-top: var(--spacing-2);
+  height: 52px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  font: inherit;
+  font-size: 16px;
+  font-weight: var(--font-weight-bold);
+  text-decoration: none;
+  cursor: pointer;
 }
 
-.form__spinner {
-  display: inline-block;
-  margin-right: var(--spacing-2);
-  vertical-align: middle;
+.btn--primary {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
 }
 
+.btn--primary:hover {
+  background: var(--color-primary-hover);
+}
+
+.btn--outline {
+  border: 1px solid var(--color-border-strong);
+  background: transparent;
+  color: var(--color-ink);
+  font-size: 15px;
+  font-weight: var(--font-weight-semibold);
+}
+
+.btn--outline:hover {
+  background: var(--color-surface-variant);
+}
+
+.btn--small {
+  height: 48px;
+}
+
+.btn[aria-disabled='true'],
+.btn:disabled {
+  border-color: var(--color-border);
+  background: var(--color-surface-variant);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+.btn--outline[aria-disabled='true'],
+.btn--outline:disabled {
+  background: transparent;
+}
+
+.btn--sign-in {
+  margin-top: 16px;
+}
+
+.btn--after {
+  margin-top: 12px;
+}
+
+.btn--first {
+  margin-top: 32px;
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  color: var(--color-accent);
+  font: inherit;
+  font-size: 14px;
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.link--forgot {
+  align-self: flex-end;
+  min-height: 36px;
+  margin-top: 8px;
+}
+
+.link--center {
+  align-self: center;
+  margin-top: 12px;
+}
+
+.btn:focus-visible,
+.link:focus-visible,
+.field__toggle:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
+.foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 6px;
+  margin: 32px 0 0;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.foot--close {
+  margin-top: 24px;
+}
+
+// Notes above or between the form's parts.
 .form__alert {
   display: flex;
   gap: var(--spacing-2);
   align-items: flex-start;
-  margin: 0 0 var(--spacing-3);
-  padding: var(--spacing-3);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-danger) 10%, var(--color-surface));
+  margin: 20px 0 0;
+  padding: 12px 14px;
   border: 1px solid color-mix(in srgb, var(--color-danger) 35%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--color-danger) 10%, var(--color-surface));
   color: var(--color-ink);
-  font-size: var(--font-size-sm);
+  font-size: 14px;
+  line-height: 20px;
 
-  mat-icon {
+  app-shell-icon {
+    flex: none;
+    margin-top: 1px;
     color: var(--color-danger);
-    flex: 0 0 auto;
   }
 
   p {
     margin: 0;
   }
 
-  &--info {
-    background: var(--color-accent-container);
-    border-color: transparent;
-    color: var(--color-on-accent-container);
-
-    mat-icon {
-      color: inherit;
-    }
-  }
-
+  &--info,
   &--success {
-    background: color-mix(in srgb, var(--color-success) 12%, var(--color-surface));
-    border-color: color-mix(in srgb, var(--color-success) 35%, transparent);
+    border-color: transparent;
+    background: var(--color-accent-tint);
 
-    mat-icon {
-      color: var(--color-success);
+    app-shell-icon {
+      color: var(--color-accent);
     }
   }
-}
-
-.form__divider {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-3);
-  margin: var(--spacing-4) 0;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-
-  &::before,
-  &::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: var(--color-border);
-  }
-}
-
-.form__footer {
-  margin-top: var(--spacing-6);
-  text-align: center;
-  color: var(--color-text-muted);
-}
-
-.form__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-2);
-  margin-top: var(--spacing-4);
 }
 
 .form__muted {
+  margin: 12px 0 0;
   color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+// The lines of an account state ("The suspension ends on …").
+.state__text {
+  margin: 8px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 15px;
+  line-height: 24px;
+}
+
+.state__ref {
+  margin: 8px 0 0;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.state__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.skeleton-block {
+  margin-top: 28px;
 }

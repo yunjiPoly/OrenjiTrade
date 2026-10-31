@@ -106,7 +106,7 @@ describe('SessionService', () => {
     await expect(session.ensureLoaded()).resolves.toBe('ready');
   });
 
-  it('asks for onboarding while the 18+ confirmation is missing, not when unreported', async () => {
+  it('asks Review our terms while the 18+ confirmation is missing (web WG, as the phone)', async () => {
     await signInAndAnswer(
       me({
         onboarding: {
@@ -117,8 +117,9 @@ describe('SessionService', () => {
         },
       }),
     );
-    expect(session.status()).toBe('ready');
-    expect(session.needsOnboarding()).toBe(true);
+    // The welcome never asks the age: the account is consent-required until it is confirmed.
+    expect(session.status()).toBe('consent-required');
+    expect(session.needsOnboarding()).toBe(false);
     expect(session.needsAgeConfirmation()).toBe(true);
   });
 
@@ -142,7 +143,7 @@ describe('SessionService', () => {
     ).toBeUndefined();
   });
 
-  it('routes 403 AGE_CONFIRMATION_REQUIRED answers to the onboarding flow', async () => {
+  it('routes 403 AGE_CONFIRMATION_REQUIRED answers to Review our terms', async () => {
     await signInAndAnswer(me());
     const router = TestBed.inject(Router);
     const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
@@ -164,9 +165,9 @@ describe('SessionService', () => {
       ),
     );
 
-    // Not a session state: the account stays usable, only the gated action was refused.
-    expect(session.status()).toBe('ready');
-    expect(navigate).toHaveBeenCalledWith(['/onboarding'], {
+    // Review our terms asks the confirmation (alone when no document is due).
+    expect(session.status()).toBe('consent-required');
+    expect(navigate).toHaveBeenCalledWith(['/auth/consent'], {
       queryParams: { returnUrl: '/' },
     });
   });

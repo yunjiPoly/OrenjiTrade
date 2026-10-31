@@ -129,6 +129,18 @@ export class CommunityRoomsStore {
       });
   }
 
+  /**
+   * The community was turned off (the open room answered `FEATURE_DISABLED`): the list says so at
+   * once, without its rooms, whatever its own last read was (WF leftover F9).
+   */
+  disable(): void {
+    this.request?.unsubscribe();
+    this.request = null;
+    this.channelsState.set([]);
+    this.errorState.set(null);
+    this.statusState.set('disabled');
+  }
+
   /** The room of `slug` among the listed ones. */
   room(slug: string | null | undefined): CommunityChannel | null {
     return slug ? (this.rooms().find((room) => room.slug === slug) ?? null) : null;

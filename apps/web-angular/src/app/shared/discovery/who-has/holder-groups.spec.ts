@@ -46,7 +46,7 @@ describe('Who has this card groups (spec 7.3)', () => {
     expect(messageLabel('duelist.jp', 'Ash Blossom & Joyous Spring')).toBe(
       'Message duelist.jp about Ash Blossom & Joyous Spring',
     );
-    expect(messageLabel(null, 'Ash')).toBe('Message a collector about Ash');
+    expect(messageLabel(null, 'Ash')).toBe('Message this collector about Ash. Needs an account');
     expect(groupAnchor('cp', 'CA-QC')).toBe('cp-group-ca-qc');
   });
 });

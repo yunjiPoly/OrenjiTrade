@@ -1,44 +1,59 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router, RouterLink } from '@angular/router';
 import { AccountService, DeletionRequestResponse } from '@orenji/api-client';
 import { firstValueFrom } from 'rxjs';
 import { AccountExportService } from '../../../core/account/account-export.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { SessionService } from '../../../core/auth/session.service';
+import { ToastService } from '../../../core/feedback/toast.service';
 import { toApiError } from '../../../core/http/api-error';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
 import { SKIP_SESSION_REDIRECT, silentErrors } from '../../../core/http/http-context';
+import {
+  ShellIconComponent,
+  ShellIconName,
+} from '../../../core/layout/shell-icon/shell-icon.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
 import { AuthLayoutComponent } from '../auth-layout/auth-layout.component';
 
 /**
- * `/auth/suspended`: explains why the account cannot be used. Two variants:
- * a suspension (optionally temporary), or a pending deletion during its grace period with
- * "cancel deletion" and "download my data".
+ * The line under a suspension's title: the words the API sent, unless they are its general "This
+ * account is suspended", which only repeats the title (the phone's R12 `suspensionReason`; the API
+ * sends no moderator's reason, owner decision of 2026-10-28).
+ */
+export function suspensionReason(message: string | null | undefined): string | null {
+  const text = message?.trim() ?? '';
+  return !text || /^this account is suspended\.?$/i.test(text) ? null : text;
+}
+
+/**
+ * `/auth/suspended`, an account state (spec 14: a centred 480 card): a suspension ("Your account
+ * is suspended", the end date when it has one, the appeal line, Community guidelines, Sign out;
+ * the login stays on during a suspension, owner decision of 2026-10-28), or a pending deletion
+ * ("Your account is scheduled for deletion" with [Cancel deletion] and "Download my data").
  */
 @Component({
   selector: 'app-suspended-page',
-  imports: [
-    DatePipe,
-    RouterLink,
-    MatButtonModule,
-    MatIconModule,
-    MatProgressSpinnerModule,
-    AuthLayoutComponent,
-    SkeletonComponent,
-  ],
+  imports: [DatePipe, RouterLink, ShellIconComponent, AuthLayoutComponent, SkeletonComponent],
   templateUrl: './suspended-page.component.html',
   styleUrl: '../auth-form.scss',
+  styles: `
+    .strong {
+      color: var(--color-ink);
+      font-weight: var(--font-weight-semibold);
+    }
+    .link--inline {
+      display: inline;
+      min-height: 0;
+      padding: 0;
+    }
+  `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SuspendedPageComponent {
   private readonly router = inject(Router);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly toasts = inject(ToastService);
   private readonly accountApi = inject(AccountService);
   private readonly exporter = inject(AccountExportService);
   private readonly auth = inject(AuthService);
@@ -48,6 +63,24 @@ export class SuspendedPageComponent {
   protected readonly pending = signal<DeletionRequestResponse | null>(null);
   protected readonly working = signal<'cancel' | 'export' | null>(null);
   protected readonly error = signal<string | null>(null);
+  protected readonly reason = computed(() => suspensionReason(this.session.suspension()?.message));
+  protected readonly icon = computed<ShellIconName>(() => {
+    switch (this.session.status()) {
+      case 'deletion-pending':
+        return 'clock';
+      case 'suspended':
+        return 'ban';
+      default:
+        return 'profile';
+    }
+  });
+  protected readonly tone = computed(() =>
+    this.session.status() === 'suspended'
+      ? 'danger'
+      : this.session.status() === 'deletion-pending'
+        ? 'warning'
+        : 'accent',
+  );
   protected readonly heading = computed(() => {
     switch (this.session.status()) {
       case 'deletion-pending':
@@ -97,7 +130,7 @@ export class SuspendedPageComponent {
         }),
       );
       await this.session.load();
-      this.snackBar.open('Deletion cancelled. Welcome back!', 'OK', { duration: 5000 });
+      this.toasts.show({ title: 'Deletion cancelled. Welcome back!' });
       await this.router.navigateByUrl('/settings/account');
     } catch (error) {
       const apiError = toApiError(error);
@@ -116,7 +149,7 @@ export class SuspendedPageComponent {
     this.error.set(null);
     try {
       await this.exporter.download(this.session.handle());
-      this.snackBar.open('Your data export was downloaded.', 'OK', { duration: 4000 });
+      this.toasts.show({ title: 'Your data export was downloaded.' });
     } catch (error) {
       this.error.set(friendlyMessage(toApiError(error)));
     } finally {

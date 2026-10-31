@@ -1,3 +1,4 @@
+import { GuestActions } from '../../../core/guest/guest-actions.service';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -10,6 +11,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Title } from '@angular/platform-browser';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
@@ -149,7 +151,9 @@ export class SetPageComponent {
   private readonly toasts = inject(ToastService);
   private readonly gameContext = inject(GameContext);
   protected readonly auth = inject(AuthService);
+  private readonly guest = inject(GuestActions);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly announcer = inject(LiveAnnouncer);
 
   readonly id = input.required<string>();
 
@@ -218,6 +222,18 @@ export class SetPageComponent {
     effect(() => {
       const id = this.id();
       untracked(() => this.load(id));
+    });
+    // Back from signing in: "Add from this set" asked as a guest opens the adding mode.
+    effect(() => {
+      const id = this.id();
+      if (!this.detail() || !this.guest.ready()) {
+        return;
+      }
+      untracked(() => {
+        if (this.guest.take((action) => action.kind === 'add' && action.setId === id)) {
+          void this.toggleAdding().then(() => this.saySignedInAdding());
+        }
+      });
     });
     this.router.events
       .pipe(
@@ -373,9 +389,25 @@ export class SetPageComponent {
     }
   }
 
-  protected async toggleAdding(): Promise<void> {
+  /**
+   * The adding mode a guest asked for, opened after signing in: said, with the keyboard on "Stop
+   * adding" as after a member's own press (WG review A7, SC 4.1.3).
+   */
+  private saySignedInAdding(): void {
+    if (!this.adding()) {
+      return;
+    }
+    const name = this.set()?.name;
+    void this.announcer.announce(name ? `Adding from ${name}` : 'Adding from this set', 'polite');
+    setTimeout(() =>
+      this.host.nativeElement.querySelector<HTMLElement>('[data-testid="add-from-set"]')?.focus(),
+    );
+  }
+
+  protected async toggleAdding(event?: Event): Promise<void> {
     if (!this.auth.isAuthenticated()) {
-      void this.router.navigate(['/auth/sign-in'], { queryParams: { returnUrl: this.router.url } });
+      // A guest: "Sign in to add your cards"; back here, the set's adding mode opens (spec 14).
+      void this.guest.ask({ kind: 'add', setId: this.id() }, null, event?.currentTarget ?? null);
       return;
     }
     const next = !this.adding();

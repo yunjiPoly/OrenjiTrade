@@ -4,6 +4,7 @@ import { RouterOutlet } from '@angular/router';
 import { ChatDrawerComponent } from '../../../features/messages/drawer/chat-drawer.component';
 import { ChatDrawer } from '../../../shared/messaging/chat-drawer.service';
 import { ToastHostComponent } from '../../feedback/toast-host.component';
+import { GuestActions } from '../../guest/guest-actions.service';
 import { KeyboardShortcuts } from '../../keyboard/keyboard-shortcuts.service';
 import { FooterComponent } from '../footer/footer.component';
 import { RailComponent } from '../rail/rail.component';
@@ -52,30 +53,33 @@ import { UnreadChatsProbeComponent } from '../unread-chats/unread-chats-probe.co
         >
       }
     </div>
-    @if (!layout.inChat()) {
+    @if (!layout.inChat() && !layout.bare()) {
       <app-top-bar />
     }
     <div
       class="shell"
       [class.shell--narrow]="layout.narrow()"
+      [class.shell--bare]="layout.bare()"
       [class.shell--drawer]="drawerPushes()"
       [class.shell--chat]="layout.inChat()"
     >
-      @if (!layout.narrow()) {
+      @if (!layout.narrow() && !layout.bare()) {
         <app-rail class="shell__rail" />
       }
       <div class="shell__content" [attr.data-layout]="layout.layout()">
         <!-- In the content column: the rail keeps its full height under the bar (spec 4.1). -->
-        <app-session-banner />
+        @if (!layout.bare()) {
+          <app-session-banner />
+        }
         <main id="main-content" class="shell__main" tabindex="-1">
           <router-outlet />
         </main>
-        @if (layout.layout() === 'reading') {
+        @if (layout.layout() === 'reading' && !layout.bare()) {
           <app-footer class="shell__footer" />
         }
       </div>
     </div>
-    @if (layout.narrow() && !layout.inChat()) {
+    @if (layout.narrow() && !layout.inChat() && !layout.bare()) {
       <app-tab-bar />
     }
     <app-toast-host />
@@ -142,6 +146,16 @@ import { UnreadChatsProbeComponent } from '../unread-chats/unread-chats-probe.co
     .shell--narrow .shell__content {
       padding-bottom: calc(64px + env(safe-area-inset-bottom));
     }
+    /* The account steps stand alone (spec 14): no rail, bar, tabs or footer around them. */
+    .shell--bare,
+    .shell--bare.shell--narrow {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .shell--bare .shell__content,
+    .shell--narrow.shell--bare .shell__content {
+      min-height: 100dvh;
+      padding-bottom: 0;
+    }
     /* A chat below 960 opens above the tabs, as on the phone: no tab bar under it. */
     .shell--narrow.shell--chat .shell__content {
       padding-bottom: 0;
@@ -155,7 +169,7 @@ import { UnreadChatsProbeComponent } from '../unread-chats/unread-chats-probe.co
     }
     /* sm: the phone's design, centred at 640 (spec 16). */
     @media (min-width: 600px) and (max-width: 959.98px) {
-      .shell--narrow .shell__main {
+      .shell--narrow:not(.shell--bare) .shell__main {
         width: 100%;
         max-width: 640px;
         margin-inline: auto;
@@ -175,6 +189,8 @@ export class AppShellComponent {
 
   constructor() {
     inject(KeyboardShortcuts).start();
+    // A guest's action finishes once they signed in and are back on its page (spec 14).
+    inject(GuestActions).start();
   }
 
   /**

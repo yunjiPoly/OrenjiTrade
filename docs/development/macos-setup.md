@@ -643,7 +643,7 @@ npm run dev           # infra + API (gradlew bootRun, profile local, :8080) + we
   - Accounts: `collector1`…`collector8`, `premium`, `moderator`, `admin` and `superadmin`, all `@orenjitrade.test`.
   - Password: the fictional seed password in `docs/development/test-accounts.md`, the same as `SEED_EMULATOR_PASSWORD` in `.env.example`.
   - `SeedDataRunner` reseeds them on every local-profile start.
-  - **First sign-in per account shows an 18+ "Age" onboarding step**, once, on web and mobile. The seeds predate the 18+ rule and have no `AGE_CONFIRMATION` consent (`docs/development/test-accounts.md:31-36`) [repo]. Expected, not a bug.
+  - **First sign-in per account shows Review our terms with the 18+ line alone**, once, on web and mobile (the phone since R12, the web since WG). The seeds predate the 18+ rule and have no `AGE_CONFIRMATION` consent (`docs/development/test-accounts.md:31-36`) [repo]. Expected, not a bug.
   - **Regions branch:** each account has a declared place across americas-north, americas-south and europe (e.g. collector1 Montréal QC, collector3 Buenos Aires). On main they are in Montréal-area neighbourhoods.
 - Run parts separately with `npm run api:dev` or `npm run web:dev`. Stop with Ctrl+C, then `npm run infra:down`.
 
@@ -1091,7 +1091,7 @@ Each item: where, what breaks, the workaround, and the fix to make in the repo. 
 | API: Flyway "Validate failed … migration V106…" | DB migrated by regions, now on main | `npm run infra:reset` (wipes local data and the card cache; 7.8). |
 | Cards show placeholder images after copying the folders | The catalogue rows are in the Postgres volume, not the folders | Restore the DB (7.5) and run `npm run card-images:reconcile`, or `npm run catalog:import` (10.2). |
 | `catalog:import` / `card-images:*` cannot connect | No running API | `npm run api:dev` in another terminal first. |
-| Every seed account asks for an "Age" step | Seeds have no `AGE_CONFIRMATION` consent | Expected once per account (7.6). |
+| Every seed account asks to confirm its age (Review our terms, the age line alone) | Seeds have no `AGE_CONFIRMATION` consent | Expected once per account (7.6). |
 | macOS asks whether "java" or "node" may accept connections | Firewall on | Allow (7.6). |
 | `test:mobile:maestro -- --platform android`: "No Android device is ready" | No booted AVD; when it adds "adb was not found ...", no Android SDK at all (the owner's Mac on 2026-10-10). Without `--platform`, a Mac with Xcode runs on the iOS simulator instead | Run on iOS (9.5), or install the SDK and an arm64 AVD (9.3), boot it, check `adb devices`. Set `ANDROID_HOME` only when the SDK is not in `~/Library/Android/sdk`. |
 | `test:mobile:maestro -- --platform ios`: "The iOS simulator is not usable: ..." | Xcode or its iOS runtime is missing, or `xcrun simctl` fails | Section 9.2; `xcrun simctl list runtimes` must list an iOS runtime. |

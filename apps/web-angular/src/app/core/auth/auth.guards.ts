@@ -55,7 +55,11 @@ export const authGuard: CanActivateFn = async (
   return auth.isAuthenticated() ? true : signInTree(router, state.url);
 };
 
-/** Signed in and the account is usable (terms accepted, not suspended, no pending deletion). */
+/**
+ * Signed in and the account is usable (terms accepted, not suspended, no pending deletion). An
+ * account page cannot do without the account: when it could not load, "We could not load your
+ * account" with Try again (spec 14) instead of the page.
+ */
 export const accountGuard: CanActivateFn = async (_route, state) => {
   const auth = inject(AuthService);
   const session = inject(SessionService);
@@ -65,6 +69,9 @@ export const accountGuard: CanActivateFn = async (_route, state) => {
     return signInTree(router, state.url);
   }
   const status = await session.ensureLoaded();
+  if (status === 'error') {
+    return router.createUrlTree(['/auth/unavailable'], { queryParams: { returnUrl: state.url } });
+  }
   return accountStateRedirect(router, status, state.url) ?? true;
 };
 

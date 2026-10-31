@@ -26,7 +26,8 @@ const RULE_ICONS: readonly ShellIconName[] = ['heart', 'messageSquare', 'star', 
  * sheet below 960. The four rules with their icons, "You can post up to 10 times an hour in each
  * room.", "What others see" (the handle, the province and the post; never the city; blocked
  * collectors' posts hidden in every room) with an "Unblock" row for each collector blocked from
- * this page, and "Trading safely".
+ * this page and where every block is listed (Settings › Blocked, WF leftover F10), and "Trading
+ * safely".
  */
 @Component({
   selector: 'app-room-rules',
@@ -76,6 +77,11 @@ const RULE_ICONS: readonly ShellIconName[] = ['heart', 'messageSquare', 'star', 
             </button>
           </div>
         }
+        <p class="rr__text" data-testid="room-rules-blocked-where">
+          {{ copy.blocksWhereBefore
+          }}<a class="rr__inline" routerLink="/settings/blocked">{{ copy.blocksWhereLink }}</a
+          >{{ copy.blocksWhereAfter }}
+        </p>
       </section>
       <a class="rr__link" routerLink="/legal/trading-safely">
         {{ copy.tradingSafely }}
@@ -223,8 +229,15 @@ const RULE_ICONS: readonly ShellIconName[] = ['heart', 'messageSquare', 'star', 
     .rr__link:hover {
       text-decoration: underline;
     }
+    .rr__inline {
+      color: var(--color-accent);
+      font-weight: var(--font-weight-semibold);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
     .rr__close:focus-visible,
     .rr__unblock:focus-visible,
+    .rr__inline:focus-visible,
     .rr__link:focus-visible {
       outline: var(--focus-width) solid var(--color-focus-ring);
       outline-offset: var(--focus-offset);

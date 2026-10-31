@@ -1,27 +1,48 @@
-import { Routes } from '@angular/router';
+import { inject } from '@angular/core';
+import { CanActivateFn, Router, Routes } from '@angular/router';
+import { accountGuard } from '../../core/auth/auth.guards';
+import { AuthService } from '../../core/auth/auth.service';
 
-/** `/settings/*`: one child route per section inside the settings shell. */
+/**
+ * `/settings` (and an unknown section): Profile for a collector, Appearance for a guest. A guard,
+ * not a redirect: redirects run before Firebase restored the session on a fresh load, which sent
+ * a signed-in collector to Appearance (WG review F5).
+ */
+export const settingsHomeGuard: CanActivateFn = async () => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+  await auth.ready();
+  return router.createUrlTree(['/settings', auth.isAuthenticated() ? 'profile' : 'appearance']);
+};
+
+/**
+ * `/settings/*`: one child route per section inside the settings shell. Every section is the
+ * account's (`accountGuard`) except Appearance and Legal, which a guest may open (spec 14).
+ */
 export const SETTINGS_ROUTES: Routes = [
   {
     path: '',
     loadComponent: () => import('./settings-shell.component').then((m) => m.SettingsShellComponent),
     children: [
-      { path: '', pathMatch: 'full', redirectTo: 'profile' },
+      { path: '', pathMatch: 'full', canActivate: [settingsHomeGuard], children: [] },
       {
         path: 'profile',
         title: 'Profile settings',
+        canActivate: [accountGuard],
         loadComponent: () =>
           import('./profile/profile-settings.component').then((m) => m.ProfileSettingsComponent),
       },
       {
         path: 'privacy',
         title: 'Privacy settings',
+        canActivate: [accountGuard],
         loadComponent: () =>
           import('./privacy/privacy-settings.component').then((m) => m.PrivacySettingsComponent),
       },
       {
         path: 'notifications',
         title: 'Notification settings',
+        canActivate: [accountGuard],
         loadComponent: () =>
           import('./notifications/notification-settings.component').then(
             (m) => m.NotificationSettingsComponent,
@@ -30,6 +51,7 @@ export const SETTINGS_ROUTES: Routes = [
       {
         path: 'location',
         title: 'Location',
+        canActivate: [accountGuard],
         loadComponent: () =>
           import('./location/location-settings.component').then((m) => m.LocationSettingsComponent),
       },
@@ -37,6 +59,7 @@ export const SETTINGS_ROUTES: Routes = [
         // Web stage WC (spec 13, decision 9): the web saves no address or e-Transfer email.
         path: 'shipping',
         title: 'Shipping details',
+        canActivate: [accountGuard],
         loadComponent: () =>
           import('./shipping/shipping-settings.component').then((m) => m.ShippingSettingsComponent),
       },
@@ -48,6 +71,7 @@ export const SETTINGS_ROUTES: Routes = [
       {
         path: 'blocked',
         title: 'Blocked users',
+        canActivate: [accountGuard],
         loadComponent: () =>
           import('./blocked/blocked-users-settings.component').then(
             (m) => m.BlockedUsersSettingsComponent,
@@ -56,6 +80,7 @@ export const SETTINGS_ROUTES: Routes = [
       {
         path: 'reports',
         title: 'My reports',
+        canActivate: [accountGuard],
         loadComponent: () =>
           import('./reports/my-reports-settings.component').then(
             (m) => m.MyReportsSettingsComponent,
@@ -64,6 +89,7 @@ export const SETTINGS_ROUTES: Routes = [
       {
         path: 'account',
         title: 'Account settings',
+        canActivate: [accountGuard],
         loadComponent: () =>
           import('./account/account-settings.component').then((m) => m.AccountSettingsComponent),
       },
@@ -82,7 +108,7 @@ export const SETTINGS_ROUTES: Routes = [
         loadComponent: () =>
           import('./legal/legal-settings.component').then((m) => m.LegalSettingsComponent),
       },
-      { path: '**', redirectTo: 'profile' },
+      { path: '**', canActivate: [settingsHomeGuard], children: [] },
     ],
   },
 ];

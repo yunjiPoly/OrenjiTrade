@@ -21,10 +21,10 @@ import { Role, hasAdminRole, roleList } from './roles';
  * - `anonymous`: nobody is signed in;
  * - `loading`: `GET /me` has not answered yet for the current user;
  * - `ready`: active account, terms accepted;
- * - `consent-required`: `requiredConsents` is not empty (428 everywhere else);
- *   (a missing 18+ confirmation is not a session state: it is an onboarding step, see
- *   {@link needsOnboarding}, and the API answers 403 `AGE_CONFIRMATION_REQUIRED` on the gated
- *   actions);
+ * - `consent-required`: `requiredConsents` is not empty (428 everywhere else), or the account never
+ *   confirmed being 18 or older (`onboarding.ageConfirmed === false`; the API answers 403
+ *   `AGE_CONFIRMATION_REQUIRED` on the gated actions): Review our terms asks it, alone when no
+ *   document is due (web stage WG, as the phone since R12; the welcome never asks it);
  * - `suspended`: 403 `ACCOUNT_SUSPENDED` (or a deleted account);
  * - `deletion-pending`: the owner asked for deletion; only /me, export and cancel work;
  * - `error`: the API could not be reached or failed; retryable.
@@ -115,15 +115,13 @@ export class SessionService {
     return fromMe.length > 0 ? fromMe : this.pendingConsentsState();
   });
   /**
-   * Profile saved at least once, at least one game or tag chosen, and the 18+ confirmation
-   * recorded (`ageConfirmed === false`; an API that does not report the flag never asks for it).
+   * The welcome is not finished: the profile was never saved, or no game or tag was chosen. The
+   * 18+ confirmation is not a welcome step (spec 14: three steps): an account without it is
+   * `consent-required` first, so it reaches the welcome confirmed.
    */
   readonly needsOnboarding = computed(() => {
     const onboarding = this.meState()?.onboarding;
-    return (
-      !!onboarding &&
-      (!onboarding.profileComplete || !onboarding.interestsSet || onboarding.ageConfirmed === false)
-    );
+    return !!onboarding && (!onboarding.profileComplete || !onboarding.interestsSet);
   });
   /** The account exists but never confirmed being 18 years of age or older. */
   readonly needsAgeConfirmation = computed(
@@ -251,8 +249,9 @@ export class SessionService {
         void this.load();
       }
     } else if (error.errorCode === 'AGE_CONFIRMATION_REQUIRED') {
-      // The onboarding flow records the confirmation; `/me` tells it which step to show.
-      this.redirect('/onboarding');
+      // Review our terms records the confirmation (alone when no document is due).
+      this.statusState.set('consent-required');
+      this.redirect('/auth/consent');
     }
   }
 
@@ -270,7 +269,11 @@ export class SessionService {
         this.statusState.set('suspended');
         break;
       default:
-        this.statusState.set(me.requiredConsents.length > 0 ? 'consent-required' : 'ready');
+        this.statusState.set(
+          me.requiredConsents.length > 0 || me.onboarding?.ageConfirmed === false
+            ? 'consent-required'
+            : 'ready',
+        );
     }
     if (me.requiredConsents.length === 0) {
       this.pendingConsentsState.set([]);

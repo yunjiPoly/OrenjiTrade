@@ -167,8 +167,9 @@ export class RoomViewComponent {
       const posts = this.store.posts();
       untracked(() => {
         if (status === 'disabled') {
-          // The community was turned off: the rooms list says so too (WF review P2).
-          this.rooms.refresh();
+          // The community was turned off: the rooms list says so too, without its rooms (WF
+          // review P2, leftover F9).
+          this.rooms.disable();
         }
         if (status !== 'ready' || !slug) {
           return;
@@ -208,6 +209,16 @@ export class RoomViewComponent {
       onCleanup(() => {
         element.removeEventListener('scroll', onScroll);
         observer?.disconnect();
+      });
+    });
+    // A refusal makes the message box taller: the newest post stays in view when the log was at
+    // its end (WF leftover A8; the size observer alone missed it at 200 percent zoom).
+    effect(() => {
+      const refusal = this.refusal();
+      untracked(() => {
+        if (refusal && this.pinned) {
+          this.scrollToEnd();
+        }
       });
     });
     // Rooms have no push: the open room reads its pages again every 15 s while on screen.

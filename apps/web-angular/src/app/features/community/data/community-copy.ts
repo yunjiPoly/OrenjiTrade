@@ -74,6 +74,8 @@ export const ROOM_COPY = {
   deleteTitle: 'Delete this post?',
   deleteBody: 'Your post leaves the room for everyone.',
   deleted: 'Post deleted.',
+  /** Said politely once an edited post is saved (WF leftover A9). */
+  saved: 'Post saved',
   removed: 'Post removed. The action is in the audit log.',
   updated: 'Post updated.',
   you: 'You',
@@ -119,6 +121,10 @@ export const RULES_COPY = {
   othersTitle: 'What others see',
   others: 'Your handle, your province and what you post. Your city never appears in a room.',
   blocks: 'Posts from collectors you block are hidden from you, in every room.',
+  /** Where every block is listed: the rows below only name the ones made from this page (F10). */
+  blocksWhereBefore: 'Everyone you blocked is in ',
+  blocksWhereLink: 'Settings › Blocked',
+  blocksWhereAfter: ', where you can unblock them.',
   blocked: (handle: string) => `You blocked ${handle}`,
   unblock: 'Unblock',
   unblockLabel: (handle: string) => `Unblock ${handle}`,

@@ -11,6 +11,7 @@ import {
 import { ThemeService } from '../../core/theme/theme.service';
 import { MyLocationStore } from '../../shared/location/my-location.store';
 import { AvatarComponent } from '../../shared/ui/avatar/avatar.component';
+import { GUEST_SETTINGS } from './settings-guest';
 
 interface SettingsLink {
   path: string;
@@ -89,27 +90,29 @@ const THEME_LABELS: Record<string, string> = {
       </header>
       <div class="st__layout">
         <nav class="st__nav" aria-label="Settings sections">
-          <a
-            class="st__me"
-            routerLink="profile"
-            routerLinkActive="st__me--active"
-            ariaCurrentWhenActive="page"
-            aria-label="Edit profile"
-          >
-            <app-avatar
-              class="st__avatar"
-              [src]="session.me()?.avatarUrl"
-              [name]="session.displayName()"
-              [decorative]="true"
-            />
-            <span class="st__me-text">
-              <span class="st__me-name">{{ session.displayName() }}</span>
-              @if (session.handle(); as handle) {
-                <span class="st__me-handle">&#64;{{ handle }}</span>
-              }
-              <span class="st__me-edit">Edit profile</span>
-            </span>
-          </a>
+          @if (member()) {
+            <a
+              class="st__me"
+              routerLink="profile"
+              routerLinkActive="st__me--active"
+              ariaCurrentWhenActive="page"
+              aria-label="Edit profile"
+            >
+              <app-avatar
+                class="st__avatar"
+                [src]="session.me()?.avatarUrl"
+                [name]="session.displayName()"
+                [decorative]="true"
+              />
+              <span class="st__me-text">
+                <span class="st__me-name">{{ session.displayName() }}</span>
+                @if (session.handle(); as handle) {
+                  <span class="st__me-handle">&#64;{{ handle }}</span>
+                }
+                <span class="st__me-edit">Edit profile</span>
+              </span>
+            </a>
+          }
           @for (group of groups(); track group.label) {
             <p class="st__group" [id]="'settings-group-' + $index">{{ group.label }}</p>
             <ul class="st__links" [attr.aria-labelledby]="'settings-group-' + $index">
@@ -134,10 +137,12 @@ const THEME_LABELS: Record<string, string> = {
             </ul>
           }
           <div class="st__foot">
-            <button type="button" class="st__signout" (click)="signOut()">
-              <app-shell-icon name="logOut" [size]="20" />
-              Sign out
-            </button>
+            @if (member()) {
+              <button type="button" class="st__signout" (click)="signOut()">
+                <app-shell-icon name="logOut" [size]="20" />
+                Sign out
+              </button>
+            }
             <p class="st__version">OrenjiTrade web 1.0.0</p>
           </div>
         </nav>
@@ -363,12 +368,19 @@ export class SettingsShellComponent {
   private readonly theme = inject(ThemeService);
   private readonly locations = inject(MyLocationStore);
 
-  protected readonly groups = computed(() =>
-    SETTINGS_GROUPS.map((group) => ({
+  /** Signed in: the whole nav; a guest only reads Appearance and Legal (spec 14). */
+  protected readonly member = computed(() => this.auth.isAuthenticated());
+  protected readonly groups = computed(() => {
+    const member = this.member();
+    return SETTINGS_GROUPS.map((group) => ({
       ...group,
-      links: group.links.filter((link) => !link.feature || this.flags.enabled(link.feature)()),
-    })),
-  );
+      links: group.links.filter(
+        (link) =>
+          (!link.feature || this.flags.enabled(link.feature)()) &&
+          (member || GUEST_SETTINGS.includes(link.path)),
+      ),
+    })).filter((group) => group.links.length > 0);
+  });
   protected readonly email = computed(() => this.auth.user()?.email ?? null);
   /** The line under a nav row: where you ship from, the theme. */
   private readonly lines = computed<Record<string, string | null>>(() => {
@@ -386,7 +398,7 @@ export class SettingsShellComponent {
   });
 
   constructor() {
-    if (!this.locations.location() && !this.locations.loading()) {
+    if (this.member() && !this.locations.location() && !this.locations.loading()) {
       void this.locations.load();
     }
   }

@@ -124,7 +124,7 @@ test.describe('community rooms', () => {
       'Every collector can read this room. Keep deals and addresses in private chats.',
     );
     // Room rules, the third pane at 1280.
-    const rules = page.getByRole('complementary', { name: 'Room rules' });
+    const rules = page.getByRole('region', { name: 'Room rules' });
     await expect(rules).toContainText('You can post up to 10 times an hour in each room.');
 
     // A post with a shared card, from the "+" menu.
@@ -298,7 +298,7 @@ test.describe('community rooms', () => {
         page.getByTestId('toast').filter({ hasText: `${author.handle} is blocked` }),
       ).toBeVisible();
       await expect(post).toHaveCount(0);
-      await expect(page.getByRole('complementary', { name: 'Room rules' })).toContainText(
+      await expect(page.getByRole('region', { name: 'Room rules' })).toContainText(
         `You blocked ${author.handle}`,
       );
       // Hidden by the server too: a reload does not bring it back.
@@ -368,6 +368,8 @@ test.describe('community rooms', () => {
     await rooms.getByRole('link', { name: /^Pokémon room/ }).click();
     await expect(page).toHaveURL(/\/messages\/community\/americas-north-pokemon$/);
     await expect(rooms).toHaveCount(0);
+    // The room is its own page below 960: its name is the h1 (WF leftover A10).
+    await expect(page.getByRole('heading', { level: 1, name: 'Pokémon' })).toBeVisible();
     await page.getByRole('button', { name: 'Back to Community' }).click();
     await expect(page).toHaveURL(/\/messages\?tab=community$/);
     await expect(page.getByRole('link', { name: /^Pokémon room/ })).toBeFocused();

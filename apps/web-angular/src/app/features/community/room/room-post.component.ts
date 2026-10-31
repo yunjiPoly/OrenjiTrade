@@ -1,3 +1,4 @@
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -288,6 +289,7 @@ export interface PostActionEvent {
 })
 export class RoomPostComponent {
   private readonly store = inject(RoomStore);
+  private readonly announcer = inject(LiveAnnouncer);
   protected readonly layout = inject(ShellLayout);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly moreButton = viewChild<ElementRef<HTMLButtonElement>>('more');
@@ -389,5 +391,6 @@ export class RoomPostComponent {
       return;
     }
     this.cancelEdit();
+    void this.announcer.announce(ROOM_COPY.saved, 'polite');
   }
 }

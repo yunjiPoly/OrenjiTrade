@@ -34,6 +34,12 @@ export interface ShellRouteData {
    * bar is that tab's bar of the phone (spec 16, board W29), its title and no wordmark.
    */
   tabBar?: boolean;
+  /**
+   * A page of its own, without the top bar, the rail, the tab bar or the footer: sign-in, create
+   * account and the other account steps, the welcome (spec 14, board W27: "a split page without
+   * the rail").
+   */
+  bare?: boolean;
 }
 
 export const SHELL_DEFAULTS: Required<ShellRouteData> = {
@@ -43,6 +49,7 @@ export const SHELL_DEFAULTS: Required<ShellRouteData> = {
   pageSearch: false,
   hideGlobalSearch: false,
   tabBar: false,
+  bare: false,
 };
 
 /** The shell data of a navigation: every route's `data.shell` from the root down, merged. */
@@ -98,8 +105,12 @@ export class ShellLayout {
   readonly pageSearch = computed(() => this.dataState().pageSearch);
   readonly hideGlobalSearch = computed(() => this.dataState().hideGlobalSearch);
   readonly narrow = this.narrowState.asReadonly();
+  /** The page stands alone: no top bar, rail, tab bar or footer (the account steps). */
+  readonly bare = computed(() => this.dataState().bare);
   /** Below 960 on a tab's own page: the top bar is the phone's per-tab bar (spec 16). */
-  readonly tabBar = computed(() => this.narrowState() && this.dataState().tabBar);
+  readonly tabBar = computed(
+    () => this.narrowState() && this.dataState().tabBar && !this.dataState().bare,
+  );
   /**
    * The title of that per-tab bar ("Search", "Inventory", "Messages", "Profile"; Home shows its
    * pills instead), `null` while there is none. The page's own title steps back meanwhile

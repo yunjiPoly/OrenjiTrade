@@ -59,6 +59,13 @@ describe('the region pill and "Choose a region" (spec 4.5)', () => {
     return Array.from(document.querySelectorAll<HTMLButtonElement>('.app-popover [role="radio"]'));
   }
 
+  it('its lead names every place the region scopes, the community rooms too (WF leftover U12)', async () => {
+    await open();
+    expect(document.querySelector('#region-pop-lead')?.textContent?.trim()).toBe(
+      'Home, Search, the map and the community rooms show one region at a time. Cards ship within a region.',
+    );
+  });
+
   it('names the browsed region and opens the three regions as radio rows', async () => {
     expect(pill().textContent).toContain('Americas (North)');
     expect(pill().getAttribute('aria-label')).toBe('Region: Americas (North). Change region');

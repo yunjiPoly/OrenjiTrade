@@ -13,6 +13,7 @@ import {
 import {
   ADMIN_AREA,
   accountGuard,
+  accountStateGuard,
   adminGuard,
   authGuard,
   guestGuard,
@@ -94,9 +95,17 @@ describe('auth guards', () => {
     await expect(run(accountGuard, '/settings')).resolves.toBe('/auth/suspended');
   });
 
-  it('accountGuard lets the page handle API errors itself', async () => {
+  it('accountGuard: an account that could not load reads "We could not load your account"', async () => {
     setup({ authenticated: true, status: 'error' });
-    await expect(run(accountGuard, '/settings')).resolves.toBe(true);
+    await expect(run(accountGuard, '/settings/privacy')).resolves.toBe(
+      '/auth/unavailable?returnUrl=%2Fsettings%2Fprivacy',
+    );
+  });
+
+  it('public pages keep the shell banner for an account that could not load', async () => {
+    setup({ authenticated: true, status: 'error' });
+    await expect(run(onboardingGuard, '/search')).resolves.toBe(true);
+    await expect(run(accountStateGuard, '/binders/b-1')).resolves.toBe(true);
   });
 
   it('onboardingGuard lets visitors pass and sends unfinished collectors to onboarding', async () => {

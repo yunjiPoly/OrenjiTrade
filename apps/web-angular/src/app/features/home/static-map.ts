@@ -11,6 +11,12 @@ import { REGION_VIEW, ShadeLevel, shadeLevel } from '../map/data/boundaries';
 /** The card's drawing size (spec 5.3: 280×168). */
 export const MAP_CARD_SIZE = { width: 280, height: 168 } as const;
 
+/** A drawing's size in pixels (the map card's, or the sign-in page's picture). */
+export interface DrawingSize {
+  readonly width: number;
+  readonly height: number;
+}
+
 export interface StaticShape {
   /** ISO 3166-2 code of a state or province; absent on a country outline. */
   code: string | null;
@@ -49,8 +55,15 @@ interface View {
   offsetY: number;
 }
 
-/** A view that fits these projected bounds into the card, centred, keeping the aspect. */
-function fit(minX: number, minY: number, maxX: number, maxY: number, pad: number): View {
+/** A view that fits these projected bounds into the drawing, centred, keeping the aspect. */
+function fit(
+  minX: number,
+  minY: number,
+  maxX: number,
+  maxY: number,
+  pad: number,
+  size: DrawingSize,
+): View {
   const width = Math.max(maxX - minX, 1e-6);
   const height = Math.max(maxY - minY, 1e-6);
   const padX = width * pad;
@@ -59,18 +72,22 @@ function fit(minX: number, minY: number, maxX: number, maxY: number, pad: number
   const y0 = minY - padY;
   const w = width + 2 * padX;
   const h = height + 2 * padY;
-  const scale = Math.min(MAP_CARD_SIZE.width / w, MAP_CARD_SIZE.height / h);
+  const scale = Math.min(size.width / w, size.height / h);
   return {
     minX: x0,
     minY: y0,
     scale,
-    offsetX: (MAP_CARD_SIZE.width - w * scale) / 2,
-    offsetY: (MAP_CARD_SIZE.height - h * scale) / 2,
+    offsetX: (size.width - w * scale) / 2,
+    offsetY: (size.height - h * scale) / 2,
   };
 }
 
 /** An SVG path of these rings in the view, points closer than half a pixel dropped. */
-export function pathOf(rings: readonly Ring[], view: View): string {
+export function pathOf(
+  rings: readonly Ring[],
+  view: View,
+  size: DrawingSize = MAP_CARD_SIZE,
+): string {
   const parts: string[] = [];
   for (const ring of rings) {
     let last: [number, number] | null = null;
@@ -94,8 +111,7 @@ export function pathOf(rings: readonly Ring[], view: View): string {
       points.push(`${x} ${y}`);
     }
     // A ring whose box misses the card draws nothing.
-    const onCard =
-      maxX > 0 && minX < MAP_CARD_SIZE.width && maxY > 0 && minY < MAP_CARD_SIZE.height;
+    const onCard = maxX > 0 && minX < size.width && maxY > 0 && minY < size.height;
     if (onCard && points.length >= 3) {
       parts.push(`M${points.join('L')}Z`);
     }
@@ -113,6 +129,9 @@ export function staticMap(
   region: string,
   counts: ReadonlyMap<string, number>,
   home: string | null,
+  size: DrawingSize = MAP_CARD_SIZE,
+  /** The part of the region to frame (south-west, north-east corners); the region's own view. */
+  frame?: readonly [readonly [number, number], readonly [number, number]],
 ): StaticMap {
   const subdivisions = collection.features.filter(
     (feature) => feature.properties.kind === 'subdivision' && feature.properties.code,
@@ -120,19 +139,20 @@ export function staticMap(
   const homeFeatures = home
     ? subdivisions.filter((feature) => feature.properties.code === home)
     : [];
-  const box = REGION_VIEW[region] ?? REGION_VIEW['americas-north'];
+  const box = frame ?? REGION_VIEW[region] ?? REGION_VIEW['americas-north'];
   const [[south, west], [north, east]] = box;
   const [minX, maxY] = project([west, south]);
   const [maxX, minY] = project([east, north]);
-  const view = fit(minX, minY, maxX, maxY, 0);
+  const view = fit(minX, minY, maxX, maxY, 0, size);
   const shapes: StaticShape[] = subdivisions.map((feature) => {
     const code = feature.properties.code ?? null;
     return {
       code,
-      d: pathOf(ringsOf(feature), view),
+      d: pathOf(ringsOf(feature), view, size),
       level: shadeLevel(code ? counts.get(code) : undefined),
     };
   });
-  const homePath = homeFeatures.length > 0 ? pathOf(homeFeatures.flatMap(ringsOf), view) : null;
+  const homePath =
+    homeFeatures.length > 0 ? pathOf(homeFeatures.flatMap(ringsOf), view, size) : null;
   return { shapes: shapes.filter((shape) => shape.d !== ''), home: homePath };
 }

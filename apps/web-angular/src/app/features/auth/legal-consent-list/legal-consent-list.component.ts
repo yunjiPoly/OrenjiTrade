@@ -1,9 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { FormArray, FormControl, ReactiveFormsModule } from '@angular/forms';
-import { MatCheckboxModule } from '@angular/material/checkbox';
 import { RouterLink } from '@angular/router';
 import { of, startWith, switchMap } from 'rxjs';
+import { ShellIconComponent } from '../../../core/layout/shell-icon/shell-icon.component';
 
 export interface ConsentItem {
   documentType: string;
@@ -12,79 +12,58 @@ export interface ConsentItem {
 }
 
 /**
- * Checkbox per legal document (each links to its page in a new tab) plus "accept all".
- * The parent owns the `FormArray` (one `requiredTrue` control per item) and its validation.
+ * The documents card of Create your account and Review our terms (spec 14, board W27): "Accept
+ * all" first, then one row per document ("I accept the Terms of Service") with "Read", which
+ * opens the document in a new tab. "Accept all" ticks the documents only, never the 18+
+ * confirmation, which has its own card. After a refused submit (`warn`) the boxes still unticked
+ * are ringed in amber. The parent owns the `FormArray` (one `requiredTrue` control per item).
  */
 @Component({
   selector: 'app-legal-consent-list',
-  imports: [ReactiveFormsModule, MatCheckboxModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, ShellIconComponent],
   template: `
-    <fieldset class="consents" [attr.aria-describedby]="showError() ? 'consents-error' : null">
-      <legend class="consents__legend">Before you continue</legend>
+    <fieldset class="docs" [class.docs--warn]="warn()">
+      <legend class="visually-hidden">Documents</legend>
       @if (items().length > 1) {
-        <mat-checkbox
-          class="consents__all"
-          [checked]="allChecked()"
-          [indeterminate]="someChecked() && !allChecked()"
-          (change)="toggleAll($event.checked)"
-        >
-          Accept all
-        </mat-checkbox>
+        <label class="docs__row docs__row--all">
+          <input
+            type="checkbox"
+            class="box"
+            [checked]="allChecked()"
+            [indeterminate]="someChecked() && !allChecked()"
+            (change)="toggleAll($any($event.target).checked)"
+          />
+          <span>Accept all</span>
+        </label>
       }
-      <ul class="consents__list">
-        @for (item of items(); track item.documentType; let i = $index) {
-          <li>
-            <mat-checkbox [formControl]="controls()[i]">
-              I have read and accept the
-              <a [routerLink]="item.url" target="_blank" rel="noopener">{{ item.title }}</a>
-            </mat-checkbox>
-          </li>
-        }
-      </ul>
-      @if (showError()) {
-        <p class="consents__error" id="consents-error" role="alert">
-          Please accept every document to continue.
-        </p>
+      @for (item of items(); track item.documentType; let i = $index) {
+        <div class="docs__row docs__row--doc">
+          <label class="docs__label">
+            <input type="checkbox" class="box" [formControl]="controls()[i]" />
+            <span>I accept the {{ item.title }}</span>
+          </label>
+          <a
+            class="docs__read"
+            [routerLink]="item.url"
+            target="_blank"
+            rel="noopener"
+            [attr.aria-label]="'Read the ' + item.title + ', opens in a new tab'"
+          >
+            Read
+            <app-shell-icon name="external" [size]="14" [stroke]="2" />
+          </a>
+        </div>
       }
     </fieldset>
   `,
-  styles: `
-    .consents {
-      margin: 0;
-      padding: var(--spacing-3) var(--spacing-4);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-md);
-      background: var(--color-surface);
-    }
-    .consents__legend {
-      padding: 0 var(--spacing-1);
-      font-weight: var(--font-weight-semibold);
-      font-size: var(--font-size-sm);
-    }
-    .consents__all {
-      display: block;
-      padding-bottom: var(--spacing-1);
-      border-bottom: 1px solid var(--color-border);
-      font-weight: var(--font-weight-medium);
-    }
-    .consents__list {
-      margin: 0;
-      padding: 0;
-      list-style: none;
-    }
-    .consents__error {
-      margin: var(--spacing-1) 0 0;
-      color: var(--color-danger);
-      font-size: var(--font-size-sm);
-    }
-  `,
+  styleUrl: '../../../shared/legal/consent-boxes.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LegalConsentListComponent {
   readonly items = input.required<readonly ConsentItem[]>();
   readonly formArray = input.required<FormArray<FormControl<boolean>>>();
-  /** Show the validation message (parent sets it after a submit attempt). */
-  readonly showError = input(false);
+  /** Ring the boxes still unticked (the parent sets it after a refused submit). */
+  readonly warn = input(false);
 
   protected readonly controls = computed(() => this.formArray().controls);
   private readonly values = toSignal(

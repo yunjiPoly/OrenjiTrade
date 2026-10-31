@@ -2,32 +2,22 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatStepper } from '@angular/material/stepper';
-import { By } from '@angular/platform-browser';
 import { Router, provideRouter } from '@angular/router';
-import { MeResponse } from '@orenji/api-client';
-import { provideApiClient } from '../../core/api/provide-api-client';
+import { GameResponse, MeResponse, ProfileService, RegionsService } from '@orenji/api-client';
+import { of } from 'rxjs';
+import { AuthService } from '../../core/auth/auth.service';
 import { SessionService } from '../../core/auth/session.service';
-import { AppConfigService } from '../../core/config/app-config.service';
-import { AGE_CONFIRMATION_ERROR } from '../../shared/legal/age-confirmation-checkbox.component';
-import { MyLocationStore } from '../../shared/location/my-location.store';
+import { ToastService } from '../../core/feedback/toast.service';
+import { GameContext } from '../../core/game/game-context.service';
 import { GamesStore } from '../../shared/catalog/games.store';
+import { MyLocationStore } from '../../shared/location/my-location.store';
 import { MyProfileStore } from '../../shared/profile/my-profile.store';
-import { LegalDocumentsStore } from '../auth/data/legal-documents.store';
+import { REGIONS_FIXTURE } from '../../shared/regions/testing/regions-fixtures';
 import { OnboardingPageComponent } from './onboarding-page.component';
-
-const AGE_DOCUMENT = {
-  documentType: 'AGE_CONFIRMATION',
-  version: '2026-10-05',
-  title: 'Age confirmation',
-  url: '/legal#age-confirmation',
-  requiredAtRegistration: false,
-};
 
 /** Lets the page's async `load()` and the promise chains of its actions settle (zoneless). */
 async function settle(): Promise<void> {
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 6; i++) {
     await new Promise((resolve) => setTimeout(resolve, 0));
   }
 }
@@ -35,8 +25,8 @@ async function settle(): Promise<void> {
 function me(onboarding: MeResponse['onboarding']): MeResponse {
   return {
     id: 'u-1',
-    handle: 'maika',
-    displayName: 'Maïka',
+    handle: 'collector_4vp9pf',
+    displayName: 'collector_4vp9pf',
     email: 'maika@example.test',
     emailVerified: true,
     roles: ['USER'] as unknown as MeResponse['roles'],
@@ -47,31 +37,49 @@ function me(onboarding: MeResponse['onboarding']): MeResponse {
   };
 }
 
-describe('OnboardingPageComponent (18+ confirmation step)', () => {
+const GAMES = [
+  { slug: 'yugioh', name: 'Yu-Gi-Oh!', status: 'ACTIVE', hasCards: true },
+  { slug: 'pokemon', name: 'Pokémon', status: 'ACTIVE', hasCards: true },
+  { slug: 'onepiece', name: 'One Piece', status: 'ACTIVE', hasCards: false },
+] as unknown as GameResponse[];
+
+describe('OnboardingPageComponent, the welcome (spec 14: three steps)', () => {
   let fixture: ComponentFixture<OnboardingPageComponent>;
   let element: HTMLElement;
-  let acceptConsents: ReturnType<typeof vi.fn>;
-  let snackOpen: ReturnType<typeof vi.fn>;
+  let save: ReturnType<typeof vi.fn>;
+  let availability: ReturnType<typeof vi.fn>;
+  let select: ReturnType<typeof vi.fn>;
   let navigateByUrl: ReturnType<typeof vi.spyOn>;
 
   async function mount(onboarding: MeResponse['onboarding']): Promise<void> {
-    acceptConsents = vi.fn(async () => 'ready');
-    snackOpen = vi.fn();
-    const meState = signal<MeResponse | null>(me(onboarding));
+    save = vi.fn(async () => undefined);
+    select = vi.fn(() => true);
+    availability = vi.fn(({ handle }: { handle: string }) =>
+      of({
+        handle,
+        status: handle === 'taken_one' ? 'TAKEN' : 'AVAILABLE',
+        available: handle !== 'taken_one',
+      }),
+    );
     TestBed.configureTestingModule({
       imports: [OnboardingPageComponent],
       providers: [
         provideRouter([]),
         provideHttpClient(),
         provideHttpClientTesting(),
-        provideApiClient(),
-        { provide: MatSnackBar, useValue: { open: snackOpen } },
+        { provide: ProfileService, useValue: { getHandleAvailability: availability } },
+        { provide: RegionsService, useValue: { listRegions: vi.fn(() => of(REGIONS_FIXTURE)) } },
+        { provide: ToastService, useValue: { show: vi.fn() } },
+        { provide: GameContext, useValue: { select } },
+        {
+          provide: AuthService,
+          useValue: { user: signal({ uid: 'fb-1', displayName: 'Maïka T.' }), signOut: vi.fn() },
+        },
         {
           provide: SessionService,
           useValue: {
-            me: meState,
+            me: signal(me(onboarding)),
             status: signal('ready'),
-            acceptConsents,
             load: vi.fn(async () => 'ready'),
           },
         },
@@ -80,17 +88,16 @@ describe('OnboardingPageComponent (18+ confirmation step)', () => {
           useValue: {
             error: signal(null),
             load: vi.fn(async () => ({
-              handle: 'maika',
-              displayName: 'Maïka',
+              handle: 'collector_4vp9pf',
+              displayName: 'collector_4vp9pf',
               bio: '',
-              games: ['yugioh'],
+              games: [],
               languages: ['en'],
               tags: [],
               avatarUrl: null,
-              completedAt: '2026-09-01T00:00:00Z',
             })),
-            save: vi.fn(),
-            saveTags: vi.fn(),
+            save,
+            saveTags: vi.fn(async () => undefined),
           },
         },
         {
@@ -105,27 +112,15 @@ describe('OnboardingPageComponent (18+ confirmation step)', () => {
           },
         },
         {
-          provide: LegalDocumentsStore,
-          useValue: {
-            error: signal(null),
-            load: vi.fn(async () => undefined),
-            ageConfirmation: () => AGE_DOCUMENT,
-          },
-        },
-        {
           provide: GamesStore,
           useValue: {
-            games: signal([]),
+            games: signal(GAMES),
             loading: signal(false),
             error: signal(null),
-            load: vi.fn(),
+            load: vi.fn(async () => GAMES),
           },
         },
       ],
-    });
-    TestBed.inject(AppConfigService).set({
-      apiBaseUrl: 'http://api.test',
-      firebaseAuthEmulatorHost: 'localhost:9099',
     });
     const router = TestBed.inject(Router);
     navigateByUrl = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
@@ -134,101 +129,116 @@ describe('OnboardingPageComponent (18+ confirmation step)', () => {
     fixture.detectChanges();
     await settle();
     fixture.detectChanges();
-    await fixture.whenStable();
-    fixture.detectChanges();
     element = fixture.nativeElement as HTMLElement;
   }
 
-  async function clickContinue(): Promise<void> {
-    continueButton().click();
-    await settle();
+  function step(): string {
+    return element.querySelector('[data-testid="welcome-step"]')?.textContent?.trim() ?? '';
+  }
+
+  function title(): string {
+    return element.querySelector('h1')?.textContent?.trim() ?? '';
+  }
+
+  it('starts at "Who are you?", Step 1 of 3, with the name typed at sign-up', async () => {
+    await mount({ profileComplete: false, locationSet: false, interestsSet: false });
+    expect(step()).toBe('Step 1 of 3');
+    expect(title()).toBe('Who are you?');
+    expect(element.querySelectorAll('.welcome__bar-part--on')).toHaveLength(1);
+    expect(element.querySelector<HTMLInputElement>('#wl-name')?.value).toBe('Maïka T.');
+    // The 18+ confirmation is never a welcome step.
+    expect(element.textContent).not.toContain('18 years');
+  });
+
+  it('checks the handle while typing: "@sam_trades is free", or taken', async () => {
+    await mount({ profileComplete: false, locationSet: false, interestsSet: false });
+    vi.useFakeTimers();
+    try {
+      const handle = element.querySelector<HTMLInputElement>('#wl-handle')!;
+      handle.value = 'Sam_Trades';
+      handle.dispatchEvent(new Event('input'));
+      await vi.advanceTimersByTimeAsync(450);
+      fixture.detectChanges();
+      expect(availability).toHaveBeenLastCalledWith(
+        { handle: 'sam_trades' },
+        'body',
+        false,
+        expect.anything(),
+      );
+      expect(element.querySelector('#wl-handle-check')?.textContent?.trim()).toBe(
+        '@sam_trades is free',
+      );
+      handle.value = 'taken_one';
+      handle.dispatchEvent(new Event('input'));
+      await vi.advanceTimersByTimeAsync(450);
+      fixture.detectChanges();
+      expect(element.querySelector('#wl-handle-check')?.textContent?.trim()).toBe(
+        'That handle is already taken. Try another one.',
+      );
+      expect(handle.getAttribute('aria-invalid')).toBe('true');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('resumes at the games; tiles mark "Opens first" and dim the games coming soon', async () => {
+    await mount({ profileComplete: true, locationSet: false, interestsSet: false });
+    expect(step()).toBe('Step 2 of 3');
+    expect(title()).toBe('What do you collect?');
+    const tiles = [...element.querySelectorAll<HTMLButtonElement>('.tile')];
+    expect(tiles.map((tile) => tile.dataset['game'])).toEqual(['yugioh', 'pokemon', 'onepiece']);
+    expect(tiles[2].classList).toContain('tile--soon');
+    // The art and the name are dimmed, never "Cards coming soon" (contrast, WG review A3).
+    expect(getComputedStyle(tiles[2]).opacity).not.toBe('0.6');
+    expect(getComputedStyle(tiles[2].querySelector('.tile__name')!).opacity).toBe('0.6');
+    expect(getComputedStyle(tiles[2].querySelector('.tile__soon')!).opacity).not.toBe('0.6');
+    tiles[2].click();
+    tiles[1].click();
     fixture.detectChanges();
-    await fixture.whenStable();
-    fixture.detectChanges();
-  }
+    // One Piece was picked first but has no cards yet: Pokémon opens first.
+    expect(tiles[1].querySelector('.tile__badge')?.textContent).toBe('Opens first');
+    expect(tiles[2].getAttribute('aria-pressed')).toBe('true');
+  });
 
-  function ageBox(): HTMLInputElement {
-    return element.querySelector<HTMLInputElement>('[data-testid="age-confirmation"] input')!;
-  }
-
-  function continueButton(): HTMLButtonElement {
-    const buttons = Array.from(element.querySelectorAll<HTMLButtonElement>('button'));
-    return buttons.find((button) => button.textContent?.trim() === 'Continue')!;
-  }
-
-  function stepper(): MatStepper {
-    return fixture.debugElement.query(By.directive(MatStepper)).componentInstance as MatStepper;
-  }
-
-  it('asks an existing account to confirm first and sends it straight back afterwards', async () => {
-    await mount({
-      profileComplete: true,
-      locationSet: true,
-      interestsSet: true,
-      ageConfirmed: false,
-    });
-
-    expect(element.textContent).toContain('Are you 18 or older?');
-    expect(stepper().selectedIndex).toBe(0);
-    expect(ageBox().checked).toBe(false);
-
-    // Submitting without the tick shows the message and records nothing.
-    await clickContinue();
-    expect(acceptConsents).not.toHaveBeenCalled();
-    expect(element.querySelector('[role="alert"]')?.textContent).toContain(AGE_CONFIRMATION_ERROR);
-
-    ageBox().click();
-    fixture.detectChanges();
-    await clickContinue();
-
-    expect(acceptConsents).toHaveBeenCalledWith([
-      { documentType: 'AGE_CONFIRMATION', version: '2026-10-05' },
+  it('the place: no GPS, "Show me on the map" off; Finish opens the first game, then the page', async () => {
+    await mount({ profileComplete: true, locationSet: false, interestsSet: true });
+    expect(step()).toBe('Step 3 of 3');
+    expect(title()).toBe('Where do you ship from?');
+    expect(element.textContent).toContain('We never use GPS and never ask for your address.');
+    expect(
+      element
+        .querySelector('[data-testid="welcome-map-switch"] button')
+        ?.getAttribute('aria-checked'),
+    ).toBe('false');
+    // The step's fields and switches look like the welcome's other steps (spec 2.4, WG R1-1):
+    // labels above 48 px fields and the 40x24 switch, never Material's outlined fields.
+    const card = element.querySelector('.welcome__card')!;
+    expect(card.querySelector('mat-form-field')).toBeNull();
+    expect(card.querySelectorAll('.app-token-select').length).toBe(3);
+    const switches = [...card.querySelectorAll('mat-slide-toggle')];
+    expect(switches.map((toggle) => toggle.getAttribute('data-testid'))).toEqual([
+      'location-show-city',
+      'welcome-map-switch',
     ]);
-    expect(snackOpen).toHaveBeenCalledWith(
-      'Thanks for confirming. Welcome back!',
-      'OK',
-      expect.anything(),
-    );
+    for (const toggle of switches) {
+      expect(toggle.classList).toContain('app-switch-40');
+      expect(toggle.querySelector('.mdc-switch__icons')).toBeNull();
+    }
+    const skip = [...element.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent?.trim() === 'Skip for now',
+    )!;
+    skip.click();
+    await settle();
     expect(navigateByUrl).toHaveBeenCalledWith('/messages');
   });
 
-  it('continues to the profile step for a new account', async () => {
-    await mount({
-      profileComplete: false,
-      locationSet: false,
-      interestsSet: false,
-      ageConfirmed: false,
-    });
-
-    expect(stepper().selectedIndex).toBe(0);
-    ageBox().click();
+  it('Back goes to the step before', async () => {
+    await mount({ profileComplete: true, locationSet: false, interestsSet: false });
+    const back = [...element.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent?.trim() === 'Back',
+    )!;
+    back.click();
     fixture.detectChanges();
-    await clickContinue();
-
-    expect(acceptConsents).toHaveBeenCalledTimes(1);
-    expect(navigateByUrl).not.toHaveBeenCalled();
-    expect(stepper().selectedIndex).toBe(1);
-    expect(stepper().steps.first.label).toBe('Age');
-    expect(stepper().steps.first.completed).toBe(true);
-  });
-
-  it('skips the step when the API reports the confirmation', async () => {
-    await mount({
-      profileComplete: false,
-      locationSet: false,
-      interestsSet: false,
-      ageConfirmed: true,
-    });
-
-    expect(element.textContent).not.toContain('Are you 18 or older?');
-    expect(ageBox()).toBeNull();
-    expect(stepper().steps.first.label).toBe('Profile');
-  });
-
-  it('skips the step when an older API does not report the flag at all', async () => {
-    await mount({ profileComplete: false, locationSet: false, interestsSet: false });
-
-    expect(ageBox()).toBeNull();
-    expect(stepper().steps.first.label).toBe('Profile');
+    expect(title()).toBe('Who are you?');
   });
 });

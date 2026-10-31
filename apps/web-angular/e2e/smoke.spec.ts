@@ -31,14 +31,16 @@ test.describe('app shell', () => {
       .getByRole('link', { name: 'Inventory' })
       .click();
     await expect(page).toHaveURL(/\/inventory$/);
-    await expect(page.getByRole('heading', { level: 1, name: 'Inventory' })).toBeVisible();
-    // Signed out: the page invites the visitor to sign in (the inventory is personal).
+    // Signed out: Inventory's guest page (spec 14), back here after signing in.
     await expect(
-      page.getByRole('heading', { name: 'Sign in to build your inventory' }),
+      page.getByRole('heading', { level: 1, name: 'Your cards, in one place' }),
     ).toBeVisible();
     await expect(
       page.getByRole('main').getByRole('link', { name: 'Sign in', exact: true }),
     ).toHaveAttribute('href', '/auth/sign-in?returnUrl=%2Finventory');
+    await expect(
+      page.getByRole('main').getByRole('link', { name: 'Create account', exact: true }),
+    ).toHaveAttribute('href', '/auth/sign-up?returnUrl=%2Finventory');
     // Inventory carries no pills (spec 4.2).
     await expect(page.getByTestId('region-pill')).toHaveCount(0);
   });

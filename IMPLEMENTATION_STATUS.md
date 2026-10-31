@@ -7,6 +7,10 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
+**Last updated:** 2026-10-30 (stage WF merged into `main` as #101, merge commit `5998be3e`; `origin/main` merged into WG's branch at `dd64b0e2`; `node-forge` 1.4.2 for five high advisories published that evening, which failed the audit gate on `main` too, and its stale exception dropped (`fc3d6276`); the check of WG's review fix 2 left nothing of WG's own above a nit (one minor, an older API rate limit, for the owner); its nits carried into stage WH1; see NEXT TASK).
+**Last updated:** 2026-10-30 (stage WG review fix 2, round 2 of 2: the welcome's step 3 with the token fields (labels above, 48 px) and the 40x24 switch, Settings › Location unchanged; the deletion page's shared rate limit left to the owner with its cause; web only; see "Review fix 2" in the WG section).
+**Last updated:** 2026-10-30 (stage WG review fix 1: a guest's pending action belongs to its own sign-in only (forgotten on Back out of the sign-in steps, a sign-out, another account, or the ready account on another page), Search keeps its game and binder after signing in, `/settings` on a fresh load, the art panel's height, the welcome's step 3, the guest notices, the sign-in steps' focus and announcements, the WG E2E's Legal locator and the resumes of every action; web only; see "Review fix 1" in the WG section).
+**Last updated:** 2026-10-30 (stage WG of the web redesign, builder: sign-in, Create your account, Reset and Verify as pages of their own (board W27, the 18+ line apart and in English only), the account states as cards (Review our terms with the age alone for older accounts, suspended, scheduled for deletion, "We could not load your account"), the welcome's three steps, and guests (board W26: places only, the guest pages of Inventory, Messages and Profile, Appearance and Legal open, the sign-in dialog for every action, finished after signing in); WF's 11 nits first; no API change, no migration; the native suite blocked by Xcode's first launch; see the WG section and NEXT TASK).
 **Last updated:** 2026-10-30 (stage WE merged into `main` as #100, merge commit `7b360a02`, after one Trivy exception, CVE-2026-118664, the `decode-uri-component` advisory of WD's npm allowlist entry, same reason and expiry; `origin/main` merged into WF's branch at `13a6e72e`; WF's check of review fix 2 approved it, its first round's 11 nits carried into stage WG; see NEXT TASK).
 **Last updated:** 2026-10-30 (stage WF of the web redesign, builder: Messages › Community on the R11 rooms (board W22): the five game rooms of the browsed region with Community's own region pill beside the open room, posts read like a chat with a shared card, deck core or binder and a phone's photos read only, the "⋯" menu (Message, Report this post, Block), the message box with "+" (Share a card, Share a binder or deck core), Room rules as the third pane, a drawer at md and a sheet below 960; WE's R2-1 and nits fixed first; one additive API change (`raterId` and `sellerId` in rating and sale notifications, the deletion matching on them); no migration; see "Web redesign WF: Messages > Community (2026-10-30)").
 **Last updated:** 2026-10-30 (stage WE of the web redesign, builder: Home's feed with the chips, "New posts · Show" without a number, the end, day one, "I have it" with its draft, Get started or the guest card and a static SVG map card; profiles (W23, W23b); the bell's popover and `/notifications` without chats, reminders answered in place; Settings' grouped nav, Location, Appearance tiles, Legal; WD's R2-1 and nits and WC's V3-1 fixed first; additive API: `previews` on `GET /feed` and the deletion renaming the deleted collector in others' notifications; no migration; see "Web redesign WE: Home, profiles, notifications and settings (2026-10-29)").
@@ -14075,6 +14079,454 @@ polite); below 960 a room page has no h1 (A10, axe's `page-has-heading-one`); th
 unread dot is 2.74:1 (A11, SC 1.4.11, not the only cue: use the darker accent). The native suite was
 not re-run after fix 2, which changed no shared code (last 44/44 at `eb3c0fef`).
 
+## Web redesign WG: Sign-in, welcome and guests (2026-10-30)
+
+Stage WG of the owner's prompt of 2026-10-28
+([`docs/product/specs/2026-10-28-web-redesign-stages.md`](docs/product/specs/2026-10-28-web-redesign-stages.md),
+"WG. Sign-in, welcome and guests (W26, W27)"), spec
+[`2026-10-20-web-redesign.md`](docs/product/specs/2026-10-20-web-redesign.md) section 14, decision
+4; boards W26 and W27 of the web mockup. Built on branch `feature/wg-sign-in-guests`, stacked on
+stage WF (`feature/wf-community`, #101, not merged yet; `main` with WE inside). The guest parts come
+after phone R15, which is on `main`. **No API change and no migration** (the next is still
+**V135**; V124 and V128 stay unused; an ADR would take 0022 or later). The one change outside
+`apps/web-angular` is the web's own Angular client: `CollectorMarker` and `PublicBinderOwner` keep
+R15's nullable `id`, `handle` and `displayName` (`WEB_CLIENT_NOT_NULL` emptied, two models
+regenerated; the phone's types unchanged). Contract
+[`docs/api/contracts/wg-web-sign-in-guests.md`](docs/api/contracts/wg-web-sign-in-guests.md). Free
+for all (ADR 0019); deals ship by mail (ADR 0018); English only (owner, 2026-10-20).
+
+**What a collector can now do (what to click)**
+
+- **Sign in** (the top bar's "Sign in", from any page): a page of its own without the rail or the
+  top bar. "Not now, keep browsing" goes back to the page you came from. The wordmark, "Find
+  collectors in your region who own, trade or want the cards you care about.", Email and Password
+  (48 each, "Show"), "Forgot your password?" (teal), [Sign in] (orange 52), "or", [Continue with
+  Google] (outline 52), "New to OrenjiTrade? Create an account". At 960 and wider the right panel
+  says "Who in my region has this card?" with three lines and a decorative map of Americas
+  (North) in the five steps (a fixed pattern, nothing about anyone, hidden from screen readers);
+  below 960 the form only.
+- **Create an account**: Display name ("How other collectors see you. You can change it later."),
+  Email, Password ("At least 8 characters."), the documents card ("Accept all", then "I accept the
+  Terms of Service" and the three others, each with "Read ↗" in a new tab) and **the 18+ line in a
+  card of its own**, never ticked by "Accept all", in English only. "Create account" waits until
+  every box is ticked, with one line under it: "Accept the documents and confirm your age to
+  continue.", "Accept every document to continue." or "Confirm that you are 18 or older to
+  continue."; pressing it then turns the line amber and rings the boxes still unticked. Then the
+  account, your documents and age recorded, and **Verify your email** (the mail tile, [I have
+  verified my email], [Resend email] then "Resend in 30 s", "Do this later").
+- **Reset your password** (Sign in › "Forgot your password?"): Email, [Send reset link], "Back to
+  sign in"; then **Check your inbox** ("If an account exists for…", [Back to sign in], "Use another
+  email").
+- **The welcome** (right after verifying, or "Do this later"): a centred card with "Step n of 3"
+  and a 3-part bar. **Who are you?**: the handle with a live check ("@sam_trades is free", or
+  "That handle is already taken. Try another one."), the display name you typed at sign-up, an
+  optional bio, [Continue]. **What do you collect?**: the five games as tiles ("Opens first" on the
+  first one you pick that has cards; One Piece and Riftbound dimmed "Cards coming soon" while they
+  have no cards), languages and tags, [Back] [Continue]. **Where do you ship from?**: "Collectors
+  find binders by state or province. We never use GPS and never ask for your address.", region,
+  country, state or province, an optional city, "Show me on the map" (off), [Back] [Finish] and
+  "Skip for now". Finishing opens Home on the game marked "Opens first" (or the page you came from).
+- **Account states** (centred 480 cards, no rail): **Review our terms** (new document versions;
+  an older account that never confirmed being 18 sees "Please confirm your age to keep using
+  OrenjiTrade." with the age box alone, then "Thanks for confirming. Welcome back!"); **Your account
+  is suspended** (the end date, the appeal line with support@orenjitrade.com, [Community
+  guidelines], [Sign out]); **Your account is scheduled for deletion** ([Cancel deletion],
+  [Download my data], Sign out); **We could not load your account** ([Try again], which goes on to
+  where you were going, and Sign out; "Please sign in again" when the session ended).
+- **Without an account** (sign out, or open the site in a private window): Home, Search (Cards
+  and Binders), a card, a set, a binder and a deck core read **"A collector"** with a plain avatar
+  and the province, no rating and no presence. Home's rail has "You're browsing as a guest" with a
+  person-plus tile. **Inventory, Messages and Profile** show their guest page ("Your cards, in one
+  place", "Talk to collectors", "Your collector profile"; [Create account] and [Sign in] come back
+  to that very page, a community room's too); Profile also lists Appearance, Trading safely and
+  Legal. **Settings › Appearance and Legal** open to guests (the other sections ask to sign in).
+- **Every action that needs an account opens the sign-in dialog** (440): Message on a card, a
+  binder or a deck core ("Sign in to message this collector", with the card and "A collector ·
+  {province} · {price}"), "I have it" on a wish ("Sign in to tell them you have it", "Wanted by a
+  collector · {province}"), a post's header or "+N", a holder's row, a binder's "View profile"
+  ("Sign in to see collector profiles", "A collector", the province), "Add to wishlist" ("Sign in
+  to save your wishes"), Report ("Sign in to report this collector"), "I have this card" and "Add
+  from this set" ("Sign in to add your cards"). "It's free. When you're done, you come right back
+  here.", [Create account], [Sign in], "Not now" (Esc too). After signing in (and the welcome for a
+  new account) you are back on the page and the action finishes: the chat drawer about the card,
+  "Hi! I have {card}." in the box, the collector's profile, the wish dialog, Report collector, the
+  Add drawer, the set's adding mode. A listing gone in between says "That listing is no longer
+  available.", one of your own "That's one of your own listings."
+
+**WF's leftovers, fixed first** (the WF section's "Left open by the verifier of fix 2"; each checked
+still open first)
+
+- **F8** already gone (WF fix 1 removed the unused pickers; `shared/links` holds only what is used).
+- **F9**: with Community off, a room's address (or `?tab=community`) becomes `/messages` once the
+  flags are known (a guest keeps it, to come back after signing in); a room answering
+  `FEATURE_DISABLED` closes the rooms list with it (`CommunityRoomsStore.disable`).
+- **F10**: Room rules say "Everyone you blocked is in Settings › Blocked, where you can unblock
+  them." with the link, under the rows of this page's blocks.
+- **U12**: the region popover's lead: "Home, Search, the map and the community rooms show one
+  region at a time. Cards ship within a region."
+- **U13**: a guest's Messages page (a room's address too) signs in back to that address; the top
+  bar's "Sign in" now carries the page as `returnUrl` everywhere.
+- **A7**: Room rules is a `div`: a labelled region beside the posts at 1280 and wider, a dialog at
+  md and below 960; its toggle is pressed (pane) or expanded with `haspopup` (dialog), never both.
+- **A8**: a refusal describes the message box (`aria-describedby`, `aria-invalid`), and the log
+  goes back to its end when the box grows with it.
+- **A9**: saving an edited post says "Post saved" (polite).
+- **A10**: below 960 a room is its own page and its name the h1 (an h2 beside the list).
+- **A11**: the unread dot uses the darker accent in light (3:1 and more).
+- **P4** (phone photos public for a year with the author's id in the path): an owner follow-up,
+  not changed here (R11's media rule).
+
+**What the stage built (web)**
+
+- **Shell**: `ShellRouteData.bare` (no top bar, rail, tab bar, session banner or footer) for
+  `/auth/**` and `/onboarding`; the top bar's "Sign in" with `returnUrl`.
+- **`features/auth`**: `AuthLayoutComponent` rebuilt as board W27's split page (form panel,
+  "Not now, keep browsing" forgetting a pending guest action, the wordmark, the footer link; the
+  `card` variant for account states), `AuthArtComponent` (the right panel; `staticMap` of Home's
+  map card takes a size and a frame now), `auth-form.scss` (native fields with labels above, the
+  52 buttons, teal links), sign in, sign up (`sign-up-rules.ts`: the reason line, the display
+  name), reset, verify, Review our terms (age alone, the welcome-back toast), suspended and deletion
+  (`suspensionReason` as the phone), `/auth/unavailable` (`unavailable-content.ts`, the phone's
+  words). `LegalConsentListComponent` and `AgeConfirmationCheckboxComponent` as native checkbox
+  cards (`shared/legal/consent-boxes.scss`), English only.
+- **Session and guards**: an account with `onboarding.ageConfirmed === false` is
+  `consent-required` (Review our terms; 403 `AGE_CONFIRMATION_REQUIRED` goes there too), and
+  `needsOnboarding` is the profile and interests only; `routeAfterSignIn` and `accountGuard` send an
+  account that could not load to `/auth/unavailable`; public pages keep the session banner.
+- **`features/onboarding`**: the welcome rebuilt as three steps (`welcome-rules.ts`,
+  `welcome-copy.ts`, `welcome-game-tiles.component.ts`), the handle's live check
+  (`GET /me/profile/handle-availability`, 400 ms after the last key), the display name typed at
+  sign-up when the account still has its first one, "Opens first" selected as the browsed game on
+  Finish.
+- **`core/guest`**: `GuestActions` (the pending action by listing or card with its page, the lazy
+  440 `SignInDialogComponent` and Material's dialog loaded with it, the runner that finishes the
+  action once the account is ready and the guest is back on the page; `guest-finish.ts` a lazy
+  chunk: `GET /listings/owner`, then the chat drawer, `IHaveIt`, the profile, `WishlistActions`,
+  Report). The card page and the set page take their own Add actions.
+- **Guests' actions** on Home's feed (the header and "+N" as buttons, Message, "I have it" with
+  the board's spoken names), Who has this card (Message, a row), the card page (Add to wishlist, I
+  have this card), the set page (Add from this set), a public binder and the Search drill-in
+  (Message, a tile's Message, "View profile" or "A collector", the seller row, Report).
+- **Guest pages**: `shared/guest/guest-page.component.ts` in Inventory, Import, Messages and
+  Profile (`/profile` opens to guests); Settings opens to guests with Appearance and Legal only
+  (`settingsHome`: Appearance for a guest, Profile for a member; every other section keeps
+  `accountGuard`).
+- **Home's guest card**: the board's person-plus tile (`.app-icon-tile`, a global style so Home's
+  styles stay inside their budget).
+
+**What it left hidden or out, and why**
+
+- No API change: R12 and R15 had every read and write the stage needed (`GET /listings/owner`,
+  `GET /me/profile/handle-availability`, the guests' anonymised reads). GeoPrivacyContractTest has
+  nothing new to cover; the guest E2E checks the web's HTML and every JSON answer instead.
+- The pending action lives in memory for the tab (with the page in the sign-in's `returnUrl`),
+  as on the phone, not in the router's navigation state: it must survive Create account, Verify
+  your email and the welcome, several navigations apart. A reload in the middle forgets the action
+  (the page still comes back).
+- A collector's profile opened by its address as a guest keeps WE's "Sign in to see collector
+  profiles" in place (no dialog: there is no action to resume, only the page).
+- The language picker of the welcome keeps the languages' own names (Français, Español…) as the
+  web had them: it is the profile's languages, not the app's language.
+- Community photos (S4), the payment pages and the admin console (WH1, WH2) are other stages.
+
+**Spec points changed, and why** (decisions)
+
+1. **The 18+ line in English only** (spec 14: "in English and French"): the owner's order of
+   2026-10-20 (English only, add nothing French). The web's age checkbox lost its French line and
+   its French error, as the phone did in R12. The French legal texts and Legal's language switch
+   are untouched.
+2. **The age confirmation moved from the welcome to Review our terms** for accounts that never gave
+   it (the web had a fourth "Are you 18 or older?" step): spec 14's welcome has three steps, and the
+   phone asks it on Review our terms since R12. New accounts confirm it on Create your account, so
+   only accounts from before the 18+ rule (the seed accounts locally) see it.
+3. **Two dialog titles beyond the spec's four**: "Sign in to report this collector" (the phone's
+   words for Report, which a guest reaches on binders and deck cores) and "Sign in to add your
+   cards" ("I have this card", decision 17's web-only button, and "Add from this set"), so every
+   action a guest reaches asks the same way.
+4. **The pending action is kept in memory with the page as `returnUrl`**, not in the router state
+   (spec 14: "kept in the router state"): see above; it is the phone's R15 rule.
+5. **"Verify your email"** is the title of the verify page (the web had "Check your inbox", the
+   phone's word): board W27's wording wins on the web; "Check your inbox" stays the title after
+   "Send reset link", as on the board.
+6. **The display name on Create your account** (board W27 and the phone's R12; the web had none):
+   the API names a new account from the token; the welcome offers the typed name again when the
+   account was named before it reached the API.
+7. **"We could not load your account" as a page** (`/auth/unavailable`) right after a sign-in and on
+   account pages, the phone's screen 46; public pages keep the shell's amber session banner (spec
+   4.1). Both are in the spec.
+8. **Sign up with Google stays on Create your account** (board W27 shows it on Sign in only): the
+   web had it and the phone has it; Review our terms then collects the documents and the age.
+
+**Tests**
+
+- Web unit: new `guest-actions.spec`, `guest-actions.service.spec`, `guest-finish.spec`,
+  `sign-in-dialog.component.spec`, `guest-page.component.spec`, `sign-up-rules.spec`,
+  `unavailable-content.spec`, `auth-art.component.spec`, `welcome-rules.spec`,
+  `room-rules.component.spec`, `settings.routes.spec`, `my-profile-page.component.spec`; rewritten
+  `onboarding-page.component.spec` (the three steps, the live check, "Opens first", Back),
+  `sign-up-page.component.spec` (the reason line, English only, the display name),
+  `age-confirmation-checkbox.component.spec`; added cases to `sign-in-page`, `session.service`
+  (the age as consent), `auth.guards` (the unavailable page), `feed-post` (a guest's header, "+N",
+  Message, "I have it"), `who-has` (a guest's Message and row), `settings-shell` (a guest's nav),
+  `messages-page` (F9), `community-rooms.store` (F9), `room-view` (A7, A10), `room-composer` (A8),
+  `room-post` (A9), `region-pill` (U12), `holder-groups`.
+- Web E2E: new `guests.spec.ts` (six tests: a guest on Home, Search Cards and Binders, a card, its
+  set, a binder and a deck core with no seller's or seed collector's handle, name, id, avatar or
+  rating in the page or any JSON answer; the guest pages, Appearance and Legal; every action's
+  dialog title with "Not now" and the focus back; Message, "I have this card" and "View profile"
+  finished after signing in); `auth.spec.ts` rewritten for board W27 and the welcome, with the sign-in
+  page ("Not now, keep browsing", reset and back, the form only at 390) and the account states
+  (suspended with its end on a throw-away account, "We could not load your account" with Try
+  again); `smoke`, `launch-safety`, `acceptance/registration` (the new sign-up and welcome),
+  `admin` (the seed staff confirm their age through the API first: they see Review our terms
+  otherwise), `community` (A7's region, A10's h1).
+
+**Checks** (retries off, the real numbers)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | clean |
+| `npm run test:api` | **209 classes / 1,313 tests** (`test`) and 13 (`catalogTest`), 0 failures, 4 min 33 s (no API change) |
+| `exportOpenApi` then `generate:api` | nothing changed after the stage's own regeneration (the web's two models with R15's nulls, committed); git clean |
+| `npm run lint`, `format:check -w apps/web-angular` | clean |
+| `npm test -w apps/web-angular`, `npm run test:web` | **211 files / 1,080 tests** (WF's last: 199 / 1,037) |
+| `npm run build -w apps/web-angular`, `build:prod` | initial total **769.32 kB** (budget 900 kB; WF 763.73 kB), no warning (a first build was 798.98 kB with Material's dialog eager in the shell, and Home's styles 167 bytes over their budget: both fixed, `2acc56c8`) |
+| `npm run test:e2e -- --retries=0` (8180/4300, under the lock) | The builder wrote **104 passed** (1.3 min), which was wrong: the verifier's runs (full and alone) failed `guests.spec.ts:195` every time (two links named Legal on the guest Profile page), 100 passed, 2 failed, 2 did not run. Fixed in review fix 1 (see its checks below). The first full run had 1 failure: `home-we` found no end of Yu-Gi-Oh!'s feed because the new guest specs' sellers listed Yu-Gi-Oh! cards; they list a Pokémon card now (`e0cbdfdb`). Targeted runs before: guests 6/6, auth, smoke, admin, community, launch-safety, registration |
+| `npm run typecheck`, `lint`, `format:check -w apps/mobile` | clean |
+| `npm run test:mobile` | **128 suites / 1,782 tests** |
+| `npx expo export` (scratch folders) | iOS 1,975 modules, Android 2,101 modules, web 1,596 modules and 68 static routes |
+| `npm run test:mobile:e2e -- --retries=0` (8090/19006, under the simulator lock) | `--stack-only` (the served export names `http://localhost:8090` only, by the harness and by hand), `--reuse-running`: **66 passed** (1.1 min), `--stop` |
+| `npm run test:mobile:maestro -- --platform ios` | **not run: blocked by an Xcode first-launch install step.** `xcrun simctl` (Xcode's `simctl` wrapper) runs `xcodebuild -runFirstLaunch` because the installed CoreSimulator (1174.9.2) is older than Xcode expects (1174.21); it waits for an install prompt, so every `simctl` call hangs. The two started by this session were stopped at once and nothing was answered; seven older ones (started about 4 hours before, not by this session) are still waiting. The harness drives the simulator with `xcrun simctl`, so the suite cannot run until the owner completes Xcode's first launch. What it would cover did not change: the stage changed `packages/api-client` (the web's Angular client) only, which the phone does not use (it reads `packages/shared-types`, unchanged); the phone's unit tests, typecheck, exports and web E2E pass |
+| `npm run test:scripts` | **165 / 165** |
+| `npm run audit:gate` | OK (no unreviewed high or critical advisory) |
+
+**The walk** (Playwright on the walk stack: API 8580 with `orenjitrade_wg_check` and Redis db 6,
+web 4400; at 1440x900, 1024x768 and 390x844, dark and light; 204 AFTER screenshots in
+`.local-dev/wg-notes/pr-shots/after/`, 114 BEFORE in `pr-shots/before/`): sign in (and its
+errors), Create your account empty, after a press (the amber line), with the age missing, with a
+document missing, with the fields missing; reset and its "Check your inbox"; Verify your email; the
+welcome's three steps (the live check "is free"); Review our terms with the age alone (seed
+collector3, not accepted); suspended and scheduled for deletion (throw-away accounts of this run:
+`wg-suspended-1`, `wg-deleting-1@example.test`); "We could not load your account" (a stubbed 503);
+as a guest Home with the dialogs of Message, a header and "I have it", Search Cards and Binders, a
+card with "Add to wishlist"'s dialog, a set, a binder, a deck core with "View profile"'s dialog,
+Inventory, Messages, Profile, Settings › Appearance and Legal. No sideways scroll at any width; the
+only failed requests were the expected ones (a suspended account's 403, the emulator's 400 for an
+unknown reset address, and the deletion list's own rate limit after many walks of one account).
+Compared with boards W26 and W27 (rendered from the mockup with a stub of its `support.js`): the
+layout, sizes and words match; differences are the spec points above.
+
+**What could not be verified**
+
+- A real Google sign-in pop-up (the emulator's flow is the same code path; no real Firebase project
+  locally).
+- A real verification or reset email (the emulator lists the links).
+- The native suite on the iOS simulator (see the checks: Xcode's first launch waits for an
+  install prompt). The Android run could not be verified (no Android SDK on this Mac). The phone's
+  code did not change, only the web's Angular client.
+
+**Owner follow-ups**
+
+- **Xcode's first launch**: `xcrun simctl` waits on `xcodebuild -runFirstLaunch` (CoreSimulator
+  1174.9.2, Xcode expects 1174.21); seven such processes were waiting when this stage ended. Until
+  the owner runs Xcode once (or `sudo xcodebuild -runFirstLaunch`), the native suite cannot run.
+
+- WF's P4 (R11's media rule): phone photos are served public, cached for a year as immutable, with
+  the author's account id in the path; a shorter cache or a path without the id is the API owner's
+  call.
+- Seed and older accounts without the 18+ confirmation now see Review our terms (age alone) on the
+  web, as on the phone; nothing to do unless the owner wants them confirmed in the seed.
+
+**Review fix 1** (2026-10-30; round 1 of at most 2; the functional, product and UX, privacy and
+accessibility reviewers' findings on `ef001029`; web only: no API, client, token, phone or
+migration change)
+
+- **A guest's pending action belongs to the sign-in it was asked for, and to nothing else** (U1 and
+  P1, blockers; F2). `GuestActions` keeps the action only once Create account or Sign in is chosen
+  (never while the dialog is open), ties it to the first account that signs in after the ask, and
+  forgets it when the guest leaves the sign-in steps still signed out (the browser's Back, the
+  wordmark), when that account signs out (Review our terms', the account states' Sign out) or
+  another account appears in the tab, and when the ready account first lands on another page than
+  the action's: it never waits for a later visit (the phone's R15 `useGuestEntry` forgets it on
+  every other entry too). Pages that merge their parameters in another order are still the same
+  page (`samePage` compares the query in any order). Six unit tests that fail on the old service;
+  two E2E (Back from the sign-in then a top-bar sign-in on that page; a sign-out from Review our
+  terms then another account): nothing opens, nothing is sent.
+- **The E2E** (F1, F3): the guest Profile's Legal and Appearance rows are found inside the guest
+  page (the shell's footer has a Legal link too; the builder's "104 passed" was wrong: the
+  verifier's run had 100 passed, 2 failed, 2 did not run). New resumes after signing in: "I have
+  it" (the draft in the chat drawer, no message sent), Add to wishlist (the wish dialog, nothing
+  saved), Report (Report collector about the core, nothing sent), Add from this set (the adding
+  mode, Stop adding focused), a deck core's Message (the core pinned), a Home post's header (the
+  profile), and Create account → verify → the welcome → back on the card with the chat drawer.
+- **Unit gaps** (F4): M5 is now caught (a ready account on another page runs nothing and forgets
+  the action); M6's check was unreachable (the action's page is never a sign-in step: `ask` maps a
+  step page to `/`, as `safeReturnUrl` does), so it left `ready` and the step rule lives in the
+  landing check, where the tests cover both sides (a step keeps it, any other page forgets it).
+  Review our terms has a spec of its own (the documents with the 18+ box and the reason on a
+  refused press; the age alone with "Please confirm your age…" and "Thanks for confirming. Welcome
+  back!"; `AGE_CONFIRMATION` recorded with the documents): M12 and M13 fail it.
+- **Search** (U3): signing in on Search re-applies the address's game and region after the
+  account's own (as Home does since `5f4a23be`), so the same game comes back with the binder still
+  open; E2E with a Pokémon binder and an account whose own game is Yu-Gi-Oh!.
+- **`/settings` on a fresh load** (F5): a guard that waits for Firebase instead of a redirect run
+  before it; a signed-in collector lands on Profile settings again.
+- **The art panel** (U2) runs the form's whole height (its picture sticky at the top); E2E at
+  1440x900 and 1024x768 on Create your account.
+- **The welcome's step 3** (U4): one field per row, the city's hint grows instead of running under
+  the switch, its counter on one line. Not changed: both switches already are the app's one switch
+  (Material's slide toggle with the token overrides; on and off look different); the token field
+  look (labels above, 48 tall) for the shared location pickers would change Settings › Location
+  too, which is outside this stage.
+- **Guest notices** (U5): a collector's profile and the notifications use the guest page (the icon
+  tile, [Create account] first, [Sign in] outline, curly quotes).
+- **Docs** (U6): test accounts, local setup, macOS setup and the phase 1 contract say Review our
+  terms with the age line alone for the web too.
+- **Reset password** (U8, a privacy nit kept from before WG): "Forgot your password?" carries the
+  typed email in the navigation's state, never in the address; an older `?email=` link still
+  fills it.
+- **Accessibility**: Sign in, Send reset link and Continue with Google wait with `aria-disabled`
+  and keep the focus after a failure or a closed pop-up; Check your inbox takes the focus (A1). The
+  sign-in dialog is described by "It's free…" and its card or collector (A2). "Cards coming soon"
+  is no longer dimmed, only the tile's art and name (A3). No single-key shortcut on the sign-in
+  steps and the welcome, "?" and Ctrl/Cmd+K stay (A4). A refused submit focuses the first field to
+  fix, and a blocked Create account says its reason again (A5). A guest's "I have it" is named
+  "I have it: {card}. Needs an account" (A6; the members' label already started so). The set's
+  adding mode opened after signing in says "Adding from {set}" and focuses Stop adding (A7).
+- **Left as a report** (U7): the deletion page's `GET /me/deletion-requests` shares the deletion
+  requests' rate limit, so about five opens in an hour grey out Cancel deletion for about 1.5 hours;
+  older than WG, an API follow-up for the owner.
+
+Review fix 1's checks (retries off, after its last commit unless said):
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | clean |
+| `npm run test:api` | **209 classes / 1,313 tests** and 13 (`catalogTest`), 0 failures, 4 min 43 s (no API change) |
+| `exportOpenApi` then `generate:api` | nothing changed; git clean |
+| `npm run lint`, `format:check -w apps/web-angular` | clean |
+| `npm test -w apps/web-angular`, `npm run test:web` | **212 files / 1,099 tests**, no error. The first full run after the fixes passed every test but had 5 unhandled errors (the shell's spec fakes a session without `needsOnboarding`, which the new runner read with nothing pending); the runner now reads the session only while an action is pending (`7f9e8910`) |
+| `npm run build -w apps/web-angular`, `build:prod` | initial total **770.26 kB** (budget 900 kB; WG's builder 769.32 kB), no warning |
+| `npm run test:e2e -- --retries=0` (8180/4300, under the lock, a fresh stack) | **112 passed, 1 failed, 2 did not run** (1.2 min; 115 tests, 11 new). The failure was `card-images.spec.ts:189` (a profile's picture list re-rendered under load, "element is not attached"; the same flake the verifier saw before this round, in code WG did not touch): **2 passed alone** (`--workers=1`). The 2 that did not run are the `launch-config` project, skipped because of that failure: **2 passed** on their own (`--project=launch-config --no-deps`). After the last commit (`7f9e8910`): guests, auth and smoke **30 passed**. (A run on a reused stack failed the two seed-age checks of `auth.spec.ts` because the earlier targeted run had confirmed those seeds' age: an artefact of reuse, gone on the fresh stack.) |
+| `npm run typecheck`, `lint`, `format:check -w apps/mobile` | clean |
+| `npm run test:mobile` | **128 suites / 1,782 tests** |
+| `npx expo export` (scratch folders) | iOS 1,975 modules, Android 2,101 modules, web 1,596 modules and 68 static routes |
+| `npm run test:mobile:e2e -- --retries=0` (8090/19006, under the simulator lock) | `--stack-only` (the served scripts name `localhost:8090` twice and `localhost:8080` never), `--reuse-running`: **66 passed** (1.1 min), `--stop` |
+| `npm run test:mobile:maestro -- --platform ios` | **not run**: still blocked by Xcode's first launch (CoreSimulator 1174.9.2, read from its `Info.plist` without calling `simctl`; the seven `xcodebuild -runFirstLaunch` processes from 14:14 to 14:38 still wait). This round changed nothing the phone uses (web only) |
+| `npm run test:scripts` | **165 / 165** |
+| `npm run audit:gate` | OK |
+
+The walk of this round (walk stack 8580/4400, `orenjitrade_wg_check`, Redis db 6, dropped and
+flushed after; one throw-away account `wg-fix1-welcome-1@example.test`, deleted): the AFTER shots of
+the screens the fixes changed, at 1440, 1024 and 390, dark and light, in
+`.local-dev/wg-notes/pr-shots/after/`: `sign-in-errors` (the focus on Email), the five `sign-up`
+states and the new `sign-up-scrolled` (1440, 1024: the panel to the bottom), `reset-password-sent`,
+`welcome-2`, `welcome-3`, and the new `guest-collector` and `guest-notifications`; no sideways scroll,
+no unexpected failed request.
+
+**Review fix 2** (2026-10-30; round 2 of at most 2; the verifier's two findings on `c15bad53`; web
+only: no API, client, token, phone or migration change)
+
+- **The welcome's step 3 looks like its other steps** (R1-1, U4's rest). The location pickers have
+  a second look, `look="token"`, used by the welcome only: each label above its field (Region,
+  Country, State or province, City (optional)), 48 px fields with radius 12 and `borderInput`, the
+  empty pickers saying "Choose a country" and "Choose a state or province" (the phone's words), the
+  city's hint and its "0 / 80" under the field, and "Show my city on my profile" as a row with the
+  switch at its end (its label toggles it). The selects stay Material's `mat-select` without a
+  form field (`.app-token-select` in the global styles), so the panel, the keyboard and the ARIA
+  are the same as before; the panel opens under its field, as wide as it. Both switches of the step
+  ("Show my city on my profile", "Show me on the map") are the spec's 40x24 switch
+  (`.app-switch-40`: Material's slide toggle sized with its tokens, knob 18 on, 12 off inside the
+  outlined track, no icons, as the mockup's plain knob). The select's own 0.5 px letter spacing
+  (Material's) is dropped so the values read as the city field. Settings › Location keeps
+  Material's outlined fields (the default look; walked: 4 form fields, no token control). Tests: a
+  unit test of the token look (no form field, each name from the label above it, the city 48 px and
+  described by its hint and counter, the switch without icons named by its row, which toggles it,
+  the same events) and the welcome's place test (3 token selects, both switches 40x24 without
+  icons; it fails on the old markup); `auth.spec.ts` measures the step in Chromium (each label
+  above a 48 px field, the city 48 px, both switch tracks 40x24, no Material field).
+- **Left as a report** (R1-2, U7): not changed, older than WG and an API rule outside this stage.
+  The cause, for the owner: the rate limit `deletion-requests` (`application.yml`) covers
+  `/api/v1/me/deletion-requests` and everything under it for every method, 5 calls per collector
+  per 86,400 s window, and `RateLimitFilter`'s windows start at 00:00 UTC; so the page's own read
+  of the pending request, the cancel and the request share 5 calls a day, and once they are spent
+  Cancel deletion stays unavailable until the next midnight UTC (the reviewer's "about 1.5 hours"
+  was the time left to it). A fix would limit the POST only (`methods: [POST]`) or give the read
+  and the cancel a rule of their own.
+
+Review fix 2's checks (retries off, after its last commit unless said):
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | clean |
+| `npm run test:api` | **209 classes / 1,313 tests** and 13 (`catalogTest`), 0 failures, 4 min 35 s (no API change) |
+| `exportOpenApi` then `generate:api` | nothing changed; git clean |
+| `npm run lint`, `format:check -w apps/web-angular` | clean |
+| `npm test -w apps/web-angular`, `npm run test:web` | **212 files / 1,100 tests** (one new; the welcome's place test extended), no error. The new tests fail on the old markup (the welcome without `look="token"` and the 40x24 class: the place test fails) |
+| `npm run build -w apps/web-angular`, `build:prod` | initial total **771.70 kB** (budget 900 kB; fix 1 770.26 kB), no warning |
+| `npm run test:e2e -- --retries=0` (8180/4300, under the lock, a fresh stack) | **115 passed** (1.3 min), among them the sign-up and welcome test with the new measures of step 3 |
+| `npm run typecheck`, `lint`, `format:check -w apps/mobile` | clean |
+| `npm run test:mobile` | **128 suites / 1,782 tests** |
+| `npx expo export` (scratch folders) | iOS 1,975 modules, Android 2,101 modules, web 1,596 modules and 68 static routes |
+| `npm run test:mobile:e2e -- --retries=0` (8090/19006, under the simulator lock) | `--stack-only` (the served scripts name `localhost:8090` twice and `localhost:8080` never, by the harness and by hand), `--reuse-running`: **66 passed** (1.1 min), `--stop` |
+| `npm run test:mobile:maestro -- --platform ios` | **not run: not needed**, this round changed `apps/web-angular` only (no token, client, shared type, API or phone change). It is also still blocked: CoreSimulator is 1174.9.2 (read from its `Info.plist`, no `simctl` call) and the seven `xcodebuild -runFirstLaunch` processes still wait for Xcode's install prompt |
+| `npm run test:scripts` | **165 / 165** |
+| `npm run audit:gate` | OK |
+
+The walk of this round (walk stack 8580/4400, `orenjitrade_wg_check`, Redis db 6, dropped and
+flushed after; one throw-away account `wg-fix2-welcome-1@example.test`, deleted): the welcome's
+step 3 at 1440, 1024 and 390, dark and light, empty and filled, the Country panel open, and the
+keyboard focus on Region (2 px ring); AFTER shots `welcome-3`, `welcome-3-filled`,
+`welcome-3-select-open` and `welcome-3-focus` (1440) in `.local-dev/wg-notes/pr-shots/after/`. On
+every one: no Material field, each label above a 48 px field, both switches 40x24, the panel
+aligned with its field, no sideways scroll, no failed request. Settings › Location at 1440, dark
+and light, is unchanged. Seen and not changed (not this round's findings): each walked sign-in
+logged one console error, Chrome's "AbortError: Transition was skipped" of the router's view
+transitions, when a new navigation replaced the one after signing in; nothing on the page was
+affected.
+
+**Left open by the verifier of fix 2** (round 2 of 2; its one blocker was outside WG and is fixed
+below; the nits are carried into stage WH1, which fixes them first):
+
+- **R2-1 (blocker, outside WG, fixed by the lead after the round, `fc3d6276`):** `npm run
+  audit:gate` failed on five high `node-forge` advisories published on 2026-10-30
+  (GHSA-7wch-p9px-956x, GHSA-jc66-7q78-782g, GHSA-8hrf-8g6f-7xwp, GHSA-hqq3-7jhf-c5jx,
+  GHSA-5x38-2vff-x55p, all ≤ 1.4.0), on `main` as on this branch. `node-forge` 1.4.0 → 1.4.2 in
+  the lockfile only (`@expo/cli` and `@expo/code-signing-certificates` ask for `^1.3.3`; same
+  publisher as 1.4.0). 1.4.2 also fixes GHSA-86w9-cpqp-85rv, so its allowlist entry and its row in
+  `docs/security/README.md` are removed. After it: `audit:gate` OK, `test:scripts` 165 / 165, the
+  phone's `typecheck`, an iOS `expo export`, `npm ls node-forge --all` (one 1.4.2, deduped) and
+  `@expo/code-signing-certificates` loading.
+- **R2-2 (minor, owner follow-up, older than WG):** the deletion page's rate limit ("Left as a
+  report" in "Review fix 2" above). Not for WH1.
+- **R2-3 (nit):** on the welcome's step 3, "Choose your country." is not tied to the Country field
+  (no `aria-invalid`, no `aria-describedby`, no danger border), as steps 1 and 2 do.
+- **From the check of fix 1:** R1-3 (nit: no unit test asks from a step page, `/auth/sign-up`, and
+  expects `returnUrl` `/`), R1-4 (nit: the auth layout's footer "Terms, privacy and community
+  guidelines" opens in the same tab and so drops a guest's pending action; a new tab, as the
+  consent rows' "Read" links), R1-5 (nit: `docs/development/local-setup.md`'s new sentence about
+  the age line reads awkwardly).
+- **Round 1's nits not fixed:** F6 (`card-images.spec.ts:189` fails under the full suite's load,
+  "Element is not attached to the DOM", and passes alone; WG did not change that page), F7
+  (`packages/api-client/tools/generate.mjs` and part of `web-omits.mjs` reformatted from single to
+  double quotes with no change), F8 (the unused `AGE_CONFIRMATION_ERROR` export and unreachable
+  `@if (handle)` branches in `feed-post.component.ts`), U9 (the boards' small differences: the top
+  bar's Sign in without its person icon, a warning triangle instead of W27's circle-i, "Not now"
+  centred instead of left-aligned, the guest Home map card without the "Fewer…More" legend, an
+  "ACCOUNT" header over Legal alone in a guest's Settings, a faint dialog scrim in light), U10 (a
+  deck core's and a plain binder's "Message this collector" lack "Needs an account" in a guest's
+  name), A8 (the focused step heading does not say which step), A9 (the focused Resend button's
+  name changes every second for 30 s), A10 (the age-only refusal mentions documents the page does
+  not show), A11 (the hidden description spans read as stray text in browse mode), A12 (Room
+  rules' `aria-controls` points at nothing while the pane is closed), A13 (text-field borders below
+  3:1; the labels above carry the identification; a design call for the owner), A14 (the "Orenji"
+  logotype is 2.74:1 in light, exempt, recorded so axe runs are not misread). P2 (the email in the
+  reset link's address) was fixed with U8 in fix 1.
+- **Not run:** the native suite on the owner's iPhone 18 Pro: Xcode 27.2 waits for its first-launch
+  install (seven `xcodebuild -runFirstLaunch` processes since 14:14 that day, started outside the
+  stage), which the owner has to finish. The phone does not import `@orenji/api-client`, the only
+  shared package WG changed.
+
 ## NEXT TASK
 
 > **The web resumes (owner, 2026-10-28): stages WA to WH2 of the web redesign**, one at a time
@@ -14163,14 +14615,33 @@ not re-run after fix 2, which changed no shared code (last 44/44 at `eb3c0fef`).
 > posts only, "Try again" posts the box as it is, every public binder in the picker, the post's
 > report fits 1440x900; web only). The check of review fix 2 approved it with nothing above a nit
 > open: the first round's 11 nits go into stage WG, which fixes them first (the WF section's "Left
-> open by the verifier of fix 2"). **Next for WF: its pull request against `main`, merged on
-> green.**
+> open by the verifier of fix 2"). **WF is merged into `main`** (#101, merge commit `5998be3e`,
+> 2026-10-30).
 >
-> **The exact next stage after WF's pull request: stage WG of the web redesign, Sign-in, welcome
-> and guests (boards W26 and W27; spec section 14; decision 4; the guest parts after phone R15,
-> which is on `main`)**, from the latest `origin/main`: sign-in and create an account (W27), the
-> welcome, account states, and Home and Search without an account (W26) with R15's rule (a guest
-> sees places, never who; any action opens the sign-in dialog and finishes after it).
+> **Stage WG (Sign-in, welcome and guests) is built** on `feature/wg-sign-in-guests`, made on WF
+> (#101, merged; `origin/main` merged in at `dd64b0e2`; section "Web redesign WG: Sign-in, welcome and guests (2026-10-30)"
+> above; contract `docs/api/contracts/wg-web-sign-in-guests.md`; no API change, no migration, the
+> next is still **V135**): WF's 11 nits fixed first; the sign-in steps as pages of their own (W27),
+> the account states as cards, the welcome's three steps, guests (W26) with the sign-in dialog and
+> the action finished after signing in. Its native suite could not run (Xcode's first launch waits
+> for an install prompt: an owner follow-up). Its reviewers' round 1 (functional, product and UX,
+> privacy, accessibility) asked for changes; **review fixes 1 and 2 are done** (the WG section's
+> "Review fix 1" and "Review fix 2": the second, the last round, gave the welcome's step 3 the token
+> fields and the 40x24 switch and left the deletion page's rate limit to the owner). The check of
+> review fix 2 left nothing of WG's own above a nit; its one blocker, the audit gate's five new
+> `node-forge` advisories (on `main` too), is fixed by `node-forge` 1.4.2 (`fc3d6276`), and the nits
+> go into stage WH1, which fixes them first (the WG section's "Left open by the verifier of fix
+> 2"). **Next for WG: its pull request against `main`, merged on green.**
+>
+> **The exact next stage after WG's pull request: stage WH1 of the web redesign, the admin console:
+> the shell, the overview and moderation (boards A1 to A6 and A24; spec sections 15.1 to 15.4 and
+> 15.8 for its additive API changes; decision 3)**, from the latest `origin/main`: the console's own
+> shell with the grouped nav and open counts, the staff search, the Overview of what needs a person
+> (A1; a moderator's A24), Reports as one split view with resolving (A2, A3), Flags and rules (A4),
+> Community rooms (A5, the 15 R11 rooms, no "New channel") and Ratings and references (A6); the
+> additive API changes it needs (the short report number among them) with their tests; its
+> reviewers: functional, product and UX as a staff member, privacy and accessibility (the prompt's
+> lists for WH1).
 
 > **(Done: WE, above.) The exact next stage after WD's pull request was stage WE of the web redesign, Home, profiles,
 > notifications and settings (boards W1, W2 and W23 to W25; spec sections 5, 11, 12 and 13; decisions

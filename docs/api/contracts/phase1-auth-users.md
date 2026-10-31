@@ -58,8 +58,9 @@ extension naming the document to record):
 - `POST /offers` and `POST /offers/{id}/counter` (accepting, declining or withdrawing an
   existing offer is not gated).
 
-Clients show the sign-up checkbox (never ticked by default) and, for existing accounts, the
-onboarding "Age" step before anything else. Self-declaration only: no identity verification.
+Clients show the sign-up checkbox (never ticked by default) and, for existing accounts, the age
+line alone on Review our terms (the phone since R12, the web since WG) before anything else.
+Self-declaration only: no identity verification.
 
 ## Profile
 

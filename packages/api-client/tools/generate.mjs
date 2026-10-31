@@ -13,43 +13,58 @@
  * The spec is validated by the generator (no `--skip-validate-spec`): `OpenApiConfig` sets
  * `info.license.url`, which is what the OpenAPI 3.1 validator used to reject.
  */
-import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-import { withoutWebNulls, withoutWebOmits } from './web-omits.mjs';
+import { withoutWebNulls, withoutWebOmits } from "./web-omits.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const cli = join(here, 'node_modules', '@openapitools', 'openapi-generator-cli', 'main.js');
-const spec = resolve(here, '../../../docs/api/openapi.json');
+const cli = join(
+  here,
+  "node_modules",
+  "@openapitools",
+  "openapi-generator-cli",
+  "main.js",
+);
+const spec = resolve(here, "../../../docs/api/openapi.json");
 
-const work = mkdtempSync(join(tmpdir(), 'orenji-api-client-'));
-const input = join(work, 'openapi.json');
+const work = mkdtempSync(join(tmpdir(), "orenji-api-client-"));
+const input = join(work, "openapi.json");
 writeFileSync(
   input,
-  JSON.stringify(withoutWebNulls(withoutWebOmits(JSON.parse(readFileSync(spec, 'utf8')))), null, 2)
+  JSON.stringify(
+    withoutWebNulls(withoutWebOmits(JSON.parse(readFileSync(spec, "utf8")))),
+    null,
+    2,
+  ),
 );
 
 const args = [
   cli,
-  '--openapitools',
-  join(here, 'openapitools.json'),
-  'generate',
-  '-i',
+  "--openapitools",
+  join(here, "openapitools.json"),
+  "generate",
+  "-i",
   input,
-  '-g',
-  'typescript-angular',
-  '-o',
-  resolve(here, '../src'),
-  '--additional-properties=ngVersion=22.0.0,providedInRoot=true,withInterfaces=true,useSingleRequestParameter=true,stringEnums=true,supportsES6=true',
+  "-g",
+  "typescript-angular",
+  "-o",
+  resolve(here, "../src"),
+  "--additional-properties=ngVersion=22.0.0,providedInRoot=true,withInterfaces=true,useSingleRequestParameter=true,stringEnums=true,supportsES6=true",
 ];
 
-const result = spawnSync(process.execPath, args, { cwd: here, stdio: 'inherit' });
+const result = spawnSync(process.execPath, args, {
+  cwd: here,
+  stdio: "inherit",
+});
 rmSync(work, { recursive: true, force: true });
 if (result.error) {
-  console.error(`[api-client/tools] failed to start the generator: ${result.error.message}`);
+  console.error(
+    `[api-client/tools] failed to start the generator: ${result.error.message}`,
+  );
   process.exit(1);
 }
 process.exit(result.status ?? 1);

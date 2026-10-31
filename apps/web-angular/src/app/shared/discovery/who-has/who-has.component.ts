@@ -1,3 +1,7 @@
+import { DOCUMENT } from '@angular/common';
+import { GuestActions } from '../../../core/guest/guest-actions.service';
+import { cardSubject, guestPlace, personSubject } from '../../../core/guest/guest-actions';
+import { printingImageUrl } from '../../inventory/inventory-labels';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -240,6 +244,8 @@ export class WhoHasComponent {
   private readonly router = inject(Router);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   protected readonly drawer = inject(ChatDrawer);
+  private readonly guest = inject(GuestActions);
+  private readonly document = inject(DOCUMENT);
 
   readonly cardId = input.required<string>();
   /** One printing ("Any printing" when null). */
@@ -441,7 +447,20 @@ export class WhoHasComponent {
   protected message(event: Event, result: CardHolderResult): void {
     event.stopPropagation();
     if (!this.auth.isAuthenticated() || !result.collector.id) {
-      this.signIn();
+      // A guest: the sign-in dialog, the chat about this copy after (spec 14).
+      void this.guest.ask(
+        { kind: 'message', listing: { itemId: result.item.id } },
+        cardSubject(
+          {
+            name: this.cardName() || result.item.card.name,
+            imageUrl: printingImageUrl(result.item.printing),
+            game: this.game(),
+          },
+          guestPlace(result.collector.place),
+          itemPriceText(result.item),
+        ),
+        event.currentTarget,
+      );
       return;
     }
     void this.drawer.message(
@@ -508,14 +527,15 @@ export class WhoHasComponent {
   private openRow(result: CardHolderResult): void {
     const handle = result.collector.handle;
     if (!handle) {
-      this.signIn();
+      // A guest's row: "Sign in to see collector profiles", the profile after (spec 14).
+      void this.guest.ask(
+        { kind: 'profile', listing: { itemId: result.item.id } },
+        personSubject(guestPlace(result.collector.place)),
+        this.document.activeElement,
+      );
       return;
     }
     void this.router.navigate(['/collectors', handle]);
-  }
-
-  private signIn(): void {
-    void this.router.navigate(['/auth/sign-in'], { queryParams: { returnUrl: this.router.url } });
   }
 
   /** "Jump to": scrolls to the group and moves the focus to its header. */

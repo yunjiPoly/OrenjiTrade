@@ -1,6 +1,6 @@
 import { Component, input, output, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { FeatureFlagsService } from '../../core/feature-flags/feature-flags.service';
 import { GameContext } from '../../core/game/game-context.service';
@@ -35,13 +35,19 @@ describe('MessagesPageComponent (spec 10, 10.7; Chats | Community)', () => {
   const narrow = signal(false);
   const setChatOpen = vi.fn();
 
+  const communityOn = signal(true);
+  const flagsReady = signal(true);
+
   function render(inputs: { id?: string; tab?: string; room?: string }): void {
     TestBed.configureTestingModule({
       imports: [MessagesPageComponent],
       providers: [
         provideRouter([]),
         { provide: AuthService, useValue: { isAuthenticated: signal(true) } },
-        { provide: FeatureFlagsService, useValue: { enabled: () => signal(true) } },
+        {
+          provide: FeatureFlagsService,
+          useValue: { enabled: () => communityOn, ready: flagsReady },
+        },
         { provide: UnreadChats, useValue: { count: signal(0) } },
         { provide: RegionContext, useValue: { current: signal('americas-north') } },
         { provide: GameContext, useValue: { current: signal('yugioh') } },
@@ -73,7 +79,27 @@ describe('MessagesPageComponent (spec 10, 10.7; Chats | Community)', () => {
 
   beforeEach(() => {
     narrow.set(false);
+    communityOn.set(true);
+    flagsReady.set(true);
     setChatOpen.mockClear();
+  });
+
+  it("Community off: a room's address becomes /messages once the flags are known (F9)", async () => {
+    communityOn.set(false);
+    flagsReady.set(false);
+    render({ room: 'americas-north-yugioh' });
+    const router = TestBed.inject(Router);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    await settle();
+    expect(navigate).not.toHaveBeenCalled();
+    flagsReady.set(true);
+    await settle();
+    expect(navigate).toHaveBeenCalledWith(['/messages'], { replaceUrl: true });
+    navigate.mockClear();
+    communityOn.set(true);
+    set({ room: 'americas-north-pokemon' });
+    await settle();
+    expect(navigate).not.toHaveBeenCalled();
   });
 
   it('below 960 a room opens above the tabs, as a chat does (no tab bar; WF review M27)', () => {

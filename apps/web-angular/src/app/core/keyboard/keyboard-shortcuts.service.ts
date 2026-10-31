@@ -44,8 +44,8 @@ export function isEditableTarget(target: EventTarget | null): boolean {
  * top bar's; Ctrl/Cmd+K always the top bar's (on Search, the pane's field); `g` then h, s, i, m or
  * p goes to an area; `n` opens Add cards in Inventory, Shift+N its quick add rows; `?` shows the
  * shortcuts. Single-key
- * shortcuts never fire inside a field, nor while a dialog or a menu is open, and Settings ›
- * Appearance turns them off.
+ * shortcuts never fire inside a field, nor while a dialog or a menu is open, nor on the bare pages
+ * of the sign-in steps and the welcome (but "?"), and Settings › Appearance turns them off.
  */
 @Injectable({ providedIn: 'root' })
 export class KeyboardShortcuts {
@@ -86,6 +86,12 @@ export class KeyboardShortcuts {
       return true;
     }
     if (mod || event.altKey || !this.prefs.singleKeys()) {
+      return false;
+    }
+    // The sign-in steps and the welcome (bare pages: no rail, no "?" button) keep their keys: a
+    // letter never leaves a form half filled (WG review A4). "?" still lists the shortcuts.
+    if (this.layout.bare() && event.key !== '?') {
+      this.clearG();
       return false;
     }
     if (isEditableTarget(event.target) || this.overlayOpen()) {

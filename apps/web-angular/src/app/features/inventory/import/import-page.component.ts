@@ -1,3 +1,4 @@
+import { GuestPageComponent } from '../../../shared/guest/guest-page.component';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { DOCUMENT } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
@@ -20,7 +21,6 @@ import { ApiError, toApiError } from '../../../core/http/api-error';
 import { SKIP_LIMIT_DIALOG, silentErrors } from '../../../core/http/http-context';
 import { ShellTabTitleDirective } from '../../../core/layout/shell-tab-title.directive';
 import { GamesStore } from '../../../shared/catalog/games.store';
-import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
 import { GameMonogramComponent } from '../../../shared/ui/game-monogram/game-monogram.component';
 import { ImportDoneComponent } from './import-done.component';
 import { ImportHandoff, ImportSourceChoice, sourceOfFile } from './import-handoff.service';
@@ -58,11 +58,11 @@ const ROWS_PAGE = 100;
 @Component({
   selector: 'app-import-page',
   imports: [
+    GuestPageComponent,
     MatButtonModule,
     MatIconModule,
     MatMenuModule,
     RouterLink,
-    EmptyStateComponent,
     GameMonogramComponent,
     ImportDoneComponent,
     ImportRowsComponent,
