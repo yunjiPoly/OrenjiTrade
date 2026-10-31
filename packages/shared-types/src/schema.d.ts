@@ -8200,6 +8200,15 @@ export interface components {
              * @example Report #1047
              */
             targetLabel?: string | null;
+            /**
+             * @description Readable names of the values in details, by value (web stage WH2 review fix 1, spec 15.2: never a raw id or region code): an account's id "@handle", a report's "Report #1047", an id nothing names in words ("A moderator note"), a platform region code "Americas (North)", a room's slug its name; every id in details has one
+             * @example {
+             *       "americas-north": "Americas (North)"
+             *     }
+             */
+            detailLabels: {
+                [key: string]: string;
+            };
         };
         /** @description Internal admin note (never shown to parties) */
         DisputeNote: {
