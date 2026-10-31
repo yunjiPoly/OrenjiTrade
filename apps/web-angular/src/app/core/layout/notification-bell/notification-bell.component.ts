@@ -40,6 +40,7 @@ const BUMP_MS = 700;
       [attr.aria-label]="label()"
       [attr.data-realtime]="realtime.state()"
       matTooltip="Notifications"
+      [matTooltipDisabled]="open()"
       (click)="toggle()"
     >
       <app-shell-icon name="bell" [size]="20" />

@@ -1,3 +1,5 @@
+import { SHELL_ICONS } from '../shell-icon/shell-icon.component';
+import { MatTooltip } from '@angular/material/tooltip';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -149,6 +151,11 @@ describe('NotificationBellComponent', () => {
     const labels = [...popover.querySelectorAll('h3')].map((h) => h.textContent?.trim());
     expect(labels).toEqual(['New', 'Earlier']);
     expect(popover.textContent).toContain('See all notifications');
+    // The header's gear of board W24, not the sliders (WE F10, U14; WF review M47).
+    const gear = [...popover.querySelectorAll('.np__gear svg path')].map((path) =>
+      path.getAttribute('d'),
+    );
+    expect(gear).toEqual([...SHELL_ICONS.gear]);
     const link = popover.querySelector<HTMLAnchorElement>('.nr__link')!;
     link.click();
     expect(center['markRead']).toHaveBeenCalledWith(expect.objectContaining({ id: 'a' }));
@@ -156,6 +163,16 @@ describe('NotificationBellComponent', () => {
       expect(document.querySelector('[data-testid="notification-popover"]')).toBeNull();
     });
     expect(navigate).toHaveBeenCalled();
+  });
+
+  it('its tooltip stays hidden while the popover is open (WE review U19)', async () => {
+    const tooltip = fixture.debugElement
+      .query((debug) => debug.attributes['data-testid'] === 'notification-bell')
+      .injector.get(MatTooltip);
+    expect(tooltip.disabled).toBe(false);
+    await openPopover();
+    TestBed.tick();
+    expect(tooltip.disabled).toBe(true);
   });
 
   it('marks everything read from the popover', async () => {

@@ -1,4 +1,4 @@
-import { Route, UrlSegment } from '@angular/router';
+import { ActivatedRouteSnapshot, Route, UrlSegment, convertToParamMap } from '@angular/router';
 import { messagesMatcher, routes } from './app.routes';
 import { ShellRouteData } from './core/layout/shell-layout.service';
 
@@ -60,23 +60,28 @@ describe('the routes of the web redesign (spec 4.11)', () => {
       expect(notice?.path).toBe('**');
       expect(notice?.loadComponent).toBeTruthy();
     }
-    expect(route('messages/community/:room').loadComponent).toBeTruthy();
   });
 
-  it('serves /messages and /messages/:id from one route, so the page is reused (WC review F5)', () => {
+  it('serves /messages, /messages/:id and a community room from one route, so the page is reused (WC review F5, WF)', () => {
     const segments = (url: string) => url.split('/').map((path) => new UrlSegment(path, {}));
     expect(messagesMatcher(segments('messages'))?.posParams).toBeUndefined();
     expect(messagesMatcher(segments('messages'))?.consumed).toHaveLength(1);
     expect(messagesMatcher(segments('messages/c-1'))?.posParams?.['id']?.path).toBe('c-1');
-    expect(messagesMatcher(segments('messages/community/yugioh'))).toBeNull();
+    const room = messagesMatcher(segments('messages/community/americas-north-yugioh'));
+    expect(room?.posParams?.['room']?.path).toBe('americas-north-yugioh');
+    expect(room?.consumed).toHaveLength(3);
+    expect(messagesMatcher(segments('messages/c-1/other'))).toBeNull();
+    expect(messagesMatcher(segments('messages/community/a/b'))).toBeNull();
     expect(messagesMatcher(segments('notifications'))).toBeNull();
-    // The room route comes first; the matcher is the only other Messages route.
+    // The matcher is the only Messages route; a room's tab says "Community".
     const messages = routes.filter(
       (entry) => entry.path?.startsWith('messages') || entry.matcher === messagesMatcher,
     );
-    expect(messages.map((entry) => entry.path ?? 'matcher')).toEqual([
-      'messages/community/:room',
-      'matcher',
-    ]);
+    expect(messages.map((entry) => entry.path ?? 'matcher')).toEqual(['matcher']);
+    const title = messages[0].title as (route: ActivatedRouteSnapshot) => string;
+    const snapshot = (params: Record<string, string>) =>
+      ({ paramMap: convertToParamMap(params) }) as ActivatedRouteSnapshot;
+    expect(title(snapshot({ room: 'americas-north-yugioh' }))).toBe('Community');
+    expect(title(snapshot({ id: 'c-1' }))).toBe('Messages');
   });
 });

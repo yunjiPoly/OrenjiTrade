@@ -174,6 +174,17 @@ export class HomePageComponent {
   private lastCheck = Date.now();
   private observer: IntersectionObserver | null = null;
   /**
+   * A chip that takes the focus comes fully into the row's view: at 390 the row scrolls sideways
+   * and a focused "Deck cores" was mostly clipped (WE review R2-3, SC 2.4.11).
+   */
+  protected revealChip(event: FocusEvent): void {
+    (event.target as HTMLElement | null)?.scrollIntoView?.({
+      block: 'nearest',
+      inline: 'nearest',
+    });
+  }
+
+  /**
    * What to tell a screen reader once the list asked for is shown (a chip, a refresh; SC 4.1.3):
    * said when a first page read after `after` is in.
    */

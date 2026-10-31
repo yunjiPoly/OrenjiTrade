@@ -1,4 +1,4 @@
-import type { CardDetail, CardSuggestion } from '@orenji/api-client';
+import type { BinderResponse, CardDetail, CardSuggestion } from '@orenji/api-client';
 
 /** A printing chosen to share in a message or a community post (`cardPrintingId`). */
 export interface CardLinkChoice {
@@ -33,4 +33,26 @@ export function printingForSuggestion(
     ? printings.find((printing) => printing.printingCode === suggestion.printingCode)
     : undefined;
   return (byCode ?? printings[0])?.id ?? null;
+}
+
+/** A name folded for a search: no case, no accents ("Échanges" matches "echanges"). */
+export function foldName(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase();
+}
+
+/**
+ * The caller's binders that can be shared (public right now) whose name contains `text`, without
+ * case or accents (the web's binder picker before WF; the share picker since).
+ */
+export function matchingBinders(
+  binders: readonly BinderResponse[],
+  text: string,
+): BinderResponse[] {
+  const needle = foldName(text.trim());
+  return binders.filter(
+    (binder) => binder.effectivePublic && (!needle || foldName(binder.name).includes(needle)),
+  );
 }

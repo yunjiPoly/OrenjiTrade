@@ -1,3 +1,4 @@
+import { SHELL_ICONS } from '../../../core/layout/shell-icon/shell-icon.component';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import type { CollectorProfileResponse } from '@orenji/api-client';
@@ -90,6 +91,21 @@ describe('CollectorProfileViewComponent (spec 11, boards W23 and W23b)', () => {
     expect(element.textContent).not.toMatch(/Binders in Quebec|\bkm\b/);
   });
 
+  it('the fact line reads with separators, and Message says it opens while it does (WE review A10, A11)', () => {
+    render(false);
+    const facts = element.querySelector('.cp__facts')!;
+    const spoken = [...facts.querySelectorAll('span')]
+      .filter((span) => span.getAttribute('aria-hidden') !== 'true' && span.children.length === 0)
+      .map((span) => span.textContent)
+      .join('');
+    expect(spoken).toContain('Quebec, Member since 2024, Active this week');
+    fixture.componentRef.setInput('messaging', true);
+    fixture.detectChanges();
+    const message = element.querySelector('.cp__primary')!;
+    expect(message.textContent).toContain('Opening…');
+    expect(message.getAttribute('aria-label')).toBe('Opening the chat with maya_k');
+  });
+
   it("another collector's: Message {handle}, ⋯ for Share, Report and Block, I have it on wishes", () => {
     render(false);
     expect(element.querySelector('h1')?.textContent).toBe('Maya Kashani');
@@ -119,6 +135,11 @@ describe('CollectorProfileViewComponent (spec 11, boards W23 and W23b)', () => {
     expect(element.querySelector('a[href="/settings"]')?.getAttribute('aria-label')).toBe(
       'Settings',
     );
+    // The gear of spec 12 and board W23b, not the sliders (WE F10, U14; WF review M47).
+    const gear = [...element.querySelectorAll('a[href="/settings"] svg path')].map((path) =>
+      path.getAttribute('d'),
+    );
+    expect(gear).toEqual([...SHELL_ICONS.gear]);
     expect(element.querySelector('a[href="/inventory?add=new"]')?.textContent).toContain(
       'Add cards',
     );

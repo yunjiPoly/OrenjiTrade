@@ -269,38 +269,78 @@ public class NotificationRepository {
     }
 
     /**
-     * The other collectors' RATING_RECEIVED rows from a deleted account, found by its handle
-     * ({@code data.raterHandle}): the title becomes {@code title}, the body's rater ("{name} rated
+     * The other collectors' RATING_RECEIVED rows from a deleted account (WF, after WE review R2-2):
+     * those that carry its id ({@code data.raterId}, written since stage WF), and the older rows
+     * without an id that name it by {@code handle} ({@code data.raterHandle}) and were written at
+     * or after {@code since} (the account's creation: an older row cannot be the account's,
+     * whatever handle it names). The title becomes {@code title}, the body's rater ("{name} rated
      * you 5/5.") and {@code data.raterHandle} become {@code name}. Returns the rows changed.
      */
-    public int renameRater(String handle, String title, String name) {
-        return jdbc.sql(
-                        "UPDATE notification SET title = :title, body = regexp_replace(body,"
-                                + " '^.* rated you ', :name || ' rated you '), data ="
-                                + " jsonb_set(data, '{raterHandle}', to_jsonb(CAST(:name AS"
-                                + " text)), false) WHERE type = 'RATING_RECEIVED' AND"
-                                + " data->>'raterHandle' = :handle")
-                .param("title", title)
-                .param("name", name)
-                .param("handle", handle)
-                .update();
+    public int renameRater(
+            UUID raterId,
+            @Nullable String handle,
+            @Nullable Instant since,
+            String title,
+            String name) {
+        String set =
+                "UPDATE notification SET title = :title, body = regexp_replace(body, '^.* rated"
+                        + " you ', :name || ' rated you '), data = jsonb_set(data,"
+                        + " '{raterHandle}', to_jsonb(CAST(:name AS text)), false) WHERE type ="
+                        + " 'RATING_RECEIVED' AND ";
+        int changed =
+                jdbc.sql(set + "data->>'raterId' = :raterId")
+                        .param("title", title)
+                        .param("name", name)
+                        .param("raterId", raterId.toString())
+                        .update();
+        if (handle != null && since != null) {
+            changed +=
+                    jdbc.sql(
+                                    set
+                                            + "data->>'raterId' IS NULL AND data->>'raterHandle' ="
+                                            + " :handle AND created_at >= :since")
+                            .param("title", title)
+                            .param("name", name)
+                            .param("handle", handle)
+                            .param("since", Timestamp.from(since))
+                            .update();
+        }
+        return changed;
     }
 
     /**
-     * The other collectors' SALE_RECORDED rows from a deleted account, found by its handle ({@code
-     * data.sellerHandle}): the handle starting the title ("{handle} marked … as sold to you") and
-     * {@code data.sellerHandle} become {@code name}. Returns the rows changed.
+     * The other collectors' SALE_RECORDED rows from a deleted account, by the rule of {@link
+     * #renameRater}: those that carry its id ({@code data.sellerId}), and the older rows without an
+     * id that name it by {@code handle} ({@code data.sellerHandle}) and were written at or after
+     * {@code since}. The handle starting the title ("{handle} marked … as sold to you") and {@code
+     * data.sellerHandle} become {@code name}. Returns the rows changed.
      */
-    public int renameSeller(String handle, String name) {
-        return jdbc.sql(
-                        "UPDATE notification SET title = CASE WHEN left(title, length(:handle) +"
-                                + " 1) = :handle || ' ' THEN :name || substring(title from"
-                                + " length(:handle) + 1) ELSE title END, data = jsonb_set(data,"
-                                + " '{sellerHandle}', to_jsonb(CAST(:name AS text)), false) WHERE"
-                                + " type = 'SALE_RECORDED' AND data->>'sellerHandle' = :handle")
-                .param("name", name)
-                .param("handle", handle)
-                .update();
+    public int renameSeller(
+            UUID sellerId, @Nullable String handle, @Nullable Instant since, String name) {
+        // The stored handle starts the title: that handle is replaced, whatever it was.
+        String set =
+                "UPDATE notification SET title = CASE WHEN left(title,"
+                    + " length(data->>'sellerHandle') + 1) = (data->>'sellerHandle') || ' ' THEN"
+                    + " :name || substring(title from length(data->>'sellerHandle') + 1) ELSE title"
+                    + " END, data = jsonb_set(data, '{sellerHandle}', to_jsonb(CAST(:name AS"
+                    + " text)), false) WHERE type = 'SALE_RECORDED' AND ";
+        int changed =
+                jdbc.sql(set + "data->>'sellerId' = :sellerId")
+                        .param("name", name)
+                        .param("sellerId", sellerId.toString())
+                        .update();
+        if (handle != null && since != null) {
+            changed +=
+                    jdbc.sql(
+                                    set
+                                            + "data->>'sellerId' IS NULL AND data->>'sellerHandle'"
+                                            + " = :handle AND created_at >= :since")
+                            .param("name", name)
+                            .param("handle", handle)
+                            .param("since", Timestamp.from(since))
+                            .update();
+        }
+        return changed;
     }
 
     private static Row map(ResultSet rs, int rowNum) throws SQLException {

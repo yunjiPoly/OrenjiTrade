@@ -13,27 +13,56 @@ import { MatIconModule } from '@angular/material/icon';
 import {
   BinderResponse,
   BindersService,
+  CardSuggestion,
+  CatalogService,
   InventoryItemResponse,
   InventoryService,
 } from '@orenji/api-client';
-import { Subject, Subscription, debounceTime } from 'rxjs';
+import { Subject, Subscription, debounceTime, firstValueFrom } from 'rxjs';
 import { silentErrors } from '../../../core/http/http-context';
+import { uniqueSuggestions } from '../../../shared/catalog/card-suggestions';
+import {
+  QUERY_MAX_LENGTH,
+  SUGGEST_LIMIT,
+  SUGGEST_MIN_CHARS,
+} from '../../../shared/catalog/catalog-constants';
+import { gameInfo } from '../../../shared/domain/games';
 import { printingCode, printingImageUrl } from '../../../shared/inventory/inventory-labels';
 import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
 import { itemPriceText } from '../../inventory/data/item-price';
+import { RouterLink } from '@angular/router';
+import {
+  type BinderLinkChoice,
+  type CardLinkChoice,
+  matchingBinders,
+  printingForSuggestion,
+} from '../../../shared/links/link-choices';
+import { ROOM_SHARE_COPY } from '../../community/data/community-copy';
 import { SHARE_COPY } from '../data/chat-copy';
 import { DraftAttachment } from '../data/message-draft';
 
 export interface SharePickerData {
   mode: 'card' | 'binder';
-  /** The other collector's handle. */
+  /** The other collector's handle (a chat). */
   other: string;
+  /**
+   * A community room instead of a chat (web WF, board W22): your public cards of the room's game,
+   * chosen as a printing to share in a post, and below them any card of the catalogue (`GET
+   * /cards/suggest`), as the phone and the web before WF (review F1); or every public binder and
+   * deck core, the room's game first (review R1-3).
+   */
+  room?: { name: string; game: string | null };
 }
 
-/** What the picker chose: one of the caller's cards (it pins the chat) or a public binder. */
+/** What the picker chose in a chat: one of the caller's cards (it pins the chat) or a binder. */
 export type ShareChoice = Extract<DraftAttachment, { kind: 'item' } | { kind: 'binder' }>;
+
+/** What the picker chose in a room: a printing of one of your cards, or a binder or deck core. */
+export type RoomShareChoice =
+  | { kind: 'card'; card: CardLinkChoice }
+  | { kind: 'binder'; binder: BinderLinkChoice; deckCore: boolean; price: string | null };
 
 interface Row {
   id: string;
@@ -43,7 +72,7 @@ interface Row {
   imageUrl: string | null;
   game: string | null;
   core: boolean;
-  choice: ShareChoice;
+  choice: ShareChoice | RoomShareChoice;
 }
 
 const SEARCH_DEBOUNCE_MS = 250;
@@ -54,11 +83,13 @@ const CARDS_PAGE = 30;
  * field and the caller's cards (newest first, `GET /inventory/items`) or public binders and deck
  * cores (`GET /binders`, effectively public only). Choosing a row closes the dialog with it; the
  * chat sends it at once (a card pins the chat's subject, stage R4). Skeleton, empty, no match and
- * an error with "Try again"; ↑↓ move between rows.
+ * an error with "Try again"; ↑↓ move between rows. In a room, "Share a card" also searches "All
+ * cards" of the catalogue below your own (a "Looking for…" post shares a card you do not have).
  */
 @Component({
   selector: 'app-share-picker-dialog',
   imports: [
+    RouterLink,
     MatButtonModule,
     MatDialogModule,
     MatIconModule,
@@ -143,9 +174,92 @@ const CARDS_PAGE = 30;
                 }
               </ul>
             } @else {
-              <p class="sp__empty" role="status">{{ emptyText() }}</p>
+              <div class="sp__empty-box">
+                <p class="sp__empty" role="status">{{ emptyText() }}</p>
+                @if (room && !query().trim()) {
+                  <a
+                    class="sp__add"
+                    routerLink="/inventory"
+                    [queryParams]="isCards ? { add: 'new' } : { tab: 'binders' }"
+                    mat-dialog-close
+                    >{{ isCards ? roomCopy.addCards : roomCopy.yourBinders }}</a
+                  >
+                }
+              </div>
             }
           }
+        }
+        @if (searchAll) {
+          <section
+            class="sp__all"
+            [attr.aria-labelledby]="allTitleId"
+            data-testid="share-all-cards"
+          >
+            <h3 class="sp__group" [id]="allTitleId">{{ roomCopy.allCards }}</h3>
+            @switch (allStatus()) {
+              @case ('idle') {
+                <p class="sp__hint">{{ roomCopy.allHint }}</p>
+              }
+              @case ('loading') {
+                <div class="sp__pad" aria-busy="true">
+                  <span class="visually-hidden">{{ roomCopy.allLoading }}</span>
+                  <app-skeleton variant="list" lines="3" />
+                </div>
+              }
+              @case ('error') {
+                <div class="sp__pad">
+                  <app-error-state
+                    [title]="roomCopy.allError"
+                    retryLabel="Try again"
+                    (retry)="searchCatalogue()"
+                  />
+                </div>
+              }
+              @default {
+                @if (allCards().length) {
+                  <ul class="sp__rows" [attr.aria-labelledby]="allTitleId">
+                    @for (card of allCards(); track suggestionKey(card); let i = $index) {
+                      <li>
+                        <button
+                          type="button"
+                          class="sp__row"
+                          [attr.data-row]="rows().length + i"
+                          [attr.aria-label]="
+                            rowLabel({
+                              name: card.name ?? '',
+                              line: suggestionLine(card),
+                              price: null,
+                            })
+                          "
+                          [attr.aria-disabled]="resolving() ? 'true' : null"
+                          (click)="pickSuggestion(card)"
+                          (keydown)="onRowKey($event, rows().length + i)"
+                        >
+                          <app-card-image
+                            class="sp__art"
+                            size="xs"
+                            [src]="card.imageUrl"
+                            [game]="card.game ?? ''"
+                            alt=""
+                          />
+                          <span class="sp__text">
+                            <span class="sp__name">{{ card.name }}</span>
+                            <span class="sp__line">{{ suggestionLine(card) }}</span>
+                          </span>
+                        </button>
+                      </li>
+                    }
+                  </ul>
+                } @else {
+                  <p class="sp__hint">{{ roomCopy.allNoMatch(allQuery()) }}</p>
+                }
+              }
+            }
+            @if (resolveError(); as problem) {
+              <p class="sp__problem" role="alert">{{ problem }}</p>
+            }
+            <p class="visually-hidden" aria-live="polite">{{ allAnnouncement() }}</p>
+          </section>
         }
       </div>
 
@@ -205,6 +319,25 @@ const CARDS_PAGE = 30;
     .sp__search,
     .sp__foot {
       flex: 0 0 auto;
+    }
+    .sp__empty-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      padding-bottom: 16px;
+    }
+    .sp__add {
+      display: inline-flex;
+      align-items: center;
+      height: 36px;
+      padding: 0 16px;
+      border: 1px solid var(--color-border-strong);
+      border-radius: var(--radius-pill);
+      color: var(--color-ink);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-semibold);
+      text-decoration: none;
     }
     .sp__search {
       display: flex;
@@ -304,6 +437,35 @@ const CARDS_PAGE = 30;
       color: var(--color-text-muted);
       text-align: center;
     }
+    .sp__all {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-1);
+      margin-top: var(--spacing-2);
+      padding-top: var(--spacing-3);
+      border-top: 1px solid var(--color-border);
+    }
+    .sp__group {
+      margin: 0;
+      padding: 0 var(--spacing-2);
+      color: var(--color-text-muted);
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-semibold);
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+    }
+    .sp__hint {
+      margin: 0;
+      padding: var(--spacing-2);
+      color: var(--color-text-muted);
+      font-size: var(--font-size-sm);
+    }
+    .sp__problem {
+      margin: 0;
+      padding: var(--spacing-2);
+      color: var(--color-danger);
+      font-size: var(--font-size-sm);
+    }
     .sp__foot {
       display: flex;
       flex-wrap: wrap;
@@ -321,20 +483,61 @@ const CARDS_PAGE = 30;
 export class SharePickerDialogComponent {
   protected readonly data = inject<SharePickerData>(MAT_DIALOG_DATA);
   private readonly ref =
-    inject<MatDialogRef<SharePickerDialogComponent, ShareChoice>>(MatDialogRef);
+    inject<MatDialogRef<SharePickerDialogComponent, ShareChoice | RoomShareChoice>>(MatDialogRef);
   private readonly inventory = inject(InventoryService);
   private readonly binders = inject(BindersService);
+  private readonly catalog = inject(CatalogService);
   private readonly document = inject(DOCUMENT);
 
   protected readonly copy = SHARE_COPY;
+  protected readonly roomCopy = ROOM_SHARE_COPY;
+  protected readonly room = this.data.room ?? null;
   protected readonly isCards = this.data.mode === 'card';
-  protected readonly title = this.isCards ? SHARE_COPY.cardTitle : SHARE_COPY.binderTitle;
-  protected readonly lead = this.isCards
-    ? SHARE_COPY.cardBody(this.data.other)
-    : SHARE_COPY.binderBody(this.data.other);
-  protected readonly placeholder = this.isCards ? SHARE_COPY.cardSearch : SHARE_COPY.binderSearch;
-  protected readonly foot = this.isCards ? SHARE_COPY.cardFoot : SHARE_COPY.binderFoot;
+  protected readonly title = this.room
+    ? this.isCards
+      ? ROOM_SHARE_COPY.cardTitle
+      : ROOM_SHARE_COPY.binderTitle
+    : this.isCards
+      ? SHARE_COPY.cardTitle
+      : SHARE_COPY.binderTitle;
+  protected readonly lead = this.room
+    ? ROOM_SHARE_COPY.lead
+    : this.isCards
+      ? SHARE_COPY.cardBody(this.data.other)
+      : SHARE_COPY.binderBody(this.data.other);
+  protected readonly placeholder = this.room
+    ? this.isCards
+      ? ROOM_SHARE_COPY.cardSearch(this.room.name)
+      : ROOM_SHARE_COPY.binderSearch
+    : this.isCards
+      ? SHARE_COPY.cardSearch
+      : SHARE_COPY.binderSearch;
+  protected readonly foot = this.room
+    ? this.isCards
+      ? ROOM_SHARE_COPY.cardFoot
+      : ROOM_SHARE_COPY.binderFoot
+    : this.isCards
+      ? SHARE_COPY.cardFoot
+      : SHARE_COPY.binderFoot;
   protected readonly errorTitle = this.isCards ? SHARE_COPY.loadError : SHARE_COPY.binderLoadError;
+  /** In a room, "Share a card" also searches every card of the catalogue (WF review F1). */
+  protected readonly searchAll = !!this.room && this.isCards;
+  protected readonly allTitleId = `sp-all-${Math.random().toString(36).slice(2, 8)}`;
+  protected readonly allStatus = signal<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  protected readonly allCards = signal<CardSuggestion[]>([]);
+  protected readonly allQuery = signal('');
+  protected readonly resolving = signal(false);
+  protected readonly resolveError = signal<string | null>(null);
+  protected readonly allAnnouncement = computed(() => {
+    if (this.allStatus() !== 'ready') {
+      return '';
+    }
+    const count = this.allCards().length;
+    return count
+      ? `${count} ${count === 1 ? 'card' : 'cards'} found in all cards.`
+      : ROOM_SHARE_COPY.allNoMatch(this.allQuery());
+  });
+  private suggestRequest: Subscription | null = null;
 
   protected readonly query = signal('');
   protected readonly status = signal<'loading' | 'ready' | 'error'>('loading');
@@ -353,30 +556,77 @@ export class SharePickerDialogComponent {
         imageUrl: printingImageUrl(item.printing),
         game: item.card.game ?? null,
         core: false,
-        choice: { kind: 'item', itemId: item.id, name: item.card.name },
+        choice: this.room
+          ? {
+              kind: 'card',
+              card: {
+                printingId: item.printing.id ?? '',
+                cardId: item.card.id,
+                name: item.card.name,
+                printingCode: printingCode(item.printing) || null,
+                imageUrl: printingImageUrl(item.printing),
+                game: item.card.game ?? null,
+              },
+            }
+          : { kind: 'item', itemId: item.id, name: item.card.name },
       }));
     }
-    const needle = this.query().trim().toLowerCase();
-    return this.allBinders()
-      .filter((b) => b.effectivePublic && !b.soldAt)
-      .filter((b) => !needle || b.name.toLowerCase().includes(needle))
-      .map((b) => ({
-        id: b.id,
-        name: b.name,
-        line: b.sellsAsCore ? SHARE_COPY.deckCore : SHARE_COPY.binder,
-        price: b.sellsAsCore ? (b.askingPriceText?.trim() ?? null) : null,
-        imageUrl: null,
-        game: b.game ?? null,
-        core: !!b.sellsAsCore,
-        choice: {
-          kind: 'binder',
-          binder: { binderId: b.id, name: b.name, itemCount: b.itemCount },
-        },
-      }));
+    const room = this.room;
+    // Public binders whose name matches without case or accents (the web's binder picker before
+    // WF, removed with it). In a room, every public binder as on the phone and the web before WF
+    // (a post may share a binder of any game), the room's game first (WF review R1-3).
+    const binders = matchingBinders(this.allBinders(), this.query()).filter((b) => !b.soldAt);
+    const roomGame = room?.game ?? null;
+    const ordered = roomGame
+      ? [
+          ...binders.filter((b) => !b.game || b.game === roomGame),
+          ...binders.filter((b) => b.game && b.game !== roomGame),
+        ]
+      : binders;
+    return ordered.map((b) => ({
+      id: b.id,
+      name: b.name,
+      // In a room, the board's "Public binder · Yu-Gi-Oh!" (W22), naming the binder's own game;
+      // in a chat, "Binder".
+      line: room
+        ? [
+            b.sellsAsCore ? SHARE_COPY.deckCore : ROOM_SHARE_COPY.publicBinder,
+            b.game ? gameInfo(b.game).shortLabel : '',
+          ]
+            .filter(Boolean)
+            .join(' · ')
+        : b.sellsAsCore
+          ? SHARE_COPY.deckCore
+          : SHARE_COPY.binder,
+      price: b.sellsAsCore ? (b.askingPriceText?.trim() ?? null) : null,
+      imageUrl: null,
+      game: b.game ?? null,
+      core: !!b.sellsAsCore,
+      choice: this.room
+        ? {
+            kind: 'binder',
+            binder: { binderId: b.id, name: b.name, itemCount: b.itemCount },
+            deckCore: !!b.sellsAsCore,
+            price: b.sellsAsCore ? (b.askingPriceText?.trim() ?? null) : null,
+          }
+        : {
+            kind: 'binder',
+            binder: { binderId: b.id, name: b.name, itemCount: b.itemCount },
+          },
+    }));
   });
 
   protected readonly emptyText = computed(() => {
     const q = this.query().trim();
+    const room = this.room;
+    if (room) {
+      if (q) {
+        return this.isCards
+          ? ROOM_SHARE_COPY.cardNoMatch(room.name, q)
+          : ROOM_SHARE_COPY.binderNoMatch(q);
+      }
+      return this.isCards ? ROOM_SHARE_COPY.cardEmpty(room.name) : ROOM_SHARE_COPY.binderEmpty;
+    }
     if (q) {
       return this.isCards ? SHARE_COPY.cardNoMatch(q) : SHARE_COPY.binderNoMatch(q);
     }
@@ -384,12 +634,18 @@ export class SharePickerDialogComponent {
   });
 
   constructor() {
-    const typing = this.typed
-      .pipe(debounceTime(SEARCH_DEBOUNCE_MS))
-      .subscribe(() => this.isCards && this.load());
+    const typing = this.typed.pipe(debounceTime(SEARCH_DEBOUNCE_MS)).subscribe(() => {
+      if (this.isCards) {
+        this.load();
+      }
+      if (this.searchAll) {
+        this.searchCatalogue();
+      }
+    });
     inject(DestroyRef).onDestroy(() => {
       typing.unsubscribe();
       this.request?.unsubscribe();
+      this.suggestRequest?.unsubscribe();
     });
     this.load();
   }
@@ -401,7 +657,16 @@ export class SharePickerDialogComponent {
       const query = this.query().trim() || undefined;
       this.request = this.inventory
         .listInventoryItems(
-          { query, sort: 'updated', direction: 'desc', size: CARDS_PAGE },
+          this.room
+            ? {
+                query,
+                game: this.room.game ?? undefined,
+                markedPublic: true,
+                sort: 'updated',
+                direction: 'desc',
+                size: CARDS_PAGE,
+              }
+            : { query, sort: 'updated', direction: 'desc', size: CARDS_PAGE },
           'body',
           false,
           { context: silentErrors() },
@@ -424,6 +689,85 @@ export class SharePickerDialogComponent {
         },
         error: () => this.status.set('error'),
       });
+  }
+
+  /** "All cards": the catalogue's suggestions for two letters or more (`GET /cards/suggest`). */
+  protected searchCatalogue(): void {
+    const q = this.query().trim().slice(0, QUERY_MAX_LENGTH);
+    this.suggestRequest?.unsubscribe();
+    this.resolveError.set(null);
+    if (q.length < SUGGEST_MIN_CHARS) {
+      this.allCards.set([]);
+      this.allStatus.set('idle');
+      return;
+    }
+    this.allStatus.set('loading');
+    this.suggestRequest = this.catalog
+      .suggestCards({ q, limit: SUGGEST_LIMIT }, 'body', false, { context: silentErrors() })
+      .subscribe({
+        next: (items) => {
+          this.allCards.set(uniqueSuggestions(items ?? []));
+          this.allQuery.set(q);
+          this.allStatus.set('ready');
+        },
+        error: () => {
+          this.allCards.set([]);
+          this.allQuery.set(q);
+          this.allStatus.set('error');
+        },
+      });
+  }
+
+  /**
+   * A catalogue card chosen: its printing (a card suggestion resolves to the printing with the
+   * suggested code through `GET /cards/{id}`), shared as the card of the post.
+   */
+  protected async pickSuggestion(suggestion: CardSuggestion): Promise<void> {
+    if (this.resolving() || !suggestion.id) {
+      return;
+    }
+    this.resolveError.set(null);
+    let printingId = printingForSuggestion(suggestion, null);
+    if (!printingId) {
+      this.resolving.set(true);
+      try {
+        const card = await firstValueFrom(
+          this.catalog.getCard({ id: suggestion.id }, 'body', false, { context: silentErrors() }),
+        );
+        printingId = printingForSuggestion(suggestion, card);
+      } catch {
+        printingId = null;
+      } finally {
+        this.resolving.set(false);
+      }
+    }
+    if (!printingId) {
+      this.resolveError.set(ROOM_SHARE_COPY.cannotShare);
+      return;
+    }
+    const choice: RoomShareChoice = {
+      kind: 'card',
+      card: {
+        printingId,
+        cardId: suggestion.id,
+        name: suggestion.name ?? 'Card',
+        printingCode: suggestion.printingCode ?? null,
+        imageUrl: suggestion.imageUrl ?? null,
+        game: suggestion.game ?? null,
+      },
+    };
+    this.ref.close(choice);
+  }
+
+  /** "Yu-Gi-Oh! · LOB-001": the game and the printing code of a catalogue card. */
+  protected suggestionLine(suggestion: CardSuggestion): string {
+    return [suggestion.game ? gameInfo(suggestion.game).shortLabel : '', suggestion.printingCode]
+      .filter(Boolean)
+      .join(' · ');
+  }
+
+  protected suggestionKey(suggestion: CardSuggestion): string {
+    return `${suggestion.kind}:${suggestion.id}:${suggestion.printingId ?? ''}`;
   }
 
   protected onQuery(event: Event): void {

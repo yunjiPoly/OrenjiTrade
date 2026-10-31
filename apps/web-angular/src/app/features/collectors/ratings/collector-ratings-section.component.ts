@@ -71,6 +71,7 @@ import { RatingSummaryComponent } from './rating-summary.component';
           <app-error-state
             compact
             title="Ratings could not load"
+            retryLabel="Try again"
             [message]="errorMessage()"
             [requestId]="store.error()?.requestId ?? null"
             (retry)="store.load()"
@@ -84,6 +85,7 @@ import { RatingSummaryComponent } from './rating-summary.component';
                 <app-empty-state
                   icon="star_outline"
                   title="No ratings yet"
+                  [level]="3"
                   [description]="
                     isOwn()
                       ? 'Collectors can rate you after a deal or a real conversation.'
@@ -148,7 +150,7 @@ import { RatingSummaryComponent } from './rating-summary.component';
             <p class="ratings__muted">
               @if (store.referencesFailed()) {
                 References could not load.
-                <button matButton type="button" (click)="store.loadReferences()">Retry</button>
+                <button matButton type="button" (click)="store.loadReferences()">Try again</button>
               } @else {
                 No references yet.
               }

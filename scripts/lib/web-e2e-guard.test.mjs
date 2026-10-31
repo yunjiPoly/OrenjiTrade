@@ -11,7 +11,6 @@ import {
   E2E_DB,
   E2E_REALTIME_CHANNEL_PREFIX,
   INFO_KEY,
-  PAUSED_WEB_CHANNELS,
   assertIsolated,
   assertRecreatable,
   comparablePath,
@@ -28,7 +27,6 @@ import {
   isolationProblems,
   newRunId,
   overlaps,
-  pausedWebChannelsSql,
   portProblem,
   redisDatabaseOf,
   reuseRefusal,
@@ -330,20 +328,5 @@ describe('test accounts', () => {
     assert.ok(isLocalUrl('http://[::1]:8080'));
     assert.ok(!isLocalUrl('https://api.orenjitrade.com'));
     assert.ok(!isLocalUrl('not a url'));
-  });
-});
-
-describe("the paused web's community channels (stage R11)", () => {
-  it('come back in the E2E database only, and only the seven channels of V041 and V110', () => {
-    assert.deepEqual(
-      [...PAUSED_WEB_CHANNELS],
-      ['americas-north', 'americas-south', 'europe', 'looking-for', 'new-listings', 'trades', 'general'],
-    );
-    const sql = pausedWebChannelsSql(E2E_DB);
-    assert.match(sql, /^UPDATE community_channel SET status = 'ACTIVE'/);
-    assert.match(sql, /WHERE status = 'ARCHIVED' AND slug IN \('americas-north', 'americas-south', 'europe', 'looking-for', 'new-listings', 'trades', 'general'\)$/);
-    assert.doesNotMatch(sql, /-(yugioh|pokemon|mtg|onepiece|riftbound)'/);
-    assert.throws(() => pausedWebChannelsSql('orenjitrade'), /orenjitrade_e2e only/);
-    assert.throws(() => pausedWebChannelsSql('orenjitrade_mobile_e2e'), /orenjitrade_e2e only/);
   });
 });

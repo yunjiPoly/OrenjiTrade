@@ -14,8 +14,9 @@ import { ToastService } from './toast.service';
 /**
  * The toast stack of the shell (spec 4.8): bottom-left, 24 px from the rail and the bottom edge
  * (above the tab bar below 960), at most 400 wide, newest at the bottom. The stack is a polite
- * live region, each toast a `status` (an error toast an alert); the timers pause while the pointer
- * or the focus is on a toast.
+ * live region that reads each new toast once (a `status` inside it was read a second time, WE
+ * review A11); an error toast is an alert. The timers pause while the pointer or the focus is on
+ * a toast.
  *
  * The host moves to the end of `<body>` and carries `aria-live`: a CDK dialog or drawer hides
  * every other child of `<body>` from assistive technology while it is open, except live regions,
@@ -37,7 +38,7 @@ import { ToastService } from './toast.service';
         <div
           class="toast"
           [class.toast--error]="toast.tone === 'error'"
-          [attr.role]="toast.tone === 'error' ? 'alert' : 'status'"
+          [attr.role]="toast.tone === 'error' ? 'alert' : null"
           data-testid="toast"
         >
           <app-shell-icon

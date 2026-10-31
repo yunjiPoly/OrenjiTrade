@@ -1,21 +1,29 @@
+import { DOCUMENT } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
+  Injector,
+  afterNextRender,
   computed,
   effect,
   inject,
   input,
+  signal,
+  untracked,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { FEATURE, FeatureFlagsService } from '../../core/feature-flags/feature-flags.service';
+import { GameContext } from '../../core/game/game-context.service';
+import { RegionContext } from '../../core/region/region-context.service';
 import { ShellLayout } from '../../core/layout/shell-layout.service';
 import { ShellTabTitleDirective } from '../../core/layout/shell-tab-title.directive';
 import { UnreadChats } from '../../core/layout/unread-chats/unread-chats';
-import { CommunityPageComponent } from '../community/community-page.component';
+import { CommunityViewComponent } from '../community/community-view.component';
 import { EmptyStateComponent } from '../../shared/ui/empty-state/empty-state.component';
 import {
   UnderlineTab,
@@ -43,28 +51,34 @@ import { RealtimeStatusComponent } from './realtime-status/realtime-status.compo
     MessengerComponent,
     RealtimeStatusComponent,
     UnderlineTabsComponent,
-    CommunityPageComponent,
+    CommunityViewComponent,
     ShellTabTitleDirective,
   ],
   template: `
     @if (auth.isAuthenticated()) {
       @if (showCommunity()) {
-        <div class="page messages-page">
-          <header class="messages-page__header">
+        <app-community-view
+          class="messages"
+          [class.messages--chat]="layout.inChat()"
+          [split]="split()"
+          [slug]="room() ?? null"
+        >
+          <header inboxHeader class="inbox-head">
             <div class="messages-page__titles">
               <h1 class="messages-page__title" appShellTabTitle>Messages</h1>
               <app-realtime-status />
             </div>
             <app-underline-tabs label="Messages" [tabs]="tabs()" />
           </header>
-          <app-community-page embedded [slug]="room()" />
-        </div>
+        </app-community-view>
       } @else {
         <app-messenger
           class="messages"
           [class.messages--chat]="layout.inChat()"
           [split]="split()"
           [conversationId]="id() ?? null"
+          [focusChat]="chatFocus()"
+          (chatFocused)="chatFocus.set(null)"
           (openedChange)="onOpened($event)"
         >
           <header inboxHeader class="inbox-head">
@@ -169,6 +183,16 @@ export class MessagesPageComponent {
 
   private readonly flags = inject(FeatureFlagsService);
   private readonly unread = inject(UnreadChats);
+  private readonly region = inject(RegionContext);
+  private readonly game = inject(GameContext);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
+  private readonly document = inject(DOCUMENT);
+
+  /** A chat opened from a community room: it takes the focus once on screen (WF review A2). */
+  protected readonly chatFocus = signal<string | null>(null);
+  /** Whether Community was shown (`undefined`: nothing yet). */
+  private shownCommunity: boolean | undefined = undefined;
 
   /** `:id` route parameter (withComponentInputBinding). */
   readonly id = input<string | undefined>();
@@ -192,13 +216,22 @@ export class MessagesPageComponent {
         dot: unread > 0,
         dotLabel: unread > 0 ? `, ${unread} unread` : undefined,
       },
-      {
-        id: 'community',
-        label: 'Community',
-        commands: ['/messages'],
-        queryParams: { tab: 'community' },
-        active: this.showCommunity(),
-      },
+      // At 960 and wider Community opens the browsed game's room of the browsed region at once
+      // (spec 10.7); below, the list of the five rooms first, as on the phone.
+      this.split()
+        ? {
+            id: 'community',
+            label: 'Community',
+            commands: ['/messages', 'community', `${this.region.current()}-${this.game.current()}`],
+            active: this.showCommunity(),
+          }
+        : {
+            id: 'community',
+            label: 'Community',
+            commands: ['/messages'],
+            queryParams: { tab: 'community' },
+            active: this.showCommunity(),
+          },
     ];
   });
 
@@ -206,11 +239,45 @@ export class MessagesPageComponent {
   protected readonly split = computed(() => !this.layout.narrow());
 
   constructor() {
-    // A chat below 960 opens above the tabs (no per-tab bar, no tab bar), as on the phone.
+    // A chat or a room below 960 opens above the tabs (no per-tab bar, no tab bar), as on the
+    // phone.
     effect(() =>
-      this.layout.setChatOpen(this.auth.isAuthenticated() && !this.showCommunity() && !!this.id()),
+      this.layout.setChatOpen(
+        this.auth.isAuthenticated() && (this.showCommunity() ? !!this.room() : !!this.id()),
+      ),
     );
     inject(DestroyRef).onDestroy(() => this.layout.setChatOpen(false));
+    // Chats | Community swap the whole column, the tabs with it: the focus would fall to the page
+    // (WF review U8). It goes to the tab now active, or to the chat a room's "Message {h}" opened.
+    effect(() => {
+      const community = this.showCommunity();
+      untracked(() => {
+        const previous = this.shownCommunity;
+        this.shownCommunity = community;
+        if (previous === undefined || previous === community) {
+          return;
+        }
+        const id = this.id();
+        if (!community && id) {
+          this.chatFocus.set(id);
+          return;
+        }
+        afterNextRender(
+          () => {
+            const active = this.document.activeElement;
+            if (active && active !== this.document.body && active.isConnected) {
+              return;
+            }
+            this.host.nativeElement
+              .querySelector<HTMLElement>(
+                `[data-testid="tab-link-${community ? 'community' : 'chats'}"]`,
+              )
+              ?.focus();
+          },
+          { injector: this.injector },
+        );
+      });
+    });
   }
 
   protected onOpened(id: string | null): void {

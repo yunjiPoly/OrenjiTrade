@@ -7,9 +7,11 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
+**Last updated:** 2026-10-30 (stage WE merged into `main` as #100, merge commit `7b360a02`, after one Trivy exception, CVE-2026-118664, the `decode-uri-component` advisory of WD's npm allowlist entry, same reason and expiry; `origin/main` merged into WF's branch at `13a6e72e`; WF's check of review fix 2 approved it, its first round's 11 nits carried into stage WG; see NEXT TASK).
+**Last updated:** 2026-10-30 (stage WF of the web redesign, builder: Messages › Community on the R11 rooms (board W22): the five game rooms of the browsed region with Community's own region pill beside the open room, posts read like a chat with a shared card, deck core or binder and a phone's photos read only, the "⋯" menu (Message, Report this post, Block), the message box with "+" (Share a card, Share a binder or deck core), Room rules as the third pane, a drawer at md and a sheet below 960; WE's R2-1 and nits fixed first; one additive API change (`raterId` and `sellerId` in rating and sale notifications, the deletion matching on them); no migration; see "Web redesign WF: Messages > Community (2026-10-30)").
 **Last updated:** 2026-10-30 (stage WE of the web redesign, builder: Home's feed with the chips, "New posts · Show" without a number, the end, day one, "I have it" with its draft, Get started or the guest card and a static SVG map card; profiles (W23, W23b); the bell's popover and `/notifications` without chats, reminders answered in place; Settings' grouped nav, Location, Appearance tiles, Legal; WD's R2-1 and nits and WC's V3-1 fixed first; additive API: `previews` on `GET /feed` and the deletion renaming the deleted collector in others' notifications; no migration; see "Web redesign WE: Home, profiles, notifications and settings (2026-10-29)").
 **Last updated:** 2026-10-29 (stage WC's review fix 3, targeted, R2-2 and R2-1: an account deletion now gives every conversation whose last message it erased the newest message left as its last one, or none, so no inbox preview keeps the erased text (an address or an e-Transfer email included); at md a search field with text keeps its Esc for the browser's own clear and the chat drawer stays, the next Esc closes it; an API fix with no DTO, OpenAPI, schema or migration change, the web drawer and their tests; see "Review fix 3 (targeted, R2-2 and R2-1)" in the WC section).
-**Last updated:** 2026-10-30 (stage WE's review fix 2, round 2 of 2: the mouse wheel over Home's rail scrolls the rail to its end and then the page (no overscroll containment); "Still have them" answered in the bell while `/notifications` is open keeps the focus on the popover's own row; web only, no API, token or migration change; see "Review fix 2" in the WE section). Before: 2026-10-29 (stage WC's review fix 2, round 2 of 2: at md, where the chat drawer overlays the page, Esc on the page closes it and keeps the focus there, so a control under it shows again (WCAG 2.4.11); Remove attachment gives the focus to the message field; the stored message preview and the "Accepted offer" history label answered as owner or lead calls; web only, no API, token or migration change; see "Review fix 2" in the WC section). Before: 2026-10-29 (stage WC's review fix 1: the chat drawer and the unsent drafts follow the account (a sign-out or another account closes the drawer and forgets every draft); `/messages` and `/messages/:id` one route so the inbox keeps its focus; the drawer pushes the page at lg and xl; below 960 a chat opens above the tabs and "+" and "⋯" are bottom sheets; a short window keeps 160 px of thread; the deal panel's WITH keeps the rating only and says when it could not load; a failed quick reply's Try again, picked cards wait in the composer, the seller's address lead, the live Rate, focus, names and contrast; web only, no API, token or migration change; see "Review fix 1" in the WC section). Before: 2026-10-29 (stage WC of the web redesign, "Messages: the deal beside the chat" (W18 to W21): WB's V3-1 fixed first (Import's rows read with a request counter); the inbox (340), the chat and the deal panel (320) at lg, the deal panel a drawer at md and a sheet below 960, one pane per route; the pinned card with Mark as sold (copies, tracking) and its undo, the sale notes, the quick replies, the "+" menu with the address and the e-Transfer email typed each time and never saved (decision 9), a photo, a card from your inventory and a binder; Rate and Report as spec 10.5; the non-modal chat drawer from Who has this card, binders, Home and profiles (F6, Esc); Settings › Shipping details; refusals worded the same for every reason; the chat tokens reach the web; no API change, no migration; see "Web redesign WC" below). Before: 2026-10-23 (stage R14's review fix 1: a refusal in the bar at the bottom held to the button's text size and to a quarter of the window (Report, Rate, Write a reference, the wish form); Add a wish's line above the card search held small, so the field stays at the top; Import done closes the toast of Check the cards; a binder's card picker says when there is no card of its game; "Leave out" right under the amber bar and the lines it leaves out shown as left out; a line's copies alone ("×3") while the file names no condition; the wish's price chips the terms alone; tests for a set's paging, the grid's columns, a cleared details row, the 600-character comment and Import done's count; the native report flow ends with a refusal at the largest size; phone and tests only, no API change, no migration; see "Review fix 1" in the R14 section). Before: 2026-10-23 (stage R14 of the phone redesign, "Report, rating, reference, binders, wishes, import and sets (60 to 69)": Report collector with the server's reasons as radio rows and "Send report" grey with "Choose a reason first.", Report sent in place; Rate a collector with the deal ("{card} · sold to you {date}": `dealName` and `soldToYou` on a sale's `RatingEligibilityInteraction`, through the ratings module's `SaleDeals` extension point implemented by deals), Overall's 34 pt stars and word, clearable details rows, "Write a reference instead" and "Publish rating"; Write a reference; New binder with its game's line; "Add a wish" opening Search's card search, the form with price chips, Edit a wish with its remove sheet; the import's file step, Check the cards and Import done; a set with "Who has cards of this set" and a three-column grid, paged; refusals said in the bar at the bottom; no migration; on `feature/r7-home` for the one giant pull request; see "Phone redesign R14: Report, rating, reference, binders, wishes, import and sets (60 to 69) (2026-10-23)"). Before: 2026-10-23 (stage R13's review fix 2, the last round: P3, Blocked collectors' "They are never told.", answered with evidence and no code change; owner follow-up 7 restated with what the blocked side can still read over HTTP, last active and online status included, and the API remedy recommended; the quick checks green at `5f3987c2`; next: stage R14)
+**Last updated:** 2026-10-30 (stage WF's review fix 2, round 2 of 2: a room's 15-second refresh adds the new posts only and never reads older pages into the room or its live log; "Try again" after a network refusal posts the message box as it is now; "Share a binder or deck core" in a room lists every public binder, the room's game first; "Report this post" shows every reason and Details at 1440x900 as board W22; web only, no API, token or migration change; see "Review fix 2 (round 2 of 2)" in the WF section). Before: 2026-10-30 (stage WE's review fix 2, round 2 of 2: the mouse wheel over Home's rail scrolls the rail to its end and then the page (no overscroll containment); "Still have them" answered in the bell while `/notifications` is open keeps the focus on the popover's own row; web only, no API, token or migration change; see "Review fix 2" in the WE section). Before: 2026-10-29 (stage WC's review fix 2, round 2 of 2: at md, where the chat drawer overlays the page, Esc on the page closes it and keeps the focus there, so a control under it shows again (WCAG 2.4.11); Remove attachment gives the focus to the message field; the stored message preview and the "Accepted offer" history label answered as owner or lead calls; web only, no API, token or migration change; see "Review fix 2" in the WC section). Before: 2026-10-29 (stage WC's review fix 1: the chat drawer and the unsent drafts follow the account (a sign-out or another account closes the drawer and forgets every draft); `/messages` and `/messages/:id` one route so the inbox keeps its focus; the drawer pushes the page at lg and xl; below 960 a chat opens above the tabs and "+" and "⋯" are bottom sheets; a short window keeps 160 px of thread; the deal panel's WITH keeps the rating only and says when it could not load; a failed quick reply's Try again, picked cards wait in the composer, the seller's address lead, the live Rate, focus, names and contrast; web only, no API, token or migration change; see "Review fix 1" in the WC section). Before: 2026-10-29 (stage WC of the web redesign, "Messages: the deal beside the chat" (W18 to W21): WB's V3-1 fixed first (Import's rows read with a request counter); the inbox (340), the chat and the deal panel (320) at lg, the deal panel a drawer at md and a sheet below 960, one pane per route; the pinned card with Mark as sold (copies, tracking) and its undo, the sale notes, the quick replies, the "+" menu with the address and the e-Transfer email typed each time and never saved (decision 9), a photo, a card from your inventory and a binder; Rate and Report as spec 10.5; the non-modal chat drawer from Who has this card, binders, Home and profiles (F6, Esc); Settings › Shipping details; refusals worded the same for every reason; the chat tokens reach the web; no API change, no migration; see "Web redesign WC" below). Before: 2026-10-23 (stage R14's review fix 1: a refusal in the bar at the bottom held to the button's text size and to a quarter of the window (Report, Rate, Write a reference, the wish form); Add a wish's line above the card search held small, so the field stays at the top; Import done closes the toast of Check the cards; a binder's card picker says when there is no card of its game; "Leave out" right under the amber bar and the lines it leaves out shown as left out; a line's copies alone ("×3") while the file names no condition; the wish's price chips the terms alone; tests for a set's paging, the grid's columns, a cleared details row, the 600-character comment and Import done's count; the native report flow ends with a refusal at the largest size; phone and tests only, no API change, no migration; see "Review fix 1" in the R14 section). Before: 2026-10-23 (stage R14 of the phone redesign, "Report, rating, reference, binders, wishes, import and sets (60 to 69)": Report collector with the server's reasons as radio rows and "Send report" grey with "Choose a reason first.", Report sent in place; Rate a collector with the deal ("{card} · sold to you {date}": `dealName` and `soldToYou` on a sale's `RatingEligibilityInteraction`, through the ratings module's `SaleDeals` extension point implemented by deals), Overall's 34 pt stars and word, clearable details rows, "Write a reference instead" and "Publish rating"; Write a reference; New binder with its game's line; "Add a wish" opening Search's card search, the form with price chips, Edit a wish with its remove sheet; the import's file step, Check the cards and Import done; a set with "Who has cards of this set" and a three-column grid, paged; refusals said in the bar at the bottom; no migration; on `feature/r7-home` for the one giant pull request; see "Phone redesign R14: Report, rating, reference, binders, wishes, import and sets (60 to 69) (2026-10-23)"). Before: 2026-10-23 (stage R13's review fix 2, the last round: P3, Blocked collectors' "They are never told.", answered with evidence and no code change; owner follow-up 7 restated with what the blocked side can still read over HTTP, last active and online status included, and the API remedy recommended; the quick checks green at `5f3987c2`; next: stage R14)
 **Last updated:** 2026-10-29 (stage WD's review fix 2, round 2 of 2: Search's set list sends the browsed game and a game switch leaves the old game's set (the blocker); a tap by the set page's footer lands; the toasts clear the wishlist dock as measured; Esc hides a hovered note or state tooltip with the focus anywhere; the narrow state card above the tab bar as board W29 with "Canada · your province", no tooltip after a tap, map tooltips inside the map; web only, no API, token or migration change; see "Review fix 2" in the WD section). Before: 2026-10-29 (stage WD's review fix 1: the reviewers' 51 findings: a real click on Search's map lands again (the outlines in their own pane, no shape moved on hover), the map's shapes out of the Tab order, region and game switches drop a stale state or binder, the Add and Edit wish dialog of spec 6.6 with Remove (no market amount), the viewer's place and kept game per account, the owner's rating with the public binder (`ownerRating`, additive, no profile read), the narrow first view's map card, "Who has cards of this set" on that set's cards, the deck core panel, sets' names and editions, keyboard and screen-reader paths, tests for every rule a mutant passed; no migration; see "Review fix 1" in the WD section). Before: 2026-10-29 (stage WD of the web redesign, builder: Search beside the map with the game pill, a binder or deck core opened beside the list spending a view only on an explicit open, the Wishlist tab with its holder pane, Who has this card at `/cards/:id` with the printing picker, "Jump to", "Also in a deck core" and "I have this card", set pages with "Add from this set", the binder and deck core pages; one additive API parameter (`sort` on a public binder's items), no migration; see "Web redesign WD: Search, Who has this card, sets, binders and deck cores (2026-10-29)"). Before: 2026-10-29 (stage WB's review fix 3, targeted, R2-1: on Import's check every row control (the include box, the copies, the printing) holds while its row saves, while "Use the newest" or a section saves and while the lines reload, and a box always ends showing what its row or section holds, so a line left out on screen is never added and a refused or failed toggle is put back; unit tests of the rows and the page, the import E2E waits for the reload, 80 of 80 E2E and the import spec 3 of 3 alone with retries off; web and its tests only, no API, token, phone or migration change; see "Review fix 3 (targeted, R2-1)" in the WB section). Before: 2026-10-29 (stage WB's review fix 2: the toolbar's Clear filters and Import's "Use the newest" keep the focus on the page by keyboard (a row of the list, "Check the cards"), a focused or hovered menu item's hint at AA in dark, an E2E for a photo dropped on Inventory; the other five findings answered without a change (spec points for the owner, WA's shell, a shared token); web and its tests only, no API, token, phone or migration change; see "Review fix 2" in the WB section). Before: 2026-10-29 (stage WB's review fix 1: the reviewers' 42 findings, web, its tests and documents only: Undo of a big delete paced against the per-minute limit with an Undo kept for the cards still waiting, "View public page" back for public binders, the visibility banner's real cause with Privacy settings, a binder move keeping a temporary publication, quick add without a late re-chosen printing, printings of one code told apart, the inline price unchanged on Enter, the focus kept after every action and Esc on the page, inline saves and other changes announced, the copies stepper by keyboard, the 2 px ring on Material buttons, shortcuts off in drawers, the leave guard, the import at md and its footer, the skip links; no API, token, phone or migration change; see "Review fix 1" in the WB section). Before: 2026-10-29 (web redesign stage WB, Inventory and Import, built on `feature/wb-inventory-import` (stacked on WA): the phone's card model on the web, the binder pane by game, the table and the grid, selection and the bulk dock with Undo, inline price and copies, quick add rows (Shift+N), drag to same-game binders with menu paths, the Edit card and Add cards drawers, the Binders tab, Edit binder and New binder, the import at `/inventory/import`; the availability chips' AA contrast; the deck core tokens reach the web; the phone's web E2E harness refuses a stale build; no API change, no migration; the post-import selection waits (the commit returns no ids); see "Web redesign WB: Inventory and Import (2026-10-29)"). Before: 2026-10-28 (stage WA's review fix 2: the phone's per-tab top bars below 960 on the five tabs' own pages (the tab's title in Sora 28, the pills on Home and Search, the bell; the account menu on Profile; the page's own title visually hidden); old offer, trade, payment and dispute notices head "Past offer on {card}" with the old links' sentence; `re2js` 2.8.8 in the lockfile, so `audit:gate` is green; the chips' contrast left to WB and WD; web, lockfile and documents only, no API, token, phone or migration change; see "Review fix 2" in the WA section). Before: 2026-10-28 (stage WA's review fix 1: the reviewers' 42 findings, web and tests only: Legal's "See also" without the payment policies while `protectedPayments` is off, no "Accepts offers" filter, old offer notices as history, the Messages badge by chats, "/" and Ctrl/Cmd+K keeping Search's tab, an AA orange text tone in light for Material and the shell, Material focus rings, popovers that keep the focus, toasts announced over dialogs, the search's Tab, arrows and live announcements, the catalogue's `text=`, the ratings without meetups; U3 (per-tab top bars below 960) left to the owner; `audit:gate` red on a new `re2js` advisory; see "Review fix 1" in the WA section). Before: 2026-10-28 (web redesign stage WA, Tokens and the shell, built on `feature/wa-tokens-shell`: the tokens with light `onPrimary` in ink shared with the phone, Material through the tokens, the new shell (top bar with the region and game pills and the global search, the rail, the tab bar below 960, the account menu, toasts, drawers, the keyboard shortcuts and the "?" dialog with its off switch), the routes and redirects of spec 4.11, offers, trades, checkout and disputes out of the web UI; no API change, no migration; see "Web redesign WA: Tokens and the shell (2026-10-28)"). Before: 2026-10-27 (the second giant pull request merged into `main`, #87, `7bfc879e`: stages R12 to R15 and the wrap-up R8; every CI check green, the web build's Google Fonts download retried once; the phone redesign is complete; NEXT TASK and the handoff updated, and NEXT TASK's stale R7 paragraph ("not pushed", "V134") corrected; documents only). Before: 2026-10-27 (stage R8's review fix 1: the guest card's tint fills the card on the web build again and on iOS (one frame without padding for both); a test that the guest card draws the theme's faint stops; an empty state's description never larger than its title; at large text sizes Who has this card puts the picture above the name, Add cards' "Coming later" goes under "Scan with camera", and the deck core page's back button stays on screen with a band under the clock; the documents say what R8's walk covered at the largest size and what a suspended collector sees (one owner decision with R12's); phone and documents only, no API change, no migration; the full native suite 42 / 43, the one failure a run crossing midnight, 1 / 1 alone; see "Review fix 1" in the R8 section). Before: 2026-10-26 (stage R8 of the phone redesign, the wrap-up, done last in the giant pull request: the documents after the whole redesign (CLAUDE.md, the product overview, the contracts index, the test accounts, the seed data, the READMEs, the handoff); the full native suite on the owner's iPhone 18 Pro (two R15 flows never run on the iPhone failed and were fixed: R15's F3 closed; the reviewers' verifier then ran every flow on `5182b992`, 43 / 43); a walk of every mockup screen in dark and light at the default size (73 of 77) and, at the largest text size, of the screens in R8's table (60 of 77 signed in, dark), one screenshot each for the pull request; fixed: the guest card's tint on iOS and an empty state's title at the largest size; no migration, no API change; see "Phone redesign R8: Wrap-up of the phone redesign (spec section 15, R8), done last in the giant pull request (2026-10-26)"). Before: 2026-10-25 (stage R15's review fix 2: the wishlist alert's distance check no longer fails on a random handle holding "km" (the test's seller always has one now); two native flows prepared, a guest's Message on a plain public binder and Sign in from Search › Wishlist through Review our terms; tests only, no API, phone or web change, no migration; the native suite, the iPhone walk and the PR screenshots still not run (the owner's simulator was not booted); see "Review fix 2" in the R15 section). Before: 2026-10-25 (stage R15's review fix 1: listing photos by opaque URLs that never name the owner (`/api/v1/public/item-images/{id}`, `/binder-images/{id}`, no migration); a guest's Message on a plain public binder opens the chat after sign-in; no profile tags for guests; the guest window 10 per 10 s; back to Search › Wishlist after sign-in; a guest's binder search wording; a screen left by an ended session stays its collector's; a leftover guest action forgotten; the native suite still not run (the owner's simulator was not booted); see "Review fix 1" in the R15 section). Before: 2026-10-25 (stage R15 of the phone redesign, "Browse without an account (70 to 75)": the app opens on Home for a signed-out visitor; Home and Search as a guest with the person button, the guest's card and "A collector" rows with their places; Inventory, Messages, Profile and Search › Wishlist ask to sign in in place; one sheet for every action that needs an account, finished after the sign-in back on the guest's screen (`GET /listings/owner`); Sign in's close button; sign-out to Home; API: `PrivacyPolicyService.canSeeWho`, the feed open (GET), the `guest-discovery` rate limit; no migration; the iPhone walk and the native suite not run (the owner's simulator was not booted); see "Phone redesign R15: Browse without an account (70 to 75) (2026-10-25)"). Before: 2026-10-23 (stage R13's review fix 1: a Private profile is off the map on Settings, Location and Privacy (one rule, `mapStatus`); "Preview" right after a save shows the saved profile; Privacy's "Show me on the map" waits for a saved place; a refused profile save says why above "Save changes" and scrolls to the field; handles, "English | Français" and "(optional)" whole at the largest text size; tests for every Privacy switch's binding, the report pills' colours, tags as a set, the 12th tag; the R13 privacy contract test reads a block and a report; phone and tests only, no API change, no migration; see "Review fix 1" in the R13 section). Before: 2026-10-23 (stage R13 of the phone redesign, "Settings (47 to 59)": Settings with the profile card and the groups of mockup v50 (the place and the map, the theme, the blocked collectors' number, the reports waiting, the email), Edit profile with one "Save changes" (the tags in the same request: an optional `tags` on `PUT /me/profile`, all or nothing), "Preview" and the leave guard, Location with "Show me on the map" first and the remove sheet, Notifications as a grid of topics by channel (a channel that is off dims its column), Privacy saved at once with "All changes saved", Appearance, Blocked collectors, My reports with pills, Account, Delete account grey until ticked, Legal with seven documents and the amber draft banner; every page with its own top bar; no migration; on `feature/r7-home` for the one giant pull request; see "Phone redesign R13: Settings (47 to 59) (2026-10-23)"). Before: 2026-10-22 (stage R12's review fix 1: a screen the gate kept for Review our terms or the welcome never opens for the next account on the phone (Sign out forgets it, a kept link belongs to its collector's uid) and is never pushed over the welcome; the welcome, Sign in, Create account and Reset password scroll the field being typed in above the keyboard (the welcome's buttons stay pinned under it); "Choose your country." under the pickers, scrolled into view; the progress bar's value 33, 67 and 100 %; Could not load keeps the error's own words, "No answer from OrenjiTrade" and the `errorCode · requestId` line; Reset password's sent state resends with "Resend in {n} s"; the welcome's tag suggestions without game and language tags; phone only, no API change, no migration; see "Review fix 1" in the R12 section). Before: 2026-10-22 (stage R12 of the phone redesign, "Sign-in, sign-up and welcome (36 to 46)": Sign in with the wordmark and its line, Create your account with the documents in one card and the 18+ confirmation in its own (English only), "Create account" disabled until every box is ticked with one line saying what is missing, the sent states of Reset password and Verify your email in place, the welcome in three steps (the live handle check `GET /me/profile/handle-availability`, the game tiles with "Opens first" and at least one game, the place with its switches), no age step (an account without the 18+ confirmation is on Review our terms first), the account states centred with a 72 pt icon and "Deletion cancelled" in place; no migration; on `feature/r7-home` for the one giant pull request; see "Phone redesign R12: Sign-in, sign-up and welcome (36 to 46) (2026-10-22)"). Before: 2026-10-22 (stage R11's review fix 2: a post's time is never cut by a long province (the line under the handle wraps without a cap at large text sizes; beside the handle the province gives way and the time stays whole), and Community's and a room's closed, empty, not found and error states scroll at large text sizes (`StateScroll`) instead of running over the title and the tabs; phone only, no API change, no migration; see "Review fix 2" in the R11 section). Before: 2026-10-22 (stage R11's review fix 1: an open room shows newer posts (every 15 s while on screen, on coming back, with a pull), a post's avatar and handle open the author's profile, "{province} · {time}" under the handle at large text sizes, Community closes when a refresh finds `publicChat` off; API: a post's place decided for a member who is not the author (a PRIVATE profile's author no longer reads their own province), a shared binder the reader can no longer open left out with its stored name and handle (`payload.binderUnavailable`, "Binder no longer available"), the rooms' `postCount24h` counting what the caller may see, `COMMUNITY` uploads refused while `publicChat` is off; tests for each and for the reviewers' surviving mutants; no migration; see "Review fix 1" in the R11 section). Before: 2026-10-22 (stage R11 of the phone redesign, "Messages › Community (32, 33): one simple room per game": Messages with the Chats | Community tabs and the Chats dot, one public room per platform region and game (V134: 15 rooms, every other channel archived, `publicChat` on unless an admin chose), the browsed region's rooms with the browsed game's first and a dot for posts newer than the last visit on this phone, a room read like a chat with rules, banner, day separators, posts with up to 4 photos (`COMMUNITY` uploads, 3 MB, EXIF and GPS stripped), a shared card, binder or deck core, the "⋯" sheet (Message, Report, Block, Delete), the 429, duplicate and network errors; the author's province for discoverable authors only, never a city; on `feature/r7-home` for the one giant pull request; see "Phone redesign R11: Messages > Community (32, 33): one simple room per game (2026-10-22)"). Before: 2026-10-22 (stage R10's review fix 2: a printing code typed as printed lists its own printings only, each once: the number without its leading zeros only when the code as typed finds nothing, and then as the whole number (`ZSK 001` never lists `ZSK-100`, `EMR 001` never `EMR-150`, `ZTK 0012` still finds `ZTK-12`); no migration, no field or parameter changed; see "Review fix 2" in the R10 section). Before: 2026-10-22 (stage R10's review fix 1: tests for the TCGdex set-code rule and the other surviving mutants, a Magic code typed as the card prints it (`ZTK 0012` finds `ZTK-12`) in search and suggestions, ADR 0021's rejection of Scryfall's "Default Cards" corrected and what "Unique Artwork" leaves out put to the owner, the TCGdex MIT notice in the app as an owner and lawyer follow-up; no migration, no field or parameter changed; see "Review fix 1" in the R10 section). Before: 2026-10-21 (stage R10 of the phone redesign, "Card data for Magic and Pokémon": Scryfall (Magic, the "Unique Artwork" bulk file, English paper cards, one image per artwork) and TCGdex (Pokémon, the card database's archive, English only, one image per printing) as `CardProvider` adapters tested on hand-written fixtures only, printings on their own artwork, the Magic and Pokémon credits and Settings › Appearance's card data credits, Who has this card showing a chosen printing's picture, ADR 0021, "never hotlink provider images" for every provider; no migration, no API change; the owner runs the real imports; see "Phone redesign R10: Card data for Magic and Pokémon (2026-10-21)"). Before: 2026-10-21 (stage R9's review fix 1: a notification that opens nothing shows its whole line, a chat opened from a sale notification names its Back "Back to Notifications", a tapped chat push opens the chat, New pages past 50 unread before Earlier begins, evening cases of the phone's time zone; phone only, no API change, no migration; the full check list green, the native suite 38 / 38; see "Review fix 1" in the R9 section). Before: 2026-10-21 (stage R9 of the phone redesign, "Notifications (31) and the bell": the bell's orange dot and "Notifications, {n} new" on the five tabs, Notifications with New and "Mark all as read", Earlier by cursor pages, each kind's icon, colours, sentence and target, freshness reminders answered in place, the empty, loading and error states, a tapped push opening its row's target; API: optional `excludeTypes` on `GET /notifications` and its unread count, new `data` keys of wishlist alerts, sales and freshness notices; no migration; on `feature/r7-home` for the one giant pull request; see "Phone redesign R9: Notifications (31) and the bell (2026-10-21)"). Before: 2026-10-21 (stage R7's review fix 1: a block refreshes Home, an old Map tab link is followed once, the feed's later pages date new-card posts by the first page's time, "Back to the map" opens the map, the chips and Home's title stay on a load error, Add cards' Back names Home, the reader's place is kept on a refresh, and the tests the reviewers' mutants survived; no migration; see "Review fix 1" in the R7 section). Before: 2026-10-21 (stage R7 of the phone redesign, "Home": Home as the first of five tabs with the region and game pills, the search field, Get started, the chips, the feed in sections by time (new cards with "+n", wishes with "I have it", deck cores) and the end, the quiet, empty, loading and error states; `GET /api/v1/feed` and V133 (`binder.core_since`); the seed's feed dated relative to now; branch `feature/r7-home`, builder done, not pushed; see "Phone redesign R7: Home (2026-10-21)"). Before: 2026-10-20 (stage G's review fix 2: a test of `game=` with a binder made without a game whose cover is of another game, and `CatalogMetadataIT` no longer depends on the order of the suite's classes; no migration, no API, phone or web change; see "Review fix 2" in the G section). Before: 2026-10-20 (stage G's review fix 1: `game=` leaves out binders made without a game that hold another game's card or cover, blocks with `game=` tested, V132 (covers of the binder's game, column defaults for an older app version), `BinderResponse.gameLocked`, "Add a wish" by the browsed game, New binder waits for its game, "Switch game", the game sheet's loading and error, the audit gate's vite and MCP server overrides; the full check list green, the native suite 35 / 35; see "Review fix 1" in the G section). Before: 2026-10-20 (stage G of the phone redesign, "One game at a time": the browsed game per account with the game pill and "Choose a game", the restyled "Choose a region", Search scoped to the game, binders of one game with V130 (One Piece) and V131 (`binder.game_id`), `game=` on the discovery reads; branch `feature/g-one-game`, builder done, not pushed; see "Phone redesign G: one game at a time (2026-10-20)"). Before: 2026-10-20 (stage R6's review fix 2: the "See all" pages' "not available" and "You blocked {handle}" states fill the page on iOS, where they had lost their titles and texts; native flow 6 opens them across a block; see "Review fix 2" in the R6 section). Before: 2026-10-20 (stage R6's review fix 1: Share profile in the "⋯" sheet waits until iOS has dismissed the sheet, "I have it" leaves the chat's card alone until send and never offers a deck core's card, your "See all binders" works every time, the references page keeps the block rule, deck cores first on profiles, your page says why others see no cards while you are not on the map or private, the "⋯" sheet's scroll bar at the largest size, the owner's order of 2026-10-20 (no French work, English cards only) in the handoff and NEXT TASK; the full check list green, the native suite 34 / 34; see "Review fix 1" in the R6 section). Before: 2026-10-20 (stage R6 of the phone redesign, "Profiles", mockup screens 19 to 21, and Settings behind the gear: another collector's profile with the "⋯" sheet (Share profile, Report, Block), the header and its one line ("{city, }{province} · Member since {year} · Active this week"), Message, Cards, Binders, Looking for with "I have it", About, Ratings & references, each with "See all", the compact top bar on scroll; "I have it" opening the chat with your copy pinned and the text in the box, nothing sent before send; your Profile tab with Edit profile, Share profile and the gear that opens Settings; API: `cardId` on `GET /inventory/items` and `excludeDeckCoreItems` on `GET /collectors/{handle}/inventory`, both optional; no migration (V128 stays free); native flow 6; the walk at the largest text size fixed two layouts — branch `feature/r6-profiles`, builder done, not pushed; see "Phone redesign R6: profiles (2026-10-19)"). Before: 2026-10-16 (stage R5's review fix 1: the old `/regions/<region>/<code>` link crashed the tabs (its `state` parameter is React Navigation's own; now `place`), `rarity` on `GET /search/card-holders` and the card page's `?rarity=`, a new link to the card page on screen, the 1st Edition on holder rows, the Search key keeping the whole text, the region pill's name alone, two native flakes, the card results starting at the top for each new text or game; see "Review fix 1" in the R5 section). Before: 2026-10-16 (stage R5 of the phone redesign, "Search", mockup screens 11 to 15: four tabs (Search | Inventory | Messages | Profile); Search's map with the state card, typing a card with the collectors and the recent searches, Who has this card (the one card page: holders by province, Message pinning the card, "Also in a deck core"), Search › Binders with Deck cores, Search › Wishlist with "Available", Settings › Privacy › "Remember my searches"; the old routes and links redirect; API: `GET /search/collectors`, `sort=province`, `available` and `GET /wishlist/availability`, blocked collectors left out of search's collectors in SQL, no search text in the search analytics events; no migration (V128 stays free); native flows 2 and 3 in full; the walk at the largest text size fixed four layouts — branch `feature/r5-search`, builder done, not pushed; see "Phone redesign R5: search (2026-10-16)")
 **Last updated:** 2026-10-29 (review fix 2 of the owner decisions of 2026-10-28, round 2 of 2: handles and a toast's title are cut with "…" at their cap and never shrunk to fit, because React Native 0.86 ignores `minimumFontScale` on iOS and Android and shrank a handle to 4 points; a source test keeps shrink to fit out of the app; phone only, no API change, no migration; see "Review fix 2" in the 2026-10-28 section). Before: 2026-10-28 (review fix 1 of the owner decisions of 2026-10-28, round 1 of at most 2: a suspended, deletion-pending or deleted account reads the public routes as a guest, a suspension closes the realtime sessions opened before it, nothing is written while suspended, a new conversation refused for a block reads as one refused by a collector who accepts none, the block decided in the handle lookup's one query; every label naming a handle on one line, the confirmation's buttons stacked, screen 44's buttons pinned, a toast's title on one line; two native flows made robust; re2js held at 2.8.8 for a new advisory; no migration; see "Review fix 1" in the 2026-10-28 section). Before: 2026-10-28 (the owner decisions of 2026-10-28 on R8's follow-ups 1 to 3, R12's follow-up 3 and R13's follow-up 7, built on `feature/owner-decisions-1028`, not pushed: a suspension leaves the login on and a suspended collector sees screen 44 with its end date, handles and toasts capped at the largest text sizes while paragraphs grow, the quick replies after a sale, a block answered as "not found"; no migration, descriptions-only OpenAPI change; see "Owner decisions of 2026-10-28: suspended collectors, large text, quick replies after a sale, blocks"). Before: 2026-10-27 (the second giant pull request merged into `main`, #87, `7bfc879e`: stages R12 to R15 and the wrap-up R8; every CI check green, the web build's Google Fonts download retried once; the phone redesign is complete; NEXT TASK and the handoff updated, and NEXT TASK's stale R7 paragraph ("not pushed", "V134") corrected; documents only). Before: 2026-10-27 (stage R8's review fix 1: the guest card's tint fills the card on the web build again and on iOS (one frame without padding for both); a test that the guest card draws the theme's faint stops; an empty state's description never larger than its title; at large text sizes Who has this card puts the picture above the name, Add cards' "Coming later" goes under "Scan with camera", and the deck core page's back button stays on screen with a band under the clock; the documents say what R8's walk covered at the largest size and what a suspended collector sees (one owner decision with R12's); phone and documents only, no API change, no migration; the full native suite 42 / 43, the one failure a run crossing midnight, 1 / 1 alone; see "Review fix 1" in the R8 section). Before: 2026-10-26 (stage R8 of the phone redesign, the wrap-up, done last in the giant pull request: the documents after the whole redesign (CLAUDE.md, the product overview, the contracts index, the test accounts, the seed data, the READMEs, the handoff); the full native suite on the owner's iPhone 18 Pro (two R15 flows never run on the iPhone failed and were fixed: R15's F3 closed; the reviewers' verifier then ran every flow on `5182b992`, 43 / 43); a walk of every mockup screen in dark and light at the default size (73 of 77) and, at the largest text size, of the screens in R8's table (60 of 77 signed in, dark), one screenshot each for the pull request; fixed: the guest card's tint on iOS and an empty state's title at the largest size; no migration, no API change; see "Phone redesign R8: Wrap-up of the phone redesign (spec section 15, R8), done last in the giant pull request (2026-10-26)"). Before: 2026-10-25 (stage R15's review fix 2: the wishlist alert's distance check no longer fails on a random handle holding "km" (the test's seller always has one now); two native flows prepared, a guest's Message on a plain public binder and Sign in from Search › Wishlist through Review our terms; tests only, no API, phone or web change, no migration; the native suite, the iPhone walk and the PR screenshots still not run (the owner's simulator was not booted); see "Review fix 2" in the R15 section). Before: 2026-10-25 (stage R15's review fix 1: listing photos by opaque URLs that never name the owner (`/api/v1/public/item-images/{id}`, `/binder-images/{id}`, no migration); a guest's Message on a plain public binder opens the chat after sign-in; no profile tags for guests; the guest window 10 per 10 s; back to Search › Wishlist after sign-in; a guest's binder search wording; a screen left by an ended session stays its collector's; a leftover guest action forgotten; the native suite still not run (the owner's simulator was not booted); see "Review fix 1" in the R15 section). Before: 2026-10-25 (stage R15 of the phone redesign, "Browse without an account (70 to 75)": the app opens on Home for a signed-out visitor; Home and Search as a guest with the person button, the guest's card and "A collector" rows with their places; Inventory, Messages, Profile and Search › Wishlist ask to sign in in place; one sheet for every action that needs an account, finished after the sign-in back on the guest's screen (`GET /listings/owner`); Sign in's close button; sign-out to Home; API: `PrivacyPolicyService.canSeeWho`, the feed open (GET), the `guest-discovery` rate limit; no migration; the iPhone walk and the native suite not run (the owner's simulator was not booted); see "Phone redesign R15: Browse without an account (70 to 75) (2026-10-25)"). Before: 2026-10-23 (stage R13's review fix 1: a Private profile is off the map on Settings, Location and Privacy (one rule, `mapStatus`); "Preview" right after a save shows the saved profile; Privacy's "Show me on the map" waits for a saved place; a refused profile save says why above "Save changes" and scrolls to the field; handles, "English | Français" and "(optional)" whole at the largest text size; tests for every Privacy switch's binding, the report pills' colours, tags as a set, the 12th tag; the R13 privacy contract test reads a block and a report; phone and tests only, no API change, no migration; see "Review fix 1" in the R13 section). Before: 2026-10-23 (stage R13 of the phone redesign, "Settings (47 to 59)": Settings with the profile card and the groups of mockup v50 (the place and the map, the theme, the blocked collectors' number, the reports waiting, the email), Edit profile with one "Save changes" (the tags in the same request: an optional `tags` on `PUT /me/profile`, all or nothing), "Preview" and the leave guard, Location with "Show me on the map" first and the remove sheet, Notifications as a grid of topics by channel (a channel that is off dims its column), Privacy saved at once with "All changes saved", Appearance, Blocked collectors, My reports with pills, Account, Delete account grey until ticked, Legal with seven documents and the amber draft banner; every page with its own top bar; no migration; on `feature/r7-home` for the one giant pull request; see "Phone redesign R13: Settings (47 to 59) (2026-10-23)"). Before: 2026-10-22 (stage R12's review fix 1: a screen the gate kept for Review our terms or the welcome never opens for the next account on the phone (Sign out forgets it, a kept link belongs to its collector's uid) and is never pushed over the welcome; the welcome, Sign in, Create account and Reset password scroll the field being typed in above the keyboard (the welcome's buttons stay pinned under it); "Choose your country." under the pickers, scrolled into view; the progress bar's value 33, 67 and 100 %; Could not load keeps the error's own words, "No answer from OrenjiTrade" and the `errorCode · requestId` line; Reset password's sent state resends with "Resend in {n} s"; the welcome's tag suggestions without game and language tags; phone only, no API change, no migration; see "Review fix 1" in the R12 section). Before: 2026-10-22 (stage R12 of the phone redesign, "Sign-in, sign-up and welcome (36 to 46)": Sign in with the wordmark and its line, Create your account with the documents in one card and the 18+ confirmation in its own (English only), "Create account" disabled until every box is ticked with one line saying what is missing, the sent states of Reset password and Verify your email in place, the welcome in three steps (the live handle check `GET /me/profile/handle-availability`, the game tiles with "Opens first" and at least one game, the place with its switches), no age step (an account without the 18+ confirmation is on Review our terms first), the account states centred with a 72 pt icon and "Deletion cancelled" in place; no migration; on `feature/r7-home` for the one giant pull request; see "Phone redesign R12: Sign-in, sign-up and welcome (36 to 46) (2026-10-22)"). Before: 2026-10-22 (stage R11's review fix 2: a post's time is never cut by a long province (the line under the handle wraps without a cap at large text sizes; beside the handle the province gives way and the time stays whole), and Community's and a room's closed, empty, not found and error states scroll at large text sizes (`StateScroll`) instead of running over the title and the tabs; phone only, no API change, no migration; see "Review fix 2" in the R11 section). Before: 2026-10-22 (stage R11's review fix 1: an open room shows newer posts (every 15 s while on screen, on coming back, with a pull), a post's avatar and handle open the author's profile, "{province} · {time}" under the handle at large text sizes, Community closes when a refresh finds `publicChat` off; API: a post's place decided for a member who is not the author (a PRIVATE profile's author no longer reads their own province), a shared binder the reader can no longer open left out with its stored name and handle (`payload.binderUnavailable`, "Binder no longer available"), the rooms' `postCount24h` counting what the caller may see, `COMMUNITY` uploads refused while `publicChat` is off; tests for each and for the reviewers' surviving mutants; no migration; see "Review fix 1" in the R11 section). Before: 2026-10-22 (stage R11 of the phone redesign, "Messages › Community (32, 33): one simple room per game": Messages with the Chats | Community tabs and the Chats dot, one public room per platform region and game (V134: 15 rooms, every other channel archived, `publicChat` on unless an admin chose), the browsed region's rooms with the browsed game's first and a dot for posts newer than the last visit on this phone, a room read like a chat with rules, banner, day separators, posts with up to 4 photos (`COMMUNITY` uploads, 3 MB, EXIF and GPS stripped), a shared card, binder or deck core, the "⋯" sheet (Message, Report, Block, Delete), the 429, duplicate and network errors; the author's province for discoverable authors only, never a city; on `feature/r7-home` for the one giant pull request; see "Phone redesign R11: Messages > Community (32, 33): one simple room per game (2026-10-22)"). Before: 2026-10-22 (stage R10's review fix 2: a printing code typed as printed lists its own printings only, each once: the number without its leading zeros only when the code as typed finds nothing, and then as the whole number (`ZSK 001` never lists `ZSK-100`, `EMR 001` never `EMR-150`, `ZTK 0012` still finds `ZTK-12`); no migration, no field or parameter changed; see "Review fix 2" in the R10 section). Before: 2026-10-22 (stage R10's review fix 1: tests for the TCGdex set-code rule and the other surviving mutants, a Magic code typed as the card prints it (`ZTK 0012` finds `ZTK-12`) in search and suggestions, ADR 0021's rejection of Scryfall's "Default Cards" corrected and what "Unique Artwork" leaves out put to the owner, the TCGdex MIT notice in the app as an owner and lawyer follow-up; no migration, no field or parameter changed; see "Review fix 1" in the R10 section). Before: 2026-10-21 (stage R10 of the phone redesign, "Card data for Magic and Pokémon": Scryfall (Magic, the "Unique Artwork" bulk file, English paper cards, one image per artwork) and TCGdex (Pokémon, the card database's archive, English only, one image per printing) as `CardProvider` adapters tested on hand-written fixtures only, printings on their own artwork, the Magic and Pokémon credits and Settings › Appearance's card data credits, Who has this card showing a chosen printing's picture, ADR 0021, "never hotlink provider images" for every provider; no migration, no API change; the owner runs the real imports; see "Phone redesign R10: Card data for Magic and Pokémon (2026-10-21)"). Before: 2026-10-21 (stage R9's review fix 1: a notification that opens nothing shows its whole line, a chat opened from a sale notification names its Back "Back to Notifications", a tapped chat push opens the chat, New pages past 50 unread before Earlier begins, evening cases of the phone's time zone; phone only, no API change, no migration; the full check list green, the native suite 38 / 38; see "Review fix 1" in the R9 section). Before: 2026-10-21 (stage R9 of the phone redesign, "Notifications (31) and the bell": the bell's orange dot and "Notifications, {n} new" on the five tabs, Notifications with New and "Mark all as read", Earlier by cursor pages, each kind's icon, colours, sentence and target, freshness reminders answered in place, the empty, loading and error states, a tapped push opening its row's target; API: optional `excludeTypes` on `GET /notifications` and its unread count, new `data` keys of wishlist alerts, sales and freshness notices; no migration; on `feature/r7-home` for the one giant pull request; see "Phone redesign R9: Notifications (31) and the bell (2026-10-21)"). Before: 2026-10-21 (stage R7's review fix 1: a block refreshes Home, an old Map tab link is followed once, the feed's later pages date new-card posts by the first page's time, "Back to the map" opens the map, the chips and Home's title stay on a load error, Add cards' Back names Home, the reader's place is kept on a refresh, and the tests the reviewers' mutants survived; no migration; see "Review fix 1" in the R7 section). Before: 2026-10-21 (stage R7 of the phone redesign, "Home": Home as the first of five tabs with the region and game pills, the search field, Get started, the chips, the feed in sections by time (new cards with "+n", wishes with "I have it", deck cores) and the end, the quiet, empty, loading and error states; `GET /api/v1/feed` and V133 (`binder.core_since`); the seed's feed dated relative to now; branch `feature/r7-home`, builder done, not pushed; see "Phone redesign R7: Home (2026-10-21)"). Before: 2026-10-20 (stage G's review fix 2: a test of `game=` with a binder made without a game whose cover is of another game, and `CatalogMetadataIT` no longer depends on the order of the suite's classes; no migration, no API, phone or web change; see "Review fix 2" in the G section). Before: 2026-10-20 (stage G's review fix 1: `game=` leaves out binders made without a game that hold another game's card or cover, blocks with `game=` tested, V132 (covers of the binder's game, column defaults for an older app version), `BinderResponse.gameLocked`, "Add a wish" by the browsed game, New binder waits for its game, "Switch game", the game sheet's loading and error, the audit gate's vite and MCP server overrides; the full check list green, the native suite 35 / 35; see "Review fix 1" in the G section). Before: 2026-10-20 (stage G of the phone redesign, "One game at a time": the browsed game per account with the game pill and "Choose a game", the restyled "Choose a region", Search scoped to the game, binders of one game with V130 (One Piece) and V131 (`binder.game_id`), `game=` on the discovery reads; branch `feature/g-one-game`, builder done, not pushed; see "Phone redesign G: one game at a time (2026-10-20)"). Before: 2026-10-20 (stage R6's review fix 2: the "See all" pages' "not available" and "You blocked {handle}" states fill the page on iOS, where they had lost their titles and texts; native flow 6 opens them across a block; see "Review fix 2" in the R6 section). Before: 2026-10-20 (stage R6's review fix 1: Share profile in the "⋯" sheet waits until iOS has dismissed the sheet, "I have it" leaves the chat's card alone until send and never offers a deck core's card, your "See all binders" works every time, the references page keeps the block rule, deck cores first on profiles, your page says why others see no cards while you are not on the map or private, the "⋯" sheet's scroll bar at the largest size, the owner's order of 2026-10-20 (no French work, English cards only) in the handoff and NEXT TASK; the full check list green, the native suite 34 / 34; see "Review fix 1" in the R6 section). Before: 2026-10-20 (stage R6 of the phone redesign, "Profiles", mockup screens 19 to 21, and Settings behind the gear: another collector's profile with the "⋯" sheet (Share profile, Report, Block), the header and its one line ("{city, }{province} · Member since {year} · Active this week"), Message, Cards, Binders, Looking for with "I have it", About, Ratings & references, each with "See all", the compact top bar on scroll; "I have it" opening the chat with your copy pinned and the text in the box, nothing sent before send; your Profile tab with Edit profile, Share profile and the gear that opens Settings; API: `cardId` on `GET /inventory/items` and `excludeDeckCoreItems` on `GET /collectors/{handle}/inventory`, both optional; no migration (V128 stays free); native flow 6; the walk at the largest text size fixed two layouts — branch `feature/r6-profiles`, builder done, not pushed; see "Phone redesign R6: profiles (2026-10-19)"). Before: 2026-10-16 (stage R5's review fix 1: the old `/regions/<region>/<code>` link crashed the tabs (its `state` parameter is React Navigation's own; now `place`), `rarity` on `GET /search/card-holders` and the card page's `?rarity=`, a new link to the card page on screen, the 1st Edition on holder rows, the Search key keeping the whole text, the region pill's name alone, two native flakes, the card results starting at the top for each new text or game; see "Review fix 1" in the R5 section). Before: 2026-10-16 (stage R5 of the phone redesign, "Search", mockup screens 11 to 15: four tabs (Search | Inventory | Messages | Profile); Search's map with the state card, typing a card with the collectors and the recent searches, Who has this card (the one card page: holders by province, Message pinning the card, "Also in a deck core"), Search › Binders with Deck cores, Search › Wishlist with "Available", Settings › Privacy › "Remember my searches"; the old routes and links redirect; API: `GET /search/collectors`, `sort=province`, `available` and `GET /wishlist/availability`, blocked collectors left out of search's collectors in SQL, no search text in the search analytics events; no migration (V128 stays free); native flows 2 and 3 in full; the walk at the largest text size fixed four layouts — branch `feature/r5-search`, builder done, not pushed; see "Phone redesign R5: search (2026-10-16)")
 **Last updated:** 2026-10-16 (the owner's inventory change dated 2026-10-16 merged with `main` after stage R4, #76: conflicts only in this file, the handoff and one hooks test (both sides kept); R4's chat shows a saved price as typed, so the new "$12.50" / "85% TCG" texts read as they are, and its "Share a card from your inventory" sheet, which reuses the Inventory row, now shows and speaks each card's Public or Private tag too; no migration, no API change (`git diff origin/main -- apps/api apps/web-angular packages` empty). The full check list on the merged code, retries off: mobile typecheck, lint and format clean; `test:mobile` 95 suites / 1,070 tests (+ 28 node tests); `expo export` iOS, Android and web exit 0; mobile web E2E 58 passed; the native suite 33 / 33 flows in 52 min 7 s on the owner's iPhone 18 Pro; `test:scripts` 135; `audit:gate` OK (2 allow-listed highs); Spotless clean; `test:api` 1,058 tests + 12 catalog tests, 0 failures; web build 896.09 kB initial; `test:web` 136 files / 633 tests; web E2E 70 passed — branch `feature/inventory-visibility-price`, its pull request next, not pushed)
@@ -5373,6 +5375,11 @@ On 2026-10-14, this branch, every suite with retries off:
 | `npm run test:scripts` | **133 tests** passed |
 | `npm run infra:validate` | passed (fmt, init without backend, validate; nothing planned or applied) |
 | `npm run audit:gate` | OK (no unreviewed high or critical advisory) |
+
+The API, client, mobile and full web E2E checks ran on `61ce6fcb`; the one later web change (a room
+row's spoken punctuation, `969be46b`) was re-checked on the final tree: `npm run test:web` (196 files
+/ 1,004 tests), both builds (763.51 kB) and `community.spec.ts` with `acceptance/community.spec.ts`
+alone (**6 passed**).
 | Android | **the Android run could not be verified** (no Android SDK on this Mac) |
 
 **Migration on a seeded database:** a scratch database `orenjitrade_f1_check` was seeded by the
@@ -13640,6 +13647,434 @@ is, or key it by a one-way hash); the profile's fact line reads run together for
 name (A10); the jump to the ratings scrolls smoothly under reduced motion, "Everything is marked as
 read." is announced twice and Message keeps its name while it opens (A11).
 
+## Web redesign WF: Messages > Community (2026-10-30)
+
+Stage WF of the owner's prompt of 2026-10-28
+([`docs/product/specs/2026-10-28-web-redesign-stages.md`](docs/product/specs/2026-10-28-web-redesign-stages.md),
+"WF. Messages › Community (W22). After phone R11."), spec
+[`2026-10-20-web-redesign.md`](docs/product/specs/2026-10-20-web-redesign.md) sections 10.7 and
+10.8, decision 11; board W22 of the web mockup. Built on branch `feature/wf-community`, stacked on
+stage WE (`feature/we-home-profiles`, #100, not merged yet; `main` with WD inside). **No
+migration** (the next is still **V135**; V124 and V128 stay unused; an ADR would take 0022 or
+later). One additive API change (WE's leftover R2-2, two keys in two notification types' `data`);
+the community API of the phone's R11 is read unchanged. Contract
+[`docs/api/contracts/wf-web-community.md`](docs/api/contracts/wf-web-community.md). Free for all
+(ADR 0019); deals ship by mail (ADR 0018); English only.
+
+**What a collector can now do (what to click)**
+
+- **Messages › Community** (the rail's Messages, then the tab Community): at 960 px and wider the
+  inbox column shows Community's own **region pill**, **"Game rooms"** and the **five rooms of the
+  browsed region** (the browsed game's first, then the games' order; each with its 38 tile, the
+  game, the last post "{handle}: {text}" or "You: …" and its time; bold with an orange dot while
+  someone else posted since the last visit in this browser), then the footnote "Every collector in
+  {region} can read these rooms. Keep deals and addresses in private chats." Beside it the **browsed
+  game's room** opens at once; below 960 the list comes first and a room opens on its own with
+  "Back to Community". ↑ and ↓ move between rooms; Esc in a room gives the focus back to its row.
+- **A room**: "Yu-Gi-Oh!" / "Americas (North) · public room", the banner "Every collector can read
+  this room…", the posts read like a chat (newest at the bottom, day separators, "Show older
+  posts"; newer posts appear within 15 s while the room is on screen): a 36 avatar, the handle (it
+  opens the profile), "You" on your own, **"{province} · {time}"** (never a city), the text, a
+  shared card ("View": Who has this card on that printing), a shared deck core ("Deck core", its
+  price, "Open") or binder ("Public binder", "Open"; both a card and a binder when the post has
+  both), "Binder no longer available", and
+  the photos a phone added (read only; a click opens them larger with Previous and Next, ← and →).
+- **"⋯" on a post** (on hover or focus): **"Message {h}"** (the private chat opens in Messages),
+  **"Report this post"** (the report dialog shows the post: handle, "{province} · {time}", its
+  text), a divider, **"Block {h}"** in red (the board's confirmation; the author's posts leave the
+  room at once, "{h} is blocked" with Undo, and "You blocked {h}" with Unblock in Room rules); a
+  moderator also has "Remove (moderator)"; your own post has Edit and Delete.
+- **The message box**: "+" with **"Share a card"** (your public cards of the room's game, then
+  **"All cards"** of the catalogue for a card you do not own) and **"Share a binder or deck core"**
+  (your public binders of that game), a card and a binder waiting above the field together
+  (removable); "Write to the room" grows to 6 lines; **Enter posts**, Shift+Enter makes a new
+  line; the post button turns orange with text. Refusals in the phone's words: "You can post up to
+  10 times an hour in each room. Try again later.", "You already posted this.", the community rules,
+  "Your post was not sent. Check your connection." with "Try again".
+- **Room rules**: the third pane at 1280 and wider (the four rules, "You can post up to 10 times an
+  hour in each room.", What others see, Trading safely; the "Room rules" button shows or hides it
+  and the browser remembers); a 360 drawer at 1024 and a sheet below 960 (Esc closes it, the focus
+  goes back to "Room rules").
+- A link to a room of another region browses that region; switching the region in the pill opens
+  the same game's room there; an old channel's link says "This room is closed" with "All rooms".
+
+**WE's leftovers, fixed first** (the WE section's "Left open by the verifier of fix 2"; each still
+open was checked first, each with a unit test where it is logic)
+
+- **R2-1 (minor)**: on `/notifications` with Unread, "Still have them" keeps the answered reminder,
+  read, until the next load, so "Confirmed. They stay in search." shows and takes the focus
+  (`NotificationFeedStore` keeps it while `ReminderAnswers.confirming()` names it; unit test; walked
+  with a reminder inserted in the walk database: the focus lands on the confirmation).
+- **R2-2**: new `RATING_RECEIVED` and `SALE_RECORDED` rows carry `raterId` / `sellerId`; the account
+  deletion renames others' rows by that id; an older row without an id by the handle, only when it
+  was written once the account existed (decision 9). `DeletedCollectorDealNotificationsIT`
+  `aReusedHandleRenamesOnlyTheDeletedAccountsRows`.
+- **R2-3**: a focused chip of Home's row scrolls into view (`inline: nearest`; unit test).
+- **F8**: Search read `/me/location` and `/me/settings/privacy` twice: a load in flight is shared and
+  the wishlist reads them only when unknown (`MyLocationStore.ensureLoaded`, new spec). A bare Home
+  and a link's game now read the feed once (walk log); the shell's two `unread-count` and
+  `conversations` reads per page load stay (decision 10).
+- **F9**: the profile's and its ratings' load errors offer "Try again"; Location's load error reads
+  in plain words, never the server's text (unit test).
+- **F10, U14**: the gear of spec 12 and boards W23b and W24 (`gear` icon) in the bell's header, the
+  own profile and `/notifications`.
+- **U13**: the profile's "⋯" spaced as board W23 (`app-more-menu`: 20 px icons 12 from the text, a
+  divider before Block in red), the same menu as a room's post.
+- **U15**: "← Home › {handle}" above a collector's profile.
+- **U16**: a deck core's binder card keeps its name (two lines) beside "Trade only".
+- **U17**: at 1024 Home's feed ends with the rail's links (unit test).
+- **U19**: the bell's tooltip stays hidden while its popover is open (unit test).
+- **P4**: signing out removes this browser's per-account keys (Get started's "Hide these steps" and
+  the rooms' visits; `core/auth/account-storage.ts`); the kept game stays for the next sign-in
+  (unit test).
+- **A10**: the profile's fact line reads with separators; "No ratings yet" is an h3; a profile's
+  sign-in and missing states are the page's h1 (`EmptyStateComponent.level`); the map card's
+  picture was already named (`role="img"` with its caption), nothing changed.
+- **A11**: the jump to the ratings without smooth scroll under reduced motion; a toast is read once
+  (no `role="status"` inside the polite stack; an error toast stays an alert; unit test);
+  "Message {h}" is named "Opening the chat with {h}" while it opens (unit test).
+
+**What the stage built (web)** — `features/community` rebuilt on the rooms: `community-view`
+(layout, routes, the region's rooms, the default room, focus between panes), `room-list`
+(`CommunityRoomsStore`: rooms, order, dots, visits), `room/` (`room-view` with `RoomStore`,
+`room-post`, `room-composer`, `room-rules`, `photo-viewer-dialog`), `data/community-copy.ts` (the
+copy in one place) and `data/community-rules.ts` (the pure rules). The old channel sidebar, post
+composer, post item, reply threads and `CommunityStore` are gone; the moderator's remove dialog
+stays; `community-helpers.ts` keeps `channelIcon` for the admin console. Shared changes inside the
+stage's flows: the one Messages route now also serves `/messages/community/:room`
+(`messagesMatcher`, title "Community"), so Back below 960 keeps the page and its focus; the share
+picker gained a room mode; the report dialog a post preview ("Report this post"); block actions
+the board's wording and a quiet mode; the region pill a `wide` variant; `app-more-menu` and six
+shell icons (`gear`, `messageSquare`, `send`, `trash`, `image` and the existing ones).
+
+**What it left hidden, and why**
+
+- **No photo in the web's message box**: community photos are stage S4, which stays skipped (the
+  owner's prompt for WF). Photos a phone added are shown read only (decision 1).
+- **No reply threads** (spec 10.7): the API keeps them; the web neither lists nor writes replies.
+- The rooms' `postCount24h` is not shown (no counts on the board; the phone does not show it).
+- The web E2E database no longer reactivates the channels V134 archived (`PAUSED_WEB_CHANNELS`
+  dropped from the harness and the CI job, R11's owner follow-up 1): the web's specs use the rooms.
+
+**Spec points changed, and why** (decisions)
+
+1. **Photos a phone added are shown, read only** (spec 10.7 and the prompt: "posts carry text and a
+   shared card, binder or deck core, no photos"). The web adds none (S4 stays skipped), but R11
+   lets the phone post up to 4; hiding them would cut part of a post every reader of the room sees
+   on the phone ("two pages of my binder" with nothing). Board W22 draws them and their viewer.
+2. **Your own post keeps Edit and Delete** in "⋯" (board W22 has no menu on your own post; the
+   phone has Delete only): the web had both, and the rule is to keep what works unless the spec
+   removes it. A moderator keeps "Remove (moderator)" on others' posts for the same reason.
+3. **A shared card reads its name and code with "View"**, without the board's "Spares · $6.00": a
+   post shares a printing, not one of your copies, so no binder or price is stored with it.
+4. **"Share a card" lists your public cards of the room's game first** (board W22: "Cards in your
+   public binders"), **then "All cards" of the catalogue** (`GET /cards/suggest`, any game, as the
+   phone's picker and the web before WF; added by review fix 1, F1/U1, so a "Looking for" post can
+   share a card you do not own); the post shares the card's printing.
+5. **"Message {h}" opens the chat in Messages**, not the chat drawer: the drawer (spec 10.6) serves
+   the other pages; on the Messages page the chat opens in place, as board W22's link does.
+6. **New posts are remembered per account in this browser** (the phone: "on this phone"), in
+   `localStorage`, removed on sign-out (WE's P4 rule).
+7. **The rooms' order follows `GET /games`** (Magic before One Piece today), as on the phone; the
+   board's sample data puts One Piece third.
+8. **English only** (owner, 2026-10-20): nothing French was added.
+9. **R2-2's older rows**: matched by the handle only when written after the deleted account was
+   created; no backfill migration (it would need the rating's interaction and the sale's
+   conversation in a migration test, for rows the bound already covers); renaming errs toward
+   hiding a name, never toward keeping a deleted collector's handle.
+10. **F8**: the shell's `unread-count` and `conversations` reads come twice per page load because
+    the realtime connection's first `resync$` re-reads what the first REST read may have missed;
+    kept on purpose.
+11. **F9**: only the profile's and Location's errors changed; the shared error state still says
+    "Retry" by default on screens of other stages (their tests and copy are theirs).
+12. **A toast is no longer a `status` inside the polite toast stack** (A11): all toasts, not only
+    "Everything is marked as read.", since the double reading came from the nesting.
+
+**Tests**
+
+- API: `DeletedCollectorDealNotificationsIT` (2: the existing one and the reused handle).
+- Web unit: `community-rules.spec` (13), `community-rooms.store.spec` (3), `room.store.spec` (5),
+  `room-post.component.spec` (8), `room-composer.component.spec` (5), `room-list.component.spec`
+  (3), `room-view.component.spec` (6), `community-view.component.spec` (5),
+  `share-picker-dialog.component.spec` (3), `report-collector-dialog.component.spec` (+2),
+  `app.routes.spec` (the room on the one matcher, its title), and the leftovers' tests
+  (`notification-feed.store`, `home-page`, `location-settings`, `collector-ratings-section`,
+  `collector-profile-view`, `notification-bell`, `auth.service`, `toast-host`,
+  `my-location.store`, `wishlist.store`).
+- Web E2E: `community.spec.ts` (5: the rooms and a post with a shared card, refusals, edit and
+  delete; Report this post then Block, hidden after a reload; the room's limit; Room rules at md and
+  one pane at 390; a moderator's removal and the flag), `acceptance/community.spec.ts` (a shared
+  card read by another collector), `reporting.spec.ts` (Report this post from a room).
+
+**Checks** (retries off, the real numbers)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | clean |
+| `npm run test:api` | **209 classes / 1,313 tests** (`test`) and 13 (`catalogTest`), 0 failures, 4 min 27 s; `DeletedCollectorDealNotificationsIT` (2) among them |
+| `exportOpenApi` then `generate:api` | nothing changed (the new keys sit in a notification's free `data` map); git clean |
+| `npm run lint`, `format:check -w apps/web-angular` | clean |
+| `npm run test:web` (lint and `ng test`) | **196 files / 1,004 tests** |
+| `npm run build -w apps/web-angular`, `build:prod` | initial total **763.51 kB** (budget 900 kB; WE: 759.96 kB), no warning |
+| `npm run test:e2e -- --retries=0` (8180/4300, under the lock) | **96 passed** (1.2 min), every spec on the first attempt; targeted runs before: 21 of 22 (the focus after Back below 960, fixed with the one Messages route), then 26 of 26 |
+| `npm run typecheck`, `lint`, `format:check -w apps/mobile` | clean |
+| `npm run test:mobile` | **128 suites / 1,782 tests** |
+| `npx expo export` (scratch folders) | iOS 1,975 modules, Android 2,101 modules, web 1,596 modules and 68 static routes |
+| `npm run test:mobile:e2e -- --retries=0` (8090/19006, under the simulator lock) | `--stack-only` (the served export names `http://localhost:8090` only, checked by the harness and by hand), then `--reuse-running`: **66 passed** (1.1 min), then `--stop` |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro, under the lock; `apps/api` changed) | **44 / 44 flows passed** (70 min 9 s; `community-post` among them); the simulator back as found (light, default text size), Expo Go stopped, the owner's Metro was not running |
+| `npm run test:scripts` | **165 / 165** (the guard test of `PAUSED_WEB_CHANNELS` removed with it) |
+| `npm run audit:gate` | OK (no unreviewed high or critical advisory) |
+
+**The walk** (Playwright on the walk stack: API 8580 with `orenjitrade_wf_check` and Redis db 6, web
+4400; seed collectors and a phone-made post with two photos uploaded as `COMMUNITY` in the walk
+database; 1440, 1024 and 390, dark and light; screenshots in `.local-dev/wf-notes/pr-shots/`, before
+and after): the list and the room beside it, the photo post and its viewer, the "⋯" menu, "+" and
+both pickers, a post with a shared card, Report this post, Room rules as the pane, the drawer at
+1024 and the sheet at 390, Block (gone at once and after a reload, Unblock in Room rules), the
+room's limit after ten posts; WE's leftovers (the breadcrumb and the profile's menu, the gears,
+Home's links at 1024, "Still have them" in the Unread view); keyboard only (↓ and Enter between
+rooms, Esc in a room back to its row, "⋯" shown on focus, its menu from Enter with the first item
+focused and Esc back on "⋯") and at 200 percent zoom (720 × 450: no sideways scroll, the message box
+in view). Compared with board W22: the same columns, rows, tiles, header, banner, post rows, menus,
+message box and Room rules pane. It found two things, fixed: the share picker's header and search
+had lost their layout (a rule of the room mode had split a selector list; the chats' picker was hit
+too; a spec now covers the picker), and a room row's spoken last post got a second full stop after
+its own "!" (unit test).
+
+**What could not be verified**
+
+- The Android run could not be verified (no Android SDK on this Mac).
+- A real screen reader (VoiceOver, NVDA) was not run; names, roles, live regions and focus were
+  checked in unit tests, E2E and the accessibility tree.
+- Photos from a real phone camera in a room on the web (the walk used two generated images).
+
+**Owner follow-ups**
+
+1. Photos a phone added are shown read only on the web (decision 1): say if the web should hide them
+   until S4.
+2. Your own post keeps Edit on the web while the phone has Delete only (decision 2): say if editing
+   should go from the web too.
+3. Rooms count new posts per browser (decision 6); a signed-out browser forgets them.
+
+### Review fix 1 (2026-10-30)
+
+Round 1 of at most 2: 27 findings of the four reviewers (functional, product and UX, privacy,
+accessibility), each fixed at its cause with a test that would have caught it, or answered. No
+migration (the next is still **V135**), no API source change (two API tests), no DTO, OpenAPI or
+`packages/api-client` change; the phone's code is untouched.
+
+- **Blockers.** **F1/U1**: "Share a card" in a room lists your public cards, then **"All cards"**
+  of the catalogue (`GET /cards/suggest`, any game; a card suggestion resolved to its printing by
+  `GET /cards/{id}`), as the phone and the web before WF; the two link pickers WF had left unused
+  are removed (unit test, and an E2E "Looking for" post sharing a card the poster does not own).
+  **P1**: `RoomStore.refresh` reads again **every page shown**, following the cursors down to the
+  oldest post shown, and replaces the list (a read overtaken by a change made here is dropped);
+  the rooms list is read again every 15 s and when the tab comes back. A post a moderator removed
+  from an older page, the posts of an author who blocked the reader elsewhere and a suspended
+  author's posts now leave within one poll (unit tests; walked: an older page's removed post gone
+  after 13.2 s, another room's preview replaced after 13.2 s).
+- **Major.** **F2**: tests for the room's 15 s poll (not while hidden, at once when the tab comes
+  back, none after leaving) and the rooms list's. **F3**: the reused-handle IT writes older
+  `SALE_RECORDED` rows too (one before the deleted account existed keeps its name, one after says
+  "Deleted collector"; mutant A4 now fails). **U2**: a post with a card and a deck core shows both.
+  **U3/A1**: the photo viewer's Close is named "Close" (`MatDialogClose`'s own `aria-label` input:
+  its host binding had wiped the attribute).
+- **Minor.** **F4**: editing the text clears a refusal and its "Try again". **F5**: a shared binder
+  reads "Public binder" and a deck core its price alone (the post's data names no game; decision
+  13). **F6/U5**: the rooms' last posts and dots follow other rooms. **F7**: tests for below 960 a
+  room above the tabs (M27), Esc back to the row (M43), Undo reading the room again (M45), a room
+  switch clearing a refusal (M48), the focus on the message box after a block (M49), the gear
+  (M47). **P2**: the kill switch closing the open room closes the list too; **A6**: the room pane
+  then says "The community is closed right now", also on a room link. **P3**:
+  `GeoPrivacyContractTest.chatSubjectsAndSalesCarryThePlaceOnly` rates the seller after the sale,
+  so a RatingService-written `RATING_RECEIVED` (with `raterId`) goes through the contract (a
+  latitude beside `raterId` now fails it), then takes the rating back. **U4**: one card and one
+  binder or deck core together in the message box. **U6**: below 960 a post's "⋯" is a full-width
+  bottom sheet (the walk found the menu's own width winning; a global rule for both classes).
+  **U7**: Unblock in Room rules gives the focus to the next Unblock, else the close button, and
+  dismisses the block's Undo toast. **U8**: Chats | Community keep the focus on the tab now active.
+  **U9**: the newest post stays in view when the message box grows (a `ResizeObserver` on the log
+  while it is at its end). **U10**: the rooms list's error is the full error state, and the room
+  pane says "Choose a room once the list loads" with "Try again". **U11**: "Report this post" has
+  the header's Close, rows divided by lines and the board's sentence "Reports are confidential:
+  they are never told who reported them…" (the collector report keeps its own). **A2**: "Message
+  {h}" lands with the focus in the chat's message box (`MessengerComponent.focusChat`), the last
+  "Show older posts" gives it to the first older post, "Try again" to the message box. **A3**:
+  older posts go into the log with its live updates off, then one "{n} older posts shown". **A4**:
+  the rooms are one Tab stop with ↑↓, j k (off with the single-key switch), Home and End. **A5**:
+  "Skip to the message box" after the room's header.
+
+**Decisions of the fix round**
+
+13. **F5: no game on a shared binder or deck core** rather than an additive `game` in the post's
+    binder data: a post may share a binder of any game (the API and the phone allow it), and adding
+    the field would change the API the phone reads for a label. The board's "Public binder ·
+    Yu-Gi-Oh!" becomes "Public binder"; a deck core shows its price.
+14. **"All cards" searches every game** (no `game` filter), as the phone's `CardLinkPicker` and the
+    web's old picker; each row names its game.
+15. **U11 only in the room's report mode**: the collector report of other stages keeps its boxed
+    rows and its sentence. The reasons' lines are the server's, so at 900 px tall the dialog can
+    still scroll when they wrap.
+
+**Tests added or changed**: web unit `room.store.spec` (+2: every page read again, an overtaken
+read dropped), `room-view.component.spec` (+9), `community-view.component.spec` (+4),
+`room-list.component.spec` (+1), `room-post.component.spec` (+3), `room-composer.component.spec`
+(+1), `community-rules.spec` (+1), `share-picker-dialog.component.spec` (+2),
+`photo-viewer-dialog.component.spec` (new, 2), `messages-page.component.spec` (new, 3),
+`report-collector-dialog.component.spec`, the gear in `collector-profile-view` and
+`notification-bell`, `link-choices.spec` (the binder search without case or accents moved to
+`link-choices.ts` with the removed binder picker's `matchingBinders`, which the share picker now
+uses); web E2E `community.spec.ts` (a card not owned, Message's focus, the tab's
+focus); API `DeletedCollectorDealNotificationsIT` and `GeoPrivacyContractTest` (above). Mutants
+re-run: A4 and P3's latitude now fail their tests.
+
+**Checks of review fix 1** (retries off, the real numbers; head before this table `3dce6e05`)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | clean |
+| `npm run test:api` | **209 classes / 1,313 tests** (`test`) and 13 (`catalogTest`), 0 failures, 4 min 38 s; targeted before: `DeletedCollectorDealNotificationsIT` 2/2, `GeoPrivacyContractTest` 18/18, and with mutants A4 and P3's latitude 1 failure each |
+| `exportOpenApi` then `generate:api` | nothing changed; git clean |
+| `npm run lint`, `format:check -w apps/web-angular` | clean |
+| `npm test -w apps/web-angular`, `npm run test:web` | **198 files / 1,032 tests** (WF build: 196 / 1,004) |
+| `npm run build -w apps/web-angular`, `build:prod` | initial total **763.73 kB** (budget 900 kB; WF build 763.51 kB), no warning |
+| `npm run test:e2e -- --retries=0` (8180/4300, under the lock) | **96 passed** (1.2 min); targeted before: community, acceptance community, reporting 8/8 |
+| `npm run typecheck`, `lint`, `format:check -w apps/mobile` | clean |
+| `npm run test:mobile` | **128 suites / 1,782 tests** |
+| `npx expo export` (scratch folders) | iOS 1,975 modules, Android 2,101 modules, web 1,596 modules and 68 static routes |
+| `npm run test:mobile:e2e -- --retries=0` (8090/19006, under the simulator lock) | `--stack-only` (the served bundle names `http://localhost:8090` only, by the harness and by hand), `--reuse-running`: **66 passed** (1.1 min), `--stop` |
+| `npm run test:mobile:maestro -- --platform ios` | **not run, not needed**: since the builder's 44/44 nothing the phone runs changed (this round touched API tests only, the web and the docs; no `apps/api` source, `apps/mobile` or shared package) |
+| `npm run test:scripts` | **165 / 165** |
+| `npm run audit:gate` | OK |
+
+**The walk of the fix** (walk stack: API 8580 with `orenjitrade_wf_check` and Redis db 6, web 4400;
+dropped and flushed after): the post with a card and a deck core, a Pokémon binder in the Yu-Gi-Oh!
+room ("Public binder"), "Share a card" with "Moth" (none of yours, "All cards" lists Verdant Moth
+Queen), a card and a binder in the message box, the post's "⋯" sheet at 390 (it found the sheet 240
+wide: fixed), Report this post, "Skip to the message box" (the next stop after Room rules, Enter
+lands in the field), the closed community and the failed list (routed answers); P1 live: 36 posts
+in the Riftbound room, "Show older posts", a moderator removes the oldest: gone after 13.2 s; the
+Yu-Gi-Oh! room's last post removed: the list's preview replaced after 13.2 s. No console error. AFTER
+screenshots in `.local-dev/wf-notes/pr-shots/after/` (`community-shares`, `community-share-card`,
+`community-share-card-all`, `community-composer-both`, `community-post-menu-390`,
+`community-report`, `community-skip`, `community-closed`, `community-list-error`).
+
+**Left open** (not among the findings of this round): axe's `landmark-complementary-is-top-level`
+and `aria-allowed-role` (A7) and `page-has-heading-one` below 960 (A10) that the accessibility
+reviewer listed among its checks; the Android run could not be verified (the stage touches no phone
+code).
+
+### Review fix 2 (round 2 of 2)
+
+The check of review fix 1 (verifier round 2) found one major and three minors; each is fixed at its
+cause with a test that fails without the fix (web only: no API source, DTO, OpenAPI, token or
+migration change; the next migration is still **V135**).
+
+- **R1-1 (major): a room's 15-second refresh no longer reads older pages into the room.** The P1
+  refresh read down to the oldest post shown, but a new post shifts the pages by one, so the last
+  page read reached past that post and the whole of it joined the room (and its live log) with the
+  cursor moved to its end: 30, then 60, 90, 120 posts shown and 2, 3, 4 reads per poll after three
+  new posts. `RoomStore.refresh` now keeps only the posts at or newer than the oldest post shown
+  and, when the read went past it, leaves the cursor and "Show older posts" as they were (the API's
+  cursor is a keyset of `created_at` and id, so the old cursor still continues just below that
+  post). Unit tests (`room.store.spec`, +2): a room of 150 paged as the API does, three new posts
+  give 31, 32, 33 shown, the oldest unchanged, two reads per poll, a quiet poll the same, "Show
+  older posts" from the oldest shown; a room of 40 with 30 shown keeps "Show older posts". Walked:
+  150 posts in the One Piece room, 30 → 31 → 32 → 33 shown, two reads per poll, one node added to
+  the live log per new post, "Show older posts" then shows the next 30 without a gap or a duplicate.
+- **R1-2 (minor): "Try again" posts the message box as it is now.** After a network refusal the
+  composer's "Try again" emits the box's current text and shares (`RoomComposerComponent.retry` is
+  now a `RoomDraft`; the room view's stale `lastDraft` is gone), so a binder or card added or
+  removed after the refusal goes with the post or stays out, and the box is cleared only once that
+  post is in. Unit tests: `room-composer.component.spec` (a binder added after the refusal goes,
+  one removed stays out) and `room-view.component.spec` (an aborted post, a binder added, "Try
+  again" sends `binderId`, then the box and the tray are empty). Walked with an aborted request.
+- **R1-3 (minor): "Share a binder or deck core" lists every public binder, the room's game first.**
+  The WF picker had narrowed the list to the room's game, as board W22's sample does; the phone's
+  picker and the web's before WF list every public binder and the API accepts any (F5 already drops
+  the game from a shared binder for that reason). Each row names its own game ("Public binder ·
+  Pokémon"); the search says "Search your binders", the empty and no-match lines "You have no public
+  binders or deck cores yet." and "None of your public binders match “…”." Unit test in
+  `share-picker-dialog.component.spec`; the contract's row updated. Walked as collector5 in the
+  Yu-Gi-Oh! room: Monarch core first, then the Pokémon and Magic binders; "Singles" finds them.
+- **R1-4 (minor): "Report this post" fits board W22 at 1440x900.** In the post's report the content
+  may use the window's height less the title, the buttons and 16 px above and below (from 600 px
+  wide; `ReportActionsService` caps the dialog at the window's height less 32 px, so it never
+  outgrows it), the radios are 32 px (Material's density -2), the lines under the reasons 12 px,
+  and the 20 px the form left above the post is gone (Material's "title + content" rule does not
+  see through the form). Measured at 1440x900: the content 706 of 706 px (before: 585 shown of
+  820), the dialog 847 px tall (the board's 868); at 1024x768 and 390 the content scrolls as
+  before; at 720x450 (200 percent) the dialog stays inside the window. Tests: the community E2E's
+  report runs at 1440x900 and asserts seven reasons, no scroll in the content, the dialog inside
+  the window, Details and "Send report" in view; unit tests for the post's compact class (a
+  collector's report keeps its boxed rows) and the service's `maxHeight` (`report-actions.service.spec`,
+  new).
+
+**Decisions of fix 2**
+
+16. **R1-3 against board W22's sample**: the board's picker filters the binders by the room's game;
+    the spec (10.7) does not, and the rule is to keep what works (the phone and the web before WF
+    list every public binder). Reported as a spec point changed: every public binder, the room's
+    game first, with the board's words kept where they still hold ("Public binder · {game}" names
+    the binder's own game) and the game left out of the search, empty and no-match lines.
+17. **R1-1's edge case**: when a whole room was shown ("Show older posts" gone) and a post older
+    than the oldest shown becomes visible again (an unblock elsewhere), a refresh does not add it
+    and the button does not come back until the room is opened again; a cursor cannot be made on
+    the client, and reading it in would bring back the harm R1-1 describes.
+
+**Tests added or changed in fix 2**: web unit `room.store.spec` (+2), `room-composer.component.spec`
+(+1; the existing "Try again" test types text first, as the button only shows after a post with
+text), `room-view.component.spec` (+1), `share-picker-dialog.component.spec` (the binder test
+rewritten for every game), `report-collector-dialog.component.spec` (2 assertions),
+`report-actions.service.spec` (new, 1); web E2E `community.spec.ts` (the report's fit at 1440x900).
+
+**Checks of review fix 2** (retries off, the real numbers; head before this table `52950f97`)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | clean |
+| `npm run test:api` | **209 classes / 1,313 tests** (`test`) and 13 (`catalogTest`), 0 failures, 4 min 42 s (no API change this round) |
+| `exportOpenApi` then `generate:api` | nothing changed; git clean |
+| `npm run lint`, `format:check -w apps/web-angular` | clean |
+| `npm test -w apps/web-angular`, `npm run test:web` | **199 files / 1,037 tests** (fix 1: 198 / 1,032); targeted before: the new tests fail without their fixes (R1-1's two, R1-2's room-view test; R1-2's composer test does not compile against the old `retry`) |
+| `npm run build -w apps/web-angular`, `build:prod` | initial total **763.73 kB** (budget 900 kB; fix 1 763.73 kB), no warning |
+| `npm run test:e2e -- --retries=0` (8180/4300, under the lock) | **96 passed** (1.3 min), with the report's fit at 1440x900 |
+| `npm run typecheck`, `lint`, `format:check -w apps/mobile` | clean |
+| `npm run test:mobile` | **128 suites / 1,782 tests** |
+| `npx expo export` (scratch folders) | iOS 1,975 modules, Android 2,101 modules, web 1,596 modules and 68 static routes |
+| `npm run test:mobile:e2e -- --retries=0` (8090/19006, under the simulator lock) | `--stack-only` (the served bundle names `http://localhost:8090` only, by the harness and by hand), `--reuse-running`: **66 passed** (1.1 min), `--stop` |
+| `npm run test:mobile:maestro -- --platform ios` | **not run, not needed**: no shared code changed since the builder's 44/44 (this round touched `apps/web-angular` and the docs only; no `apps/api`, `apps/mobile`, `packages/design-tokens`, `packages/api-client` or `packages/shared-types`) |
+| `npm run test:scripts` | **165 / 165** |
+| `npm run audit:gate` | OK |
+
+**AFTER screenshots** in `.local-dev/wf-notes/pr-shots/after/`: `community-report` (1440 dark and
+light, 1024, 390), `community-share-binder` (1440 dark and light, 1024, 390) and
+`community-share-binder-search-1440-dark`. The walk stack (API 8580, `orenjitrade_wf_check` with
+150 fictional posts added in the One Piece room, Redis db 6, web 4400) was dropped and flushed
+after.
+
+**Left open by the verifier of fix 2 (round 2 approved; carried into stage WG, which fixes them
+first):** no blocker, major or minor. The first round's 11 nits, which the fix rounds were not
+given (some may already be gone: F8 through fix 1's F1, which removed the unused pickers; F9 partly
+through fix 1's P2 and A6): the old card and binder link pickers are unused (F8,
+`shared/links/card-link-picker.component.ts`, `binder-link-picker.component.ts`); with Community
+switched off (`publicChat` off) a room's address shows the Chats inbox after a reload and the room
+list keeps its rooms (F9: replace the URL with `/messages`, mark the rooms store disabled with the
+room); Room rules' "You blocked {h}" Unblock row lasts only for the current page view (F10: say so in
+the rules, or read `GET /users/blocked` when Room rules opens); the region popover opened from
+Community says only "Home, Search and the map show one region at a time" though the rooms follow it
+too (U12); a guest on a room link signs in back to `/messages`, not to the room (U13, stage WG's own
+scope: pass the current URL as `returnUrl`); phone photos the web now shows are public, cached for a
+year as immutable and name the author's account id in their URL (P4: R11's existing media rule,
+newly shown on the web; for the API owner, a shorter cache or a path without the id); Room rules'
+markup nests a complementary landmark in the room's region, gives an `aside` `role=dialog` and its
+toggle both pressed and expanded states (A7, axe's `landmark-complementary-is-top-level` and
+`aria-allowed-role`); a refusal is not in the message box's `aria-describedby`, and the last post
+ends partly under the taller box (A8); saving an edited post announces nothing (A9: "Post saved",
+polite); below 960 a room page has no h1 (A10, axe's `page-has-heading-one`); the light theme's
+unread dot is 2.74:1 (A11, SC 1.4.11, not the only cue: use the darker accent). The native suite was
+not re-run after fix 2, which changed no shared code (last 44/44 at `eb3c0fef`).
+
 ## NEXT TASK
 
 > **The web resumes (owner, 2026-10-28): stages WA to WH2 of the web redesign**, one at a time
@@ -13707,16 +14142,35 @@ read." is announced twice and Message keeps its name while it opens (A11).
 > `/notifications` keeps the focus in the popover; web only). The check of review fix 2 approved
 > it, with one minor (R2-1, the focus after "Still have them" in the Unread view) and nits left
 > open: stage WF fixes them first (the WE section's "Left open by the verifier of fix 2").
-> **Next for WE: its pull request against `main`, merged on green.**
+> **WE is merged into `main`** (#100, merge commit `7b360a02`, 2026-10-30). On the way CI's Trivy
+> gate needed one exception in `.trivyignore`, CVE-2026-118664: the `decode-uri-component` advisory
+> that WD allowlisted for `npm audit` (GHSA-qr28-fpjm-wq7f), same reason and expiry (2026-11-30).
 >
-> **The exact next stage after WE's pull request: stage WF of the web redesign, Messages ›
-> Community (board W22; spec section 10.7; decision 11; after phone R11)**, from the latest
-> `origin/main`: one room per region × game as the phone's R11 (the inbox column with Community's
-> own region pill, the five game rooms, the footnote; the room read like a chat with its banner,
-> posts with a shared card, binder or deck core and no photos, since community photos are stage
-> S4, which stays skipped; the "⋯" menu with Message, Report this post and Block; the composer
-> "Write to the room" with "+"; no reply threads; "Room rules" as the third pane, a drawer at md);
-> GeoPrivacyContractTest for rooms; E2E of posting, reporting a post and a blocked author hidden.
+> **Stage WF (Messages › Community) is built** on `feature/wf-community`, made on WE (#100,
+> merged; `origin/main` merged in at `13a6e72e`, which brought only the Trivy exception; section "Web redesign WF: Messages > Community (2026-10-30)"
+> above; contract `docs/api/contracts/wf-web-community.md`; no migration, the next is still
+> **V135**): WE's R2-1 and nits fixed first (R2-2 with the additive `raterId` and `sellerId` in
+> rating and sale notifications); the five game rooms of the browsed region with Community's own
+> region pill beside the open room, posts read like a chat with a shared card, deck core or binder
+> and a phone's photos read only, the "⋯" menu (Message, Report this post, Block), the message box
+> with "+", Room rules as the third pane, a drawer at md and a sheet below 960; the web E2E
+> database keeps V134's archived channels (`PAUSED_WEB_CHANNELS` dropped from the harness and the
+> CI job). Its reviewers (functional, product and UX as a collector at a desk, privacy,
+> accessibility) ran round 1: **review fix 1 is done** (section "Review fix 1" in the WF section:
+> "Share a card" searches all cards again, every page shown read again, the rooms list every 15 s,
+> focus and live regions). Round 2 of its reviewers found one major and three minors: **review fix
+> 2 is done** (section "Review fix 2 (round 2 of 2)" in the WF section: a room's refresh adds new
+> posts only, "Try again" posts the box as it is, every public binder in the picker, the post's
+> report fits 1440x900; web only). The check of review fix 2 approved it with nothing above a nit
+> open: the first round's 11 nits go into stage WG, which fixes them first (the WF section's "Left
+> open by the verifier of fix 2"). **Next for WF: its pull request against `main`, merged on
+> green.**
+>
+> **The exact next stage after WF's pull request: stage WG of the web redesign, Sign-in, welcome
+> and guests (boards W26 and W27; spec section 14; decision 4; the guest parts after phone R15,
+> which is on `main`)**, from the latest `origin/main`: sign-in and create an account (W27), the
+> welcome, account states, and Home and Search without an account (W26) with R15's rule (a guest
+> sees places, never who; any action opens the sign-in dialog and finishes after it).
 
 > **(Done: WE, above.) The exact next stage after WD's pull request was stage WE of the web redesign, Home, profiles,
 > notifications and settings (boards W1, W2 and W23 to W25; spec sections 5, 11, 12 and 13; decisions

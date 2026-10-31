@@ -46,15 +46,15 @@
               (location.city ? ', ' : '') + (location.subdivisionName || location.countryName)
             }}</span></span
           >
-          <span aria-hidden="true"> · </span>
+          <span aria-hidden="true"> · </span><span class="visually-hidden">, </span>
         } @else if (isOwn()) {
           <!-- Your own profile: why no place shows (others see nothing here). -->
           <span>Not on the map</span>
-          <span aria-hidden="true"> · </span>
+          <span aria-hidden="true"> · </span><span class="visually-hidden">, </span>
         }
         <span>Member since {{ p.memberSince | date: 'y' }}</span>
         @if (activeLabel(); as active) {
-          <span aria-hidden="true"> · </span>
+          <span aria-hidden="true"> · </span><span class="visually-hidden">, </span>
           <span>{{ active }}</span>
         }
       </p>
@@ -66,11 +66,11 @@
           Edit profile
         </a>
         <button type="button" class="cp__outline" (click)="shareRequested.emit()">
-          <app-shell-icon name="share" [size]="18" />
+          <app-shell-icon name="share" [size]="20" />
           Share profile
         </button>
         <a class="cp__round" routerLink="/settings" aria-label="Settings">
-          <app-shell-icon name="settings" [size]="20" />
+          <app-shell-icon name="gear" [size]="20" />
         </a>
       } @else {
         @if (p.canMessage) {
@@ -78,7 +78,9 @@
             type="button"
             class="cp__primary"
             [disabled]="messaging()"
-            [attr.aria-label]="'Message ' + p.handle"
+            [attr.aria-label]="
+              messaging() ? 'Opening the chat with ' + p.handle : 'Message ' + p.handle
+            "
             (click)="messageRequested.emit()"
           >
             <app-shell-icon name="messages" [size]="18" />
@@ -94,23 +96,29 @@
         >
           <app-shell-icon name="more" [size]="20" />
         </button>
-        <mat-menu #more="matMenu" xPosition="before">
+        <mat-menu #more="matMenu" xPosition="before" class="app-more-menu">
           <button mat-menu-item type="button" (click)="shareRequested.emit()">
-            <app-shell-icon name="share" [size]="18" />
+            <app-shell-icon name="share" [size]="20" />
             <span>Share profile</span>
           </button>
           <button mat-menu-item type="button" (click)="reportRequested.emit()">
-            <app-shell-icon name="flag" [size]="18" />
+            <app-shell-icon name="flag" [size]="20" />
             <span>Report {{ p.handle }}</span>
           </button>
+          <div class="app-more-menu__divider" role="separator"></div>
           @if (p.isBlocked) {
             <button mat-menu-item type="button" (click)="unblockRequested.emit()">
-              <app-shell-icon name="ban" [size]="18" />
+              <app-shell-icon name="ban" [size]="20" />
               <span>Unblock {{ p.handle }}</span>
             </button>
           } @else {
-            <button mat-menu-item type="button" class="cp__danger" (click)="blockRequested.emit()">
-              <app-shell-icon name="ban" [size]="18" />
+            <button
+              mat-menu-item
+              type="button"
+              class="app-more-menu__danger"
+              (click)="blockRequested.emit()"
+            >
+              <app-shell-icon name="ban" [size]="20" />
               <span>Block {{ p.handle }}</span>
             </button>
           }

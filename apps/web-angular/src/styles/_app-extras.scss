@@ -281,6 +281,57 @@ app-deal-panel .deal__top {
   font-weight: var(--font-weight-medium);
 }
 
+// The "⋯" menus of a profile and of a community post (boards W23 and W22): 228 wide with 6 of
+// padding, rows 40 tall with a 20 px icon 12 from the text, a divider before Block (in red).
+.mat-mdc-menu-panel.app-more-menu {
+  width: 240px;
+  min-width: 228px;
+  padding: 6px;
+
+  .mat-mdc-menu-content {
+    padding: 0;
+  }
+
+  .mat-mdc-menu-item {
+    min-height: 40px;
+    padding: 0 10px;
+    border-radius: 10px;
+  }
+
+  .mat-mdc-menu-item-text {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .mat-mdc-menu-item app-shell-icon {
+    flex: 0 0 auto;
+    color: var(--color-text-secondary);
+  }
+
+  .app-more-menu__danger,
+  .app-more-menu__danger app-shell-icon {
+    color: var(--color-danger);
+  }
+
+  .app-more-menu__divider {
+    height: 1px;
+    margin: 6px 4px;
+    background: var(--color-border-strong);
+  }
+}
+
+// A post's "⋯" below 960 is a bottom sheet at full width (spec 16; WF review U6).
+.mat-mdc-menu-panel.app-more-menu.app-menu--sheet {
+  width: 100%;
+  min-width: 0;
+  padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+
+  .mat-mdc-menu-item {
+    min-height: 48px;
+  }
+}
+
 // Menus of Inventory and Import (web WB): a game's head, a binder with its hint, "Newest".
 .mat-mdc-menu-panel {
   .menu-head {

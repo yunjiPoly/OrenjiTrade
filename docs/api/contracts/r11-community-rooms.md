@@ -138,3 +138,10 @@ reader, the PRIVATE author's own read included.
   asks for its first page again every 15 s while it is on screen and the app in the foreground, on
   coming back to it, and with a pull at the newest end; the avatar and the handle open the author's
   profile; "Binder no longer available" for `binderUnavailable`.
+
+## What the web does (stage WF)
+
+Since web stage WF the web reads the same rooms, unchanged: the inbox column, a room, posting with a
+shared card or binder (never a photo: community photos are stage S4), the "⋯" menu and Room rules.
+See [wf-web-community.md](wf-web-community.md). The web E2E suite posts in the rooms; the archived
+channels are no longer brought back in its database.

@@ -355,7 +355,7 @@ public class NotificationService {
 
     /**
      * The account deletion job without the account's handle: {@link #purge(UUID, String)} without
-     * the rows that name it by its handle only.
+     * the older rows that name it by its handle only.
      */
     @Transactional
     public void purge(UUID userId) {
@@ -365,10 +365,14 @@ public class NotificationService {
     /**
      * The account deletion job: the account's own notifications go, and the other collectors' rows
      * that name it say "Deleted collector" as the chat does (a message's title and body, a wishlist
-     * alert's handle; WC review V3-1). With the account's {@code handle} (taken before the account
-     * was anonymised), the rows naming it by that handle only say it too: a rating's title, body
-     * and {@code raterHandle}, a sale's title and {@code sellerHandle} (WE review P2). A row
-     * written under an older handle of the account keeps its words.
+     * alert's handle; WC review V3-1), and so do a rating's title, body and {@code raterHandle} and
+     * a sale's title and {@code sellerHandle} (WE review P2). Those two are found by the account's
+     * id ({@code raterId}, {@code sellerId}, written since stage WF; WE review R2-2: handles can be
+     * changed and taken again); an older row without an id is found by the account's {@code handle}
+     * (taken before the account was anonymised) when it was written once the account existed. Such
+     * an older row of another collector who held the handle meanwhile would lose its name too: that
+     * hides a name, where the other way round would keep a deleted collector's handle in front of
+     * others.
      */
     @Transactional
     public void purge(UUID userId, @Nullable String handle) {
@@ -380,11 +384,20 @@ public class NotificationService {
                 ActivityNotifications.MESSAGE_PHRASES,
                 ActivityNotifications.PLAIN_MESSAGE_PHRASE);
         repository.renameWishlistCollector(userId, DELETED_COLLECTOR);
-        if (handle != null && !handle.isBlank()) {
-            repository.renameRater(
-                    handle, RATING_TITLE_PREFIX + DELETED_COLLECTOR, DELETED_COLLECTOR);
-            repository.renameSeller(handle, DELETED_COLLECTOR);
-        }
+        @Nullable String legacyHandle = handle == null || handle.isBlank() ? null : handle;
+        @Nullable Instant since =
+                legacyHandle == null
+                        ? null
+                        : accounts.findSnapshot(userId)
+                                .map(UserAccountSnapshot::createdAt)
+                                .orElse(null);
+        repository.renameRater(
+                userId,
+                legacyHandle,
+                since,
+                RATING_TITLE_PREFIX + DELETED_COLLECTOR,
+                DELETED_COLLECTOR);
+        repository.renameSeller(userId, legacyHandle, since, DELETED_COLLECTOR);
     }
 
     NotificationView view(Row row) {

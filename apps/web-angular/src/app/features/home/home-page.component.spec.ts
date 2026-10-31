@@ -24,6 +24,7 @@ describe('HomePageComponent (spec 5, boards W1 and W2)', () => {
   const status = signal<'loading' | 'ready' | 'error'>('ready');
   const newer = signal(false);
   const signedIn = signal(true);
+  const medium = signal(false);
   const browsable = signal<ReadonlySet<string> | null>(new Set(['yugioh']));
   const select = vi.fn(() => true);
   const announce = vi.fn(async () => undefined);
@@ -47,7 +48,7 @@ describe('HomePageComponent (spec 5, boards W1 and W2)', () => {
       imports: [HomePageComponent],
       providers: [
         provideRouter([]),
-        { provide: ShellLayout, useValue: { narrow: signal(false), medium: signal(false) } },
+        { provide: ShellLayout, useValue: { narrow: signal(false), medium } },
         {
           provide: RegionsStore,
           useValue: {
@@ -123,6 +124,7 @@ describe('HomePageComponent (spec 5, boards W1 and W2)', () => {
     status.set('ready');
     newer.set(false);
     signedIn.set(true);
+    medium.set(false);
   });
 
   it('reads the feed of the region and game, the chips in a "Show" group', async () => {
@@ -152,6 +154,29 @@ describe('HomePageComponent (spec 5, boards W1 and W2)', () => {
       [],
       expect.objectContaining({ queryParams: { kind: 'wanted' } }),
     );
+  });
+
+  it("the rail's links close the feed at md, where the rail is gone (WE review U17)", async () => {
+    await render();
+    expect(element.querySelector('.home__feed .home__links')).toBeNull();
+    expect(element.querySelector('.home__rail .home__links')?.textContent).toContain(
+      'Trading safely',
+    );
+    TestBed.resetTestingModule();
+    medium.set(true);
+    await render();
+    expect(element.querySelector('.home__rail')).toBeNull();
+    const links = element.querySelector('.home__feed .home__links');
+    expect(links?.textContent).toContain('Card data credits');
+  });
+
+  it("a focused chip scrolls into the row's view (WE review R2-3)", async () => {
+    await render();
+    const chip = element.querySelector<HTMLButtonElement>('[data-testid="home-chip-DECK_CORES"]')!;
+    const scrollIntoView = vi.fn();
+    chip.scrollIntoView = scrollIntoView;
+    chip.dispatchEvent(new FocusEvent('focus'));
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest', inline: 'nearest' });
   });
 
   it("a link's game waits for the games list, then is browsed (the URL keeps it meanwhile)", async () => {

@@ -20,7 +20,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { deleteEmulatorAccountsWhere } from './auth-emulator.mjs';
-import { containerHealth, dockerEngineIsLocal, ensureDatabase, psql, recreateDatabase } from './local-db.mjs';
+import { containerHealth, dockerEngineIsLocal, ensureDatabase, recreateDatabase } from './local-db.mjs';
 import {
   API_DIR,
   IS_WINDOWS,
@@ -60,7 +60,6 @@ import {
   E2E_REDIS_DB,
   E2E_WEB_PORT,
   INFO_KEY,
-  PAUSED_WEB_CHANNELS,
   assertIsolated,
   developerDirs,
   e2eApiEnv,
@@ -68,7 +67,6 @@ import {
   isProcessImage,
   isRunAccount,
   newRunId,
-  pausedWebChannelsSql,
   portProblem,
   redisDatabaseOf,
   reuseRefusal,
@@ -513,10 +511,6 @@ export async function runWebE2e(argv) {
         `E2E API ready (${formatDuration(apiWait)}; /actuator/info ${INFO_KEY}.database=${info.body[INFO_KEY].database}), ` +
           `web ready (${formatDuration(webWait)}; config.json → ${config.body.apiBaseUrl}).`,
       );
-      // Stage R11 archived the channels the paused web's specs use (V134): they come back in this
-      // run's own database only (scripts/lib/web-e2e-guard.mjs, PAUSED_WEB_CHANNELS).
-      psql(E2E_DB, pausedWebChannelsSql(E2E_DB));
-      log.ok(`The paused web's community channels are active in ${E2E_DB} (${PAUSED_WEB_CHANNELS.join(', ')}).`);
       stackReady = true;
     }
 

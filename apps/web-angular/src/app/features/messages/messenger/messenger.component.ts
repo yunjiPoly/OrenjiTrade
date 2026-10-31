@@ -164,6 +164,13 @@ export class MessengerComponent {
   readonly openedChange = output<string | null>();
   /** Unread messages across conversations that are not muted (badges around the messenger). */
   readonly unreadChange = output<number>();
+  /**
+   * A chat opened from elsewhere on the page ("Message {h}" in a community room): once it is on
+   * screen it takes the focus, when nothing else holds it (WF review A2).
+   */
+  readonly focusChat = input<string | null>(null);
+  /** The chat of {@link focusChat} took the focus (or kept it elsewhere): the request is done. */
+  readonly chatFocused = output<void>();
 
   protected readonly activeId = this.store.activeId;
   protected readonly active = this.store.active;
@@ -223,6 +230,26 @@ export class MessengerComponent {
       });
     });
   }
+
+  private readonly focusRequest = effect(() => {
+    const wanted = this.focusChat();
+    const shown = this.shownChat();
+    untracked(() => {
+      if (!wanted || shown !== wanted) {
+        return;
+      }
+      afterNextRender(
+        () => {
+          const active = this.document.activeElement;
+          if (!active || active === this.document.body || !active.isConnected) {
+            this.thread()?.focusStart();
+          }
+          this.chatFocused.emit();
+        },
+        { injector: this.injector },
+      );
+    });
+  });
 
   /** The chat on screen, or `null` for the inbox. */
   private readonly shownChat = computed(() => this.active()?.id ?? null);

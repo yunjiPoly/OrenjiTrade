@@ -15,6 +15,7 @@ import {
   ReadChange,
   bellShows,
 } from '../../../core/notifications/notification-center.service';
+import { ReminderAnswers } from '../../../core/notifications/reminder-answers.service';
 import { RealtimeService } from '../../../core/realtime/realtime.service';
 
 /** Notifications per page of `GET /notifications`. */
@@ -104,6 +105,7 @@ export class NotificationFeedStore {
   private readonly api = inject(NotificationsService);
   private readonly center = inject(NotificationCenter);
   private readonly realtime = inject(RealtimeService);
+  private readonly answers = inject(ReminderAnswers);
   private readonly destroyRef = inject(DestroyRef);
 
   private readonly itemsState = signal<NotificationResponse[]>([]);
@@ -113,6 +115,12 @@ export class NotificationFeedStore {
   private readonly loadingMoreState = signal(false);
   private readonly moreFailedState = signal(false);
   private readonly unreadOnlyState = signal(false);
+  /**
+   * Reminders answered in place ("Still have them") while the unread view is on screen: marked
+   * read, they stay until the next load, so the row says "Confirmed. They stay in search." and
+   * keeps the focus (WE review R2-1, WCAG 2.4.3).
+   */
+  private readonly keptState = signal<ReadonlySet<string>>(new Set());
 
   readonly items = this.itemsState.asReadonly();
   readonly status = this.statusState.asReadonly();
@@ -122,8 +130,14 @@ export class NotificationFeedStore {
   readonly moreFailed = this.moreFailedState.asReadonly();
   readonly unreadOnly = this.unreadOnlyState.asReadonly();
   readonly groups = computed(() => groupByDay(this.itemsState()));
-  /** The unread notifications shown ("New", board W24). */
-  readonly fresh = computed(() => this.itemsState().filter((item) => !item.readAt));
+  /**
+   * The unread notifications shown ("New", board W24), with a reminder answered in the unread
+   * view until the next load.
+   */
+  readonly fresh = computed(() => {
+    const kept = this.keptState();
+    return this.itemsState().filter((item) => !item.readAt || kept.has(item.id));
+  });
   /** The read ones by day ("Earlier"). */
   readonly earlier = computed(() => groupByDay(this.itemsState().filter((item) => !!item.readAt)));
 
@@ -173,6 +187,7 @@ export class NotificationFeedStore {
     this.errorState.set(null);
     this.moreFailedState.set(false);
     this.loadingMoreState.set(false);
+    this.keptState.set(new Set());
     this.loadSubscription = this.api
       .listNotifications(this.request(), 'body', false, { context: silentErrors() })
       .subscribe({
@@ -275,6 +290,15 @@ export class NotificationFeedStore {
     const matches = (item: NotificationResponse) =>
       !item.readAt && (change.kind === 'all' || item.id === change.id);
     if (this.unreadOnlyState()) {
+      // A reminder answered here stays, read, until the next load (WE review R2-1).
+      const answered = change.kind === 'one' ? change.id : null;
+      if (answered && answered === this.answers.confirming()) {
+        this.keptState.update((kept) => new Set([...kept, answered]));
+        this.itemsState.update((items) =>
+          items.map((item) => (matches(item) ? { ...item, readAt: change.readAt } : item)),
+        );
+        return;
+      }
       this.itemsState.update((items) => items.filter((item) => !matches(item)));
       return;
     }

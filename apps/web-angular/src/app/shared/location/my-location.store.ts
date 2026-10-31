@@ -80,9 +80,37 @@ export class MyLocationStore {
     this.loadingState.set(false);
   }
 
-  /** Loads location and privacy together; resolves false (and sets `error`) on failure. */
-  async load(): Promise<boolean> {
+  /**
+   * Loads location and privacy together; resolves false (and sets `error`) on failure. A load
+   * already in flight for this account is shared: Search asked twice at once (WE review F8).
+   */
+  load(): Promise<boolean> {
+    if (this.inflight && this.inflightGeneration === this.generation) {
+      return this.inflight;
+    }
     const generation = this.generation;
+    const reading = this.read(generation).finally(() => {
+      if (this.inflight === reading) {
+        this.inflight = null;
+      }
+    });
+    this.inflight = reading;
+    this.inflightGeneration = generation;
+    return reading;
+  }
+
+  /** The location and privacy settings once per account: read only when not known yet. */
+  ensureLoaded(): Promise<boolean> {
+    if (this.locationState() && this.privacyState()) {
+      return Promise.resolve(true);
+    }
+    return this.load();
+  }
+
+  private inflight: Promise<boolean> | null = null;
+  private inflightGeneration = -1;
+
+  private async read(generation: number): Promise<boolean> {
     this.loadingState.set(true);
     this.errorState.set(null);
     try {

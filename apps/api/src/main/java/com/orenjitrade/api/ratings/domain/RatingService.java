@@ -289,6 +289,8 @@ public class RatingService {
         Map<String, @Nullable Object> data = new LinkedHashMap<>();
         data.put("ratingId", row.id().toString());
         data.put("overall", row.scores().overall());
+        // The rater's id (WF, WE review R2-2): an account deletion finds the row by it.
+        data.put("raterId", row.raterId().toString());
         if (rater != null) {
             data.put("raterHandle", rater.handle());
         }

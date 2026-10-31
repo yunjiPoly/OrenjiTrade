@@ -170,7 +170,8 @@ export class WishlistStore {
 
   /** The location (alert readiness) and the privacy settings (wishlist visibility). */
   async loadSettings(): Promise<void> {
-    if (await this.myLocation.load()) {
+    // Known already (Search's viewer place reads it at the same time): read once (WE review F8).
+    if (await this.myLocation.ensureLoaded()) {
       this.settingsLoaded.set(true);
     }
   }

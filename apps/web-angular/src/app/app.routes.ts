@@ -1,4 +1,4 @@
-import { Routes, UrlMatchResult, UrlSegment } from '@angular/router';
+import { ActivatedRouteSnapshot, Routes, UrlMatchResult, UrlSegment } from '@angular/router';
 import {
   accountGuard,
   accountStateGuard,
@@ -14,14 +14,28 @@ import {
   wishlistRedirect,
 } from './core/routing/legacy-redirects';
 
-/** `messages` and `messages/:id` (one route config, so the router reuses the page between them). */
+/**
+ * `messages`, `messages/:id` and `messages/community/:room` (one route config, so the router reuses
+ * the page between a chat, the inbox and a community room: the focus can go back to the row that
+ * opened a room or a chat below 960; WC review F5, web WF).
+ */
 export function messagesMatcher(segments: UrlSegment[]): UrlMatchResult | null {
-  if (segments[0]?.path !== 'messages' || segments.length > 2) {
+  if (segments[0]?.path !== 'messages' || segments.length > 3) {
     return null;
+  }
+  if (segments.length === 3) {
+    return segments[1].path === 'community'
+      ? { consumed: segments, posParams: { room: segments[2] } }
+      : null;
   }
   return segments.length === 2
     ? { consumed: segments, posParams: { id: segments[1] } }
     : { consumed: segments };
+}
+
+/** "Community" in a room's tab title, "Messages" otherwise. */
+export function messagesTitle(route: ActivatedRouteSnapshot): string {
+  return route.paramMap.has('room') ? 'Community' : 'Messages';
 }
 
 /**
@@ -133,18 +147,11 @@ export const routes: Routes = [
       ),
   },
   {
-    path: 'messages/community/:room',
-    title: 'Community',
-    data: { shell: MESSAGES },
-    canActivate: [onboardingGuard],
-    loadComponent: () =>
-      import('./features/messages/messages-page.component').then((m) => m.MessagesPageComponent),
-  },
-  {
-    // `/messages` and `/messages/:id` are one route: the page (and the focused inbox row) stays
-    // when the first chat opens or Back closes it (spec 10.2; WC review F5, U3, A1).
+    // `/messages`, `/messages/:id` and `/messages/community/:room` are one route: the page (and
+    // the focused inbox or room row) stays when a chat or a room opens or Back closes it (spec
+    // 10.2 and 10.7; WC review F5, U3, A1; web WF).
     matcher: messagesMatcher,
-    title: 'Messages',
+    title: messagesTitle,
     data: { shell: MESSAGES },
     canActivate: [onboardingGuard],
     loadComponent: () =>

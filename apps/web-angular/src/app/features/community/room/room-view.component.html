@@ -1,0 +1,196 @@
+@let r = room();
+<section class="room" [attr.aria-labelledby]="headingId" data-testid="room">
+  <div class="room__chat">
+    <header class="room__head">
+      @if (showBack()) {
+        <button
+          type="button"
+          class="room__icon"
+          data-testid="room-back"
+          [attr.aria-label]="copy.back"
+          (click)="back.emit()"
+        >
+          <app-shell-icon name="chevronLeft" [size]="22" [stroke]="2" />
+        </button>
+      }
+      @if (r.game) {
+        <app-game-monogram class="room__tile" [game]="r.game" [size]="36" />
+      }
+      <div class="room__titles">
+        <h2 class="room__name" [id]="headingId">{{ r.name }}</h2>
+        <span class="room__sub">{{ copy.subtitle(regionName()) }}</span>
+      </div>
+      <button
+        type="button"
+        class="room__rules-toggle"
+        data-testid="room-rules-toggle"
+        aria-controls="room-rules"
+        [attr.aria-pressed]="rulesOpen()"
+        [attr.aria-expanded]="rulesMode() === 'pane' ? null : rulesOpen()"
+        [attr.aria-haspopup]="rulesMode() === 'pane' ? null : 'dialog'"
+        title="Show or hide the room rules"
+        (click)="toggleRules()"
+      >
+        <app-shell-icon name="info" [size]="18" />
+        <span class="room__rules-label">{{ copy.rulesButton }}</span>
+      </button>
+    </header>
+    <p class="room__banner">
+      <app-shell-icon name="shieldCheck" [size]="16" [stroke]="2" />
+      <span>{{ copy.banner }}</span>
+    </p>
+    @if (store.status() === 'ready' && items().length > 0) {
+      <a class="room__skip" href="#" data-testid="room-skip" (click)="skipToComposer($event)">{{
+        copy.skipToComposer
+      }}</a>
+    }
+
+    <div class="room__body" #scroller>
+      @switch (store.status()) {
+        @case ('error') {
+          <div class="room__pad">
+            <app-error-state
+              [title]="copy.loadError"
+              retryLabel="Try again"
+              [message]="store.errorMessage()"
+              [requestId]="store.error()?.requestId ?? null"
+              (retry)="reload()"
+            />
+          </div>
+        }
+        @case ('not-found') {
+          <app-empty-state
+            icon="speaker_notes_off"
+            [title]="copy.notFoundTitle"
+            [description]="copy.notFoundBody"
+          >
+            <button actions type="button" class="room__outline" (click)="back.emit()">
+              {{ copy.notFoundAction }}
+            </button>
+          </app-empty-state>
+        }
+        @case ('disabled') {
+          <app-empty-state
+            icon="speaker_notes_off"
+            title="The community is closed right now"
+            description="Public rooms are turned off for the moment. Private chats still work."
+          />
+        }
+        @case ('ready') {
+          <div
+            class="room__log"
+            [class.room__log--empty]="items().length === 0"
+            role="log"
+            aria-relevant="additions"
+            [attr.aria-live]="quietLog() ? 'off' : null"
+            [attr.aria-label]="copy.postsLabel(r.name)"
+            data-testid="room-log"
+          >
+            @if (store.hasOlder()) {
+              <div class="room__older">
+                @if (store.olderFailed()) {
+                  <span class="room__older-failed">{{ copy.olderFailed }}</span>
+                }
+                <button
+                  type="button"
+                  class="room__outline"
+                  [attr.aria-disabled]="store.loadingOlder() ? 'true' : null"
+                  (click)="store.loadingOlder() || loadOlder()"
+                >
+                  {{
+                    store.loadingOlder()
+                      ? copy.olderLoading
+                      : store.olderFailed()
+                        ? 'Try again'
+                        : copy.older
+                  }}
+                </button>
+              </div>
+            }
+            @if (items().length === 0) {
+              <div class="room__empty" data-testid="room-empty">
+                @if (r.game) {
+                  <app-game-monogram [game]="r.game" [size]="56" />
+                }
+                <h3 class="room__empty-title">{{ copy.emptyTitle }}</h3>
+                <p class="room__empty-text">{{ copy.emptyBody(regionName(), r.name) }}</p>
+              </div>
+            }
+            @for (item of items(); track item.key) {
+              @if (item.kind === 'day') {
+                <div class="room__day">
+                  <span>{{ item.label }}</span>
+                </div>
+              } @else {
+                <app-room-post
+                  [post]="item.post"
+                  [game]="r.game ?? null"
+                  [day]="item.day"
+                  (action)="onAction($event)"
+                  (photoOpened)="openPhoto($event)"
+                />
+              }
+            }
+          </div>
+        }
+        @default {
+          <div class="room__skeleton" aria-busy="true">
+            <span class="visually-hidden">{{ copy.loading }}</span>
+            @for (bone of [0, 1, 2, 3]; track bone) {
+              <div class="room__bone" aria-hidden="true">
+                <app-skeleton width="36px" height="36px" />
+                <div class="room__bone-lines">
+                  <app-skeleton width="40%" height="14px" />
+                  <app-skeleton width="80%" height="18px" />
+                </div>
+              </div>
+            }
+          </div>
+        }
+      }
+    </div>
+
+    @if (store.status() === 'ready' || store.status() === 'loading') {
+      <app-room-composer
+        [roomName]="r.name"
+        [slug]="r.slug"
+        [busy]="store.posting()"
+        [error]="refusal()?.message ?? null"
+        [retryable]="!!refusal()?.retryable"
+        (post)="onPost($event)"
+        (retry)="retry($event)"
+        (edited)="onEdited()"
+        (share)="openShare($event)"
+      />
+    }
+  </div>
+
+  @if (rulesOpen()) {
+    @let mode = rulesMode();
+    @if (mode !== 'pane') {
+      <div class="rules-scrim" aria-hidden="true" data-rules-scrim></div>
+    }
+    <aside
+      id="room-rules"
+      tabindex="-1"
+      class="rules-host"
+      data-testid="room-rules"
+      [class.rules-host--pane]="mode === 'pane'"
+      [class.rules-host--drawer]="mode === 'drawer'"
+      [class.rules-host--sheet]="mode === 'sheet'"
+      [attr.aria-labelledby]="rulesTitleId"
+      [attr.role]="mode === 'pane' ? 'complementary' : 'dialog'"
+      [attr.aria-modal]="mode === 'pane' ? null : 'true'"
+      [cdkTrapFocus]="mode !== 'pane'"
+      [cdkTrapFocusAutoCapture]="mode !== 'pane'"
+      (keydown.escape)="onRulesEscape($event)"
+    >
+      <app-room-rules
+        [titleId]="rulesTitleId"
+        [blocked]="blocked()"
+        (closed)="closeRules()"
+        (unblock)="unblock($event)"
+      />
+    </aside>
+  }
+</section>

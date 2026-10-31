@@ -331,5 +331,8 @@ export function getStartedSteps(input: {
   return { province, card, wish, done };
 }
 
-/** localStorage key of "Hide these steps" per account (the phone keeps it per account too). */
-export const GET_STARTED_HIDDEN_PREFIX = 'orenji.home.get-started-hidden.';
+/**
+ * localStorage key of "Hide these steps" per account (the phone keeps it per account too); it
+ * goes on sign-out (`core/auth/account-storage.ts`, WE review P4).
+ */
+export { GET_STARTED_HIDDEN_PREFIX } from '../../core/auth/account-storage';

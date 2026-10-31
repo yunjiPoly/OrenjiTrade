@@ -129,23 +129,32 @@ import { CardImageComponent } from '../../../shared/ui/card-image/card-image.com
       color: #fff;
     }
 
+    /* A long price ("Trade only") never squeezes the name: the name takes up to two lines and
+       the price moves under it when they do not fit side by side (WE review U16). */
     .cp__binder-row {
       display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
       justify-content: space-between;
-      gap: 8px;
+      gap: 2px 8px;
       padding: 14px 16px 0;
       font-weight: var(--font-weight-semibold);
     }
 
     .cp__binder-name {
+      display: -webkit-box;
+      flex: 1 1 12ch;
       min-width: 0;
       overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
+      overflow-wrap: anywhere;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
     }
 
     .cp__binder-price {
       flex: none;
+      margin-left: auto;
       white-space: nowrap;
     }
 

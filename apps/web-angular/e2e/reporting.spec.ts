@@ -258,10 +258,13 @@ test.describe('collector reporting', () => {
     });
     expect(sent.ok(), 'POST message').toBeTruthy();
     const postText = `Trading my spare Azure-Eyes, message me ${suffix()}`;
-    const posted = await request.post(`${API_URL}/api/v1/community/channels/americas-north/posts`, {
-      headers: authHeader(other.idToken),
-      data: { body: postText },
-    });
+    const posted = await request.post(
+      `${API_URL}/api/v1/community/channels/americas-north-yugioh/posts`,
+      {
+        headers: authHeader(other.idToken),
+        data: { body: postText },
+      },
+    );
     expect(posted.status(), 'POST community post').toBe(201);
     const postId = ((await posted.json()) as { id: string }).id;
     await apiUpdatePrivacy(request, other.idToken, { discoverable: true });
@@ -296,14 +299,15 @@ test.describe('collector reporting', () => {
       await page.keyboard.press('Escape');
       await expect(dialog).toBeHidden();
 
-      // Community post menu.
-      await page.goto('/messages/community/americas-north');
+      // A community post's "⋯" (web stage WF, board W22): "Report this post" shows the post.
+      await page.goto('/messages/community/americas-north-yugioh');
       const post = page.locator(`article[data-post-id="${postId}"]`);
       await expect(post).toContainText(postText);
-      await post.getByRole('button', { name: /^Post options/ }).click();
-      await page.getByRole('menuitem', { name: /^Report / }).click();
-      const fromPost = page.getByRole('dialog', { name: /^Report / });
-      await expect(fromPost).toContainText(other.displayName);
+      await post.hover();
+      await post.getByRole('button', { name: `More for the post by ${other.handle}` }).click();
+      await page.getByRole('menuitem', { name: 'Report this post' }).click();
+      const fromPost = page.getByRole('dialog', { name: 'Report this post' });
+      await expect(fromPost).toContainText(postText);
       await fromPost.getByRole('button', { name: 'Cancel' }).click();
       await expect(fromPost).toBeHidden();
 
