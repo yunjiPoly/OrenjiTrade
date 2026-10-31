@@ -7,6 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
+**Last updated:** 2026-10-30 (stage WG review fix 2, round 2 of 2: the welcome's step 3 with the token fields (labels above, 48 px) and the 40x24 switch, Settings › Location unchanged; the deletion page's shared rate limit left to the owner with its cause; web only; see "Review fix 2" in the WG section).
 **Last updated:** 2026-10-30 (stage WG review fix 1: a guest's pending action belongs to its own sign-in only (forgotten on Back out of the sign-in steps, a sign-out, another account, or the ready account on another page), Search keeps its game and binder after signing in, `/settings` on a fresh load, the art panel's height, the welcome's step 3, the guest notices, the sign-in steps' focus and announcements, the WG E2E's Legal locator and the resumes of every action; web only; see "Review fix 1" in the WG section).
 **Last updated:** 2026-10-30 (stage WG of the web redesign, builder: sign-in, Create your account, Reset and Verify as pages of their own (board W27, the 18+ line apart and in English only), the account states as cards (Review our terms with the age alone for older accounts, suspended, scheduled for deletion, "We could not load your account"), the welcome's three steps, and guests (board W26: places only, the guest pages of Inventory, Messages and Profile, Appearance and Legal open, the sign-in dialog for every action, finished after signing in); WF's 11 nits first; no API change, no migration; the native suite blocked by Xcode's first launch; see the WG section and NEXT TASK).
 **Last updated:** 2026-10-30 (stage WE merged into `main` as #100, merge commit `7b360a02`, after one Trivy exception, CVE-2026-118664, the `decode-uri-component` advisory of WD's npm allowlist entry, same reason and expiry; `origin/main` merged into WF's branch at `13a6e72e`; WF's check of review fix 2 approved it, its first round's 11 nits carried into stage WG; see NEXT TASK).
@@ -14422,6 +14423,67 @@ states and the new `sign-up-scrolled` (1440, 1024: the panel to the bottom), `re
 `welcome-2`, `welcome-3`, and the new `guest-collector` and `guest-notifications`; no sideways scroll,
 no unexpected failed request.
 
+**Review fix 2** (2026-10-30; round 2 of at most 2; the verifier's two findings on `c15bad53`; web
+only: no API, client, token, phone or migration change)
+
+- **The welcome's step 3 looks like its other steps** (R1-1, U4's rest). The location pickers have
+  a second look, `look="token"`, used by the welcome only: each label above its field (Region,
+  Country, State or province, City (optional)), 48 px fields with radius 12 and `borderInput`, the
+  empty pickers saying "Choose a country" and "Choose a state or province" (the phone's words), the
+  city's hint and its "0 / 80" under the field, and "Show my city on my profile" as a row with the
+  switch at its end (its label toggles it). The selects stay Material's `mat-select` without a
+  form field (`.app-token-select` in the global styles), so the panel, the keyboard and the ARIA
+  are the same as before; the panel opens under its field, as wide as it. Both switches of the step
+  ("Show my city on my profile", "Show me on the map") are the spec's 40x24 switch
+  (`.app-switch-40`: Material's slide toggle sized with its tokens, knob 18 on, 12 off inside the
+  outlined track, no icons, as the mockup's plain knob). The select's own 0.5 px letter spacing
+  (Material's) is dropped so the values read as the city field. Settings › Location keeps
+  Material's outlined fields (the default look; walked: 4 form fields, no token control). Tests: a
+  unit test of the token look (no form field, each name from the label above it, the city 48 px and
+  described by its hint and counter, the switch without icons named by its row, which toggles it,
+  the same events) and the welcome's place test (3 token selects, both switches 40x24 without
+  icons; it fails on the old markup); `auth.spec.ts` measures the step in Chromium (each label
+  above a 48 px field, the city 48 px, both switch tracks 40x24, no Material field).
+- **Left as a report** (R1-2, U7): not changed, older than WG and an API rule outside this stage.
+  The cause, for the owner: the rate limit `deletion-requests` (`application.yml`) covers
+  `/api/v1/me/deletion-requests` and everything under it for every method, 5 calls per collector
+  per 86,400 s window, and `RateLimitFilter`'s windows start at 00:00 UTC; so the page's own read
+  of the pending request, the cancel and the request share 5 calls a day, and once they are spent
+  Cancel deletion stays unavailable until the next midnight UTC (the reviewer's "about 1.5 hours"
+  was the time left to it). A fix would limit the POST only (`methods: [POST]`) or give the read
+  and the cancel a rule of their own.
+
+Review fix 2's checks (retries off, after its last commit unless said):
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | clean |
+| `npm run test:api` | **209 classes / 1,313 tests** and 13 (`catalogTest`), 0 failures, 4 min 35 s (no API change) |
+| `exportOpenApi` then `generate:api` | nothing changed; git clean |
+| `npm run lint`, `format:check -w apps/web-angular` | clean |
+| `npm test -w apps/web-angular`, `npm run test:web` | **212 files / 1,100 tests** (one new; the welcome's place test extended), no error. The new tests fail on the old markup (the welcome without `look="token"` and the 40x24 class: the place test fails) |
+| `npm run build -w apps/web-angular`, `build:prod` | initial total **771.70 kB** (budget 900 kB; fix 1 770.26 kB), no warning |
+| `npm run test:e2e -- --retries=0` (8180/4300, under the lock, a fresh stack) | **115 passed** (1.3 min), among them the sign-up and welcome test with the new measures of step 3 |
+| `npm run typecheck`, `lint`, `format:check -w apps/mobile` | clean |
+| `npm run test:mobile` | **128 suites / 1,782 tests** |
+| `npx expo export` (scratch folders) | iOS 1,975 modules, Android 2,101 modules, web 1,596 modules and 68 static routes |
+| `npm run test:mobile:e2e -- --retries=0` (8090/19006, under the simulator lock) | `--stack-only` (the served scripts name `localhost:8090` twice and `localhost:8080` never, by the harness and by hand), `--reuse-running`: **66 passed** (1.1 min), `--stop` |
+| `npm run test:mobile:maestro -- --platform ios` | **not run: not needed**, this round changed `apps/web-angular` only (no token, client, shared type, API or phone change). It is also still blocked: CoreSimulator is 1174.9.2 (read from its `Info.plist`, no `simctl` call) and the seven `xcodebuild -runFirstLaunch` processes still wait for Xcode's install prompt |
+| `npm run test:scripts` | **165 / 165** |
+| `npm run audit:gate` | OK |
+
+The walk of this round (walk stack 8580/4400, `orenjitrade_wg_check`, Redis db 6, dropped and
+flushed after; one throw-away account `wg-fix2-welcome-1@example.test`, deleted): the welcome's
+step 3 at 1440, 1024 and 390, dark and light, empty and filled, the Country panel open, and the
+keyboard focus on Region (2 px ring); AFTER shots `welcome-3`, `welcome-3-filled`,
+`welcome-3-select-open` and `welcome-3-focus` (1440) in `.local-dev/wg-notes/pr-shots/after/`. On
+every one: no Material field, each label above a 48 px field, both switches 40x24, the panel
+aligned with its field, no sideways scroll, no failed request. Settings › Location at 1440, dark
+and light, is unchanged. Seen and not changed (not this round's findings): each walked sign-in
+logged one console error, Chrome's "AbortError: Transition was skipped" of the router's view
+transitions, when a new navigation replaced the one after signing in; nothing on the page was
+affected.
+
 ## NEXT TASK
 
 > **The web resumes (owner, 2026-10-28): stages WA to WH2 of the web redesign**, one at a time
@@ -14520,9 +14582,10 @@ no unexpected failed request.
 > the account states as cards, the welcome's three steps, guests (W26) with the sign-in dialog and
 > the action finished after signing in. Its native suite could not run (Xcode's first launch waits
 > for an install prompt: an owner follow-up). Its reviewers' round 1 (functional, product and UX,
-> privacy, accessibility) asked for changes; **review fix 1 is done** (the WG section's "Review fix
-> 1"). **Next for WG: the check of review fix 1 (at most one more fix round), then its pull request
-> after WF's (#101) is merged into `main`.**
+> privacy, accessibility) asked for changes; **review fixes 1 and 2 are done** (the WG section's
+> "Review fix 1" and "Review fix 2": the second, the last round, gave the welcome's step 3 the token
+> fields and the 40x24 switch and left the deletion page's rate limit to the owner). **Next for WG:
+> the check of review fix 2, then its pull request after WF's (#101) is merged into `main`.**
 >
 > **The exact next stage after WG's pull request: stage WH1 of the web redesign, the admin console:
 > the shell, the overview and moderation (boards A1 to A6 and A24; spec sections 15.1 to 15.4 and
