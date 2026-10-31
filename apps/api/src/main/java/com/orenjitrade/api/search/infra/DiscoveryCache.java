@@ -8,6 +8,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.UUID;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -43,10 +44,22 @@ public class DiscoveryCache {
 
     /** The cached page of {@code criteria}, or the loader's result (then cached). */
     public DiscoveryPage get(DiscoveryCriteria criteria, Supplier<DiscoveryPage> loader) {
+        return get(criteria, null, loader);
+    }
+
+    /**
+     * The cached page of {@code criteria} as {@code viewerId} sees it (the collectors blocked with
+     * a signed-in viewer are left out of their page: the key carries the viewer, hashed like the
+     * rest of the request), or the loader's result (then cached).
+     */
+    public DiscoveryPage get(
+            DiscoveryCriteria criteria, @Nullable UUID viewerId, Supplier<DiscoveryPage> loader) {
         if (disabled()) {
             return loader.get();
         }
-        String key = "discovery:" + generation() + ":" + sha256(criteria.cacheKey());
+        String request =
+                viewerId == null ? criteria.cacheKey() : criteria.cacheKey() + "|v=" + viewerId;
+        String key = "discovery:" + generation() + ":" + sha256(request);
         return cache.get(key, DiscoveryPage.class, properties.discoveryCacheTtl(), loader);
     }
 

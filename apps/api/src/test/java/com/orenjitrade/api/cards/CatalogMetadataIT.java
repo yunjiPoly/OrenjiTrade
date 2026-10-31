@@ -117,10 +117,15 @@ class CatalogMetadataIT extends AbstractIntegrationTest {
         assertThat(rows.get(0))
                 .containsEntry("level_type", "number")
                 .containsEntry("attribute_type", "string");
+        // The mock catalogue's cards only: other tests of the suite copy its cards, metadata
+        // included, into the shared database (InventoryTestSupport.isolatedCard, no external_ref),
+        // and the count depended on which classes ran first.
         assertThat(
                         testUsers.count(
-                                "SELECT count(*) FROM card WHERE metadata @> '{\"types\":"
-                                        + " [\"Fire\"]}'"))
+                                "SELECT count(*) FROM card c WHERE c.metadata @> '{\"types\":"
+                                        + " [\"Fire\"]}' AND EXISTS (SELECT 1 FROM card_printing p"
+                                        + " WHERE p.card_id = c.id AND p.external_ref ->>"
+                                        + " 'provider' = 'mock')"))
                 .isEqualTo(3);
         assertThat(
                         testUsers.count(

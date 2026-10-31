@@ -7,9 +7,12 @@ changing code. Keep this file concise; put detail in `docs/`.
 ## What OrenjiTrade is
 
 A regional discovery network for trading cards. The product answers one question:
-**"Who in my region owns, trades, sells, wants, or accepts offers for this card?"**
+**"Who in my region owns, trades, sells or wants this card?"**
 Collectors publish binders; other collectors find them per platform region and per state or
-province (ADR 0017: no positions, no distances).
+province (ADR 0017: no positions, no distances). Deals happen in the chat and cards ship by mail:
+the buyer pays the seller outside the app (Interac e-Transfer), the seller ships with tracking,
+OrenjiTrade never handles the money and claims no protection; there are no meetups and no offers
+on the phone (ADR 0018; the API keeps offers, trades, payments and disputes for the paused web).
 Brand name is always written `OrenjiTrade`. Domain `orenjitrade.com`
 (`www.orenjitrade.com` web + `/admin`, `api.orenjitrade.com` API). Text wordmark only until
 branding assets are supplied.
@@ -30,31 +33,39 @@ branding assets are supplied.
 | Architecture | Modular monolith (one Spring Boot app, package-per-module). REST `/api/v1/...`, OpenAPI generated from code |
 | Identity | Firebase Authentication / Identity Platform; backend verifies ID tokens; roles live in our DB (RBAC) |
 | Events | Domain events via Spring Modulith event registry (transactional outbox); Pub/Sub adapter for cloud + analytics |
-| Payments | Provider abstraction (`PaymentProvider`), Stripe Connect adapter, `FakePaymentProvider` locally, feature-flagged |
-| Maps | No map provider (ADR 0017): one Leaflet vector map of bundled Natural Earth boundaries (`apps/web-angular/public/boundaries`), states shaded by binder counts; no tiles, no keys. Mobile Map tab is a placeholder for now. PostGIS stays installed but holds no personal geography |
+| Payments | Provider abstraction (`PaymentProvider`), Stripe Connect adapter, `FakePaymentProvider` locally, feature-flagged; web only: the phone has no protected payments (ADR 0018) |
+| Maps | No map provider (ADR 0017): one Leaflet vector map of bundled Natural Earth boundaries (`apps/web-angular/public/boundaries`), states shaded by binder counts; no tiles, no keys. The phone's map (Search's default view) draws the same boundaries with `react-native-svg` from `apps/mobile/assets/boundaries` (a generated copy: `npm run sync:boundaries -w apps/mobile`). PostGIS stays installed but holds no personal geography |
 | Search | PostgreSQL full-text + `pg_trgm`. No Elasticsearch/OpenSearch |
 
-### Card images (ADR 0015, owner rule 2026-10-01, cap raised 2026-10-04)
+### Card images (ADR 0015 and 0021, owner rule 2026-10-01, cap raised 2026-10-04)
 The local card image cache never holds more than **5 GB** (`CARD_IMAGE_LOCAL_CACHE_MAX_MB`,
 default and ceiling 5120 MiB, start-up fails above it; temp files and reservations count; byte
 accounting is 64-bit). One 320 px JPEG per artwork, no full-size or cropped copies. **Never hotlink
-YGOPRODeck images**: browsers only get `/api/v1/public/card-images/{id}` (cached file or
-placeholder); provider URLs stay server-side (`card_image.source_url`). Card metadata is always
-imported completely; images are a separate, capped cache. Real provider imports are explicit
-(`npm run catalog:import`); seeds, tests and CI never call YGOPRODeck. Keep provider etiquette:
-checkDBVer first, reuse the stored snapshot, at most 5 requests/second, no scraping, never commit
-image binaries or snapshots.
+provider images** (YGOPRODeck, Scryfall, TCGdex, any later one): browsers only get
+`/api/v1/public/card-images/{id}` (cached file or placeholder); provider URLs stay server-side
+(`card_image.source_url`). Card metadata is always imported completely; images are a separate,
+capped cache. Sources (ADR 0021): Yu-Gi-Oh! YGOPRODeck, Magic Scryfall's "Unique Artwork" bulk
+file, Pokémon TCGdex's card database (English only); One Piece and Riftbound wait. Real provider
+imports are explicit, the owner's step (`npm run catalog:import`); seeds, tests, CI and agents never
+call a provider (hand-written fixtures only). Keep each provider's etiquette
+(`docs/providers/`): YGOPRODeck checkDBVer first and at most 5 requests/second; Scryfall's bulk file
+at most daily and at most 10 requests/second; TCGdex one archive per commit; reuse stored snapshots,
+no scraping, never commit image binaries or snapshots.
 
 ### ON HOLD by owner instruction (2026-09-29): Python ML card recognition
 Do **not** start Phase 11 (ML card identification model, the camera → upload → Pub/Sub → ML
 worker scan pipeline, `/v1/identify` beyond the existing stub, mobile card scanning) until the
 owner explicitly lifts this hold. Leave `apps/ml` as the Phase 0 skeleton; keep the `mlScanning`
-feature flag off. Everything else proceeds.
+feature flag off. Everything else proceeds. On 2026-10-15 the owner lifted the hold for the
+on-device text scan only (ADR 0020: the phone reads a Yu-Gi-Oh! card's name and set code, the API
+matches the text, flag `cardTextScan`); no model, no photo upload, no pipeline: the rest stays held.
 
 ### Explicitly out of scope for the MVP (do not build)
 Stores, events/meetups, binder-to-binder matching, unboxing-video evidence, Kubernetes/GKE,
 microservices, Kafka, Elasticsearch, service mesh, a homemade payment processor, storing card
-payment data, "regulated escrow" claims.
+payment data, "regulated escrow" claims. OrenjiTrade is free for all (owner decision 2026-10-14,
+ADR 0019): no Premium plans, ads, credits or donations, and the same usage limits for every
+collector; their code waits on the branch `archive/paid-features` until the owner brings them back.
 
 ## Privacy rule that overrides everything else
 
@@ -70,19 +81,27 @@ call for geography (boundaries are bundled static assets).
 - Every public representation is a **place**: the state or province and the country. The city
   appears **only on its owner's public profile, while `show_city` is on**: never in search,
   binders, offers, messages, notifications, the map, admin lists, exports to others or analytics.
-- Discovery (search, card holders, map, wishlist alerts, ads) is scoped to one **platform
+- Discovery (search, card holders, map, wishlist alerts) is scoped to one **platform
   region** (`americas-north` default, `americas-south`, `europe`); clients always send `region`.
 - `GeoPrivacyContractTest` signs in as every seed account and fails on any coordinate, distance or
   radius key, any number with more than 3 decimals, "km away" wording, or a city outside its
   owner's profile. Add to it whenever you add an endpoint that returns places.
 - Default is "not discoverable"; becoming discoverable needs a location.
+- A signed-out visitor (a *guest*, stage R15) sees places, never who: every collector block a
+  guest can read keeps its place and sends `null` for the id, handle, name, avatar and rating
+  (`PrivacyPolicyService.canSeeWho`, members only); name search finds nobody for a guest, photos
+  are served by their own id (`/public/item-images/{id}`, `/public/binder-images/{id}`), and every
+  write stays members only. Contract: `docs/api/contracts/r15-browse-without-account.md`.
 
 ## Backend conventions (`apps/api`)
 
 - Root package `com.orenjitrade.api`. One package per module:
   `auth users profiles location games cards inventory binders search wishlist messaging
-  community notifications ratings reports offers trades payments billing credits donations
-  ads moderation admin audit analytics featureflags delisting jobs common config`.
+  community notifications ratings reports offers trades payments deals limits moderation admin
+  audit analytics featureflags delisting jobs meta common config`.
+  `search` also owns Home's feed (`GET /feed`, stage R7) and `GET /listings/owner` (stage R15).
+  `deals` (stage R4, ADR 0018) records Mark as sold and its undo through the other modules'
+  services (`InventorySales`, `ConversationService`, `InteractionService`, notifications).
   `auth` is the lowest business module (owns `Role`, `AccountStatus`, `AuthenticatedUser`, the
   `AccountResolver` SPI); `users` implements that SPI. `jobs` owns `job_run` and `/internal/jobs/*`.
 - Inside a module: `api/` (controllers + request/response DTOs), `domain/` (entities, value
@@ -97,9 +116,17 @@ call for geography (boundaries are bundled static assets).
   ownership checks). Never trust client-provided user ids; derive the actor from the token.
 - Pagination: offset (`page`,`size`) for admin lists, cursor (`cursor`,`limit`) for feeds,
   messages, notifications.
-- Configurable business rules (freemium limits, auto-delist thresholds, feature flags) live
-  in DB tables edited through `/admin`, cached in Redis, never hard-coded constants.
-- Money is `NUMERIC(12,2)` + ISO currency code. Credits are an append-only ledger.
+- A discovery list that pages or counts rows (card holders, binder search, suggestions, binders
+  of a state) excludes both directions of a block in its SQL (`DiscoverySql.notBlocked`), before
+  the limit and in the count, never by dropping rows afterwards.
+- Every write to `binder` or `inventory_item` starts with `BinderService.lockOwners`, then locks
+  binder rows before item rows, each in ascending id and `FOR NO KEY UPDATE`; only the freshness
+  job skips locked rows. Rules, and the one for a new bulk write: `docs/database/schema.md`,
+  "Locks of binders and inventory items".
+- Configurable business rules (usage limits, the same for every collector; auto-delist
+  thresholds, feature flags) live in DB tables edited through `/admin`, cached in Redis, never
+  hard-coded constants.
+- Money is `NUMERIC(12,2)` + ISO currency code.
 - Flyway: `apps/api/src/main/resources/db/migration/V001__...sql`. Seed data lives in
   `db/seed/` and is applied only by the `local`/`dev` profiles through `SeedDataRunner`.
 - Tests: JUnit 6 + Spring Boot Test + Testcontainers 2 (`org.testcontainers.postgresql.PostgreSQLContainer`
@@ -116,9 +143,19 @@ call for geography (boundaries are bundled static assets).
   interfaces for server DTOs). Design tokens come from `packages/design-tokens` as CSS custom
   properties; light/dark ready. Skeleton loaders, empty states, error states with retry, and
   keyboard navigation are required for every screen. No giant components.
-- Mobile: expo-router tabs `Map | Inventory | Search | Messages | Wishlist | Profile`, bottom
-  sheets for pickers and filters, offline-tolerant queries (`@tanstack/react-query`), typed
-  API via `packages/shared-types` + `openapi-fetch`; region-scoped calls send the home region.
+- Mobile: expo-router tabs `Home | Search | Inventory | Messages | Profile` since stage R7 (Home is
+  the `index` route, the app's first screen, with the feed `GET /feed`; since R5 the Map tab is
+  Search's default view, the Wishlist tab its Wishlist segment; Messages holds Chats | Community
+  since R11; Settings sits behind Profile's gear since R6; old routes redirect). The phone redesign
+  (`docs/product/specs/2026-10-14-phone-redesign.md`, stages R1 to R8, and the owner's prompt of
+  2026-10-19/20, stages G and R9 to R15) is built; mockup v50 is the reference for looks and
+  wording. Since R15 the app opens on Home for a signed-out visitor (a guest): Home and Search
+  browse without an account, Inventory, Messages, Profile and Search › Wishlist ask to sign in in
+  place, and an action that needs an account opens one sheet and finishes after the sign-in.
+  Bottom sheets for pickers and filters, offline-tolerant queries (`@tanstack/react-query`), typed
+  API via `packages/shared-types` + `openapi-fetch`; region-scoped calls send the browsed region (the region
+  switcher; the collector's home region by default) and, since stage G, the browsed game (the game
+  pill; one game at a time). English cards only (owner, 2026-10-20).
 - Never put secrets in frontend bundles. Only public keys (Firebase web config) may appear.
 
 ## Working rules for Claude Code
@@ -138,6 +175,14 @@ steps and the owner's working agreements. macOS setup: `docs/development/macos-s
 7. Keep the repository buildable at the end of every session and record the exact next task
    in `IMPLEMENTATION_STATUS.md`.
 8. Prefer framework-provided solutions over new dependencies; pin versions.
+9. Owner orders in force: the web app (`apps/web-angular`), paused since 2026-10-12, resumes for
+   stages WA to WH2 of `docs/product/specs/2026-10-20-web-redesign.md` (the owner's prompt of
+   2026-10-28, `docs/product/specs/2026-10-28-web-redesign-stages.md`), one stage at a time; outside
+   the stage being built change nothing in it. Stages S3 and S4 of the 2026-10-08 spec stay skipped
+   until the owner asks, and are never described as done.
+10. Native runs use the iOS simulator the owner keeps booted (`ORENJI_IOS_SIMULATOR_UDID=<its
+    UDID>`); never boot, create, erase or shut down a simulator. This Mac has no Android SDK: say
+    "the Android run could not be verified".
 
 ## Local development quick reference
 

@@ -1,0 +1,145 @@
+# The region map (ADR 0017, mobile stage M9; Search's map since stage R5): a seed collector
+# (collector1, Quebec) opens the app on Search, whose map draws Americas (North) from the borders
+# the app ships (no tile server, no GPS) and opens on Quebec with its card ("{n} binders" of the
+# browsed game, Yu-Gi-Oh!, stage G); "See binders" lists Quebec's public Yu-Gi-Oh! binders in
+# Search › Binders with their owner's handle, never a city or a distance; one binder opens. Then Sofia's profile (seed collector5,
+# California, showing her city) shows her state and city, never a distance or a zone.
+# The seed account is only signed in to; what Quebec holds is read on the host from the public
+# API (scripts/region-map.js).
+appId: ${APP_ID}
+name: Search's map, the card of my province, its binders and a binder
+tags:
+  - mobile-m9
+  - mobile-r5
+  - map
+---
+- runScript:
+    file: scripts/region-map.js
+    env:
+      REGION: americas-north
+      CODE: CA-QC
+      BINDER: 'Yu-Gi-Oh! trade binder'
+      GAME: yugioh
+# The seed predates the 18+ rule: its confirmation is recorded through the API first (the
+# age line of Review our terms is proven by age-step-existing-account.yaml).
+- runScript:
+    file: scripts/confirm-age.js
+    env:
+      EMAIL: ${SEED_EMAIL}
+      PASSWORD: ${SEED_PASSWORD}
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${SEED_EMAIL}
+      PASSWORD: ${SEED_PASSWORD}
+- runFlow: subflows/open-search-tab.yaml
+
+# Search's map (screen 11): the home region, the map as one named image, the region pill, "My
+# province" and the zoom buttons; it opens on the collector's province with its card.
+- extendedWaitUntil:
+    visible:
+      id: 'search-region'
+      text: 'Region: Americas \(North\)\. Change region'
+    timeout: 30000
+- assertVisible:
+    id: 'search-region-map'
+    text: 'Map of public Yu-Gi-Oh! binders by state or province in Americas \(North\)'
+# The game pill (stage G): the collector's first profile game with cards, Yu-Gi-Oh!.
+- assertVisible:
+    id: 'search-game'
+    text: 'Game: Yu-Gi-Oh!\. Change game'
+- assertVisible:
+    id: 'search-region-map-zoom-in'
+- assertVisible:
+    id: 'search-region-map-home'
+# At home: nothing says "not your region".
+- assertNotVisible:
+    id: 'search-region-away'
+- extendedWaitUntil:
+    visible:
+      id: 'search-state-name'
+      text: 'Quebec'
+    timeout: 30000
+- assertVisible:
+    id: 'search-state-sub'
+    text: 'Canada · your province'
+- extendedWaitUntil:
+    visible:
+      id: 'search-state-stats-CA-QC'
+      text: '[0-9]+ binders?.*'
+    timeout: 30000
+- takeScreenshot: region-map
+
+# Out to the whole region and back in (a pinch does the same on a phone), then "My province".
+- tapOn:
+    id: 'search-region-map-zoom-out'
+- tapOn:
+    id: 'search-region-map-zoom-in'
+- tapOn:
+    id: 'search-region-map-home'
+- extendedWaitUntil:
+    visible:
+      id: 'search-state-name'
+      text: 'Quebec'
+    timeout: 10000
+
+# "See binders": Search › Binders on Quebec. The binder, its owner's handle and its cards; Maïka
+# shows her city on her own profile only.
+- tapOn:
+    id: 'search-state-see-binders'
+- extendedWaitUntil:
+    visible:
+      id: 'binders-state-chip'
+    timeout: 30000
+- runFlow:
+    file: subflows/list-scroll-to.yaml
+    env:
+      ID: 'binder-search-row-${output.binder.id}'
+- assertVisible:
+    id: 'binder-search-row-${output.binder.id}'
+    text: '${output.binder.name}, ${output.binder.handle} · [0-9]+ cards?'
+- assertNotVisible: '.*Montréal.*'
+- assertNotVisible: '.*km away.*'
+- takeScreenshot: place-binders
+
+# The binder opens; back to the binders of Quebec, then the whole region with the chip.
+- tapOn:
+    id: 'binder-search-row-${output.binder.id}'
+- extendedWaitUntil:
+    visible:
+      id: 'public-binder-title'
+      text: ${output.binder.name}
+    timeout: 60000
+- runFlow: subflows/go-back.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'binders-state-chip'
+    timeout: 30000
+- tapOn:
+    id: 'binders-state-chip'
+- extendedWaitUntil:
+    visible:
+      id: 'binders-pick-on-map'
+    timeout: 30000
+
+# Sofia's profile (deep link): her state and the city she shows, never a distance or a zone.
+- openLink: ${APP_URL}/--/collectors/collector5
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'collector-name'
+      text: 'Sofia Nguyen'
+    timeout: 60000
+# The one line under the header (stage R6): the city she shows and her state, no country.
+- assertVisible:
+    id: 'collector-line'
+    text: 'Los Angeles, California · Member since \d{4}.*'
+- assertNotVisible: '.*km away.*'
+- takeScreenshot: collector-profile-place
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-references-see-all'
+- assertVisible:
+    id: 'profile-ratings'

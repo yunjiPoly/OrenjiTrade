@@ -21,8 +21,8 @@ import {
 
 /**
  * Collector reporting (Phase 7, product spec § 23) against the real local stack: a collector
- * opens another collector's profile, presses Report, the "Report collector" popup asks "Why are
- * you reporting this user?", Confirm stays disabled until a reason is chosen, the report is
+ * opens another collector's profile, presses Report, the "Report {handle}" popup asks "Why are
+ * you reporting them?", "Send report" stays disabled until a reason is chosen, the report is
  * confirmed; a second report is refused inline (409). A moderator assigns the report, adds a note
  * and resolves it with a warning in Admin → Reports; an administrator finds the decision in the
  * audit log; the reporter sees the REPORT_DECISION notice and the outcome in Settings → My reports.
@@ -64,13 +64,14 @@ test.describe('collector reporting', () => {
       await expect(
         page.getByRole('heading', { level: 1, name: reported.displayName }),
       ).toBeVisible();
-      await page.getByRole('button', { name: `Report ${reported.displayName}` }).click();
+      await page.getByRole('button', { name: `More for ${reported.handle}` }).click();
+      await page.getByRole('menuitem', { name: `Report ${reported.handle}` }).click();
 
-      const dialog = page.getByRole('dialog', { name: 'Report collector' });
+      const dialog = page.getByRole('dialog', { name: /^Report / });
       await expect(dialog).toBeVisible();
-      await expect(dialog.getByText('Why are you reporting this user?')).toBeVisible();
+      await expect(dialog.getByText('Why are you reporting them?')).toBeVisible();
       await expect(dialog).toContainText(reported.displayName);
-      const reasons = dialog.getByRole('radiogroup', { name: 'Why are you reporting this user?' });
+      const reasons = dialog.getByRole('radiogroup', { name: 'Why are you reporting them?' });
       await expect(reasons.getByRole('radio')).toHaveCount(7);
       const labels = await reasons.locator('mat-radio-button').allInnerTexts();
       expect(labels.map((label) => label.trim())).toEqual([
@@ -82,7 +83,7 @@ test.describe('collector reporting', () => {
         'Misleading listings',
         'Something else',
       ]);
-      const confirm = dialog.getByRole('button', { name: 'Confirm' });
+      const confirm = dialog.getByRole('button', { name: 'Send report' });
       await expect(confirm).toBeDisabled();
       await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeEnabled();
 
@@ -100,14 +101,15 @@ test.describe('collector reporting', () => {
       await expect(sent).toBeHidden();
 
       // The same collector again while the first report is open: refused inline (409).
-      await page.getByRole('button', { name: `Report ${reported.displayName}` }).click();
-      const again = page.getByRole('dialog', { name: 'Report collector' });
+      await page.getByRole('button', { name: `More for ${reported.handle}` }).click();
+      await page.getByRole('menuitem', { name: `Report ${reported.handle}` }).click();
+      const again = page.getByRole('dialog', { name: /^Report / });
       await again.getByRole('radio', { name: 'Harassment' }).check();
-      await again.getByRole('button', { name: 'Confirm' }).click();
+      await again.getByRole('button', { name: 'Send report' }).click();
       await expect(again.getByTestId('report-error')).toContainText(
         `You already reported ${reported.displayName}`,
       );
-      await expect(again.getByRole('button', { name: 'Confirm' })).toBeDisabled();
+      await expect(again.getByRole('button', { name: 'Send report' })).toBeDisabled();
       await again.getByRole('button', { name: 'Cancel' }).click();
       await expect(again).toBeHidden();
 
@@ -203,7 +205,7 @@ test.describe('collector reporting', () => {
       // --- The reporter is told, without specifics -------------------------------------------
       await page.goto('/notifications');
       await expect(page.getByRole('heading', { level: 1, name: 'Notifications' })).toBeVisible();
-      await expect(page.getByText('Your report was reviewed').first()).toBeVisible({
+      await expect(page.getByText('Report reviewed:').first()).toBeVisible({
         timeout: 15_000,
       });
       await page.goto('/settings/reports');
@@ -256,10 +258,13 @@ test.describe('collector reporting', () => {
     });
     expect(sent.ok(), 'POST message').toBeTruthy();
     const postText = `Trading my spare Azure-Eyes, message me ${suffix()}`;
-    const posted = await request.post(`${API_URL}/api/v1/community/channels/americas-north/posts`, {
-      headers: authHeader(other.idToken),
-      data: { body: postText },
-    });
+    const posted = await request.post(
+      `${API_URL}/api/v1/community/channels/americas-north-yugioh/posts`,
+      {
+        headers: authHeader(other.idToken),
+        data: { body: postText },
+      },
+    );
     expect(posted.status(), 'POST community post').toBe(201);
     const postId = ((await posted.json()) as { id: string }).id;
     await apiUpdatePrivacy(request, other.idToken, { discoverable: true });
@@ -280,40 +285,39 @@ test.describe('collector reporting', () => {
 
       // Conversation menu.
       await page.goto(`/messages/${conversationId}`);
-      const thread = page.getByRole('region', { name: `Conversation with ${other.displayName}` });
+      const thread = page.getByRole('region', { name: `Chat with ${other.handle}` });
       await expect(thread).toBeVisible();
-      await thread
-        .getByRole('button', { name: `Conversation options for ${other.displayName}` })
-        .click();
-      await page.getByRole('menuitem', { name: 'Report collector' }).click();
-      const dialog = page.getByRole('dialog', { name: 'Report collector' });
+      await thread.getByRole('button', { name: `More for ${other.handle}` }).click();
+      await page.getByRole('menuitem', { name: /^Report / }).click();
+      const dialog = page.getByRole('dialog', { name: /^Report / });
       await expect(dialog).toContainText(other.displayName);
-      await expect(dialog.getByRole('button', { name: 'Confirm' })).toBeDisabled();
+      await expect(dialog.getByRole('button', { name: 'Send report' })).toBeDisabled();
       // Keyboard: Space checks the focused reason, Escape cancels.
       await dialog.getByRole('radio', { name: 'Scam or fraud' }).focus();
       await page.keyboard.press('Space');
-      await expect(dialog.getByRole('button', { name: 'Confirm' })).toBeEnabled();
+      await expect(dialog.getByRole('button', { name: 'Send report' })).toBeEnabled();
       await page.keyboard.press('Escape');
       await expect(dialog).toBeHidden();
 
-      // Community post menu.
-      await page.goto('/community/americas-north');
+      // A community post's "⋯" (web stage WF, board W22): "Report this post" shows the post.
+      await page.goto('/messages/community/americas-north-yugioh');
       const post = page.locator(`article[data-post-id="${postId}"]`);
       await expect(post).toContainText(postText);
-      await post.getByRole('button', { name: /^Post options/ }).click();
-      await page.getByRole('menuitem', { name: 'Report collector' }).click();
-      const fromPost = page.getByRole('dialog', { name: 'Report collector' });
-      await expect(fromPost).toContainText(other.displayName);
+      await post.hover();
+      await post.getByRole('button', { name: `More for the post by ${other.handle}` }).click();
+      await page.getByRole('menuitem', { name: 'Report this post' }).click();
+      const fromPost = page.getByRole('dialog', { name: 'Report this post' });
+      await expect(fromPost).toContainText(postText);
       await fromPost.getByRole('button', { name: 'Cancel' }).click();
       await expect(fromPost).toBeHidden();
 
-      // Public binder owner card: this one is sent (BINDER context).
+      // A public binder's "⋯" menu (web stage WD, board W9): this one is sent (BINDER context).
       await page.goto(`/binders/${binder.id}`);
-      const ownerCard = page.getByRole('region', { name: 'Owner' });
-      await ownerCard.getByRole('button', { name: `Report ${other.displayName}` }).click();
-      const fromBinder = page.getByRole('dialog', { name: 'Report collector' });
+      await page.getByRole('button', { name: 'More actions' }).click();
+      await page.getByRole('menuitem', { name: /^Report / }).click();
+      const fromBinder = page.getByRole('dialog', { name: /^Report / });
       await fromBinder.getByRole('radio', { name: 'Misleading listings' }).check();
-      await fromBinder.getByRole('button', { name: 'Confirm' }).click();
+      await fromBinder.getByRole('button', { name: 'Send report' }).click();
       await expect(page.getByRole('dialog', { name: 'Report sent' })).toBeVisible();
       await page.getByRole('button', { name: 'Done' }).click();
 

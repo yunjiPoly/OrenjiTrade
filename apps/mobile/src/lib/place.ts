@@ -14,6 +14,20 @@ export const PLATFORM_REGION_NAMES: Readonly<Record<string, string>> = {
   europe: 'Europe',
 };
 
+/** A platform region code as the API writes it (`americas-north`, `europe`). */
+const REGION_CODE = /^[a-z]+(-[a-z]+)*$/;
+
+/**
+ * True for a well-formed region code. Whether the region exists is the server's call (the list of
+ * `GET /regions`, see `useKnownRegions`): a well-formed code alone is never browsed or kept.
+ */
+export function isRegionCode(value: string | null | undefined): value is string {
+  return !!value && value.length <= 32 && REGION_CODE.test(value);
+}
+
+/** The regions the app ships names and drawings for: the ones it knows before the server says. */
+export const BUILT_IN_REGIONS: ReadonlySet<string> = new Set(Object.keys(PLATFORM_REGION_NAMES));
+
 /** Shown when a collector has no public place (not discoverable, or no location). */
 export const GENERIC_PLACE_LABEL = 'Location not shared';
 
@@ -30,4 +44,13 @@ export function placeLabel(place: { label?: string | null } | null | undefined):
 export function regionName(code: string | null | undefined): string {
   const key = code ?? DEFAULT_REGION;
   return PLATFORM_REGION_NAMES[key] ?? key;
+}
+
+/**
+ * How copy names the region being browsed: "your region" in one's own region (Americas (North)
+ * for a collector who has not said where they are), the region's name in another one, so nobody
+ * reads "your region" over the binders of another continent.
+ */
+export function regionPhrase(region: string, home: string | null | undefined): string {
+  return region === (home ?? DEFAULT_REGION) ? 'your region' : regionName(region);
 }

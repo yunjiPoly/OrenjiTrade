@@ -26,6 +26,9 @@ export const TYPING_VISIBLE_MS = 5_000;
 /** At most one typing notice per this interval while the caller types. */
 export const TYPING_THROTTLE_MS = 3_000;
 
+/** A send while another is on its way (the first one's error, if any, stays). */
+const STILL_SENDING = 'Wait for the last message to be sent.';
+
 /** Wording of send failures shown under the composer. */
 export function sendErrorMessage(error: ApiError): string {
   switch (error.errorCode) {
@@ -41,6 +44,9 @@ export function sendErrorMessage(error: ApiError): string {
     }
     case 'VALIDATION_FAILED':
       return error.message || 'This message cannot be sent.';
+    // The same words for every refusal: a block is never told apart (owner decision 2026-10-28).
+    case 'MESSAGING_BLOCKED':
+      return 'This collector cannot receive messages right now.';
     default:
       return friendlyMessage(error);
   }
@@ -70,9 +76,12 @@ export class ThreadStore {
   private readonly loadingOlderState = signal(false);
   private readonly sendingState = signal(false);
   private readonly sendErrorState = signal<string | null>(null);
+  private readonly retryDraftState = signal<MessageDraft | null>(null);
   private readonly blockedState = signal(false);
   private readonly typingState = signal(false);
   private readonly visibleState = signal(true);
+  private readonly refreshedState = signal<ConversationSummary | null>(null);
+  private readonly liveSalesState = signal(0);
 
   readonly conversation = this.conversationState.asReadonly();
   readonly messages = this.messagesState.asReadonly();
@@ -83,11 +92,23 @@ export class ThreadStore {
   readonly sending = this.sendingState.asReadonly();
   /** Why the last send failed (shown under the composer). */
   readonly sendError = this.sendErrorState.asReadonly();
+  /**
+   * The quick reply whose failure {@link sendError} shows: "Try again" sends it again, not the
+   * composer's own text (WC review F6, U10). `null` when the error is the composer's draft's.
+   */
+  readonly retryDraft = this.retryDraftState.asReadonly();
   /** The server refused messages in this conversation (403 MESSAGING_BLOCKED). */
   readonly messagingBlocked = this.blockedState.asReadonly();
   /** The other participant is typing. */
   readonly otherTyping = this.typingState.asReadonly();
   readonly selfId = computed(() => this.session.me()?.id ?? null);
+  /** The conversation as last read again ({@link refreshConversation}), for the inbox to follow. */
+  readonly refreshed = this.refreshedState.asReadonly();
+  /**
+   * Counts the sale notes of the other collector that arrived live in this chat (the buyer reads
+   * "Rate {seller}" without a reload: the chat asks for its rating eligibility again; WC review U5).
+   */
+  readonly liveSales = this.liveSalesState.asReadonly();
 
   private olderCursor: string | null = null;
   private loadSubscription: Subscription | null = null;
@@ -115,6 +136,8 @@ export class ThreadStore {
     this.olderCursor = null;
     this.hasOlderState.set(false);
     this.sendErrorState.set(null);
+    this.retryDraftState.set(null);
+    this.liveSalesState.set(0);
     this.blockedState.set(false);
     this.typingState.set(false);
     this.lastMarked = null;
@@ -189,17 +212,52 @@ export class ThreadStore {
 
   /** Sends a draft; resolves `true` when the message was accepted (the composer clears). */
   async send(draft: MessageDraft): Promise<boolean> {
+    const problem = await this.deliver(draft, true);
+    if (problem !== STILL_SENDING) {
+      // The composer's draft: its own failure (or none) replaces a failed quick reply's.
+      this.retryDraftState.set(null);
+    }
+    return problem === null;
+  }
+
+  /**
+   * Sends a message that is not the composer's draft (a quick reply, the address or e-Transfer
+   * email typed in their dialog, a card or binder chosen in a picker): resolves the reason it was
+   * not sent, or `null`. With `showError`, the reason also shows under the composer.
+   */
+  async sendDirect(draft: MessageDraft, showError = false): Promise<string | null> {
+    const problem = await this.deliver(draft, showError);
+    if (showError && problem !== STILL_SENDING) {
+      this.retryDraftState.set(problem === null ? null : draft);
+    }
+    return problem;
+  }
+
+  /** "Try again" of a failed quick reply: sends that reply again ({@link retryDraft}). */
+  retry(): Promise<string | null> {
+    const draft = this.retryDraftState();
+    return draft ? this.sendDirect(draft, true) : Promise.resolve(null);
+  }
+
+  private async deliver(draft: MessageDraft, showError: boolean): Promise<string | null> {
     const conversation = this.conversationState();
     const problem = draftProblem(draft);
-    if (!conversation || this.sendingState()) {
-      return false;
+    if (!conversation) {
+      return 'This conversation is not open.';
+    }
+    if (this.sendingState()) {
+      return STILL_SENDING;
     }
     if (problem) {
-      this.sendErrorState.set(problem);
-      return false;
+      if (showError) {
+        this.sendErrorState.set(problem);
+      }
+      return problem;
     }
     this.sendingState.set(true);
-    this.sendErrorState.set(null);
+    if (showError) {
+      this.sendErrorState.set(null);
+    }
     try {
       let uploadId: string | undefined;
       if (draft.attachment?.kind === 'image') {
@@ -224,21 +282,87 @@ export class ThreadStore {
         ),
       );
       this.applyMessage(message);
-      return true;
+      if (message.payload?.item) {
+        // Sharing one's own card pins it as the chat's subject (stage R4).
+        void this.refreshConversation();
+      }
+      return null;
     } catch (error) {
       const apiError = toApiError(error);
       if (apiError.errorCode === 'MESSAGING_BLOCKED') {
         this.blockedState.set(true);
       }
-      this.sendErrorState.set(sendErrorMessage(apiError));
-      return false;
+      const reason = sendErrorMessage(apiError);
+      if (showError) {
+        this.sendErrorState.set(reason);
+      }
+      return reason;
     } finally {
       this.sendingState.set(false);
     }
   }
 
+  /**
+   * Reads the open conversation again (`GET /conversations/{id}`): its pinned card after a pin, a
+   * sale or its undo. Quiet: what is shown stays on failure.
+   */
+  async refreshConversation(): Promise<ConversationSummary | null> {
+    const conversation = this.conversationState();
+    if (!conversation) {
+      return null;
+    }
+    try {
+      const fresh = await firstValueFrom(
+        this.api.getConversation({ id: conversation.id }, 'body', false, {
+          context: silentErrors(),
+        }),
+      );
+      if (this.conversationState()?.id !== fresh.id) {
+        return null;
+      }
+      this.conversationState.set({
+        ...fresh,
+        unreadCount: this.conversationState()?.unreadCount ?? 0,
+      });
+      this.refreshedState.set(fresh);
+      return fresh;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Mute or archive the open conversation (the chat drawer, which has no inbox). */
+  async updateConversation(changes: { muted?: boolean; archived?: boolean }): Promise<void> {
+    const conversation = this.conversationState();
+    if (!conversation) {
+      return;
+    }
+    try {
+      const updated = await firstValueFrom(
+        this.api.updateConversation(
+          { id: conversation.id, updateConversationRequest: changes },
+          'body',
+          false,
+          { context: silentErrors() },
+        ),
+      );
+      this.conversationState.set(updated);
+      this.refreshedState.set(updated);
+    } catch (error) {
+      throw toApiError(error);
+    }
+  }
+
+  /** The seller undid a sale: its note leaves the thread at once (the push confirms it). */
+  dropSale(saleId: string): void {
+    this.messagesState.update((messages) =>
+      messages.filter((message) => message.payload?.sale?.saleId !== saleId),
+    );
+  }
+
   dismissSendError(): void {
     this.sendErrorState.set(null);
+    this.retryDraftState.set(null);
   }
 
   /** The caller is typing: at most one `/app/typing` notice every few seconds. */
@@ -294,7 +418,17 @@ export class ThreadStore {
     if (message.conversationId !== this.conversationState()?.id) {
       return;
     }
+    const known = this.messagesState().some((existing) => existing.id === message.id);
     this.messagesState.update((messages) => mergeMessages(messages, [message]));
+    if (message.payload?.sale) {
+      // A sale or its undo: the pinned card's "Sold" and copies change (stage R4).
+      void this.refreshConversation();
+      // A sale note is a SYSTEM message (no sender): it is the other collector's when they sold.
+      const sale = message.payload.sale;
+      if (!known && !sale.undone && sale.sellerId && sale.sellerId !== this.selfId()) {
+        this.liveSalesState.update((count) => count + 1);
+      }
+    }
     if (message.senderId && message.senderId !== this.selfId()) {
       this.typingState.set(false);
       this.clearTypingTimer();
@@ -360,6 +494,11 @@ export class ThreadStore {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((notice) => this.applyTyping(notice));
     this.realtime.resync$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.resync());
+    this.realtime.conversations$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((notice) => {
+      if (notice.conversationId === this.conversationState()?.id) {
+        void this.refreshConversation();
+      }
+    });
   }
 
   private clearTypingTimer(): void {

@@ -117,6 +117,104 @@ class NotificationCentreIT extends AbstractIntegrationTest {
                 .isZero();
     }
 
+    /**
+     * Stage R9: {@code excludeTypes} leaves types out of the list (every page, the unread filter)
+     * and of the unread count; without it both count every type, as before; an unknown type is a
+     * 400.
+     */
+    @Test
+    void excludeTypesLeavesTypesOutOfTheListAndTheUnreadCount() {
+        String uid = uniqueUid("nc-exclude");
+        UUID userId = provisionCompliant(uid);
+        List<String> kept = new ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            kept.add(
+                    notificationService
+                            .notify(system(userId, "kept-" + i, i))
+                            .notificationId()
+                            .toString());
+            notificationService.notify(
+                    of(userId, NotificationType.MESSAGE, "chat-" + i, "/messages/" + i));
+        }
+        String rating =
+                notificationService
+                        .notify(
+                                of(
+                                        userId,
+                                        NotificationType.RATING_RECEIVED,
+                                        "rated",
+                                        "/collectors/x?tab=ratings"))
+                        .notificationId()
+                        .toString();
+
+        assertThat(unread(uid)).as("without excludeTypes: every type, as before").isEqualTo(11);
+        assertThat(unread(uid, "?excludeTypes=MESSAGE")).isEqualTo(6);
+        assertThat(unread(uid, "?excludeTypes=MESSAGE,RATING_RECEIVED")).isEqualTo(5);
+        assertThat(unread(uid, "?excludeTypes=MESSAGE&excludeTypes=RATING_RECEIVED")).isEqualTo(5);
+        // An empty item names nothing (a trailing comma, an empty parameter).
+        assertThat(unread(uid, "?excludeTypes=MESSAGE,")).isEqualTo(6);
+        assertThat(unread(uid, "?excludeTypes=")).isEqualTo(11);
+        assertThat(
+                        callJson(HttpMethod.GET, "/api/v1/notifications?limit=50", uid, null, 200)
+                                .path("items"))
+                .hasSize(11);
+
+        // Pages of 2 without the chats: newest first, no gaps, no chat on any page.
+        List<String> seen = new ArrayList<>();
+        @Nullable String cursor = null;
+        int pages = 0;
+        do {
+            JsonNode page =
+                    callJson(
+                            HttpMethod.GET,
+                            "/api/v1/notifications?limit=2&excludeTypes=MESSAGE"
+                                    + (cursor == null ? "" : "&cursor=" + cursor),
+                            uid,
+                            null,
+                            200);
+            page.path("items")
+                    .forEach(
+                            item -> {
+                                assertThat(item.path("type").asString()).isNotEqualTo("MESSAGE");
+                                seen.add(item.path("id").asString());
+                            });
+            JsonNode next = page.path("nextCursor");
+            cursor = next.isString() ? next.asString() : null;
+            pages++;
+        } while (cursor != null && pages < 10);
+        assertThat(pages).isEqualTo(3);
+        List<String> expected = new ArrayList<>();
+        testUsers
+                .query(
+                        "SELECT id FROM notification WHERE user_id = ? AND type <> 'MESSAGE'"
+                                + " ORDER BY created_at DESC, id DESC",
+                        userId)
+                .forEach(row -> expected.add(row.get("id").toString()));
+        assertThat(expected).hasSize(6).contains(rating).containsAll(kept);
+        assertThat(seen).as("newest first, no gaps, no repeats").isEqualTo(expected);
+
+        // The unread filter keeps the exclusion; reading changes the count it gives.
+        callJson(HttpMethod.POST, "/api/v1/notifications/" + rating + "/read", uid, null, 200);
+        JsonNode unreadKept =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/notifications?unreadOnly=true&excludeTypes=MESSAGE&limit=50",
+                        uid,
+                        null,
+                        200);
+        assertThat(unreadKept.path("items")).hasSize(5);
+        unreadKept
+                .path("items")
+                .forEach(item -> assertThat(item.path("type").asString()).isEqualTo("SYSTEM"));
+        assertThat(unread(uid, "?excludeTypes=MESSAGE")).isEqualTo(5);
+        assertThat(unread(uid)).isEqualTo(10);
+
+        for (String path : List.of("/api/v1/notifications", "/api/v1/notifications/unread-count")) {
+            callJson(HttpMethod.GET, path + "?excludeTypes=NOT_A_TYPE", uid, null, 400);
+            callJson(HttpMethod.GET, path + "?excludeTypes=MESSAGE", null, null, 401);
+        }
+    }
+
     @Test
     void notificationsBelongToTheirRecipientOnly() {
         String owner = uniqueUid("nc-mine");
@@ -209,7 +307,16 @@ class NotificationCentreIT extends AbstractIntegrationTest {
     // ---------------------------------------------------------------------------------------
 
     private long unread(String uid) {
-        return callJson(HttpMethod.GET, "/api/v1/notifications/unread-count", uid, null, 200)
+        return unread(uid, "");
+    }
+
+    private long unread(String uid, String query) {
+        return callJson(
+                        HttpMethod.GET,
+                        "/api/v1/notifications/unread-count" + query,
+                        uid,
+                        null,
+                        200)
                 .path("count")
                 .asLong();
     }
@@ -221,6 +328,14 @@ class NotificationCentreIT extends AbstractIntegrationTest {
 
     private static Map<String, Object> token(String platform, String token) {
         return Map.of("platform", platform, "token", token);
+    }
+
+    private static NotificationRequest of(
+            UUID userId, NotificationType type, String key, String deepLink) {
+        Map<String, @Nullable Object> data = new LinkedHashMap<>();
+        data.put("deepLink", deepLink);
+        return new NotificationRequest(
+                userId, type, type.name(), "Body", data, "test:" + userId + ":" + key);
     }
 
     private static NotificationRequest system(UUID userId, String key, int index) {

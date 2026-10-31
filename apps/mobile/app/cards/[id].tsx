@@ -1,42 +1,26 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import type { ReactNode } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useCard } from '@/src/api/hooks/catalog';
-import { useGames } from '@/src/api/hooks/profile';
-import type { CardDetail, PrintingSummary } from '@/src/api/types';
-import { Button } from '@/src/components/ui/Button';
-import { CardDataCredit, CardImage } from '@/src/components/ui/CardImage';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ErrorState } from '@/src/components/ui/ErrorState';
-import { SectionCard } from '@/src/components/ui/Layout';
-import { Screen } from '@/src/components/ui/Screen';
 import { Skeleton, SkeletonList } from '@/src/components/ui/Skeleton';
-import { PrintingList } from '@/src/features/catalog/PrintingList';
-import { marketPriceSource } from '@/src/features/wishlist/wishlistLabels';
-import {
-  ANY_PRINTING_PARAM,
-  editionLabel,
-  finishLabel,
-  formatMarketPrice,
-  languageName,
-  metadataEntries,
-  printingCode,
-  printingImageUrl,
-} from '@/src/lib/catalog';
-import { gameLabel } from '@/src/lib/profile';
-import { fontFamily, fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import { WhoHasThisCard } from '@/src/features/cards/WhoHasThisCard';
+import { CARD_PAGE_COPY } from '@/src/features/search/searchCopy';
+import { ANY_PRINTING_PARAM } from '@/src/lib/catalog';
+import { radius, spacing, useTheme } from '@/src/theme';
 
 /**
- * Card detail (web: `/cards/:id`): the picture with the provider credit, game-specific attributes
- * from the game schema, which copy the link names, every printing, "Add to inventory", "Who has
- * this in my region" (the holders list with every filter, ADR 0017) and "Add to wishlist".
- * `?printing=<id>` selects a printing (its details and market price with the price's source);
- * `?rarity=` (a wishlist alert for "any printing in a rarity") shows "Any printing in <rarity>"
- * and its printings without picking one; `?printing=any` (an alert for an "any printing" wish,
- * and such a wish's own link) shows "Any printing": no selected printing, no highlighted row, no
- * price of one printing. With no parameter the first printing is still shown (stage S3 brings the
- * printing picker). Deep-link target: https://www.orenjitrade.com/cards/<id> and
- * orenjitrade://cards/<id>.
+ * The card page, Who has this card (owner spec 2026-10-14, sections 4 and 8; mockup screen 13):
+ * one page for the card and its holders since stage R5 (the card detail and the card holders list
+ * of before are gone; `/holders` links land here). Deep-link target:
+ * https://www.orenjitrade.com/cards/<id> and orenjitrade://cards/<id>. `?printing=<id>` (a
+ * wishlist alert, an "Available" wish) starts on that printing, `?rarity=` (a wish of any printing
+ * in one rarity) on "Any printing · <rarity>" and `?printing=any` on "Any printing". A new link to
+ * the page on screen starts it again on what that link names.
  */
 export default function CardScreen() {
   const { id, printing, rarity } = useLocalSearchParams<{
@@ -47,34 +31,84 @@ export default function CardScreen() {
   const card = useCard(id);
   const notFound =
     !!card.error && (card.error.status === 404 || card.error.errorCode === 'VALIDATION_FAILED');
+  const initialPrinting = printing && printing !== ANY_PRINTING_PARAM ? printing : null;
+  // `?printing=any` says "every printing", whatever the rarity says.
+  const initialRarity = !printing && rarity ? rarity : null;
 
-  let content;
   if (card.data) {
-    content = (
-      <CardContent card={card.data} printingId={printing ?? null} rarity={rarity ?? null} />
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false, title: card.data.name ?? 'Card' }} />
+        <View testID="screen-card" style={styles.fill}>
+          {/* Keyed on the link: the route stays when a link to the card on screen opens with
+              other parameters, and the page must follow it (stage R5 review, F4). */}
+          <WhoHasThisCard
+            key={`${id}|${initialPrinting ?? ''}|${initialRarity ?? ''}`}
+            card={card.data}
+            initialPrinting={initialPrinting}
+            initialRarity={initialRarity}
+          />
+        </View>
+      </>
     );
-  } else if (notFound) {
-    content = <CardNotFound />;
-  } else if (card.error) {
-    content = (
-      <ErrorState
-        testID="card-error"
-        error={card.error}
-        title="This card could not load"
-        onRetry={() => void card.refetch()}
-      />
-    );
-  } else {
-    content = <CardSkeleton />;
   }
-
   return (
-    <>
-      <Stack.Screen options={{ title: card.data?.name ?? 'Card' }} />
-      <Screen scroll safeBottom testID="screen-card">
-        {content}
-      </Screen>
-    </>
+    <Frame>
+      {notFound ? (
+        <CardNotFound />
+      ) : card.error ? (
+        <ErrorState
+          testID="card-error"
+          error={card.error}
+          title={CARD_PAGE_COPY.error}
+          onRetry={() => void card.refetch()}
+        />
+      ) : (
+        <View
+          testID="card-loading"
+          accessibilityLabel={CARD_PAGE_COPY.loading}
+          aria-busy
+          style={styles.loading}
+        >
+          <View style={styles.hero}>
+            <Skeleton width={56} height={78} radius={radius.sm} />
+            <View style={styles.fill}>
+              <Skeleton width="30%" height={12} />
+              <Skeleton width="80%" height={24} style={styles.gap} />
+              <Skeleton width="55%" height={36} style={styles.gap} />
+            </View>
+          </View>
+          <SkeletonList rows={4} rowHeight={68} />
+        </View>
+      )}
+    </Frame>
+  );
+}
+
+/** The page's top row (back) around its loading, error and not-found states. */
+function Frame({ children }: { children: ReactNode }) {
+  const { palette } = useTheme();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  return (
+    <View
+      testID="screen-card"
+      style={[styles.fill, { backgroundColor: palette.background, paddingTop: insets.top }]}
+    >
+      <Stack.Screen options={{ headerShown: false, title: 'Card' }} />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={CARD_PAGE_COPY.back}
+        onPress={() =>
+          router.canGoBack() ? router.back() : router.replace({ pathname: '/search', params: {} })
+        }
+        testID="BackButton"
+        style={styles.back}
+      >
+        <MaterialCommunityIcons name="chevron-left" size={28} color={palette.ink} />
+      </Pressable>
+      <View style={styles.body}>{children}</View>
+    </View>
   );
 }
 
@@ -84,320 +118,26 @@ function CardNotFound() {
     <EmptyState
       testID="card-not-found"
       icon="cards-outline"
-      title="Card not found"
-      description="This card does not exist or is no longer in the catalog."
-      actionLabel="Search the catalog"
-      onAction={() => router.navigate('/search')}
+      title={CARD_PAGE_COPY.notFound}
+      description={CARD_PAGE_COPY.notFoundHint}
+      actionLabel={CARD_PAGE_COPY.searchCards}
+      onAction={() => router.replace({ pathname: '/search', params: { typing: '1' } })}
     />
   );
 }
 
-function CardSkeleton() {
-  return (
-    <View testID="card-loading" accessibilityLabel="Loading card" aria-busy style={styles.root}>
-      <View style={styles.hero}>
-        <Skeleton width={240} height={336} radius={radius.sm} />
-      </View>
-      <Skeleton width="40%" height={14} />
-      <Skeleton width="75%" height={28} />
-      <SkeletonList rows={3} rowHeight={56} />
-    </View>
-  );
-}
-
-function CardContent({
-  card,
-  printingId,
-  rarity,
-}: {
-  card: CardDetail;
-  printingId: string | null;
-  /** `?rarity=` of a wishlist alert: any printing of it ("Add to wishlist" starts on it too). */
-  rarity: string | null;
-}) {
-  const { palette } = useTheme();
-  const router = useRouter();
-  const games = useGames();
-  const printings = card.printings ?? [];
-  // Which copy the link names: a printing of this card, else a rarity of its printings (an
-  // unknown printing or rarity is ignored), else "any printing" when the link says so
-  // (`?printing=any`). "Any printing" and "Any printing in <rarity>" pick no printing.
-  const saysAny = printingId === ANY_PRINTING_PARAM;
-  const linked = saysAny
-    ? null
-    : (printings.find((candidate) => candidate.id === printingId) ?? null);
-  const anyInRarity =
-    !linked && rarity && printings.some((candidate) => candidate.rarity === rarity) ? rarity : null;
-  const anyPrinting = saysAny && !anyInRarity;
-  const rarityPrintings = anyInRarity
-    ? printings.filter((candidate) => candidate.rarity === anyInRarity)
-    : [];
-  const selected: PrintingSummary | null =
-    linked ?? (anyInRarity || anyPrinting ? null : (printings[0] ?? null));
-  const schema = games.data?.find((game) => game.slug === card.game)?.schema ?? null;
-  const name = card.name ?? 'Card';
-  const code = selected ? printingCode(selected) : '';
-  const hero = printingImageUrl(selected) ?? card.primaryImageUrl ?? null;
-  const typeLine = [card.cardType, card.subtype].filter(Boolean).join(' · ');
-  const attributes = metadataEntries(schema?.metadataFields, card.metadata);
-  const price = formatMarketPrice(selected?.marketPrice);
-  const priceSource = marketPriceSource(selected?.marketPrice);
-  // "Add to inventory" needs one printing: the shown one, or the only one the selection leaves
-  // (of the rarity, or of the card for "any printing").
-  const candidates = anyPrinting ? printings : rarityPrintings;
-  const inventoryPrinting = selected ?? (candidates.length === 1 ? candidates[0] : null);
-
-  const select = (printing: PrintingSummary) => {
-    if (printing.id) {
-      // One printing replaces "any printing" (`?printing=any`) and "any printing in <rarity>".
-      router.setParams(
-        anyInRarity ? { printing: printing.id, rarity: undefined } : { printing: printing.id }
-      );
-    }
-  };
-
-  return (
-    <View style={styles.root}>
-      <View style={styles.hero}>
-        <CardImage
-          src={hero}
-          alt={`${name}${code ? `, printing ${code}` : ''}`}
-          game={card.game}
-          size="lg"
-          testID="card-hero-image"
-        />
-        {selected ? (
-          <Text style={[textStyle('sm'), styles.caption, { color: palette.textMuted }]}>
-            <Text style={styles.mono}>{code}</Text>
-            {selected.setName ? ` · ${selected.setName}` : ''}
-          </Text>
-        ) : anyInRarity ? (
-          <Text style={[textStyle('sm'), styles.caption, { color: palette.textMuted }]}>
-            Any printing in {anyInRarity}
-          </Text>
-        ) : anyPrinting ? (
-          <Text style={[textStyle('sm'), styles.caption, { color: palette.textMuted }]}>
-            Any printing
-          </Text>
-        ) : null}
-        <CardDataCredit game={card.game} />
-      </View>
-
-      <View style={styles.titleBlock}>
-        {card.game ? (
-          <Text style={[textStyle('xs'), styles.eyebrow, { color: palette.primary }]}>
-            {gameLabel(card.game)}
-          </Text>
-        ) : null}
-        <Text
-          accessibilityRole="header"
-          testID="card-name"
-          style={[textStyle('2xl', 'heading'), styles.name, { color: palette.ink }]}
-        >
-          {name}
-        </Text>
-        {typeLine ? (
-          <Text style={[textStyle('md'), { color: palette.textMuted }]}>{typeLine}</Text>
-        ) : null}
-        {card.text ? (
-          <Text
-            testID="card-text"
-            style={[
-              textStyle('md'),
-              styles.text,
-              { color: palette.ink, borderLeftColor: palette.borderStrong },
-            ]}
-          >
-            {card.text}
-          </Text>
-        ) : null}
-      </View>
-
-      <View style={styles.ctas}>
-        <Button
-          label="Add to inventory"
-          icon="plus-box-multiple-outline"
-          onPress={() =>
-            router.push({
-              pathname: '/items/new',
-              params: { cardId: card.id ?? '', printingId: inventoryPrinting?.id ?? '' },
-            })
-          }
-          testID="card-add-to-inventory"
-        />
-        <Button
-          label="Who has this in my region"
-          icon="account-search-outline"
-          variant="secondary"
-          accessibilityHint="Lists the collectors of your region who own, trade or sell this card"
-          onPress={() => router.push({ pathname: '/holders', params: { card: card.id ?? '' } })}
-          testID="card-holders"
-        />
-        <Button
-          label="Add to wishlist"
-          icon="heart-plus-outline"
-          variant="secondary"
-          accessibilityHint="We tell you when a collector of your region lists it"
-          onPress={() =>
-            router.push({
-              pathname: '/wishlist/new',
-              // The printing picked in the link (`?printing=`), else any printing (of the
-              // `?rarity=` of a wishlist alert), like the web.
-              params: {
-                cardId: card.id ?? '',
-                printingId: linked?.id ?? '',
-                rarity: anyInRarity ?? '',
-              },
-            })
-          }
-          testID="card-add-to-wishlist"
-        />
-      </View>
-
-      {selected ? (
-        <SectionCard title="Selected printing" testID="card-selected-printing">
-          <Text
-            accessibilityRole="link"
-            onPress={() =>
-              selected.setId
-                ? router.push({ pathname: '/sets/[id]', params: { id: selected.setId } })
-                : router.navigate({
-                    pathname: '/search',
-                    params: {
-                      game: card.game ?? '',
-                      set: selected.setCode ?? '',
-                      q: '',
-                      tab: 'cards',
-                    },
-                  })
-            }
-            style={[textStyle('md'), styles.setLink, { color: palette.accent }]}
-            testID="card-set-link"
-          >
-            {selected.setName} ({selected.setCode})
-          </Text>
-          <View style={styles.facts} accessibilityLabel="Printing details">
-            <Fact label={code} mono />
-            {selected.rarity ? <Fact label={selected.rarity} /> : null}
-            <Fact label={editionLabel(selected.edition)} />
-            <Fact label={languageName(selected.language)} />
-            <Fact label={finishLabel(selected.finish)} />
-          </View>
-          <View testID="card-price">
-            {price ? (
-              <>
-                <Text style={[textStyle('xl', 'heading'), styles.name, { color: palette.ink }]}>
-                  {price}
-                </Text>
-                <Text
-                  style={[textStyle('xs'), { color: palette.textMuted }]}
-                  testID="card-price-source"
-                >
-                  {priceSource ?? 'Market price'}
-                </Text>
-              </>
-            ) : (
-              <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
-                No market price for this printing yet.
-              </Text>
-            )}
-          </View>
-        </SectionCard>
-      ) : anyInRarity ? (
-        <SectionCard title={`Any printing in ${anyInRarity}`} testID="card-selected-rarity">
-          <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
-            {rarityPrintings.length} {rarityPrintings.length === 1 ? 'printing' : 'printings'} of
-            this card in {anyInRarity}: any of them fits. Choose one under Printings to see its
-            details and market price.
-          </Text>
-          <View style={styles.facts} accessibilityLabel={`Printings in ${anyInRarity}`}>
-            {rarityPrintings.map((printing) => (
-              <Fact
-                key={printing.id}
-                mono
-                label={[
-                  printingCode(printing),
-                  printing.edition ? editionLabel(printing.edition) : null,
-                  printing.language ? languageName(printing.language) : null,
-                ]
-                  .filter((part) => part && part !== '—')
-                  .join(' · ')}
-              />
-            ))}
-          </View>
-        </SectionCard>
-      ) : anyPrinting ? (
-        <SectionCard title="Any printing" testID="card-selected-any">
-          <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
-            {printings.length} {printings.length === 1 ? 'printing' : 'printings'} of this card: any
-            of them fits. Choose one under Printings to see its details and market price.
-          </Text>
-        </SectionCard>
-      ) : null}
-
-      <SectionCard title="Attributes" testID="card-attributes">
-        {attributes.length === 0 ? (
-          <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
-            No attributes recorded for this card.
-          </Text>
-        ) : (
-          attributes.map((entry) => (
-            <View key={entry.key} style={styles.attribute}>
-              <Text style={[textStyle('sm'), styles.attributeLabel, { color: palette.textMuted }]}>
-                {entry.label}
-              </Text>
-              <Text style={[textStyle('sm'), styles.attributeValue, { color: palette.ink }]}>
-                {entry.value}
-              </Text>
-            </View>
-          ))
-        )}
-      </SectionCard>
-
-      <SectionCard title={`Printings (${printings.length})`} testID="card-printings">
-        {printings.length > 0 ? (
-          <PrintingList
-            printings={printings}
-            cardName={name}
-            game={card.game}
-            selectedId={selected?.id ?? null}
-            onSelect={select}
-            label={`Printings of ${name}`}
-            showPrice
-          />
-        ) : (
-          <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
-            No printings are recorded for this card yet.
-          </Text>
-        )}
-      </SectionCard>
-    </View>
-  );
-}
-
-function Fact({ label, mono = false }: { label: string; mono?: boolean }) {
-  const { palette } = useTheme();
-  return (
-    <View style={[styles.fact, { backgroundColor: palette.surfaceVariant }]}>
-      <Text style={[textStyle('sm'), mono && styles.mono, { color: palette.ink }]}>{label}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  root: { gap: spacing[4] },
-  hero: { alignItems: 'center', gap: spacing[2] },
-  caption: { textAlign: 'center' },
-  mono: { fontFamily: fontFamily.mono },
-  titleBlock: { gap: spacing[1] },
-  eyebrow: { fontWeight: fontWeight.semibold, textTransform: 'uppercase', letterSpacing: 0.6 },
-  name: { fontWeight: fontWeight.bold },
-  text: { marginTop: spacing[2], paddingLeft: spacing[3], borderLeftWidth: 3 },
-  ctas: { gap: spacing[2] },
-  setLink: { fontWeight: fontWeight.semibold, textDecorationLine: 'underline' },
-  facts: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
-  fact: { borderRadius: radius.pill, paddingHorizontal: spacing[3], paddingVertical: spacing[1] },
-  attribute: { flexDirection: 'row', gap: spacing[3] },
-  attributeLabel: { flex: 2 },
-  attributeValue: { flex: 3, fontWeight: fontWeight.medium },
+  fill: { flex: 1 },
+  back: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: spacing[3],
+    marginTop: spacing[2],
+  },
+  body: { flex: 1, paddingHorizontal: spacing[4] },
+  loading: { gap: spacing[4], paddingTop: spacing[3] },
+  hero: { flexDirection: 'row', gap: spacing[4] },
+  gap: { marginTop: spacing[2] },
 });

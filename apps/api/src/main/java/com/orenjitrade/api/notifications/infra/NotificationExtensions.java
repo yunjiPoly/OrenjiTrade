@@ -67,6 +67,12 @@ public class NotificationExtensions {
                 notifications.purge(userId);
                 pushTokens.purge(userId);
             }
+
+            @Override
+            public void purge(UUID userId, String handle) {
+                notifications.purge(userId, handle);
+                pushTokens.purge(userId);
+            }
         };
     }
 

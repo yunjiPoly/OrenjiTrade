@@ -1,0 +1,233 @@
+<div class="home" [class.home--rail]="!layout.narrow() && !layout.medium()">
+  <div class="home__feed">
+    <header class="home__header">
+      <h1 class="home__title" #heading tabindex="-1">What’s new</h1>
+      <p class="home__scope">
+        {{ gameName() }} · {{ regionName() }} · last {{ store.windowDays() }} days
+      </p>
+    </header>
+
+    @if (layout.narrow() || layout.medium()) {
+      @if (showSteps() && steps(); as s) {
+        <app-get-started class="home__steps-top" [steps]="s" (hide)="hideSteps()" />
+      } @else if (!signedIn()) {
+        <ng-container *ngTemplateOutlet="guestCard" />
+      }
+    }
+
+    <div class="home__toolbar">
+      <div class="home__chips" role="group" aria-label="Show">
+        @for (f of filters; track f) {
+          <button
+            type="button"
+            class="home__chip"
+            [class.home__chip--on]="filter() === f"
+            [attr.aria-pressed]="filter() === f"
+            [attr.data-testid]="'home-chip-' + f"
+            (click)="setFilter(f)"
+            (focus)="revealChip($event)"
+          >
+            @if (dot(f); as tone) {
+              <span class="home__dot" [attr.data-tone]="tone" aria-hidden="true"></span>
+            }
+            {{ labels[f] }}
+          </button>
+        }
+      </div>
+      <div class="home__updated">
+        @if (updated(); as label) {
+          <span class="home__updated-text" data-testid="home-updated">{{ label }}</span>
+        }
+        <button
+          type="button"
+          class="home__refresh"
+          aria-label="Refresh what's new"
+          data-testid="home-refresh"
+          (click)="refresh()"
+        >
+          <app-shell-icon name="refresh" [size]="18" />
+        </button>
+      </div>
+    </div>
+    @if (store.newer()) {
+      <div class="home__newer-row">
+        <button
+          type="button"
+          class="home__newer"
+          data-testid="home-new-posts"
+          (click)="showNewer()"
+        >
+          New posts · Show
+        </button>
+      </div>
+    }
+
+    <div class="home__list" aria-live="off">
+      @switch (store.status()) {
+        @case ('loading') {
+          <div class="home__bones" aria-busy="true">
+            <span class="visually-hidden">Loading what’s new</span>
+            @for (bone of [0, 1, 2]; track bone) {
+              <div class="home__bone" aria-hidden="true">
+                <span class="home__bone-head"></span>
+                <span class="home__bone-body"></span>
+              </div>
+            }
+          </div>
+        }
+        @case ('error') {
+          <div class="home__state" role="alert" data-testid="home-error">
+            <p class="home__state-title">Couldn't load what's new.</p>
+            <button type="button" class="home__outline" (click)="retry()">Try again</button>
+          </div>
+        }
+        @default {
+          @switch (store.empty()) {
+            @case ('region') {
+              <div class="home__empty" data-testid="home-empty-region">
+                <span class="home__empty-icon" aria-hidden="true"
+                  ><app-shell-icon name="inventory" [size]="24"
+                /></span>
+                <h2 class="home__empty-title">Nothing new in {{ regionName() }} yet</h2>
+                <p class="home__empty-text">
+                  Be the first: the cards you make public show up here for collectors in your
+                  region.
+                </p>
+              </div>
+            }
+            @case ('game') {
+              <div class="home__empty" data-testid="home-empty-game">
+                <span class="home__empty-icon" aria-hidden="true"
+                  ><app-shell-icon name="inventory" [size]="24"
+                /></span>
+                <h2 class="home__empty-title">Nothing new in {{ gameName() }} yet</h2>
+                <p class="home__empty-text">
+                  When collectors in {{ regionName() }} list {{ gameName() }} cards, wishes or deck
+                  cores, they show up here.
+                </p>
+                <div class="home__empty-actions">
+                  <a class="home__primary" routerLink="/inventory" [queryParams]="{ add: 'new' }"
+                    >Add your {{ gameName() }} cards</a
+                  >
+                  <button type="button" class="home__outline" (click)="switchGame()">
+                    Switch game
+                  </button>
+                </div>
+              </div>
+            }
+            @case ('chip') {
+              <div class="home__empty" data-testid="home-empty-chip">
+                <p class="home__empty-text">{{ chipEmpty() }}</p>
+                <button type="button" class="home__outline" (click)="setFilter('ALL')">
+                  Show all
+                </button>
+              </div>
+            }
+            @default {
+              @for (group of sections(); track group.section) {
+                <section
+                  class="home__section"
+                  [attr.aria-labelledby]="'home-section-' + group.section"
+                >
+                  <h2 class="home__label" [id]="'home-section-' + group.section">
+                    {{ group.title }}
+                  </h2>
+                  <div class="home__posts">
+                    @for (post of group.posts; track post.id) {
+                      <app-feed-post [post]="post" [game]="gameCode()" [now]="now()" />
+                    }
+                  </div>
+                </section>
+              }
+              <div #sentinel class="home__sentinel" aria-hidden="true"></div>
+              @if (store.more() === 'loading') {
+                <div class="home__bone" aria-hidden="true">
+                  <span class="home__bone-head"></span>
+                  <span class="home__bone-body"></span>
+                </div>
+              } @else if (store.more() === 'error') {
+                <div class="home__state home__state--more" role="alert">
+                  <p class="home__state-title">Couldn't load more</p>
+                  <button type="button" class="home__outline" (click)="store.loadMore()">
+                    Try again
+                  </button>
+                </div>
+              } @else if (store.hasMore()) {
+                <div class="home__more-row">
+                  <button type="button" class="home__outline" (click)="store.loadMore()">
+                    Load more
+                  </button>
+                </div>
+              }
+              @if (store.atEnd()) {
+                <div class="home__end" data-testid="home-end">
+                  <span class="home__end-check" aria-hidden="true"
+                    ><app-shell-icon name="check" [size]="20"
+                  /></span>
+                  <h2 class="home__end-title">You’re all caught up</h2>
+                  <p class="home__end-text">{{ endLine() }}</p>
+                  <a class="home__outline" routerLink="/search" [queryParams]="{ tab: 'binders' }"
+                    >Explore the map</a
+                  >
+                </div>
+              }
+            }
+          }
+        }
+      }
+    </div>
+    @if (layout.medium()) {
+      <!-- At md the rail is gone: its links close the feed (WE review U17). -->
+      <ng-container *ngTemplateOutlet="footerLinks" />
+    }
+  </div>
+
+  @if (!layout.narrow() && !layout.medium()) {
+    <aside class="home__rail" aria-label="Get started and the map">
+      @if (showSteps() && steps(); as s) {
+        <app-get-started [steps]="s" (hide)="hideSteps()" />
+      } @else if (!signedIn()) {
+        <ng-container *ngTemplateOutlet="guestCard" />
+      }
+      <app-map-card
+        [region]="regionCode()"
+        [regionName]="regionName()"
+        [gameName]="gameName()"
+        [homeCode]="home()?.code ?? null"
+        [homeName]="home()?.name ?? null"
+        [counts]="mapStore.countByCode()"
+        [deckCores]="mapStore.deckCoreByCode()"
+        [countsFailed]="!!mapStore.countsError()"
+        [countsLoading]="mapStore.countsLoading()"
+        (retryCounts)="mapStore.loadCounts()"
+      />
+      <ng-container *ngTemplateOutlet="footerLinks" />
+    </aside>
+  }
+</div>
+
+<ng-template #footerLinks>
+  <p class="home__links">
+    <a routerLink="/legal/trading-safely">Trading safely</a> · <a routerLink="/legal">Legal</a> ·
+    <a routerLink="/legal" fragment="card-data-credits">Card data credits</a> · Made with
+    <a href="https://www.naturalearthdata.com/" target="_blank" rel="noopener noreferrer"
+      >Natural Earth</a
+    >
+  </p>
+</ng-template>
+
+<ng-template #guestCard>
+  <section class="home__guest" aria-labelledby="home-guest-title" data-testid="home-guest-card">
+    <span class="app-icon-tile" aria-hidden="true"
+      ><app-shell-icon name="userPlus" [size]="20"
+    /></span>
+    <h2 class="home__guest-title" id="home-guest-title">You’re browsing as a guest</h2>
+    <p class="home__guest-text">
+      Create a free account to message collectors, save wishes and list your own cards.
+    </p>
+    <div class="home__guest-actions">
+      <a class="home__primary" routerLink="/auth/sign-up">Create account</a>
+      <a class="home__outline" routerLink="/auth/sign-in">Sign in</a>
+    </div>
+  </section>
+</ng-template>

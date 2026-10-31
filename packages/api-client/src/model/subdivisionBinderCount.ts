@@ -11,6 +11,13 @@
 
 export interface SubdivisionBinderCount { 
     code: string;
+    /**
+     * Public binders, deck cores included
+     */
     binderCount: number;
+    /**
+     * The public deck cores among them (stage R3): the map\'s state card says \"{n} binders · {n} deck cores\" with binderCount - deckCoreCount binders. Always sent
+     */
+    deckCoreCount?: number;
 }
 

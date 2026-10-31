@@ -6,7 +6,9 @@ import { CardImageComponent } from '../ui/card-image/card-image.component';
 
 /**
  * A card or binder shared in a message or a community post: thumbnail, name and a link to the
- * card page (with the shared printing selected) or the public binder.
+ * card page (with the shared printing selected) or the public binder. In a chat (`variant="chat"`,
+ * web stage WC, spec 10.3) it is the 280 card: 48 art, the name, the code, the price as typed and
+ * "View".
  */
 @Component({
   selector: 'app-shared-link-card',
@@ -15,6 +17,7 @@ import { CardImageComponent } from '../ui/card-image/card-image.component';
     @if (card(); as c) {
       <a
         class="link"
+        [class.link--chat]="variant() === 'chat'"
         [routerLink]="['/cards', c.cardId]"
         [queryParams]="{ printing: c.id }"
         [attr.aria-label]="'Card: ' + c.name + (c.printingCode ? ', ' + c.printingCode : '')"
@@ -26,12 +29,20 @@ import { CardImageComponent } from '../ui/card-image/card-image.component';
           @if (c.printingCode) {
             <span class="link__meta mono">{{ c.printingCode }}</span>
           }
+          @if (price()) {
+            <span class="link__price">{{ price() }}</span>
+          }
         </span>
-        <mat-icon class="link__go" aria-hidden="true">chevron_right</mat-icon>
+        @if (variant() === 'chat') {
+          <span class="link__view" aria-hidden="true">View</span>
+        } @else {
+          <mat-icon class="link__go" aria-hidden="true">chevron_right</mat-icon>
+        }
       </a>
     } @else if (binder(); as b) {
       <a
         class="link"
+        [class.link--chat]="variant() === 'chat'"
         [routerLink]="['/binders', b.id]"
         [attr.aria-label]="'Binder: ' + b.name + ' by @' + b.ownerHandle"
       >
@@ -41,7 +52,11 @@ import { CardImageComponent } from '../ui/card-image/card-image.component';
           <span class="link__name">{{ b.name }}</span>
           <span class="link__meta">by &#64;{{ b.ownerHandle }}</span>
         </span>
-        <mat-icon class="link__go" aria-hidden="true">chevron_right</mat-icon>
+        @if (variant() === 'chat') {
+          <span class="link__view" aria-hidden="true">Open</span>
+        } @else {
+          <mat-icon class="link__go" aria-hidden="true">chevron_right</mat-icon>
+        }
       </a>
     }
   `,
@@ -111,10 +126,37 @@ import { CardImageComponent } from '../ui/card-image/card-image.component';
       flex: 0 0 auto;
       color: var(--color-text-muted);
     }
+    .link__price {
+      color: var(--color-ink);
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-semibold);
+    }
+    .link__view {
+      flex: 0 0 auto;
+      color: var(--color-accent);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-semibold);
+    }
+    .link--chat {
+      width: 280px;
+      max-width: 100%;
+      border-radius: var(--radius-row);
+      background: var(--color-surface-elevated);
+    }
+    .link--chat .link__thumb,
+    .link--chat .link__binder {
+      width: 48px;
+    }
+    .link--chat .link__binder {
+      height: 67px;
+    }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SharedLinkCardComponent {
   readonly card = input<CardLink | null | undefined>(null);
   readonly binder = input<BinderLink | null | undefined>(null);
+  /** The price as typed (a collector's own card shared in a chat). */
+  readonly price = input<string | null>(null);
+  readonly variant = input<'default' | 'chat'>('default');
 }

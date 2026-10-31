@@ -29,7 +29,7 @@ export interface CollectorsServiceInterface {
 
     /**
      * Public profile of a collector
-     * Handle lookup is case-insensitive. 404 when the account does not exist, is suspended, pending deletion or deleted, or when the profile is PRIVATE (for everyone but its owner). &#x60;location&#x60; (state/province + country) is null unless the collector is discoverable and set a location; its &#x60;city&#x60; is the collector\&#39;s own optional city, present only while they show it on their profile. The only response with another collector\&#39;s city; no coordinates or distances anywhere (ADR 0017).
+     * Handle lookup is case-insensitive. 404 when the account does not exist, is suspended, pending deletion or deleted, or when the profile is PRIVATE (for everyone but its owner), and for a caller the collector blocked (the unknown handle\&#39;s answer; the caller who blocked them keeps the profile with isBlocked). &#x60;location&#x60; (state/province + country) is null unless the collector is discoverable and set a location; its &#x60;city&#x60; is the collector\&#39;s own optional city, present only while they show it on their profile. The only response with another collector\&#39;s city; no coordinates or distances anywhere (ADR 0017).
      * @endpoint get /api/v1/collectors/{handle}
 * @param requestParameters
      */

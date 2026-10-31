@@ -16,12 +16,27 @@ import { Place } from './place';
  * A discoverable collector with their state/province and country (never a city, a coordinate or a distance)
  */
 export interface CollectorMarker { 
-    id: string;
-    handle: string;
-    displayName: string;
+    /**
+     * Null for a signed-out caller (stage R15)
+     */
+    id: string | null;
+    /**
+     * Null for a signed-out caller (stage R15)
+     */
+    handle: string | null;
+    /**
+     * Null for a signed-out caller (stage R15)
+     */
+    displayName: string | null;
     avatarUrl?: string | null;
     place: Place;
+    /**
+     * Null for a signed-out caller (stage R15)
+     */
     rating: CollectorRating;
+    /**
+     * The profile\'s tags; empty for a signed-out caller
+     */
     tags: Array<string>;
     games: Array<string>;
     lastActiveBucket: CollectorMarkerLastActiveBucketEnum;

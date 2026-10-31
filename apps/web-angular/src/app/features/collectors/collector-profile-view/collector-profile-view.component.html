@@ -1,305 +1,393 @@
 @let p = profile();
-<article class="collector" [attr.aria-labelledby]="'collector-name'">
-  <header class="collector__hero">
-    <div class="collector__banner" aria-hidden="true">
-      @for (game of heroGames(); track game; let i = $index) {
-        <app-card-art
-          class="collector__banner-card"
-          [class]="'collector__banner-card--' + i"
-          [game]="game"
-        />
+@let r = ratingSummary();
+<article class="cp" aria-labelledby="collector-name">
+  <header class="cp__head">
+    <div class="cp__avatar">
+      <app-avatar class="cp__avatar-img" [src]="p.avatarUrl" [name]="p.displayName" />
+      @if (p.onlineStatus === 'ONLINE') {
+        <span class="cp__online" role="img" aria-label="Online now"></span>
       }
     </div>
-    <div class="collector__identity">
-      <div class="collector__avatar">
-        <app-avatar size="xl" [src]="p.avatarUrl" [name]="p.displayName" />
-        @if (p.onlineStatus === 'ONLINE') {
-          <span class="collector__online" role="img" aria-label="Online now"></span>
+    <div class="cp__who">
+      <h1 class="cp__name" id="collector-name">{{ p.displayName }}</h1>
+      <p class="cp__handle">
+        &#64;{{ p.handle }}
+        @if (average(); as avg) {
+          ·
+          <button
+            type="button"
+            class="cp__star"
+            [attr.aria-label]="'Rated ' + avg + ' out of 5. See ratings and references'"
+            (click)="ratingsRequested.emit()"
+          >
+            <app-shell-icon name="star" [size]="14" filled />
+            {{ avg }}
+          </button>
         }
-      </div>
-      <div class="collector__names">
-        <h1 class="collector__name" id="collector-name">{{ p.displayName }}</h1>
-        <p class="collector__handle">&#64;{{ p.handle }}</p>
-        <ul class="collector__facts" aria-label="Collector details">
-          @if (p.location; as location) {
-            <li class="collector__fact" data-testid="collector-public-label">
-              <mat-icon aria-hidden="true">location_on</mat-icon>
-              <!-- One flex item: a separate text node would get the gap before its comma. -->
-              <span>
-                @if (location.city) {
-                  <span data-testid="collector-city">{{ location.city }}</span
-                  >,
-                }
-                {{ location.label }}</span
-              >
-            </li>
-          } @else {
-            <li class="collector__fact collector__fact--muted">
-              <mat-icon aria-hidden="true">location_off</mat-icon>
-              Not on the map
-            </li>
+      </p>
+      @if (p.games.length > 0 || p.tags.length > 0) {
+        <ul class="cp__chips" aria-label="Games and tags">
+          @for (game of p.games; track game) {
+            <li class="cp__chip cp__chip--game">{{ gameLabel(game) }}</li>
           }
-          <li class="collector__fact">
-            <mat-icon aria-hidden="true">calendar_month</mat-icon>
-            Member since {{ p.memberSince | date: 'MMMM y' }}
-          </li>
-          @if (lastActiveLabel() && p.lastActiveBucket !== 'HIDDEN') {
-            <li class="collector__fact collector__activity" [attr.data-tone]="lastActiveTone()">
-              <span class="collector__dot" aria-hidden="true"></span>
-              {{ lastActiveLabel() }}
-            </li>
+          @for (tag of p.tags; track tag.slug) {
+            <li class="cp__chip">{{ tag.label }}</li>
           }
         </ul>
-      </div>
-      <div class="collector__actions">
-        @if (isOwn()) {
-          <a matButton="filled" routerLink="/settings/profile">
-            <mat-icon aria-hidden="true">edit</mat-icon>
-            Edit profile
-          </a>
-          <a matButton="outlined" routerLink="/settings/privacy">
-            <mat-icon aria-hidden="true">shield_person</mat-icon>
-            Privacy
-          </a>
-        } @else {
-          @if (firstBinder(); as binder) {
-            <a matButton="filled" [routerLink]="['/binders', binder.id]">
-              <mat-icon aria-hidden="true">menu_book</mat-icon>
-              View public binder
-            </a>
-          } @else {
-            <button
-              matButton="filled"
-              type="button"
-              disabled
-              disabledInteractive
-              [matTooltip]="binders() === null ? 'Loading public binders…' : 'No public binder yet'"
-            >
-              <mat-icon aria-hidden="true">menu_book</mat-icon>
-              View public binder
-            </button>
-          }
-          @if (p.canMessage) {
-            <button
-              matButton="outlined"
-              type="button"
-              [disabled]="messaging()"
-              [attr.aria-label]="'Message ' + p.displayName"
-              (click)="messageRequested.emit()"
-            >
-              <mat-icon aria-hidden="true">chat</mat-icon>
-              {{ messaging() ? 'Opening…' : 'Message' }}
-            </button>
-          } @else {
-            <button
-              matButton="outlined"
-              type="button"
-              disabled
-              disabledInteractive
-              [matTooltip]="
-                p.isBlocked
-                  ? 'Messaging is unavailable because of a block. Manage blocks in Settings.'
-                  : p.displayName + ' does not accept messages from you'
-              "
-            >
-              <mat-icon aria-hidden="true">chat</mat-icon>
-              Message
-            </button>
-          }
-          <button
-            matButton
-            type="button"
-            class="collector__report"
-            [attr.aria-label]="'Report ' + p.displayName"
-            (click)="reportRequested.emit()"
+      }
+      <p class="cp__facts" data-testid="collector-facts">
+        @if (p.location; as location) {
+          <!-- One text after the city: a line break of the template never adds a space. -->
+          <span data-testid="collector-public-label">
+            @if (location.city) {
+              <span data-testid="collector-city">{{ location.city }}</span>
+            }
+            <span>{{
+              (location.city ? ', ' : '') + (location.subdivisionName || location.countryName)
+            }}</span></span
           >
-            <mat-icon aria-hidden="true">flag</mat-icon>
-            Report
+          <span aria-hidden="true"> · </span><span class="visually-hidden">, </span>
+        } @else if (isOwn()) {
+          <!-- Your own profile: why no place shows (others see nothing here). -->
+          <span>Not on the map</span>
+          <span aria-hidden="true"> · </span><span class="visually-hidden">, </span>
+        }
+        <span>Member since {{ p.memberSince | date: 'y' }}</span>
+        @if (activeLabel(); as active) {
+          <span aria-hidden="true"> · </span><span class="visually-hidden">, </span>
+          <span>{{ active }}</span>
+        }
+      </p>
+    </div>
+    <div class="cp__actions">
+      @if (isOwn()) {
+        <a class="cp__outline" routerLink="/settings/profile">
+          <app-shell-icon name="pencil" [size]="18" />
+          Edit profile
+        </a>
+        <button type="button" class="cp__outline" (click)="shareRequested.emit()">
+          <app-shell-icon name="share" [size]="20" />
+          Share profile
+        </button>
+        <a class="cp__round" routerLink="/settings" aria-label="Settings">
+          <app-shell-icon name="gear" [size]="20" />
+        </a>
+      } @else {
+        @if (p.canMessage) {
+          <button
+            type="button"
+            class="cp__primary"
+            [disabled]="messaging()"
+            [attr.aria-label]="
+              messaging() ? 'Opening the chat with ' + p.handle : 'Message ' + p.handle
+            "
+            (click)="messageRequested.emit()"
+          >
+            <app-shell-icon name="messages" [size]="18" />
+            {{ messaging() ? 'Opening…' : 'Message ' + p.handle }}
           </button>
+        }
+        <button
+          type="button"
+          class="cp__round"
+          data-testid="collector-more"
+          [attr.aria-label]="'More for ' + p.handle"
+          [matMenuTriggerFor]="more"
+        >
+          <app-shell-icon name="more" [size]="20" />
+        </button>
+        <mat-menu #more="matMenu" xPosition="before" class="app-more-menu">
+          <button mat-menu-item type="button" (click)="shareRequested.emit()">
+            <app-shell-icon name="share" [size]="20" />
+            <span>Share profile</span>
+          </button>
+          <button mat-menu-item type="button" (click)="reportRequested.emit()">
+            <app-shell-icon name="flag" [size]="20" />
+            <span>Report {{ p.handle }}</span>
+          </button>
+          <div class="app-more-menu__divider" role="separator"></div>
           @if (p.isBlocked) {
-            <button
-              matButton
-              type="button"
-              class="collector__report"
-              [attr.aria-label]="'Unblock ' + p.displayName"
-              (click)="unblockRequested.emit()"
-            >
-              <mat-icon aria-hidden="true">lock_open</mat-icon>
-              Unblock
+            <button mat-menu-item type="button" (click)="unblockRequested.emit()">
+              <app-shell-icon name="ban" [size]="20" />
+              <span>Unblock {{ p.handle }}</span>
             </button>
           } @else {
             <button
-              matButton
+              mat-menu-item
               type="button"
-              class="collector__report"
-              [attr.aria-label]="'Block ' + p.displayName"
+              class="app-more-menu__danger"
               (click)="blockRequested.emit()"
             >
-              <mat-icon aria-hidden="true">block</mat-icon>
-              Block
+              <app-shell-icon name="ban" [size]="20" />
+              <span>Block {{ p.handle }}</span>
             </button>
           }
-        }
-      </div>
+        </mat-menu>
+      }
     </div>
   </header>
 
-  <div class="collector__grid">
-    <section class="collector__card collector__about" aria-labelledby="collector-about">
-      <h2 id="collector-about">About</h2>
-      @if (p.bio) {
-        <p class="collector__bio">{{ p.bio }}</p>
-      } @else {
-        <p class="collector__muted">{{ p.displayName }} has not written a bio yet.</p>
-      }
-      <h3>Games</h3>
-      @if (p.games.length > 0) {
-        <ul class="collector__chips" aria-label="Games">
-          @for (game of p.games; track game) {
-            <li><app-game-chip [slug]="game" /></li>
-          }
-        </ul>
-      } @else {
-        <p class="collector__muted">No games listed.</p>
-      }
-      <h3>Tags</h3>
-      @if (p.tags.length > 0) {
-        <ul class="collector__chips" aria-label="Tags">
-          @for (tag of p.tags; track tag.slug) {
-            <li class="collector__tag">{{ tag.label }}</li>
-          }
-        </ul>
-      } @else {
-        <p class="collector__muted">No tags yet.</p>
-      }
-    </section>
+  @if (p.isBlocked) {
+    <p class="cp__blocked" role="status">
+      You blocked {{ p.handle }}. They can't message you, and you don't see each other's cards.
+      <button type="button" class="cp__text" (click)="unblockRequested.emit()">Unblock</button>
+    </p>
+  } @else if (!isOwn() && !p.canMessage) {
+    <p class="cp__note" role="note">{{ p.handle }} doesn't take messages from you.</p>
+  }
 
-    <div class="collector__side">
-      <section class="collector__card" aria-labelledby="collector-area">
-        <h2 id="collector-area">Location</h2>
-        @if (p.location; as location) {
-          <p class="collector__place">
-            <mat-icon aria-hidden="true">location_on</mat-icon>
-            <span>
-              @if (location.city) {
-                {{ location.city }},
-              }
-              {{ location.label }}
-            </span>
-          </p>
-          <p class="collector__muted collector__note">
-            <mat-icon aria-hidden="true">shield_person</mat-icon>
-            Collectors choose their state or province; OrenjiTrade never knows or shows an exact
-            location.
-          </p>
-          <a matButton routerLink="/map" [queryParams]="mapLink(location)">
-            <mat-icon aria-hidden="true">map</mat-icon>
-            Binders in {{ location.subdivisionName }}
-          </a>
-        } @else {
-          <p class="collector__muted">
-            {{ isOwn() ? 'You are' : p.displayName + ' is' }} not visible on the map.
-            @if (isOwn()) {
-              <a routerLink="/settings/privacy">Change this in Privacy</a>.
+  <div class="cp__body">
+    <div class="cp__main">
+      @if (p.isBlocked) {
+        <!-- Blocked: nothing of theirs is read or shown (the banner says why), never an error. -->
+        <p class="cp__empty" data-testid="collector-blocked-lists">
+          Their cards, binders and wishes stay hidden while you block {{ p.handle }}.
+        </p>
+      } @else {
+        <!-- Cards: two rows of six, the game control, See all inline (yours: Inventory). -->
+        <section class="cp__section" aria-labelledby="collector-cards">
+          <div class="cp__section-head">
+            <h2 class="cp__h2" id="collector-cards">Cards</h2>
+            @if (gameOptions().length > 1 && cardGame(); as game) {
+              <app-segmented
+                class="cp__games"
+                label="Game of the cards"
+                size="sm"
+                [options]="gameOptions()"
+                [value]="game"
+                (valueChange)="cardGameChange.emit($event)"
+              />
             }
-          </p>
-        }
-      </section>
+            <span class="cp__spacer"></span>
+            @if (isOwn()) {
+              <a
+                class="cp__primary cp__primary--sm"
+                routerLink="/inventory"
+                [queryParams]="{ add: 'new' }"
+              >
+                <app-shell-icon name="plus" [size]="18" />
+                Add cards
+              </a>
+              <a class="cp__see" routerLink="/inventory">See all</a>
+            } @else if (!cardsExpanded() && publicItemCount() > (publicItems()?.length ?? 0)) {
+              <button type="button" class="cp__see" (click)="moreCards.emit()">See all</button>
+            }
+          </div>
+          @if (publicItems(); as items) {
+            @if (items.length > 0) {
+              <ul class="cp__cards" aria-label="Public cards">
+                @for (item of items; track item.id) {
+                  <li class="cp__card">
+                    <a
+                      class="cp__card-link"
+                      [routerLink]="['/cards', item.card.id]"
+                      [queryParams]="item.printing.id ? { printing: item.printing.id } : {}"
+                    >
+                      <app-card-image
+                        class="cp__card-art"
+                        [src]="picture(item)"
+                        [game]="item.card.game"
+                        alt=""
+                      />
+                      <span class="cp__card-name">{{ item.card.name }}</span>
+                      <span class="cp__card-price">{{ price(item) || ' ' }}</span>
+                    </a>
+                  </li>
+                }
+              </ul>
+              @if (cardsExpanded() && cardsHasMore()) {
+                <div class="cp__more-row">
+                  <button
+                    type="button"
+                    class="cp__outline"
+                    [disabled]="cardsLoadingMore()"
+                    (click)="moreCards.emit()"
+                  >
+                    {{ cardsLoadingMore() ? 'Loading…' : 'Load more' }}
+                  </button>
+                </div>
+              }
+            } @else if (cardsFailed()) {
+              <p class="cp__muted" role="alert">
+                The cards could not load.
+                <button type="button" class="cp__text" (click)="retryCards.emit()">
+                  Try again
+                </button>
+              </p>
+            } @else {
+              <p class="cp__empty">
+                {{
+                  isOwn()
+                    ? 'Your public cards show here. Set a card to Public in Inventory.'
+                    : 'No public cards' +
+                      (cardGame() ? ' of ' + gameLabel(cardGame()!) : '') +
+                      ' yet.'
+                }}
+              </p>
+            }
+          } @else {
+            <div class="cp__cards cp__cards--bones" aria-busy="true">
+              <span class="visually-hidden">Loading the cards</span>
+              @for (bone of [0, 1, 2, 3, 4, 5]; track bone) {
+                <span class="cp__bone" aria-hidden="true"></span>
+              }
+            </div>
+          }
+        </section>
 
-      <section class="collector__card" aria-labelledby="collector-rating-side">
-        <h2 id="collector-rating-side">Rating</h2>
-        @let rating = ratingSummary();
-        @if (rating.count > 0 && rating.average !== null && rating.average !== undefined) {
-          <p class="collector__rating" data-testid="profile-rating">
-            <span class="collector__rating-value">{{ rating.average.toFixed(1) }}</span>
-            <app-star-rating [value]="rating.average" />
-            <span class="collector__muted">
-              {{ rating.count }} {{ rating.count === 1 ? 'rating' : 'ratings' }}
-            </span>
-          </p>
-        } @else {
-          <p class="collector__muted" data-testid="profile-rating">No ratings yet.</p>
+        <!-- Binders: three cards (229 wide, 120 covers). -->
+        <section class="cp__section" aria-labelledby="collector-binders">
+          <div class="cp__section-head">
+            <h2 class="cp__h2" id="collector-binders">Binders</h2>
+            <span class="cp__spacer"></span>
+            @if (isOwn()) {
+              <a class="cp__see" routerLink="/inventory" [queryParams]="{ tab: 'binders' }"
+                >See all</a
+              >
+            } @else if ((binders()?.length ?? 0) > bindersPreview) {
+              <button
+                type="button"
+                class="cp__see"
+                [attr.aria-expanded]="allBinders()"
+                (click)="toggleBinders()"
+              >
+                {{ allBinders() ? 'Show fewer' : 'See all' }}
+              </button>
+            }
+          </div>
+          @if (binders(); as list) {
+            @if (list.length > 0) {
+              <ul class="cp__binders" aria-label="Public binders">
+                @for (binder of shownBinders(); track binder.id) {
+                  <li>
+                    <app-profile-binder-card [binder]="binder" />
+                  </li>
+                }
+              </ul>
+            } @else if (bindersFailed()) {
+              <p class="cp__muted" role="alert">
+                Public binders could not load.
+                <button type="button" class="cp__text" (click)="retryBinders.emit()">
+                  Try again
+                </button>
+              </p>
+            } @else {
+              <p class="cp__empty">
+                {{
+                  isOwn()
+                    ? 'Publish a binder so collectors of your region can see what you trade.'
+                    : 'When ' + p.handle + ' publishes a binder, it will show up here.'
+                }}
+              </p>
+            }
+          } @else {
+            <div class="cp__binders cp__binders--bones" aria-busy="true">
+              <span class="visually-hidden">Loading the binders</span>
+              @for (bone of [0, 1, 2]; track bone) {
+                <span class="cp__bone cp__bone--binder" aria-hidden="true"></span>
+              }
+            </div>
+          }
+        </section>
+
+        <!-- Looking for: rows of 64; "I have it" on someone else's, Edit on yours; no availability. -->
+        @if (lookingFor(); as rows) {
+          @if (rows.length > 0 || isOwn()) {
+            <section class="cp__section" aria-labelledby="collector-wishlist">
+              <div class="cp__section-head">
+                <h2 class="cp__h2" id="collector-wishlist">Looking for</h2>
+                <span class="cp__spacer"></span>
+                @if (isOwn()) {
+                  <a class="cp__see" routerLink="/search" [queryParams]="{ tab: 'wishlist' }"
+                    >See all</a
+                  >
+                } @else if (rows.length > wishesPreview) {
+                  <button
+                    type="button"
+                    class="cp__see"
+                    [attr.aria-expanded]="allWishes()"
+                    (click)="toggleWishes()"
+                  >
+                    {{ allWishes() ? 'Show fewer' : 'See all' }}
+                  </button>
+                }
+              </div>
+              @if (rows.length > 0) {
+                <ul
+                  class="cp__wishes"
+                  [attr.aria-label]="
+                    isOwn() ? 'Cards you are looking for' : 'Cards ' + p.handle + ' is looking for'
+                  "
+                >
+                  @for (
+                    row of isOwn() ? rows.slice(0, wishesPreview) : shownWishes();
+                    track row.key
+                  ) {
+                    <li class="cp__wish">
+                      <span class="cp__wish-art" aria-hidden="true">
+                        <app-card-image [src]="row.imageUrl" [game]="row.game" size="xs" alt="" />
+                      </span>
+                      <span class="cp__wish-text">
+                        @if (row.cardId) {
+                          <a class="cp__wish-name" [routerLink]="['/cards', row.cardId]">{{
+                            row.name
+                          }}</a>
+                        } @else {
+                          <span class="cp__wish-name">{{ row.name }}</span>
+                        }
+                        <span class="cp__wish-terms">
+                          @if (row.game) {
+                            <app-game-monogram [game]="row.game" [size]="16" />
+                          }
+                          {{ row.terms }}
+                        </span>
+                        @if (row.note) {
+                          <span class="cp__wish-note">{{ row.note }}</span>
+                        }
+                      </span>
+                      @if (isOwn()) {
+                        <a
+                          class="cp__outline cp__outline--sm"
+                          routerLink="/search"
+                          [queryParams]="{ tab: 'wishlist', wish: row.wishId }"
+                          [attr.aria-label]="'Edit ' + row.name"
+                        >
+                          <app-shell-icon name="pencil" [size]="16" />
+                          Edit
+                        </a>
+                      } @else if (row.cardId && p.canMessage) {
+                        <!-- Only when they take your messages (the header says so otherwise). -->
+                        <button
+                          type="button"
+                          class="cp__have"
+                          [attr.aria-label]="haveLabel(row.name, p.handle)"
+                          (click)="haveIt.emit({ row, opener: $event.currentTarget })"
+                        >
+                          I have it
+                        </button>
+                      }
+                    </li>
+                  }
+                </ul>
+              } @else {
+                <p class="cp__empty">
+                  Add the cards you want: collectors see them here when you show your wishlist.
+                </p>
+              }
+            </section>
+          }
         }
-        <button matButton type="button" class="collector__see" (click)="ratingsRequested.emit()">
-          <mat-icon aria-hidden="true">reviews</mat-icon>
-          See ratings and references
-        </button>
-      </section>
+      }
     </div>
 
-    <section class="collector__card collector__binders" aria-labelledby="collector-binders">
-      <div class="collector__section-head">
-        <h2 id="collector-binders">Public binders</h2>
-        @if (isOwn()) {
-          <a matButton routerLink="/inventory">
-            <mat-icon aria-hidden="true">style</mat-icon>
-            Manage inventory
-          </a>
-        }
-      </div>
-      @if (binders(); as list) {
-        @if (list.length > 0) {
-          <ul class="collector__binder-list" aria-label="Public binders">
-            @for (binder of list; track binder.id) {
-              <li><app-public-binder-card [binder]="binder" /></li>
-            }
-          </ul>
-        } @else if (bindersFailed()) {
-          <p class="collector__muted">
-            Public binders could not load.
-            <button matButton type="button" (click)="retryBinders.emit()">Retry</button>
-          </p>
-        } @else {
-          <app-empty-state
-            icon="menu_book"
-            title="No public binders yet"
-            [description]="
-              isOwn()
-                ? 'Publish a binder so collectors of your region can see what you trade.'
-                : 'When ' + p.displayName + ' publishes a binder, it will show up here.'
-            "
-          />
-        }
-      } @else {
-        <app-skeleton variant="list" lines="2" />
-      }
-    </section>
-
-    @if (wishlist(); as wishes) {
-      @if (wishes.length > 0) {
-        <section class="collector__card collector__binders" aria-labelledby="collector-wishlist">
-          <div class="collector__section-head">
-            <h2 id="collector-wishlist">Looking for</h2>
-            <span class="collector__muted">
-              {{ wishes.length }} {{ wishes.length === 1 ? 'card' : 'cards' }}
-            </span>
-          </div>
-          <app-collector-wishlist
-            [entries]="wishes"
-            [label]="
-              isOwn() ? 'Cards you are looking for' : 'Cards ' + p.displayName + ' is looking for'
-            "
-          />
-        </section>
-      }
-    }
-
-    @if (publicItems(); as items) {
-      @if (items.length > 0) {
-        <section class="collector__card collector__binders" aria-labelledby="collector-cards">
-          <div class="collector__section-head">
-            <h2 id="collector-cards">Public cards</h2>
-            <span class="collector__muted">
-              {{ publicItemCount() }} {{ publicItemCount() === 1 ? 'card' : 'cards' }}
-            </span>
-          </div>
-          <ul class="collector__items" aria-label="Public cards">
-            @for (item of items; track item.id) {
-              <li><app-public-item-card [item]="item" [seller]="isOwn() ? null : seller()" /></li>
-            }
-          </ul>
-        </section>
-      }
-    }
+    <app-collector-profile-side
+      class="cp__side"
+      [profile]="p"
+      [isOwn]="isOwn()"
+      [rating]="r"
+      [average]="average()"
+      [references]="references()"
+      (ratingsRequested)="ratingsRequested.emit()"
+    />
   </div>
 </article>

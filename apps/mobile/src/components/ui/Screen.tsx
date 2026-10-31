@@ -24,6 +24,27 @@ export interface ScreenProps {
   contentContainerStyle?: StyleProp<ViewStyle>;
   /** The scroll view of a `scroll` screen (to scroll to a section). */
   scrollRef?: Ref<ScrollView>;
+  /**
+   * `on-drag`: dragging a `scroll` screen puts the keyboard away. For a screen whose field has no
+   * key that does (a multiline field), so what is under the keyboard can be reached.
+   */
+  keyboardDismissMode?: 'none' | 'on-drag' | 'interactive';
+  /**
+   * A `scroll` screen whose content fills the screen at least, so its last buttons sit at the
+   * bottom (mockup v50's sign-in and status pages): the safe area is added as padding instead of
+   * iOS's automatic insets, which made a content as tall as the scroll view overflow it by the
+   * insets (Sign in's last link was under the home indicator). `below-header`: a screen under a
+   * navigation header (the bottom inset only); `full`: a screen without one (top and bottom).
+   */
+  fillHeight?: 'below-header' | 'full';
+  /**
+   * A `scroll` form whose fields may sit low (sign in, create account, reset password): on iOS
+   * the scroll view keeps its size under the keyboard and scrolls the field being typed in above
+   * it (`automaticallyAdjustKeyboardInsets`). The KeyboardAvoidingView's padding shrank the scroll
+   * view without bringing that field into view, so at the largest text sizes it was typed under
+   * the keyboard (stage R12's review fix 1). Android keeps the padding (edge to edge).
+   */
+  keyboardFollowsFocus?: boolean;
   testID?: string;
 }
 
@@ -46,6 +67,18 @@ export function ownSafeBottom(
   return options.insetBottom;
 }
 
+/**
+ * The KeyboardAvoidingView's behaviour of a `scroll` screen: none on the web, none on iOS for a
+ * screen whose scroll view follows the focused field itself (`keyboardFollowsFocus`), else
+ * `padding`.
+ */
+export function keyboardBehavior(platform: string, followsFocus: boolean): 'padding' | undefined {
+  if (platform === 'web' || (followsFocus && platform === 'ios')) {
+    return undefined;
+  }
+  return 'padding';
+}
+
 /** Themed page container: background colour, safe-area aware, optional scrolling. */
 export function Screen({
   children,
@@ -55,17 +88,24 @@ export function Screen({
   style,
   contentContainerStyle,
   scrollRef,
+  keyboardDismissMode,
+  fillHeight,
+  keyboardFollowsFocus = false,
   testID,
 }: ScreenProps) {
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();
 
-  const bottom = ownSafeBottom(Platform.OS, { scroll, safeBottom, insetBottom: insets.bottom });
+  const filling = scroll && fillHeight !== undefined;
+  const bottom = filling
+    ? insets.bottom
+    : ownSafeBottom(Platform.OS, { scroll, safeBottom, insetBottom: insets.bottom });
+  const top = filling && fillHeight === 'full' ? insets.top : 0;
   const padding: ViewStyle = edgeToEdge
-    ? { paddingBottom: bottom }
+    ? { paddingBottom: bottom, paddingTop: top }
     : {
         paddingHorizontal: spacing[4],
-        paddingTop: spacing[4],
+        paddingTop: top + spacing[4],
         paddingBottom: bottom + spacing[6],
       };
 
@@ -75,15 +115,17 @@ export function Screen({
     return (
       <KeyboardAvoidingView
         style={[styles.fill, { backgroundColor: palette.background }]}
-        behavior={Platform.OS === 'web' ? undefined : 'padding'}
+        behavior={keyboardBehavior(Platform.OS, keyboardFollowsFocus)}
       >
         <ScrollView
           ref={scrollRef}
           testID={testID}
           style={[styles.fill, { backgroundColor: palette.background }, style]}
-          contentContainerStyle={[padding, contentContainerStyle]}
+          contentContainerStyle={[padding, filling && styles.grow, contentContainerStyle]}
           keyboardShouldPersistTaps="handled"
-          contentInsetAdjustmentBehavior="automatic"
+          keyboardDismissMode={keyboardDismissMode}
+          automaticallyAdjustKeyboardInsets={keyboardFollowsFocus}
+          contentInsetAdjustmentBehavior={filling ? 'never' : 'automatic'}
         >
           {children}
         </ScrollView>
@@ -103,4 +145,5 @@ export function Screen({
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
+  grow: { flexGrow: 1 },
 });

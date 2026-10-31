@@ -15,17 +15,11 @@ public final class FeatureFlagKeys {
     /** Public community channels (Phase 5). */
     public static final String PUBLIC_CHAT = "publicChat";
 
-    /** Premium plans marketing and checkout (Phase 10). */
-    public static final String PREMIUM_PLANS = "premiumPlans";
-
-    /** Internal sponsored placements (Phase 10). */
-    public static final String ADVERTISING = "advertising";
-
-    /** Credits ledger (Phase 10). */
-    public static final String CREDITS = "credits";
-
-    /** Voluntary donations (Phase 10). */
-    public static final String DONATIONS = "donations";
+    /**
+     * Scan with camera: the phone reads a Yu-Gi-Oh! card's name and set code on the device, the API
+     * matches them and adds the scanned cards (V129, on by default).
+     */
+    public static final String CARD_TEXT_SCAN = "cardTextScan";
 
     private FeatureFlagKeys() {}
 }

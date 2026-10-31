@@ -101,7 +101,7 @@ public class AdminNotificationController {
             @Schema(maxLength = 1000) @NotBlank @Size(max = 1000) String body,
             @Schema(nullable = true, description = "ALL (default) or STAFF")
                     @Nullable Audience audience,
-            @Schema(nullable = true, description = "App path, e.g. /premium", maxLength = 200)
+            @Schema(nullable = true, description = "App path, e.g. /wishlist", maxLength = 200)
                     @Size(max = 200)
                     @Nullable String deepLink) {}
 

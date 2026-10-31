@@ -128,6 +128,7 @@ describe('RealtimeService', () => {
     const session = sessions[0];
     expect(session.options.url).toBe('ws://api.test/ws?access_token=id-token%2Fwith%2Bchars');
     expect([...session.handlers.keys()].sort()).toEqual([
+      '/user/queue/conversations',
       '/user/queue/messages',
       '/user/queue/notifications',
       '/user/queue/presence',
@@ -163,6 +164,13 @@ describe('RealtimeService', () => {
     });
     session.push('/user/queue/notifications', { id: 'n2', type: 'SYSTEM' });
     expect(notifications.map((notification) => notification.id)).toEqual(['n1']);
+
+    // Stage R4: a chat's pinned card changed (web stage WC reads the chat again).
+    const pins: string[] = [];
+    service.conversations$.subscribe((notice) => pins.push(notice.conversationId));
+    session.push('/user/queue/conversations', { conversationId: 'c1' });
+    session.push('/user/queue/conversations', { nothing: true });
+    expect(pins).toEqual(['c1']);
 
     service.sendTyping('c1');
     expect(session.sent).toEqual([{ destination: '/app/typing', body: '{"conversationId":"c1"}' }]);

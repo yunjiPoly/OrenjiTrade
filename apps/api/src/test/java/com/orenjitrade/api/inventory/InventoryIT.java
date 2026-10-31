@@ -371,7 +371,8 @@ class InventoryIT extends AbstractIntegrationTest {
         assertThat(image.path("width").asInt()).isEqualTo(1600);
         assertThat(image.path("height").asInt()).isEqualTo(800);
         String url = image.path("url").asString();
-        assertThat(url).contains("/api/v1/public/media/inventory/");
+        // An opaque URL by the photo's id: never the owner's account id (stage R15, review fix 1).
+        assertThat(url).endsWith("/api/v1/public/item-images/" + image.path("id").asString());
         EntityExchangeResult<byte[]> media =
                 http.get().uri(URI.create(url).getPath()).exchange().expectBody().returnResult();
         assertThat(media.getStatus().value()).isEqualTo(200);

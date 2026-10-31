@@ -156,10 +156,34 @@ class PrivacyPolicyServiceTest {
                         MessagingPermission.EVERYONE,
                         false,
                         false);
+        // Stage R15: a signed-out visitor never finds who a collector is.
         assertThat(policy.canAppearInNameSearch(ViewerContext.ANONYMOUS, TARGET, searchable))
-                .isTrue();
+                .isFalse();
+        assertThat(policy.canAppearInNameSearch(member(true), TARGET, searchable)).isTrue();
         assertThat(policy.canAppearInNameSearch(member(true), TARGET, unsearchable)).isFalse();
         assertThat(policy.canAppearOnMap(member(true), TARGET, unsearchable)).isTrue();
+    }
+
+    @Test
+    void aSignedOutViewerNeverSeesWhoACollectorIs() {
+        // Stage R15, "Browse without an account": members only, whatever the switches say.
+        assertThat(policy.canSeeWho(ViewerContext.ANONYMOUS)).isFalse();
+        assertThat(policy.canSeeWho(ViewerContext.of(null))).isFalse();
+        assertThat(policy.canSeeWho(member(false))).isTrue();
+        assertThat(policy.canSeeWho(ViewerContext.of(VIEWER))).isTrue();
+        assertThat(ViewerContext.of(VIEWER).userId()).isEqualTo(VIEWER);
+        assertThat(ViewerContext.of(null)).isSameAs(ViewerContext.ANONYMOUS);
+        PrivacySettingsView everything =
+                settings(ProfileVisibility.PUBLIC, MessagingPermission.EVERYONE, true, true, true);
+        // The per-person details go with who they are: no last activity, no presence.
+        assertThat(policy.canSeeLastActive(ViewerContext.ANONYMOUS, TARGET, everything)).isFalse();
+        assertThat(policy.canSeeOnlineStatus(ViewerContext.ANONYMOUS, TARGET, everything))
+                .isFalse();
+        assertThat(policy.canSeeLastActive(member(false), TARGET, everything)).isTrue();
+        assertThat(policy.canSeeOnlineStatus(member(false), TARGET, everything)).isTrue();
+        // The place and the listings stay: a guest still finds the collector's cards on the map.
+        assertThat(policy.canAppearOnMap(ViewerContext.ANONYMOUS, TARGET, everything)).isTrue();
+        assertThat(policy.canSeeLocation(ViewerContext.ANONYMOUS, TARGET, everything)).isTrue();
     }
 
     @Test

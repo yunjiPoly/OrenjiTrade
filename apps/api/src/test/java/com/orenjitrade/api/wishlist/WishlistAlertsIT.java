@@ -3,6 +3,7 @@ package com.orenjitrade.api.wishlist;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.orenjitrade.api.wishlist.domain.WishlistService;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -29,7 +30,9 @@ class WishlistAlertsIT extends AbstractWishlistIT {
     void aListingInTheRegionAlertsTheWishOwnerWithTheCardPageLink() {
         Place place = americasNorth();
         Collector wisher = collector("wa-wisher", place);
-        Collector seller = collector("wa-seller", place);
+        // A handle holding "km": the distance check below reads the alert's fixed words, never the
+        // random handle, card name or code (review fix 2 of R15, R1-1).
+        Collector seller = withHandle(collector("wa-seller", place), "km_");
         UUID azure = printing(AZURE);
         Map<String, Object> body = wish(azure, true);
         body.put("note", "Public wisher note");
@@ -45,15 +48,24 @@ class WishlistAlertsIT extends AbstractWishlistIT {
         JsonNode alert = alerts.get(0);
         String name = cardNameOf(azure);
         assertThat(alert.path("title").asString()).isEqualTo("Wishlist alert: " + name);
-        assertThat(alert.path("body").asString())
+        String alertBody = alert.path("body").asString();
+        assertThat(alertBody)
                 .isEqualTo(
                         name
                                 + " "
                                 + codeOf(azure)
                                 + " Ultra Rare was just listed by @"
                                 + seller.handle()
-                                + " in Quebec, Canada.")
-                .doesNotContain("km");
+                                + " in Quebec, Canada.");
+        // No distance wording ("12 km away") in the words the server writes; the generated
+        // handle, card name and code are random letters and may hold "km".
+        assertThat(
+                        alertBody
+                                .replace(seller.handle(), "")
+                                .replace(name, "")
+                                .replace(codeOf(azure), ""))
+                .doesNotContainIgnoringCase("km")
+                .doesNotContainIgnoringCase("away");
         JsonNode data = alert.path("data");
         assertThat(data.path("wishlistItemId").asString()).isEqualTo(wishId);
         assertThat(data.path("inventoryItemId").asString()).isEqualTo(itemId);
@@ -64,6 +76,12 @@ class WishlistAlertsIT extends AbstractWishlistIT {
         assertThat(data.path("regionCode").asString()).isEqualTo("americas-north");
         assertThat(data.path("deepLink").asString())
                 .isEqualTo("/cards/" + cardOf(azure) + "?printing=" + azure);
+        // Stage R9: the phone's row ("{card} from your wishlist was listed in Quebec" over
+        // "{handle} · {price}"): the province only, never a city.
+        assertThat(data.path("collectorHandle").asString()).isEqualTo(seller.handle());
+        assertThat(data.path("province").asString()).isEqualTo("Quebec");
+        assertThat(data.path("askingPrice").asString()).isEqualTo("45.00");
+        assertThat(data.path("currency").asString()).isEqualTo("CAD");
         assertCardPicture(alert, name);
         assertThat(alert.path("readAt").isNull()).isTrue();
         assertAtMostThreeDecimals(alert, "notification");
@@ -176,7 +194,14 @@ class WishlistAlertsIT extends AbstractWishlistIT {
         String played = publicItem(seller, azure, offered("LIGHTLY_PLAYED", "20.00", "SALE"));
         String nearMintCopy = publicItem(seller, azure, offered("NEAR_MINT", "20.00", "SALE"));
         String mintSecret = publicItem(seller, secret, offered("MINT", "90.00", "SALE"));
-        for (String id : List.of(played, nearMintCopy, mintSecret)) {
+        // A card added on the phone states no condition (stage R2): a possible match, the buyer
+        // checks in the chat (owner spec 2026-10-14, section 16, default 5).
+        Map<String, Object> notStated = new LinkedHashMap<>();
+        notStated.put("conditionStated", false);
+        notStated.put("askingPriceText", "85% TCG");
+        notStated.put("availability", "TRADE_OR_SALE");
+        String phoneCopy = publicItem(seller, azure, notStated);
+        for (String id : List.of(played, nearMintCopy, mintSecret, phoneCopy)) {
             awaitEventsProcessed(id);
         }
 
@@ -184,8 +209,8 @@ class WishlistAlertsIT extends AbstractWishlistIT {
                         notificationsOfType(nmWisher, "WISHLIST_ALERT").stream()
                                 .map(n -> n.path("data").path("inventoryItemId").asString())
                                 .toList())
-                .as("Near Mint or better only")
-                .containsExactlyInAnyOrder(nearMintCopy, mintSecret);
+                .as("Near Mint or better, or not stated")
+                .containsExactlyInAnyOrder(nearMintCopy, mintSecret, phoneCopy);
         List<JsonNode> rarityAlerts = notificationsOfType(rarityWisher, "WISHLIST_ALERT");
         assertThat(rarityAlerts).hasSize(1);
         JsonNode alert = rarityAlerts.get(0);
@@ -299,5 +324,22 @@ class WishlistAlertsIT extends AbstractWishlistIT {
                 owner.uid(),
                 Map.of("visibility", visibility),
                 200);
+    }
+
+    /** The collector under the handle {@code prefix} plus a random hex suffix. */
+    private Collector withHandle(Collector collector, String prefix) {
+        String handle =
+                prefix
+                        + Long.toHexString(
+                                java.util.concurrent.ThreadLocalRandom.current().nextLong()
+                                        & 0xffffffffL);
+        Map<String, Object> profile = new LinkedHashMap<>();
+        profile.put("handle", handle);
+        profile.put("displayName", "Collector " + handle);
+        profile.put("bio", "");
+        profile.put("games", List.of("yugioh"));
+        profile.put("languages", List.of("en"));
+        callJson(HttpMethod.PUT, "/api/v1/me/profile", collector.uid(), profile, 200);
+        return new Collector(collector.uid(), collector.id(), handle);
     }
 }

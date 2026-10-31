@@ -21,8 +21,9 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * The messaging data of one account for {@code GET /me/export} (only what the owner wrote: sent
  * messages, their own blocks, the ids of their conversations; never the other participants' text)
- * and for the account deletion job (content of sent messages erased, photos and pending uploads
- * deleted, blocks removed both ways).
+ * and for the account deletion job (content of sent messages erased, and with it every
+ * conversation's last-message preview of them; photos and pending uploads deleted, blocks removed
+ * both ways).
  */
 @Service
 public class MessagingAccountData {
@@ -31,6 +32,7 @@ public class MessagingAccountData {
 
     private final MessageRepository messages;
     private final ConversationRepository conversations;
+    private final ConversationService conversationService;
     private final BlockRepository blocks;
     private final ImageUploadRepository uploads;
     private final PresenceStore presence;
@@ -40,6 +42,7 @@ public class MessagingAccountData {
     public MessagingAccountData(
             MessageRepository messages,
             ConversationRepository conversations,
+            ConversationService conversationService,
             BlockRepository blocks,
             ImageUploadRepository uploads,
             PresenceStore presence,
@@ -47,6 +50,7 @@ public class MessagingAccountData {
             TimeProvider timeProvider) {
         this.messages = messages;
         this.conversations = conversations;
+        this.conversationService = conversationService;
         this.blocks = blocks;
         this.uploads = uploads;
         this.presence = presence;
@@ -85,18 +89,24 @@ public class MessagingAccountData {
         return section;
     }
 
-    /** Account deletion: erase what the account wrote and every block involving it. */
+    /**
+     * Account deletion: erase what the account wrote, every copy of it (a conversation whose last
+     * message it was gets the newest message left, or none) and every block involving it.
+     */
     @Transactional
     public void purge(UUID userId) {
         List<String> keys = new ArrayList<>(messages.eraseSentBy(userId, timeProvider.now()));
+        int refreshed = conversationService.refreshLastMessagesErasedFrom(userId);
         keys.addAll(uploads.deleteByOwner(userId));
         int removedBlocks = blocks.deleteAllOf(userId);
         presence.clear(userId);
         ConversationService.afterCommit(() -> keys.forEach(storage::delete));
         log.info(
-                "Messaging data purged for {}: {} photo(s), {} block(s)",
+                "Messaging data purged for {}: {} photo(s), {} block(s), {} last message(s)"
+                        + " refreshed",
                 userId,
                 keys.size(),
-                removedBlocks);
+                removedBlocks,
+                refreshed);
     }
 }

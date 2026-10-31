@@ -13,6 +13,7 @@ import {
 import {
   ADMIN_AREA,
   accountGuard,
+  accountStateGuard,
   adminGuard,
   authGuard,
   guestGuard,
@@ -94,9 +95,17 @@ describe('auth guards', () => {
     await expect(run(accountGuard, '/settings')).resolves.toBe('/auth/suspended');
   });
 
-  it('accountGuard lets the page handle API errors itself', async () => {
+  it('accountGuard: an account that could not load reads "We could not load your account"', async () => {
     setup({ authenticated: true, status: 'error' });
-    await expect(run(accountGuard, '/settings')).resolves.toBe(true);
+    await expect(run(accountGuard, '/settings/privacy')).resolves.toBe(
+      '/auth/unavailable?returnUrl=%2Fsettings%2Fprivacy',
+    );
+  });
+
+  it('public pages keep the shell banner for an account that could not load', async () => {
+    setup({ authenticated: true, status: 'error' });
+    await expect(run(onboardingGuard, '/search')).resolves.toBe(true);
+    await expect(run(accountStateGuard, '/binders/b-1')).resolves.toBe(true);
   });
 
   it('onboardingGuard lets visitors pass and sends unfinished collectors to onboarding', async () => {
@@ -133,7 +142,7 @@ describe('auth guards', () => {
 
   it('adminGuard turns collectors away', async () => {
     setup({ authenticated: true, status: 'ready' });
-    await expect(run(adminGuard, '/admin')).resolves.toBe('/map');
+    await expect(run(adminGuard, '/admin')).resolves.toBe('/');
   });
 
   it('guestGuard sends signed-in collectors to their (safe) return URL', async () => {
@@ -143,18 +152,18 @@ describe('auth guards', () => {
     );
     await expect(
       run(guestGuard, '/auth/sign-in', {}, { returnUrl: 'https://evil.example' }),
-    ).resolves.toBe('/map');
+    ).resolves.toBe('/');
   });
 });
 
 describe('safeReturnUrl', () => {
   it('accepts in-app paths only', () => {
     expect(safeReturnUrl('/collectors/maika')).toBe('/collectors/maika');
-    expect(safeReturnUrl('//evil.example')).toBe('/map');
-    expect(safeReturnUrl('https://evil.example')).toBe('/map');
-    expect(safeReturnUrl(undefined)).toBe('/map');
-    expect(safeReturnUrl('/auth/sign-in')).toBe('/map');
-    expect(safeReturnUrl('/onboarding?returnUrl=%2Fmap')).toBe('/map');
+    expect(safeReturnUrl('//evil.example')).toBe('/');
+    expect(safeReturnUrl('https://evil.example')).toBe('/');
+    expect(safeReturnUrl(undefined)).toBe('/');
+    expect(safeReturnUrl('/auth/sign-in')).toBe('/');
+    expect(safeReturnUrl('/onboarding?returnUrl=%2Fmap')).toBe('/');
     expect(safeReturnUrl(null, '/settings')).toBe('/settings');
   });
 });

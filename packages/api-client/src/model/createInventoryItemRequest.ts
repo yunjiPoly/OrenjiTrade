@@ -31,6 +31,14 @@ export interface CreateInventoryItemRequest {
     visibility?: CreateInventoryItemRequestVisibilityEnum;
     publicUntil?: string;
     binderId?: string;
+    /**
+     * The asking price as typed (at most 40 characters once trimmed), shown exactly as typed. A plain amount (12.50, $12.50, 12,50 $) also fills askingPrice in the item\'s currency; other text leaves it empty. Do not send askingPrice with it.
+     */
+    askingPriceText?: string;
+    /**
+     * false: the card\'s condition is not stated (cards added on the phone; send no condition). Default true.
+     */
+    conditionStated?: boolean;
 }
 export enum CreateInventoryItemRequestAvailabilityEnum {
     CollectionOnly = 'COLLECTION_ONLY',

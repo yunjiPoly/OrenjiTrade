@@ -1,0 +1,102 @@
+// The top bar's region and game pills (spec 2.4 and 4.2, board W3): 36 tall, `surface` with a
+// `borderStrong` border, Inter 600 14; compact at md (spec 3: the icon and a chevron, 56 wide).
+:host {
+  display: inline-flex;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 12px 0 10px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color var(--motion-duration-fast) var(--motion-easing-standard);
+}
+
+.pill:hover {
+  background: var(--color-surface-variant);
+}
+
+.pill--game {
+  padding-left: 7px;
+}
+
+// Browsing another region than the collector's own (spec 2.4): orange, 3:1 in light too.
+.pill--away {
+  border-color: var(--app-primary-text);
+}
+
+@media (forced-colors: active) {
+  .pill--away {
+    border-width: 2px;
+    border-color: Highlight;
+  }
+}
+
+.pill__globe {
+  color: var(--color-accent);
+}
+
+.pill__tile {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  font-family: var(--font-display);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+}
+
+.pill__chevron {
+  color: var(--color-text-muted);
+  transition: transform var(--motion-duration-fast) var(--motion-easing-standard);
+}
+
+.pill__chevron--open {
+  transform: rotate(180deg);
+}
+
+@media (min-width: 960px) and (max-width: 1279.98px), (max-width: 599.98px) {
+  .pill {
+    gap: 4px;
+    padding: 0 8px;
+  }
+
+  .pill--game {
+    padding-left: 6px;
+  }
+
+  .pill__name {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
+// Community's own region pill (spec 10.7, board W22): the name shows at every width.
+:host(.pill-host--wide) .pill {
+  gap: 8px;
+  padding: 0 12px 0 10px;
+}
+
+:host(.pill-host--wide) .pill__name {
+  position: static;
+  width: auto;
+  height: auto;
+  overflow: hidden;
+  clip: auto;
+  text-overflow: ellipsis;
+}

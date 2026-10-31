@@ -264,6 +264,7 @@ jobs:
           ignore-unfixed: true
           exit-code: "1"
           skip-setup-trivy: true
+          trivyignores: .trivyignore
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}

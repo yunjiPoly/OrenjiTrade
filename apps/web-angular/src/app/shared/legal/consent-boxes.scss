@@ -1,0 +1,162 @@
+// The cards of checkboxes of Create your account and Review our terms (spec 14, board W27): the
+// documents with "Accept all", and the 18+ confirmation in a card of its own. Native checkboxes
+// drawn as the board's 18 px boxes (radius 5, a 2 px ring, orange when ticked).
+:host {
+  display: block;
+}
+
+.docs {
+  margin: 28px 0 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-surface);
+}
+
+.docs__row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.docs__row + .docs__row {
+  border-top: 1px solid var(--color-border);
+}
+
+.docs__row--all {
+  gap: 12px;
+  min-height: 52px;
+  box-sizing: border-box;
+  padding: 16px;
+  color: var(--color-ink);
+  font-size: 14px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 20px;
+  cursor: pointer;
+}
+
+.docs__row--doc {
+  padding-right: 8px;
+}
+
+.docs__label {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+  min-height: 48px;
+  box-sizing: border-box;
+  padding: 14px 8px 14px 16px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 20px;
+  cursor: pointer;
+}
+
+.docs__row:hover,
+.age:hover {
+  background: var(--color-surface-variant);
+}
+
+.docs__read {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  height: 36px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  border-radius: 8px;
+  color: var(--color-accent);
+  font-size: 13px;
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+}
+
+.docs__read:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.docs__read:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: -2px;
+}
+
+.age {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 52px;
+  box-sizing: border-box;
+  margin-top: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  color: var(--color-ink);
+  font-size: 14px;
+  line-height: 20px;
+  cursor: pointer;
+}
+
+.age--warn {
+  border-color: var(--color-warning);
+}
+
+// The box itself.
+.box {
+  appearance: none;
+  display: grid;
+  flex: none;
+  place-content: center;
+  box-sizing: border-box;
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
+  border: 2px solid var(--color-text-muted);
+  border-radius: 5px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.box::after {
+  content: '';
+  display: none;
+  width: 9px;
+  height: 5px;
+  margin-top: -2px;
+  border: solid var(--color-on-primary);
+  border-width: 0 0 2.4px 2.4px;
+  transform: rotate(-45deg);
+}
+
+.box:checked,
+.box:indeterminate {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+}
+
+.box:checked::after {
+  display: block;
+}
+
+.box:indeterminate::after {
+  display: block;
+  width: 9px;
+  height: 0;
+  margin-top: 0;
+  border-width: 0 0 2.4px;
+  transform: none;
+}
+
+.docs--warn .box:not(:checked),
+.age--warn .box:not(:checked) {
+  border-color: var(--color-warning);
+}
+
+.box:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: 2px;
+}

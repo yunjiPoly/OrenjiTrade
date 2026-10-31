@@ -150,7 +150,8 @@ class SearchDomainTest {
                         FreshnessState.ACTIVE,
                         "UNLIMITED",
                         "en",
-                        true);
+                        true,
+                        "Ultra Rare");
         Map<String, Object> params = new HashMap<>();
         String sql = filter.sql(params);
         assertThat(sql)
@@ -159,13 +160,16 @@ class SearchDomainTest {
                 .contains("i.asking_price >= :f_minPrice")
                 .contains("i.asking_price <= :f_maxPrice")
                 .contains("i.accepts_offers")
+                .contains("p.rarity = :f_rarity")
                 .doesNotContain("NEAR_MINT")
-                .doesNotContain("UNLIMITED");
+                .doesNotContain("UNLIMITED")
+                .doesNotContain("Ultra Rare");
         assertThat(params)
                 .containsEntry("f_printingId", printing)
                 .containsEntry("f_condition", "NEAR_MINT")
                 .containsEntry("f_freshness", "ACTIVE")
-                .containsEntry("f_language", "en");
+                .containsEntry("f_language", "en")
+                .containsEntry("f_rarity", "Ultra Rare");
         assertThat(filter.names())
                 .containsExactly(
                         "printing",
@@ -175,7 +179,8 @@ class SearchDomainTest {
                         "freshness",
                         "edition",
                         "language",
-                        "accepts_offers");
+                        "accepts_offers",
+                        "rarity");
         assertThat(filter.narrowsItems()).isTrue();
         assertThat(ItemFilter.discovery(null, null, "mtg", null).narrowsItems()).isFalse();
         assertThat(SearchAvailability.ACCEPTS_OFFERS.sql()).isEqualTo("i.accepts_offers");

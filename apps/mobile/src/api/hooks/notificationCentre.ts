@@ -9,14 +9,21 @@ import {
 
 import { useAccount } from '@/src/account/AccountProvider';
 
+import {
+  isExcludedType,
+  PHONE_EXCLUDED_TYPES,
+} from '@/src/features/notifications/notificationRows';
+
 import type { ApiError } from '../ApiError';
 import { api, required } from '../client';
 import { meKeys } from '../queryKeys';
 import type { NotificationPage, NotificationResponse, UnreadNotificationCount } from '../types';
 import { useUid } from './useUid';
 
-/** Notifications per page of `GET /notifications`. */
+/** Notifications per page of `GET /notifications` (Earlier, stage R9). */
 export const NOTIFICATIONS_PAGE = 20;
+/** The unread notifications per page of Notifications' "New" section (the API's most). */
+export const NEW_NOTIFICATIONS_PAGE = 50;
 /** Pause before re-reading the unread count after the caller read a conversation. */
 export const RECEIPT_REFRESH_MS = 800;
 
@@ -29,21 +36,32 @@ function useCentreEnabled(): boolean {
 }
 
 /**
- * `GET /api/v1/notifications/unread-count`: the badge of the notification bell (web:
- * `NotificationCenter.unreadCount`). Kept live by realtime pushes (see `applyPushedNotification`)
+ * `GET /api/v1/notifications/unread-count?excludeTypes=MESSAGE`: the bell's dot (stage R9; chats
+ * have their own badge in Messages). Kept live by realtime pushes (see `applyPushedNotification`)
  * and re-read after every reconnection.
  */
 export function useUnreadNotificationCount() {
   const uid = useUid();
   return useQuery<UnreadNotificationCount, ApiError>({
     queryKey: meKeys.notificationUnread(uid),
-    queryFn: async () => required((await api.GET('/api/v1/notifications/unread-count')).data),
+    queryFn: async () =>
+      required(
+        (
+          await api.GET('/api/v1/notifications/unread-count', {
+            params: { query: { excludeTypes: [...PHONE_EXCLUDED_TYPES] } },
+          })
+        ).data
+      ),
     enabled: useCentreEnabled(),
     staleTime: 30_000,
   });
 }
 
-/** `GET /api/v1/notifications` newest first, cursor pages, optionally unread ones only. */
+/**
+ * `GET /api/v1/notifications?excludeTypes=MESSAGE` newest first, cursor pages, optionally unread
+ * ones only (stage R9: Notifications' "New" loads the unread ones, 50 a page; "Earlier" pages the
+ * rest by 20 once New is whole).
+ */
 export function useNotificationFeed(unreadOnly: boolean) {
   const uid = useUid();
   return useInfiniteQuery<NotificationPage, ApiError>({
@@ -56,8 +74,9 @@ export function useNotificationFeed(unreadOnly: boolean) {
             params: {
               query: {
                 cursor: (pageParam as string | null) ?? undefined,
-                limit: NOTIFICATIONS_PAGE,
+                limit: unreadOnly ? NEW_NOTIFICATIONS_PAGE : NOTIFICATIONS_PAGE,
                 unreadOnly,
+                excludeTypes: [...PHONE_EXCLUDED_TYPES],
               },
             },
           })
@@ -98,7 +117,8 @@ function adjustCount(queryClient: QueryClient, uid: Uid, change: (count: number)
 
 /**
  * A notification pushed on `/user/queue/notifications`: one more unread (each push counted once,
- * `seen` tracks the ids), prepended to the loaded feeds. Returns false for a repeat.
+ * `seen` tracks the ids), prepended to the loaded feeds. Returns false for a repeat and for a
+ * chat's notice, which the phone never lists or counts (stage R9).
  */
 export function applyPushedNotification(
   queryClient: QueryClient,
@@ -106,7 +126,7 @@ export function applyPushedNotification(
   notification: NotificationResponse,
   seen: Set<string>
 ): boolean {
-  if (seen.has(notification.id)) {
+  if (seen.has(notification.id) || isExcludedType(notification.type)) {
     return false;
   }
   seen.add(notification.id);
@@ -201,6 +221,13 @@ export function useMarkAllNotificationsRead() {
       const readAt = new Date().toISOString();
       updateFeeds(queryClient, uid, (items, unreadOnly) =>
         unreadOnly ? [] : items.map((item) => (item.readAt ? item : { ...item, readAt }))
+      );
+      // Nothing is unread now: New has no page left to load either, so Earlier shows them all
+      // (review fix 1, F4).
+      queryClient.setQueryData<FeedData>(meKeys.notificationFeed(uid, true), (data) =>
+        data
+          ? { pages: [{ items: [], nextCursor: null, hasMore: false }], pageParams: [null] }
+          : data
       );
       queryClient.setQueryData<UnreadNotificationCount>(meKeys.notificationUnread(uid), (data) =>
         data ? { ...data, count: 0 } : { count: 0 }

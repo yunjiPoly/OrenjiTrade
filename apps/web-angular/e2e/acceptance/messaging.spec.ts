@@ -37,7 +37,7 @@ test.describe('acceptance: messaging', () => {
     // B waits on the Messages page, connected over STOMP.
     const pageB = await actors.open(b);
     await pageB.goto('/messages');
-    await expect(pageB.getByRole('heading', { name: 'No conversations yet' })).toBeVisible();
+    await expect(pageB.getByRole('heading', { name: 'No chats yet' })).toBeVisible();
     await expectLive(pageB);
     await pageB.evaluate(
       () => ((window as unknown as { e2eNoReload: boolean }).e2eNoReload = true),
@@ -47,15 +47,17 @@ test.describe('acceptance: messaging', () => {
     const pageA = await actors.open(a);
     await pageA.goto(`/collectors/${b.handle}`);
     await expect(pageA.getByRole('heading', { level: 1, name: b.displayName })).toBeVisible();
-    await pageA.getByRole('button', { name: `Message ${b.displayName}` }).click();
+    await pageA.getByRole('button', { name: `Message ${b.handle}` }).click();
+    // The chat drawer (web WC, spec 10.6); "Open in Messages" goes full page.
+    await pageA.getByTestId('chat-drawer').getByTestId('open-in-messages').click();
     await expect(pageA).toHaveURL(/\/messages\/[0-9a-f-]{36}$/);
-    const threadA = pageA.getByRole('region', { name: `Conversation with ${b.displayName}` });
+    const threadA = pageA.getByRole('region', { name: `Chat with ${b.handle}` });
     await expectLive(pageA);
     const hello = `Hi Bea, is your Galecrest Owl still for trade? ${suffix()}`;
     const composerA = threadA.getByRole('textbox', { name: 'Message' });
     await composerA.fill(hello);
     await composerA.press('Enter');
-    const logA = threadA.getByRole('log', { name: `Messages with ${b.displayName}` });
+    const logA = threadA.getByRole('log', { name: `Messages with ${b.handle}` });
     await expect(logA).toContainText(hello);
     await expect(logA.getByTestId('receipt-sent')).toBeVisible();
 
@@ -70,10 +72,10 @@ test.describe('acceptance: messaging', () => {
 
     // B opens it; A sees "Seen"; B answers and A receives it live.
     await row.click();
-    const threadB = pageB.getByRole('region', { name: `Conversation with ${a.displayName}` });
-    await expect(
-      threadB.getByRole('log', { name: `Messages with ${a.displayName}` }),
-    ).toContainText(hello);
+    const threadB = pageB.getByRole('region', { name: `Chat with ${a.handle}` });
+    await expect(threadB.getByRole('log', { name: `Messages with ${a.handle}` })).toContainText(
+      hello,
+    );
     await expect(logA.getByTestId('receipt-seen')).toBeVisible({ timeout: 20_000 });
     const answer = `Yes! Meet at the library on Saturday? ${suffix()}`;
     const composerB = threadB.getByRole('textbox', { name: 'Message' });

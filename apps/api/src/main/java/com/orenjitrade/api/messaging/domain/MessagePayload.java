@@ -12,13 +12,18 @@ import org.jspecify.annotations.Nullable;
  * @param binder BINDER_LINK: the shared public binder (name and owner as shared)
  * @param offer OFFER_LINK and SYSTEM offer notices: the linked offer (Phase 8)
  * @param image IMAGE: the photo
+ * @param item CARD_LINK of the sender's own card (stage R4): its price and rarity when shared
+ * @param sale SYSTEM sale notices (stage R4): the sale, worded for each side by the phone
  */
 @Schema(name = "MessagePayload", description = "Links and attachments of a message")
 public record MessagePayload(
         @Nullable CardLink card,
         @Nullable BinderLink binder,
         @Nullable OfferLink offer,
-        @Nullable MessageImage image) {
+        @Nullable MessageImage image,
+        @Nullable SharedItem item,
+        @Nullable SaleNotice sale) {
 
-    public static final MessagePayload EMPTY = new MessagePayload(null, null, null, null);
+    public static final MessagePayload EMPTY =
+            new MessagePayload(null, null, null, null, null, null);
 }

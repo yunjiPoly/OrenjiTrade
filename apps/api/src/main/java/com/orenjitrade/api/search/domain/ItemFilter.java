@@ -23,6 +23,8 @@ import org.jspecify.annotations.Nullable;
  * @param edition edition code (exact)
  * @param language ISO 639-1 code (exact)
  * @param acceptsOffers whether the owner welcomes offers
+ * @param rarity the printing's rarity as the catalogue names it (exact; a wish of any printing of
+ *     the card in one rarity)
  */
 public record ItemFilter(
         @Nullable UUID printingId,
@@ -35,7 +37,8 @@ public record ItemFilter(
         @Nullable FreshnessState freshness,
         @Nullable String edition,
         @Nullable String language,
-        @Nullable Boolean acceptsOffers) {
+        @Nullable Boolean acceptsOffers,
+        @Nullable String rarity) {
 
     /** Discoverable items only: stale and hidden items never appear in discovery (Phase 4). */
     public static final String DISCOVERABLE = "i.freshness_state IN ('ACTIVE', 'AGING')";
@@ -47,7 +50,18 @@ public record ItemFilter(
             @Nullable String game,
             @Nullable SearchAvailability availability) {
         return new ItemFilter(
-                printingId, cardId, game, availability, null, null, null, null, null, null, null);
+                printingId,
+                cardId,
+                game,
+                availability,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
     }
 
     /** Whether something other than the game narrows the items. */
@@ -61,7 +75,8 @@ public record ItemFilter(
                 || freshness != null
                 || edition != null
                 || language != null
-                || acceptsOffers != null;
+                || acceptsOffers != null
+                || rarity != null;
     }
 
     /**
@@ -113,6 +128,10 @@ public record ItemFilter(
         if (acceptsOffers != null) {
             sql.append(acceptsOffers ? " AND i.accepts_offers" : " AND NOT i.accepts_offers");
         }
+        if (rarity != null) {
+            sql.append(" AND p.rarity = :f_rarity");
+            params.put("f_rarity", rarity);
+        }
         return sql.toString();
     }
 
@@ -148,6 +167,9 @@ public record ItemFilter(
         }
         if (acceptsOffers != null) {
             names.add("accepts_offers");
+        }
+        if (rarity != null) {
+            names.add("rarity");
         }
         return names;
     }

@@ -1,3 +1,5 @@
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
@@ -21,15 +23,23 @@ describe('SignInPageComponent', () => {
       imports: [SignInPageComponent],
       providers: [
         provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
         {
           provide: AuthService,
-          useValue: { available: signal(true), signInWithEmail, signInWithGoogle: vi.fn() },
+          useValue: {
+            available: signal(true),
+            signInWithEmail,
+            signInWithGoogle: vi.fn(),
+            isAuthenticated: signal(false),
+          },
         },
         {
           provide: SessionService,
           useValue: {
             ensureLoaded: async () => status,
             needsOnboarding: () => needsOnboarding,
+            status: signal('anonymous'),
           },
         },
       ],
@@ -81,6 +91,32 @@ describe('SignInPageComponent', () => {
     });
   });
 
+  it('is board W27: "Not now, keep browsing" back to the page, the h1 for screen readers', () => {
+    const close = element.querySelector('[data-testid="auth-close"]');
+    expect(close?.textContent).toContain('Not now, keep browsing');
+    expect(close?.getAttribute('href')).toBe('/settings/privacy');
+    expect(element.querySelector('h1')?.textContent?.trim()).toBe('Sign in to OrenjiTrade');
+    expect(element.textContent).toContain('Forgot your password?');
+    expect(element.textContent).toContain('Continue with Google');
+    expect(element.querySelector('#si-email')?.getAttribute('aria-invalid')).toBeNull();
+  });
+
+  it('a problem marks its field and describes it', async () => {
+    await submit();
+    const email = element.querySelector('#si-email')!;
+    expect(email.getAttribute('aria-invalid')).toBe('true');
+    expect(email.getAttribute('aria-describedby')).toBe('si-email-error');
+  });
+
+  it('sends an account that could not load to "We could not load your account"', async () => {
+    status = 'error';
+    fill('maika@example.test', 'secret-pass');
+    await submit();
+    expect(TestBed.inject(Router).navigate).toHaveBeenCalledWith(['/auth/unavailable'], {
+      queryParams: { returnUrl: '/settings/privacy' },
+    });
+  });
+
   it('shows a friendly message for wrong credentials', async () => {
     signInWithEmail.mockRejectedValueOnce({ code: 'auth/invalid-credential' });
     fill('maika@example.test', 'nope-nope');
@@ -89,5 +125,47 @@ describe('SignInPageComponent', () => {
       'No account matches these credentials.',
     );
     expect(navigateByUrl).not.toHaveBeenCalled();
+  });
+
+  // WG review A1, A5, U8.
+  it('keeps the keyboard on Sign in while it signs in and after a failure (never disabled)', async () => {
+    let fail!: (error: unknown) => void;
+    signInWithEmail.mockImplementationOnce(
+      () => new Promise((_resolve, reject) => (fail = reject)),
+    );
+    const button = element.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+    fill('maika@example.test', 'nope-nope');
+    button.focus();
+    element.querySelector('form')!.dispatchEvent(new Event('submit'));
+    fixture.detectChanges();
+    expect(button.disabled).toBe(false);
+    expect(button.getAttribute('aria-disabled')).toBe('true');
+    // A second press while it works sends nothing more.
+    element.querySelector('form')!.dispatchEvent(new Event('submit'));
+    expect(signInWithEmail).toHaveBeenCalledTimes(1);
+    fail({ code: 'auth/invalid-credential' });
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(button.getAttribute('aria-disabled')).toBeNull();
+    expect(document.activeElement).toBe(button);
+  });
+
+  it('a refused submit focuses the first field to fix', async () => {
+    fill('', 'secret-pass');
+    await submit();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(document.activeElement?.id).toBe('si-email');
+    fill('maika@example.test', '');
+    await submit();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(document.activeElement?.id).toBe('si-password');
+  });
+
+  it('"Forgot your password?" carries the typed email out of the address', () => {
+    fill('maika@example.test', '');
+    fixture.detectChanges();
+    const forgot = element.querySelector<HTMLAnchorElement>('a.link--forgot')!;
+    expect(forgot.getAttribute('href')).not.toContain('email');
+    expect(forgot.getAttribute('href')).not.toContain('maika');
   });
 });

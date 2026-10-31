@@ -113,6 +113,84 @@ describe('LocationFieldsComponent', () => {
     expect(emitted.at(-1)?.showCity).toBe(false);
   });
 
+  it('stacks one field per row in the welcome, the city counter never wrapping (WG U4)', async () => {
+    await mount(null);
+    const group = element.querySelector('.location-fields')!;
+    expect(group.classList).not.toContain('location-fields--stacked');
+    fixture.componentRef.setInput('stacked', true);
+    fixture.detectChanges();
+    expect(group.classList).toContain('location-fields--stacked');
+    expect(getComputedStyle(group).gridTemplateColumns).toBe('minmax(0, 1fr)');
+    expect(element.querySelector('.location-fields__count')?.textContent?.trim()).toBe('0 / 80');
+  });
+
+  it("the welcome's token look: labels above 48 px fields and the 40x24 switch (WG R1-1)", async () => {
+    await mount(null);
+    // Settings › Location (the default look) keeps Material's outlined fields and its switch.
+    expect(element.querySelectorAll('mat-form-field').length).toBe(4);
+    expect(element.querySelector('.app-token-select')).toBeNull();
+    expect(element.querySelector('.app-switch-40')).toBeNull();
+
+    fixture.componentRef.setInput('look', 'token');
+    fixture.detectChanges();
+    expect(element.querySelector('mat-form-field')).toBeNull();
+    expect(element.querySelector('.mat-mdc-floating-label')).toBeNull();
+
+    // Each select is a token field named by the label written above it.
+    const named = (control: Element): string =>
+      (control.getAttribute('aria-labelledby') ?? '')
+        .split(' ')
+        .filter((id) => id !== '')
+        .map((id) => element.querySelector(`#${id}`)?.textContent?.trim())
+        .join(' ');
+    const above = (label: Element, control: Element): boolean =>
+      (label.compareDocumentPosition(control) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    for (const [testId, label] of [
+      ['location-region', 'Region'],
+      ['location-country', 'Country'],
+      ['location-subdivision', 'State or province'],
+    ]) {
+      const select = element.querySelector(`[data-testid="${testId}"]`)!;
+      expect(select.classList).toContain('app-token-select');
+      expect(named(select)).toBe(label);
+      expect(above(element.querySelector(`#${testId}-label`)!, select)).toBe(true);
+    }
+    expect(element.querySelector('[data-testid="location-country"]')?.textContent).toContain(
+      'Choose a country',
+    );
+
+    const city = element.querySelector<HTMLInputElement>('[data-testid="location-city"]')!;
+    const cityLabel = element.querySelector<HTMLLabelElement>('label[for="location-city-input"]')!;
+    expect(city.id).toBe('location-city-input');
+    expect(cityLabel.textContent?.trim()).toBe('City (optional)');
+    expect(above(cityLabel, city)).toBe(true);
+    expect(getComputedStyle(city).height).toBe('48px');
+    expect(city.getAttribute('aria-describedby')).toBe('location-city-hint location-city-count');
+    expect(element.querySelector('#location-city-hint')?.textContent).toBe(
+      'Only shown on your profile, never used to locate you.',
+    );
+    expect(element.querySelector('#location-city-count')?.textContent?.trim()).toBe('0 / 80');
+
+    // The switch: the 40x24 one (no Material icons), named by its row's label, which toggles it.
+    const toggle = element.querySelector('[data-testid="location-show-city"]')!;
+    expect(toggle.classList).toContain('app-switch-40');
+    expect(toggle.querySelector('.mdc-switch__icons')).toBeNull();
+    const button = toggle.querySelector<HTMLButtonElement>('button[role="switch"]')!;
+    expect(button.id).toBe('location-show-city-button');
+    expect(named(button)).toBe('Show my city on my profile');
+    element.querySelector<HTMLLabelElement>('label[for="location-show-city-button"]')!.click();
+    fixture.detectChanges();
+    expect(emitted.at(-1)?.showCity).toBe(false);
+
+    // The same pickers behind the look: choosing still emits the place.
+    choose(selects()[1], 'CA');
+    choose(selects()[2], 'CA-QC');
+    expect(emitted.at(-1)).toMatchObject({ countryCode: 'CA', subdivisionCode: 'CA-QC' });
+    city.value = 'Montréal';
+    city.dispatchEvent(new Event('input'));
+    expect(emitted.at(-1)?.city).toBe('Montréal');
+  });
+
   it('explains what is missing once errors are shown', async () => {
     await mount({ countryCode: 'CA', subdivisionCode: '', city: '', showCity: true });
     expect(element.querySelector('[role="alert"]')).toBeNull();

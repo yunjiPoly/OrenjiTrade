@@ -1,131 +1,93 @@
-import { recentScopeKey, useRecentSearchesStore } from '@/src/features/catalog/recentSearchesStore';
-import {
-  activeHolderFilterCount,
-  cardHoldersQuery,
-  DEFAULT_HOLDER_FILTERS,
-  holdersCountLabel,
-  parsePrice,
-  priceFieldError,
-  priceRangeError,
-} from '@/src/features/holders/holderFilters';
-import { isSearchSegment, searchTypesFor } from '@/src/features/search/searchSegments';
-import {
-  BULK_DELETE_MESSAGE,
-  bulkDeleteTitle,
-  bulkResultMessage,
-  toBulkRequest,
-} from '@/src/features/inventory/bulkActions';
+import { useRecentSearchesStore } from '@/src/features/catalog/recentSearchesStore';
+import { bulkResultMessage, toBulkRequest } from '@/src/features/inventory/bulkActions';
 import {
   itemPhotoErrorMessage,
   itemPhotoProblem,
   photoMimeType,
 } from '@/src/features/inventory/itemPhotoRules';
 import { moved } from '@/src/features/binders/ReorderBindersSheet';
+import {
+  isSearchSegment,
+  segmentLabel,
+  segmentOfLink,
+  SEARCH_SEGMENTS,
+} from '@/src/features/search/searchSegments';
 import { ApiError } from '@/src/api/ApiError';
+import { previousOfSameRegion } from '@/src/api/hooks/search';
+import { meKeys } from '@/src/api/queryKeys';
 
-import { CARD_ID, PRINTING_A } from '../support/fixtures';
+import { CARD_ID } from '../support/fixtures';
 
-describe('search segments', () => {
-  it('names the sections of GET /search per segment', () => {
+describe('search segments (stage R5)', () => {
+  it('are Cards, Binders and Wishlist, with no Collectors segment', () => {
+    expect(SEARCH_SEGMENTS).toEqual(['cards', 'binders', 'wishlist']);
+    expect(SEARCH_SEGMENTS.map(segmentLabel)).toEqual(['Cards', 'Binders', 'Wishlist']);
     expect(isSearchSegment('cards')).toBe(true);
-    expect(isSearchSegment('collectors')).toBe(true);
+    expect(isSearchSegment('collectors')).toBe(false);
     expect(isSearchSegment('tags')).toBe(false);
-    expect(searchTypesFor('collectors')).toEqual(['collectors']);
-    expect(searchTypesFor('binders')).toEqual(['binders']);
   });
 
-  it('keeps recent searches per segment and per account', () => {
-    useRecentSearchesStore.setState({ byUser: {} });
+  it('reads the segment of a link, and the ?tab= of the links before stage R5', () => {
+    expect(segmentOfLink({ segment: 'wishlist' })).toBe('wishlist');
+    expect(segmentOfLink({ segment: 'binders', tab: 'collectors' })).toBe('binders');
+    expect(segmentOfLink({ tab: 'binders' })).toBe('binders');
+    expect(segmentOfLink({ tab: 'collectors' })).toBe('cards');
+    expect(segmentOfLink({ segment: 'offers' })).toBeNull();
+    expect(segmentOfLink({})).toBeNull();
+  });
+
+  it('keeps one list of recent searches per account', () => {
+    useRecentSearchesStore.setState({ byUser: {}, forgetting: {} });
     const store = useRecentSearchesStore.getState();
     store.remember('u1', 'fox');
-    store.remember('u1', 'noé', 'collectors');
-    store.remember('u1', 'trades', 'binders');
-    store.remember('u2', 'otter', 'collectors');
-    const byUser = useRecentSearchesStore.getState().byUser;
-    expect(byUser[recentScopeKey('u1')]).toEqual(['fox']);
-    expect(byUser[recentScopeKey('u1', 'collectors')]).toEqual(['noé']);
-    expect(byUser[recentScopeKey('u1', 'binders')]).toEqual(['trades']);
-    expect(byUser[recentScopeKey('u2', 'collectors')]).toEqual(['otter']);
-    useRecentSearchesStore.getState().clear('u1', 'collectors');
+    store.remember('u2', 'otter');
+    expect(useRecentSearchesStore.getState().byUser).toEqual({ u1: ['fox'], u2: ['otter'] });
+    useRecentSearchesStore.getState().clear('u1');
+    expect(useRecentSearchesStore.getState().byUser.u1).toBeUndefined();
+    expect(useRecentSearchesStore.getState().byUser.u2).toEqual(['otter']);
+  });
+});
+
+describe('what a list keeps on screen while its next answer loads', () => {
+  it('keeps the previous results within one region, and nothing across a change of region', () => {
+    const previous = { collectors: ['one'] };
+    const key = (region: string, q: string) => ({
+      queryKey: meKeys.search('uid-1', { collectors: true, q, region, limit: 3 }),
+    });
+    // Another text in the same region: the rows stay until the new ones arrive.
+    expect(previousOfSameRegion('europe')(previous, key('europe', 'noé'))).toBe(previous);
+    // Another region: nothing of the region before may stand under the new region's name.
+    expect(previousOfSameRegion('americas-north')(previous, key('europe', 'noé'))).toBeUndefined();
+    // The card holders and Search › Binders name their region in the same place.
+    const holders = {
+      queryKey: meKeys.cardHolders('uid-1', {
+        cardId: CARD_ID,
+        region: 'europe',
+        sort: 'province',
+        excludeDeckCoreItems: true,
+      }),
+    };
+    expect(previousOfSameRegion('europe')(previous, holders)).toBe(previous);
+    expect(previousOfSameRegion('americas-south')(previous, holders)).toBeUndefined();
+    const binders = {
+      queryKey: meKeys.regionBinderSearch('uid-1', {
+        region: 'europe',
+        state: null,
+        deckCore: false,
+        q: '',
+      } as { region: string }),
+    };
+    expect(previousOfSameRegion('europe')(previous, binders)).toBe(previous);
+    expect(previousOfSameRegion('americas-north')(previous, binders)).toBeUndefined();
+    // Nothing before, or a key that names no region: nothing is kept.
+    expect(previousOfSameRegion('europe')(undefined, undefined)).toBeUndefined();
     expect(
-      useRecentSearchesStore.getState().byUser[recentScopeKey('u1', 'collectors')]
+      previousOfSameRegion('europe')(previous, { queryKey: meKeys.cardHolders('uid-1', {}) })
     ).toBeUndefined();
-    expect(useRecentSearchesStore.getState().byUser.u1).toEqual(['fox']);
   });
 });
 
-describe('card holder filters (the web search-params rules)', () => {
-  it('builds the request with the platform region and only the set filters (ADR 0017)', () => {
-    expect(
-      cardHoldersQuery({ kind: 'card', id: CARD_ID }, DEFAULT_HOLDER_FILTERS, 'americas-north')
-    ).toEqual({
-      region: 'americas-north',
-      sort: 'freshness',
-      cardId: CARD_ID,
-    });
-    expect(
-      cardHoldersQuery(
-        { kind: 'printing', id: PRINTING_A },
-        {
-          availability: 'ACCEPTS_OFFERS',
-          condition: 'NEAR_MINT',
-          minPrice: 10,
-          maxPrice: 99.5,
-          freshness: 'ACTIVE',
-          edition: 'FIRST_EDITION',
-          language: 'fr',
-          acceptsOffers: true,
-          sort: 'price',
-        },
-        'europe'
-      )
-    ).toEqual({
-      region: 'europe',
-      sort: 'price',
-      printingId: PRINTING_A,
-      availability: 'ACCEPTS_OFFERS',
-      condition: 'NEAR_MINT',
-      minPrice: 10,
-      maxPrice: 99.5,
-      freshness: 'ACTIVE',
-      edition: 'FIRST_EDITION',
-      language: 'fr',
-      acceptsOffers: true,
-    });
-  });
-
-  it('parses and validates prices and the range', () => {
-    expect(parsePrice('')).toBeNull();
-    expect(parsePrice(' 12.345 ')).toBe(12.35);
-    expect(parsePrice('-1')).toBeNull();
-    expect(parsePrice('100001')).toBeNull();
-    expect(parsePrice('abc')).toBeNull();
-    expect(priceFieldError('')).toBeNull();
-    expect(priceFieldError('12')).toBeNull();
-    expect(priceFieldError('x')).toBe('Enter 0 to 100000.');
-    expect(priceRangeError(10, 5)).toBe('The minimum price must not be above the maximum.');
-    expect(priceRangeError(5, 10)).toBeNull();
-    expect(priceRangeError(null, 10)).toBeNull();
-  });
-
-  it('counts the narrowing filters (never the sort) and words the count', () => {
-    expect(activeHolderFilterCount(DEFAULT_HOLDER_FILTERS)).toBe(0);
-    expect(activeHolderFilterCount({ ...DEFAULT_HOLDER_FILTERS, sort: 'price' })).toBe(0);
-    expect(
-      activeHolderFilterCount({
-        ...DEFAULT_HOLDER_FILTERS,
-        minPrice: 0,
-        acceptsOffers: true,
-        language: 'en',
-      })
-    ).toBe(3);
-    expect(holdersCountLabel(null)).toBe('Looking for holders…');
-    expect(holdersCountLabel(1)).toBe('1 listing in your region');
-    expect(holdersCountLabel(3)).toBe('3 listings in your region');
-  });
-});
-
-describe('inventory bulk actions (the web bulk-actions rules)', () => {
+describe('inventory bulk actions (Select mode, stage R2)', () => {
   const ids = ['a', 'b'];
 
   it('builds the bulk request of each action', () => {
@@ -134,18 +96,10 @@ describe('inventory bulk actions (the web bulk-actions rules)', () => {
       action: 'SET_VISIBILITY',
       visibility: 'PUBLIC',
     });
-    const now = Date.parse('2026-10-06T12:00:00Z');
-    expect(
-      toBulkRequest(
-        { kind: 'visibility', visibility: 'TEMPORARILY_PUBLIC', duration: '1h' },
-        ids,
-        now
-      )
-    ).toEqual({
+    expect(toBulkRequest({ kind: 'visibility', visibility: 'PRIVATE' }, ids)).toEqual({
       itemIds: ids,
       action: 'SET_VISIBILITY',
-      visibility: 'TEMPORARILY_PUBLIC',
-      publicUntil: '2026-10-06T13:00:00.000Z',
+      visibility: 'PRIVATE',
     });
     expect(toBulkRequest({ kind: 'move', binderId: 'b-1', binderName: 'Trades' }, ids)).toEqual({
       itemIds: ids,
@@ -155,11 +109,6 @@ describe('inventory bulk actions (the web bulk-actions rules)', () => {
     expect(toBulkRequest({ kind: 'move', binderId: null, binderName: null }, ids)).toEqual({
       itemIds: ids,
       action: 'MOVE_TO_BINDER',
-    });
-    expect(toBulkRequest({ kind: 'availability', availability: 'SALE' }, ids)).toEqual({
-      itemIds: ids,
-      action: 'SET_AVAILABILITY',
-      availability: 'SALE',
     });
     expect(toBulkRequest({ kind: 'confirm' }, ids)).toEqual({ itemIds: ids, action: 'CONFIRM' });
     expect(toBulkRequest({ kind: 'delete' }, ids)).toEqual({ itemIds: ids, action: 'DELETE' });
@@ -171,10 +120,10 @@ describe('inventory bulk actions (the web bulk-actions rules)', () => {
     ).toBe('2 cards are now public.');
     expect(
       bulkResultMessage(
-        { kind: 'visibility', visibility: 'TEMPORARILY_PUBLIC', duration: '24h' },
+        { kind: 'visibility', visibility: 'PRIVATE' },
         { updated: 1, skipped: [{ itemId: 'x', reason: 'UNCHANGED' }] }
       )
-    ).toBe('1 card is now public for 24 hours. 1 card skipped: already in that state.');
+    ).toBe('1 card is now private. 1 card skipped: already in that state.');
     expect(
       bulkResultMessage(
         { kind: 'delete' },
@@ -193,12 +142,9 @@ describe('inventory bulk actions (the web bulk-actions rules)', () => {
         { updated: 3, skipped: [] }
       )
     ).toBe('3 cards moved to “Trades”.');
-    expect(
-      bulkResultMessage({ kind: 'availability', availability: 'SALE' }, { updated: 1, skipped: [] })
-    ).toBe('1 card set to sale.');
-    expect(bulkDeleteTitle(1)).toBe('Delete 1 card?');
-    expect(bulkDeleteTitle(4)).toBe('Delete 4 cards?');
-    expect(BULK_DELETE_MESSAGE).toMatch(/every listing/);
+    expect(bulkResultMessage({ kind: 'confirm' }, { updated: 1, skipped: [] })).toBe(
+      '1 card confirmed as still available.'
+    );
   });
 });
 

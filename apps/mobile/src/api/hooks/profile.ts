@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import type { ApiError } from '../ApiError';
 import { api, required } from '../client';
@@ -7,6 +7,7 @@ import { meKeys, publicKeys } from '../queryKeys';
 import type {
   AvatarResponse,
   GameResponse,
+  HandleAvailabilityResponse,
   MyProfileResponse,
   TagResponse,
   UpdateProfileRequest,
@@ -24,8 +25,32 @@ export function useMyProfile() {
 }
 
 /**
+ * Reads the collector's own public profile again (`GET /collectors/{handle}`, as "Preview" and the
+ * Profile tab show it) after a change to it, under the handle it had and the one it has now: kept
+ * for a minute, it showed the profile from before the save (stage R13's review fix 1).
+ */
+async function refreshOwnPublicProfile(
+  queryClient: QueryClient,
+  uid: string | null,
+  handles: readonly (string | null | undefined)[]
+): Promise<void> {
+  const unique = [...new Set(handles.filter((handle): handle is string => !!handle))];
+  await Promise.all(
+    unique.map((handle) =>
+      queryClient.invalidateQueries({ queryKey: meKeys.collector(uid, handle), exact: true })
+    )
+  );
+}
+
+/** The handle of the collector's own profile as last read (`GET /me/profile`), if any. */
+function cachedHandle(queryClient: QueryClient, uid: string | null): string | undefined {
+  return queryClient.getQueryData<MyProfileResponse>(meKeys.profile(uid))?.handle;
+}
+
+/**
  * `PUT /api/v1/me/profile` (replaces every editable field). Refreshes `/me` too: the onboarding
- * flags, the display name and the handle shown in headers come from there.
+ * flags, the display name and the handle shown in headers come from there; and the own public
+ * profile, under the old and the new handle.
  */
 export function useSaveProfile() {
   const uid = useUid();
@@ -33,8 +58,12 @@ export function useSaveProfile() {
   return useMutation<MyProfileResponse, ApiError, UpdateProfileRequest>({
     mutationFn: async (body) => required((await api.PUT('/api/v1/me/profile', { body })).data),
     onSuccess: async (profile) => {
+      const before = cachedHandle(queryClient, uid);
       queryClient.setQueryData(meKeys.profile(uid), profile);
-      await queryClient.invalidateQueries({ queryKey: meKeys.account(uid) });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: meKeys.account(uid) }),
+        refreshOwnPublicProfile(queryClient, uid, [before, profile.handle]),
+      ]);
     },
   });
 }
@@ -61,7 +90,10 @@ export function useSaveTags() {
       queryClient.setQueryData<MyProfileResponse>(meKeys.profile(uid), (profile) =>
         profile ? { ...profile, tags: saved } : profile
       );
-      await queryClient.invalidateQueries({ queryKey: meKeys.account(uid) });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: meKeys.account(uid) }),
+        refreshOwnPublicProfile(queryClient, uid, [cachedHandle(queryClient, uid)]),
+      ]);
     },
   });
 }
@@ -86,6 +118,30 @@ export function useTagSearch(query: string) {
 }
 
 /** `GET /api/v1/games`: ACTIVE games in display order (hidden games disappear from pickers). */
+/**
+ * `GET /api/v1/me/profile/handle-availability` (stage R12): whether the collector could save
+ * `handle` (already trimmed and lower-cased, and well formed: the caller checks the format first).
+ * Never retried: a failure (offline, 429) shows no mark, and the save still decides.
+ */
+export function useHandleAvailability(handle: string, enabled: boolean) {
+  const uid = useUid();
+  const signedIn = useIsAuthenticated();
+  return useQuery<HandleAvailabilityResponse, ApiError>({
+    queryKey: meKeys.handleAvailability(uid, handle),
+    queryFn: async () =>
+      required(
+        (
+          await api.GET('/api/v1/me/profile/handle-availability', {
+            params: { query: { handle } },
+          })
+        ).data
+      ),
+    enabled: enabled && signedIn && handle.length > 0,
+    staleTime: 30_000,
+    retry: false,
+  });
+}
+
 export function useGames() {
   return useQuery<GameResponse[], ApiError>({
     queryKey: publicKeys.games,
@@ -115,7 +171,10 @@ export function useUploadAvatar() {
       queryClient.setQueryData<MyProfileResponse>(meKeys.profile(uid), (profile) =>
         profile ? { ...profile, avatarUrl: response.avatarUrl } : profile
       );
-      await queryClient.invalidateQueries({ queryKey: meKeys.account(uid) });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: meKeys.account(uid) }),
+        refreshOwnPublicProfile(queryClient, uid, [cachedHandle(queryClient, uid)]),
+      ]);
     },
   });
 }
@@ -132,7 +191,10 @@ export function useDeleteAvatar() {
       queryClient.setQueryData<MyProfileResponse>(meKeys.profile(uid), (profile) =>
         profile ? { ...profile, avatarUrl: null } : profile
       );
-      await queryClient.invalidateQueries({ queryKey: meKeys.account(uid) });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: meKeys.account(uid) }),
+        refreshOwnPublicProfile(queryClient, uid, [cachedHandle(queryClient, uid)]),
+      ]);
     },
   });
 }

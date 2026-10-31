@@ -1,10 +1,11 @@
 package com.orenjitrade.api.binders.infra;
 
-import com.orenjitrade.api.billing.domain.LimitUsageSource;
 import com.orenjitrade.api.binders.domain.BinderDetails;
+import com.orenjitrade.api.binders.domain.BinderPhoto;
 import com.orenjitrade.api.binders.domain.BinderService;
 import com.orenjitrade.api.binders.domain.BinderView;
 import com.orenjitrade.api.binders.domain.PublicBinderService;
+import com.orenjitrade.api.limits.domain.LimitUsageSource;
 import com.orenjitrade.api.profiles.domain.PublicBinderCountProvider;
 import com.orenjitrade.api.users.domain.DeletionParticipant;
 import com.orenjitrade.api.users.domain.ExportContributor;
@@ -21,8 +22,8 @@ import org.springframework.core.annotation.Order;
  * The binders module's implementations of other modules' extension points: the {@code binders.max}
  * usage ({@link LimitUsageSource}, read straight from the repository so the limits service does not
  * depend on the binder service that uses it), the public binder count of collector profiles, the
- * owner's export section {@code binders} and the deletion participant (binders are purged after the
- * inventory module purged the items).
+ * owner's export section {@code binders} (deck core fields and photo URLs included) and the
+ * deletion participant (binders are purged after the inventory module purged the items).
  */
 @Configuration(proxyBeanMethods = false)
 public class BinderExtensions {
@@ -92,6 +93,16 @@ public class BinderExtensions {
                                     row.put("confirmedAt", binder.confirmedAt());
                                     row.put("createdAt", binder.createdAt());
                                     row.put("updatedAt", binder.updatedAt());
+                                    row.put("sellsAsCore", binder.sellsAsCore());
+                                    row.put("askingPriceText", binder.askingPriceText());
+                                    row.put("askingPrice", binder.askingPrice());
+                                    row.put("currency", binder.currency());
+                                    row.put("soldAt", binder.soldAt());
+                                    row.put(
+                                            "photos",
+                                            details.showcase().photos().stream()
+                                                    .map(BinderPhoto::url)
+                                                    .toList());
                                     return row;
                                 })
                         .toList();

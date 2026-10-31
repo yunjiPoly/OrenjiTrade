@@ -42,7 +42,7 @@ public class BinderViewTracker {
         }
     }
 
-    /** Forgets today's view (the view was refused, e.g. by the plan limit). */
+    /** Forgets today's view (the view was refused, e.g. by the usage limit). */
     public void forget(UUID viewerId, UUID binderId, Instant now) {
         try {
             redis.delete(key(viewerId, binderId, now.truncatedTo(ChronoUnit.DAYS)));

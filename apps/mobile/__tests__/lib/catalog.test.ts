@@ -11,6 +11,7 @@ import {
   printingCode,
   printingFacts,
   printingImageUrl,
+  suggestionVariant,
   titleCaseEnum,
   uniqueSuggestions,
 } from '@/src/lib/catalog';
@@ -109,7 +110,42 @@ describe('printings', () => {
       card,
       printing,
     ]);
+    // Add cards keeps the printings that share a code apart (by printing), not the same one twice.
+    const first = { ...printing, printingId: 'p1', edition: 'FIRST_EDITION' };
+    const unlimited = { ...printing, printingId: 'p2', edition: 'UNLIMITED' };
+    expect(uniqueSuggestions([first, unlimited, { ...first }])).toEqual([first]);
+    expect(uniqueSuggestions([first, unlimited, { ...first }], true)).toEqual([first, unlimited]);
     expect(boundedQuery('  fox  ')).toBe('fox');
     expect(boundedQuery('x'.repeat(150))).toHaveLength(100);
+  });
+});
+
+describe('exact printings that share a code (review fix 1 of stage R2)', () => {
+  const entry = (printingId: string, extra: Record<string, string>) => ({
+    kind: 'PRINTING' as const,
+    id: 'c1',
+    printingId,
+    name: 'Obsidian Magician Adept',
+    printingCode: 'GLM-EN002',
+    edition: 'UNLIMITED',
+    language: 'en',
+    finish: 'NORMAL',
+    ...extra,
+  });
+
+  it('names what tells each apart, as Choose the printing does', () => {
+    const first = entry('p1', { edition: 'FIRST_EDITION' });
+    const unlimited = entry('p2', {});
+    const french = entry('p3', { language: 'fr', finish: 'REVERSE_HOLO' });
+    expect(suggestionVariant(first, [first, unlimited])).toBe('1st Edition');
+    expect(suggestionVariant(unlimited, [first, unlimited])).toBe('Unlimited');
+    expect(suggestionVariant(french, [unlimited, french])).toBe('French · Reverse holo');
+  });
+
+  it('says nothing for a code no other suggestion has, or for a card', () => {
+    const only = entry('p1', {});
+    const other = { ...entry('p9', {}), printingCode: 'GLM-EN003' };
+    expect(suggestionVariant(only, [only, other])).toBeNull();
+    expect(suggestionVariant({ kind: 'CARD', id: 'c1', name: 'A' }, [only])).toBeNull();
   });
 });

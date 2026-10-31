@@ -6,16 +6,30 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
  * Only public values belong here. `EXPO_PUBLIC_*` variables are inlined into the JS bundle by
  * Expo, so they must never contain secrets (see root CLAUDE.md, "Never put secrets in frontend
  * bundles"). The app reads no device location and draws no map provider (ADR 0017): no Google
- * Maps key, no location permission. `react-native-maps` stays installed (its plugin runs without
- * a key, so no Maps API key meta-data is written) for a future native boundary map.
+ * Maps key, no location permission, no map SDK. The region map is drawn with `react-native-svg`
+ * from boundary files of the app (`assets/boundaries`, `npm run sync:boundaries`), which needs no
+ * config plugin and no key.
  */
 
 const WEB_HOSTS = ['www.orenjitrade.com', 'orenjitrade.com'] as const;
+
+/**
+ * The card scan's own development app (`ORENJI_APP_VARIANT=scan`, apps/mobile/README.md): its own
+ * bundle id and name, so it installs beside the owner's app, never over it. Without the variable
+ * nothing changes (Expo Go, the web export, the tests and the owner's builds). Any other value is
+ * refused, so a typo never builds the owner's app id by mistake.
+ */
+const APP_VARIANT = process.env.ORENJI_APP_VARIANT?.trim() ?? '';
+if (APP_VARIANT !== '' && APP_VARIANT !== 'scan') {
+  throw new Error(`ORENJI_APP_VARIANT must be "scan" or unset, not "${APP_VARIANT}"`);
+}
+const APP_ID = APP_VARIANT === 'scan' ? 'com.orenjitrade.app.scan' : 'com.orenjitrade.app';
+const APP_NAME = APP_VARIANT === 'scan' ? 'OrenjiTrade Scan' : 'OrenjiTrade';
 const DEEP_LINK_PATH_PREFIXES = ['/collectors/', '/cards/', '/binders/'] as const;
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: 'OrenjiTrade',
+  name: APP_NAME,
   slug: 'orenjitrade',
   version: '0.1.0',
   orientation: 'portrait',
@@ -24,7 +38,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   userInterfaceStyle: 'automatic',
   runtimeVersion: { policy: 'appVersion' },
   ios: {
-    bundleIdentifier: 'com.orenjitrade.app',
+    bundleIdentifier: APP_ID,
     supportsTablet: true,
     associatedDomains: WEB_HOSTS.map((host) => `applinks:${host}`),
     infoPlist: {
@@ -32,7 +46,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
   },
   android: {
-    package: 'com.orenjitrade.app',
+    package: APP_ID,
     adaptiveIcon: {
       backgroundColor: '#FFFBF7',
       foregroundImage: './assets/images/android-icon-foreground.png',
@@ -63,12 +77,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-web-browser',
     // Only configures the optional "share into the app" extension, which stays disabled.
     'expo-sharing',
+    // Dark on every phone: a new install opens in the dark theme (spec 2026-10-14, sections 3
+    // and 16), and the splash shows before the stored choice is read.
     [
       'expo-splash-screen',
       {
         image: './assets/images/splash-icon.png',
         resizeMode: 'contain',
-        backgroundColor: '#FFFBF7',
+        backgroundColor: '#141210',
         dark: { backgroundColor: '#141210' },
       },
     ],
@@ -104,8 +120,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         faceIDPermission: 'OrenjiTrade can use Face ID to unlock your saved session.',
       },
     ],
-    // No key: the plugin removes the Maps API key meta-data entry (ADR 0017).
-    'react-native-maps',
+    // The scan's own app only: the scene life cycle iOS 27 requires of an app built with Xcode 27.
+    ...(APP_VARIANT === 'scan' ? ['./plugins/withIosSceneLifecycle'] : []),
   ],
   experiments: {
     typedRoutes: true,

@@ -19,6 +19,23 @@ import { printingCode } from '../inventory/inventory-labels';
  * them the same way.
  */
 
+/** "Any printing · 90% TCG", "TN19-EN013 · NM only" (spec 6.6: a wish's terms on one line). */
+export function wishTerms(wish: {
+  printing?: PrintingSummary | null;
+  rarity?: string | null;
+  nearMintOnly?: boolean | null;
+  priceTerm?: WishPriceTerm | null;
+}): string {
+  const copy = wish.printing
+    ? printingCode(wish.printing) || 'One printing'
+    : wish.rarity
+      ? `Any ${wish.rarity}`
+      : 'Any printing';
+  return [copy, wish.nearMintOnly ? 'NM only' : null, wish.priceTerm?.label ?? null]
+    .filter(Boolean)
+    .join(' · ');
+}
+
 /** One chip of a wish. */
 export interface WishChip {
   kind: 'near-mint' | 'price-term';

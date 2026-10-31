@@ -20,6 +20,8 @@ import {
   developerDirs,
   isInside,
   isLocalHost,
+  NO_CARD_PROVIDERS,
+  cardProviderProblems,
   isLocalUrl,
   newRunId,
   overlaps,
@@ -96,20 +98,30 @@ export function mobileE2eApiEnv(base, { workDir, webPort = MOBILE_E2E_WEB_PORT }
     STORAGE_PUBLIC_BASE_URL: '',
     CARD_IMAGE_CACHE_DIR: path.join(workDir, 'card-images'),
     PROVIDER_DATA_DIR: path.join(workDir, 'provider-data'),
-    // Mock catalog only (ADR 0015): no YGOPRODeck provider, no image downloads; the provider URLs
-    // point at a closed local port so even an unexpected call never leaves the machine.
+    // Mock catalog only (ADR 0015, ADR 0021): no YGOPRODeck, Scryfall or TCGdex provider, no image
+    // downloads; the provider URLs point at a closed local port so even an unexpected call never
+    // leaves the machine.
     CARD_IMAGE_ON_DEMAND_ENABLED: 'false',
-    YGOPRODECK_ENABLED: 'false',
-    YGOPRODECK_API_BASE_URL: 'http://127.0.0.1:9/api/v7/',
-    YGOPRODECK_IMAGE_BASE_URL: 'http://127.0.0.1:9/images/cards/',
+    ...NO_CARD_PROVIDERS,
+    // The inventory import of a deck file (stage S5) matches passcodes of the provider
+    // `ygoprodeck`, which the sample catalog does not have: the isolated database gets the three
+    // fictional ones of ImportFixtureSeedContributor (910000001 to 910000003). The contributor
+    // refuses to run while the real provider is enabled, and no developer database ever gets them.
+    SEED_IMPORT_FIXTURES: 'true',
     CORS_ALLOWED_ORIGINS: `http://localhost:${webPort},http://127.0.0.1:${webPort}`,
-    ADS_WEB_BASE_URL: `http://localhost:${webPort}`,
     EVENTS_TRANSPORT: 'local',
     PAYMENT_PROVIDER: 'fake',
-    BILLING_PROVIDER: 'fake',
-    DONATION_PROVIDER: 'fake',
     PUSH_PROVIDER: 'log',
     EMAIL_PROVIDER: 'log',
+    // Every worker of the suite (and the simulator of the native flows) calls from one address,
+    // and the app reads `/api/v1/public/*` without a token: the whole run shares the anonymous
+    // budget of 60 a minute, and the 429 then fails an unrelated spec (the reasons of the report
+    // dialog, right after the region specs). Same setting as the web suite (web-e2e-guard.mjs);
+    // the limits themselves are proven by the API's integration tests, not by these suites.
+    RATE_LIMIT_ANONYMOUS_PER_MINUTE: '600',
+    // The same for the short window of a guest browsing Home and Search (stage R15): the specs
+    // and flows that browse signed out share the one address.
+    RATE_LIMIT_GUEST_DISCOVERY_PER_10S: '1000',
   };
 }
 
@@ -179,14 +191,7 @@ export function isolationProblems(env, { workDir, devDirs }) {
   if (String(env.CARD_IMAGE_ON_DEMAND_ENABLED) !== 'false') {
     problems.push('CARD_IMAGE_ON_DEMAND_ENABLED must be false (no card image downloads during tests).');
   }
-  if (String(env.YGOPRODECK_ENABLED) !== 'false') {
-    problems.push('YGOPRODECK_ENABLED must be false (tests never call YGOPRODeck; mock catalog only).');
-  }
-  for (const name of ['YGOPRODECK_API_BASE_URL', 'YGOPRODECK_IMAGE_BASE_URL']) {
-    if (!isLocalUrl(env[name])) {
-      problems.push(`${name} must point at a closed local port, not "${env[name] ?? ''}".`);
-    }
-  }
+  problems.push(...cardProviderProblems(env));
   return problems;
 }
 
@@ -300,4 +305,52 @@ export async function deleteRunAccounts({ emulatorUrl, projectId, runId, fetchIm
     fetchImpl,
   });
   return deleted.length;
+}
+
+// ------------------------------------------------------------- the served web export (web WB)
+
+/** The developer API's address, written into a web build (`localhost:8080`, `127.0.0.1:8080`). */
+export const DEVELOPER_API_IN_BUNDLE = new RegExp(`(?:localhost|127\\.0\\.0\\.1|\\[::1\\]):${DEV_API_PORT}\\b`);
+
+/**
+ * The scripts an exported Expo web page loads (`<script src="…">`), as paths of the server that
+ * serves it; scripts of other hosts are not the app's and are left out.
+ */
+export function bundleScriptPaths(html) {
+  const paths = [];
+  for (const match of String(html ?? '').matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi)) {
+    const src = match[1];
+    if (/^https?:\/\//i.test(src) || src.startsWith('//')) {
+      continue;
+    }
+    paths.push(src.startsWith('/') ? src : `/${src}`);
+  }
+  return [...new Set(paths)];
+}
+
+/**
+ * Whether the web export the mobile E2E specs would load talks to the isolated API (web stage WB,
+ * after stage WA's run served a stale export without `EXPO_PUBLIC_API_BASE_URL`, whose browser
+ * then read the developer API on :8080 for twenty minutes): its scripts must name `apiUrl` and
+ * never the developer API. `scripts` are `{ name, text }`. Returns null when the export may be
+ * used, else the reason.
+ */
+export function webBundleRefusal(scripts, apiUrl) {
+  if (!Array.isArray(scripts) || scripts.length === 0) {
+    return 'The served web export loads no JavaScript bundle; it is not the mobile E2E build.';
+  }
+  const developer = scripts.find((script) => DEVELOPER_API_IN_BUNDLE.test(script.text ?? ''));
+  if (developer) {
+    return (
+      `The served web export names the developer API (port ${DEV_API_PORT}) in ${developer.name}; ` +
+      `the mobile suites never send a request there. Rebuild it: npm run test:mobile:e2e -- --stop, then run again without --skip-build.`
+    );
+  }
+  if (!scripts.some((script) => (script.text ?? '').includes(apiUrl))) {
+    return (
+      `The served web export does not name the isolated API ${apiUrl} (a build made without EXPO_PUBLIC_API_BASE_URL ` +
+      `falls back to the developer API on :${DEV_API_PORT}). Rebuild it: npm run test:mobile:e2e -- --stop, then run again without --skip-build.`
+    );
+  }
+  return null;
 }

@@ -1,67 +1,38 @@
-import { useRouter } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { Redirect, useLocalSearchParams, useNavigation, usePathname } from 'expo-router';
+import { useEffect, useRef } from 'react';
 
-import { useAccount } from '@/src/account/AccountProvider';
-import { useHomeRegion } from '@/src/api/hooks/regions';
-import { Button } from '@/src/components/ui/Button';
-import { EmptyState } from '@/src/components/ui/EmptyState';
-import { ScreenHeader, SectionCard } from '@/src/components/ui/Layout';
-import { Screen } from '@/src/components/ui/Screen';
-import { regionName } from '@/src/lib/place';
-import { spacing, textStyle, useTheme } from '@/src/theme';
+import { HomeScreen } from '@/src/features/home/HomeScreen';
+import { mapLinkTarget } from '@/src/features/search/searchLinks';
+
+type OldMapLinkParams = { region?: string; subdivision?: string };
 
 /**
- * Map tab (ADR 0017). The web shows a map of the region's states and provinces shaded by public
- * binders; the app does not draw it yet (follow-up: the same bundled boundaries in the app), so
- * the tab explains that and leads to region-scoped search. No collector position exists anywhere:
- * there is nothing to pin. `react-native-maps` stays installed so the native build is unchanged.
+ * Home, the first of five tabs (stage R7; owner prompt of 2026-10-19). `/` is Home; the old Map
+ * tab's links (`/?region=&subdivision=`, before stage R5) still open Search's map on the region and
+ * the state they name. The redirect happens only while this route is the screen on display: mounted
+ * under another screen (the onboarding over the tabs), it would take that screen away.
+ *
+ * A link is followed once: once the redirect has left this route, its parameters are cleared, as
+ * Search does with its own. Kept, they sent every later tap on the Home tab back to Search until
+ * the app restarted (R7 review U1/F1). A link not followed yet (under the onboarding) is kept.
  */
-export default function MapScreen() {
-  const router = useRouter();
-  const { palette } = useTheme();
-  const account = useAccount();
-  const region = useHomeRegion();
-  const signedIn = !!account.me;
-  const withoutLocation = signedIn && account.me?.onboarding.locationSet === false;
-
-  return (
-    <Screen scroll testID="screen-map">
-      <ScreenHeader
-        eyebrow={regionName(region)}
-        title="Map"
-        subtitle="Binders by state and province"
-      />
-      <EmptyState
-        icon="map-outline"
-        title="The region map is coming to the app"
-        description={`On the web, the map of ${regionName(region)} shows how many public binders each state or province holds, and opens their binders. Until it reaches the app, search cards, collectors and binders of your region.`}
-        actionLabel="Search your region"
-        onAction={() => router.push('/search')}
-        testID="map-placeholder"
-      />
-      {withoutLocation ? (
-        <SectionCard
-          title="Where are you?"
-          description="Say which state or province you are in, and collectors of your region can find your public binders."
-        >
-          <Button
-            label="Choose my location"
-            icon="map-marker-outline"
-            onPress={() => router.push('/settings/location')}
-            testID="map-choose-location"
-          />
-        </SectionCard>
-      ) : null}
-      <View style={styles.note}>
-        <Text style={[textStyle('sm'), { color: palette.textMuted }]} testID="map-privacy-note">
-          OrenjiTrade never uses your GPS: collectors choose their state or province, and that is
-          all anyone sees.
-        </Text>
-      </View>
-    </Screen>
-  );
+export default function HomeRoute() {
+  const params = useLocalSearchParams<OldMapLinkParams>();
+  const pathname = usePathname();
+  const navigation = useNavigation<{ replaceParams: (params: OldMapLinkParams) => void }>();
+  const oldMapLink = params.region !== undefined || params.subdivision !== undefined;
+  const following = oldMapLink && pathname === '/';
+  const redirected = useRef(false);
+  useEffect(() => {
+    if (following) {
+      redirected.current = true;
+    } else if (oldMapLink && redirected.current) {
+      redirected.current = false;
+      navigation.replaceParams({});
+    }
+  }, [following, navigation, oldMapLink]);
+  if (oldMapLink) {
+    return following ? <Redirect href={mapLinkTarget(params)} /> : null;
+  }
+  return <HomeScreen />;
 }
-
-const styles = StyleSheet.create({
-  note: { marginTop: spacing[4] },
-});

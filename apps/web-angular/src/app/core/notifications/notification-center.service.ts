@@ -11,7 +11,11 @@ import {
   untracked,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { NotificationResponse, NotificationsService } from '@orenji/api-client';
+import {
+  ListNotificationsRequestParams,
+  NotificationResponse,
+  NotificationsService,
+} from '@orenji/api-client';
 import { Observable, Subject, firstValueFrom } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
 import { SessionService } from '../auth/session.service';
@@ -20,6 +24,19 @@ import { RealtimeService } from '../realtime/realtime.service';
 
 /** Notifications shown in the top-bar menu. */
 export const RECENT_NOTIFICATIONS = 8;
+
+/**
+ * The types the bell and the Notifications page leave out (spec 12, R9's `excludeTypes`): chats
+ * have their own unread count in Messages, and Community posts never notify.
+ */
+export const EXCLUDED_NOTIFICATION_TYPES: ListNotificationsRequestParams['excludeTypes'] = [
+  'MESSAGE',
+];
+
+/** Whether the bell and the Notifications page show a notification of this type. */
+export function bellShows(notification: Pick<NotificationResponse, 'type'>): boolean {
+  return !(EXCLUDED_NOTIFICATION_TYPES as string[]).includes(notification.type);
+}
 /** Pause before re-reading the unread count after the caller read a conversation. */
 export const RECEIPT_REFRESH_MS = 800;
 
@@ -135,7 +152,12 @@ export class NotificationCenter {
     const generation = this.generation;
     try {
       const answer = await firstValueFrom(
-        this.api.getUnreadNotificationCount('body', false, { context: silentErrors() }),
+        this.api.getUnreadNotificationCount(
+          { excludeTypes: EXCLUDED_NOTIFICATION_TYPES },
+          'body',
+          false,
+          { context: silentErrors() },
+        ),
       );
       if (generation === this.generation) {
         this.unreadState.set(Math.max(0, answer.count ?? 0));
@@ -156,9 +178,12 @@ export class NotificationCenter {
     }
     try {
       const page = await firstValueFrom(
-        this.api.listNotifications({ limit: RECENT_NOTIFICATIONS }, 'body', false, {
-          context: silentErrors(),
-        }),
+        this.api.listNotifications(
+          { limit: RECENT_NOTIFICATIONS, excludeTypes: EXCLUDED_NOTIFICATION_TYPES },
+          'body',
+          false,
+          { context: silentErrors() },
+        ),
       );
       if (generation !== this.generation) {
         return;
@@ -208,6 +233,11 @@ export class NotificationCenter {
       return;
     }
     this.seen.add(notification.id);
+    // A chat's notice still reaches the pages that listen (Messages), never the bell (spec 12).
+    if (!bellShows(notification)) {
+      this.pushedSubject.next(notification);
+      return;
+    }
     if (!notification.readAt) {
       this.unreadState.update((count) => count + 1);
     }

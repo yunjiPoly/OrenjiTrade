@@ -205,6 +205,10 @@ orenji:
     # subdivisions are data (GET /regions, /admin/regions).
     discovery-cache-ttl: 60s
     matching-items-per-collector: 5
+  feed:
+    # Home's feed (GET /api/v1/feed, stage R7): what became public in the region in the last
+    # window-days days; never anything older. The phone reads the number from each page.
+    window-days: ${FEED_WINDOW_DAYS:30}
   storage:
     # local | gcs
     provider: ${STORAGE_PROVIDER:local}
@@ -254,6 +258,33 @@ orenji:
       # Raw JSON snapshots per database version (git-ignored), reused while the version is unchanged.
       snapshot-dir: ${PROVIDER_DATA_DIR:./.local-dev/provider-data}/ygoprodeck
       snapshot-only: ${YGOPRODECK_SNAPSHOT_ONLY:false}
+    scryfall:
+      # Real Magic: The Gathering catalog (docs/providers/scryfall.md, ADR 0021): Scryfall's daily
+      # bulk file "Unique Artwork", English paper cards, one image per artwork. Imported only on
+      # request (npm run catalog:import -- --game mtg --provider scryfall).
+      enabled: ${SCRYFALL_ENABLED:true}
+      game-slug: mtg
+      api-base-url: ${SCRYFALL_API_BASE_URL:https://api.scryfall.com/}
+      bulk-base-url: ${SCRYFALL_BULK_BASE_URL:https://data.scryfall.io/}
+      image-base-url: ${SCRYFALL_IMAGE_BASE_URL:https://cards.scryfall.io/}
+      # Scryfall asks for 50 to 100 ms between requests; refused above 10.
+      requests-per-second: ${SCRYFALL_REQUESTS_PER_SECOND:8}
+      # The raw bulk file per updated_at (git-ignored), reused for a day without any call.
+      snapshot-dir: ${PROVIDER_DATA_DIR:./.local-dev/provider-data}/scryfall
+      snapshot-only: ${SCRYFALL_SNAPSHOT_ONLY:false}
+    tcgdex:
+      # Real Pokémon TCG catalog (docs/providers/tcgdex.md, ADR 0021): TCGdex's card database
+      # (github.com/tcgdex/cards-database, MIT), English cards only, one image per printing.
+      # Imported only on request (npm run catalog:import -- --game pokemon --provider tcgdex).
+      enabled: ${TCGDEX_ENABLED:true}
+      game-slug: pokemon
+      repository-api-url: ${TCGDEX_REPOSITORY_API_URL:https://api.github.com/repos/tcgdex/cards-database/}
+      archive-base-url: ${TCGDEX_ARCHIVE_BASE_URL:https://codeload.github.com/tcgdex/cards-database/zip/}
+      asset-base-url: ${TCGDEX_ASSET_BASE_URL:https://assets.tcgdex.net/}
+      requests-per-second: ${TCGDEX_REQUESTS_PER_SECOND:5}
+      # The raw repository archive per commit (git-ignored, with its MIT LICENSE), reused for a day.
+      snapshot-dir: ${PROVIDER_DATA_DIR:./.local-dev/provider-data}/tcgdex
+      snapshot-only: ${TCGDEX_SNAPSHOT_ONLY:false}
   account:
     # A deletion request needs an ID token whose auth_time is younger than this (401 otherwise).
     reauth-window: 5m
@@ -271,38 +302,6 @@ orenji:
       secret-key: ${STRIPE_SECRET_KEY:}
       webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
       web-base-url: ${WEB_BASE_URL:https://www.orenjitrade.com}
-  billing:
-    # Phase 10 subscriptions: fake | stripe. fake needs no credentials; stripe needs
-    # STRIPE_SECRET_KEY, STRIPE_BILLING_WEBHOOK_SECRET and a Stripe price id per paid plan.
-    provider: ${BILLING_PROVIDER:fake}
-    # A real provider's subscription without a renewal webhook expires this long after its period.
-    renewal-grace: 3d
-    fake:
-      # HMAC key of the fake billing provider's synthetic webhooks; not a real secret.
-      webhook-secret: ${FAKE_BILLING_WEBHOOK_SECRET:local-fake-billing-webhook-secret}
-      # Empty: checkout URLs are the web path /checkout/fake-billing/<ref>.
-      checkout-base-url: ${FAKE_CHECKOUT_BASE_URL:}
-      period: 30d
-    stripe:
-      secret-key: ${STRIPE_SECRET_KEY:}
-      webhook-secret: ${STRIPE_BILLING_WEBHOOK_SECRET:}
-      web-base-url: ${WEB_BASE_URL:https://www.orenjitrade.com}
-      price-ids:
-        "[PREMIUM]": ${STRIPE_PRICE_PREMIUM:}
-  donations:
-    # Phase 10 voluntary donations: only fake exists (no credentials, no money).
-    provider: ${DONATION_PROVIDER:fake}
-    fake:
-      webhook-secret: ${FAKE_DONATIONS_WEBHOOK_SECRET:local-fake-donations-webhook-secret}
-      # Empty: checkout URLs are the web path /checkout/fake-donation/<ref>.
-      checkout-base-url: ${FAKE_CHECKOUT_BASE_URL:}
-  ads:
-    # HMAC key of the ad serve tokens (impressions and clicks). The development default is refused
-    # outside the local, test and dev profiles.
-    token-secret: ${ADS_TOKEN_SECRET:local-ads-token-secret}
-    token-max-age: 24h
-    # Origin of relative house-ad landing paths (e.g. /premium) on click redirects.
-    web-base-url: ${ADS_WEB_BASE_URL:http://localhost:4200}
   push:
     # log | fcm
     provider: ${PUSH_PROVIDER:log}
@@ -317,6 +316,10 @@ orenji:
     # SeedDataRunner: fictional accounts (+ emulator users) for local/dev only.
     enabled: false
     emulator-password: ${SEED_EMULATOR_PASSWORD:LocalDev!2026}
+    # End-to-end suites only: fictional Yu-Gi-Oh! cards under the provider ygoprodeck, so a YDK
+    # deck file has something to match (ImportFixtureSeedContributor). Never in a database that
+    # imports the real catalog: the seed refuses to run while YGOPRODECK_ENABLED is true.
+    import-fixtures: ${SEED_IMPORT_FIXTURES:false}
   ratelimit:
     # Fixed windows in Redis. First matching policy wins, so specific ones come first.
     # Contract table: docs/api/contracts/phase1-auth-users.md#rate-limiting
@@ -332,6 +335,27 @@ orenji:
         path-patterns: ["/api/v1/inventory/items/*/images"]
         methods: [POST]
         limit: 60
+        window-seconds: 3600
+        key-by: USER
+      - name: binder-image-upload
+        # The photos of a deck core (stage R3), the same pace as the photos of a card.
+        path-patterns: ["/api/v1/binders/*/images"]
+        methods: [POST]
+        limit: 60
+        window-seconds: 3600
+        key-by: USER
+      - name: inventory-import-upload
+        # An upload is parsed, matched to the catalog and stored: 30 files an hour is a collector
+        # importing every deck they own, not a script.
+        path-patterns: ["/api/v1/inventory/imports"]
+        methods: [POST]
+        limit: ${RATE_LIMIT_IMPORT_UPLOADS_PER_HOUR:30}
+        window-seconds: 3600
+        key-by: USER
+      - name: inventory-import-commit
+        path-patterns: ["/api/v1/inventory/imports/*/commit"]
+        methods: [POST]
+        limit: ${RATE_LIMIT_IMPORT_COMMITS_PER_HOUR:30}
         window-seconds: 3600
         key-by: USER
       - name: image-upload
@@ -351,6 +375,14 @@ orenji:
         limit: 5
         window-seconds: 86400
         key-by: USER
+      - name: handle-availability
+        # The welcome step checks the handle while the collector types (stage R12): a few dozen
+        # checks while choosing one, never a list of every handle taken.
+        path-patterns: ["/api/v1/me/profile/handle-availability"]
+        methods: [GET]
+        limit: 60
+        window-seconds: 600
+        key-by: USER
       - name: tags-search
         path-patterns: ["/api/v1/tags"]
         methods: [GET]
@@ -363,17 +395,6 @@ orenji:
         limit: 600
         window-seconds: 60
         key-by: IP
-      - name: billing-webhooks
-        path-patterns: ["/api/v1/webhooks/billing/*", "/api/v1/webhooks/donations/*"]
-        methods: [POST]
-        limit: 600
-        window-seconds: 60
-        key-by: IP
-      - name: ad-events
-        path-patterns: ["/api/v1/ads/*/impression", "/api/v1/ads/*/click"]
-        limit: 600
-        window-seconds: 60
-        key-by: IP
       - name: card-images
         # Card pictures (cached artworks and placeholders): a page shows dozens of them.
         path-patterns: ["/api/v1/public/card-images/*", "/api/v1/public/placeholder-images/**"]
@@ -381,6 +402,26 @@ orenji:
         limit: ${RATE_LIMIT_CARD_IMAGES_PER_MINUTE:600}
         window-seconds: 60
         key-by: IP
+      - name: guest-discovery
+        # Browsing without an account (stage R15): the reads a signed-out visitor makes while
+        # scrolling Home and Search (the feed, card holders, binder and deck core lists, binder
+        # search, a public binder) are counted by address in a short window. The address is only
+        # part of a Redis key that expires with its window: never stored, logged or turned into a
+        # place (ADR 0017). These reads count here instead of default-anonymous (the first policy
+        # that matches wins), so 10 per 10 seconds keeps them within the 60 a minute an address
+        # had for them before the stage (review fix 1, F5), in a shorter window.
+        path-patterns:
+          - "/api/v1/feed"
+          - "/api/v1/search"
+          - "/api/v1/search/**"
+          - "/api/v1/regions/*/binders"
+          - "/api/v1/regions/*/subdivisions/*/binders"
+          - "/api/v1/public/binders/**"
+        methods: [GET]
+        limit: ${RATE_LIMIT_GUEST_DISCOVERY_PER_10S:10}
+        window-seconds: 10
+        key-by: IP
+        applies-to: ANONYMOUS
       - name: default-authenticated
         path-patterns: ["/api/**"]
         limit: ${RATE_LIMIT_DEFAULT_PER_MINUTE:120}
@@ -527,6 +568,22 @@ orenji:
       api-base-url: http://127.0.0.1:9/api/v7/
       image-base-url: http://127.0.0.1:9/images/cards/
       snapshot-dir: ${java.io.tmpdir}/orenjitrade-test-provider-data/ygoprodeck
+      initial-backoff: 10ms
+      max-backoff: 40ms
+    scryfall:
+      api-base-url: http://127.0.0.1:9/scryfall-api/
+      bulk-base-url: http://127.0.0.1:9/scryfall-data/
+      image-base-url: http://127.0.0.1:9/scryfall-images/
+      snapshot-dir: ${java.io.tmpdir}/orenjitrade-test-provider-data/scryfall
+      snapshot-only: true
+      initial-backoff: 10ms
+      max-backoff: 40ms
+    tcgdex:
+      repository-api-url: http://127.0.0.1:9/github/repos/tcgdex/cards-database/
+      archive-base-url: http://127.0.0.1:9/codeload/
+      asset-base-url: http://127.0.0.1:9/tcgdex-assets/
+      snapshot-dir: ${java.io.tmpdir}/orenjitrade-test-provider-data/tcgdex
+      snapshot-only: true
       initial-backoff: 10ms
       max-backoff: 40ms
   seed:

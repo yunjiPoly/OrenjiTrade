@@ -70,6 +70,17 @@ public class BlockRepository {
                 .single();
     }
 
+    /** Whether {@code blockerId} blocked {@code blockedId} (one direction). */
+    public boolean exists(UUID blockerId, UUID blockedId) {
+        return jdbc.sql(
+                        "SELECT EXISTS (SELECT 1 FROM user_block WHERE blocker_id = :blocker AND"
+                                + " blocked_id = :blocked)")
+                .param("blocker", blockerId)
+                .param("blocked", blockedId)
+                .query(Boolean.class)
+                .single();
+    }
+
     /** Blocks created by {@code blockerId}, newest first. */
     public List<Row> blockedBy(UUID blockerId) {
         return jdbc.sql(

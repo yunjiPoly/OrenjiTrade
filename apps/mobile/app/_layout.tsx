@@ -10,10 +10,13 @@ import { connectQueryManagers, queryClient } from '@/src/api/queryClient';
 import { SessionProvider } from '@/src/auth/session';
 import { OfflineBanner } from '@/src/components/OfflineBanner';
 import { SnackbarProvider } from '@/src/components/ui/Snackbar';
+import { PushOpener } from '@/src/features/notifications/pushOpener';
+import { scanRunner } from '@/src/features/scan/scanRunner';
 import { RootNavigator } from '@/src/navigation/RootNavigator';
 import { RealtimeCacheSync } from '@/src/realtime/RealtimeCacheSync';
 import { RealtimeProvider } from '@/src/realtime/RealtimeProvider';
 import { ThemeProvider } from '@/src/theme/ThemeProvider';
+import { useAppFonts } from '@/src/theme/useAppFonts';
 
 export {
   // Expo Router uses Error Boundaries to catch errors in the navigation tree.
@@ -28,10 +31,19 @@ SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 export default function RootLayout() {
   useEffect(() => connectQueryManagers(), []);
+  // The card scan's photo copies of a scan lost when the app was closed are deleted at start-up.
+  useEffect(() => void scanRunner.sweepLeftovers(), []);
   // The icon font is preloaded (not awaited): the web static render then embeds it, so the
   // server HTML and the first client render draw the same glyphs (no hydration mismatch), and
   // native screens do not flash empty icons.
   useFonts(MaterialCommunityIcons.font);
+  // Sora, Inter and JetBrains Mono (spec 2026-10-14, section 3): the first screen waits for them
+  // on a phone (the splash screen stays up meanwhile), so no screen draws in the system font
+  // first.
+  const fontsReady = useAppFonts();
+  if (!fontsReady) {
+    return null;
+  }
 
   return (
     <SafeAreaProvider>
@@ -44,6 +56,8 @@ export default function RootLayout() {
                 <SnackbarProvider>
                   <OfflineBanner />
                   <RootNavigator />
+                  {/* A tapped push notification opens its row's target (stage R9). */}
+                  <PushOpener />
                 </SnackbarProvider>
               </ThemeProvider>
             </RealtimeProvider>

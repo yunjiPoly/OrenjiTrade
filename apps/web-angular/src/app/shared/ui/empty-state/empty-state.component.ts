@@ -11,7 +11,17 @@ import { MatIconModule } from '@angular/material/icon';
   template: `
     <div class="empty-state">
       <mat-icon class="empty-state__icon" aria-hidden="true">{{ icon() }}</mat-icon>
-      <h2 class="empty-state__title">{{ title() }}</h2>
+      @switch (level()) {
+        @case (1) {
+          <h1 class="empty-state__title">{{ title() }}</h1>
+        }
+        @case (3) {
+          <h3 class="empty-state__title">{{ title() }}</h3>
+        }
+        @default {
+          <h2 class="empty-state__title">{{ title() }}</h2>
+        }
+      }
       @if (description()) {
         <p class="empty-state__description">{{ description() }}</p>
       }
@@ -63,4 +73,6 @@ export class EmptyStateComponent {
   readonly icon = input('inbox');
   readonly title = input.required<string>();
   readonly description = input('');
+  /** The title's heading level: 2 inside a page, 1 when the state is the page, 3 in a section. */
+  readonly level = input<1 | 2 | 3>(2);
 }

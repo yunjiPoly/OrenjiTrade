@@ -64,7 +64,7 @@ function deepLinkValidator(control: AbstractControl<string>): ValidationErrors |
       <mat-form-field appearance="outline">
         <mat-label>Link in the app (optional)</mat-label>
         <input matInput formControlName="deepLink" placeholder="/community" />
-        <mat-hint>A path such as /premium or /community/montreal-pokemon.</mat-hint>
+        <mat-hint>A path such as /wishlist or /community/montreal-pokemon.</mat-hint>
         @if (form.controls.deepLink.hasError('deepLink')) {
           <mat-error>Use an app path starting with /.</mat-error>
         }

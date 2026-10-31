@@ -1,0 +1,37 @@
+# Scrolls a list down until the element with id ID sits above the element with id BAR: a bar that
+# stays on screen under the list (the commit bar of the import preview).
+#
+# Why not scroll-down-to.yaml: on iOS the accessibility tree also lists what the list holds under
+# such a bar, so the element counts as "on screen" while the bar covers it, and the centring swipe
+# of `scrollUntilVisible` then starts on the bar, which does not scroll: nothing moves and the tap
+# lands on the bar. Here the list is dragged by its right edge (never on a row's control) until the
+# top of the element is above the top of the bar, then once more by a fixed stretch so the whole
+# element is clear of the bar. An element that was already above the bar is left where it is.
+appId: ${APP_ID}
+---
+- evalScript: ${output.scrolledForBar = false}
+- repeat:
+    while:
+      notVisible:
+        id: ${ID}
+        above:
+          id: ${BAR}
+    times: 30
+    commands:
+      - evalScript: ${output.scrolledForBar = true}
+      - swipe:
+          start: 97%, 60%
+          end: 97%, 40%
+          duration: 500
+- runFlow:
+    when:
+      true: ${output.scrolledForBar}
+    commands:
+      - swipe:
+          start: 97%, 60%
+          end: 97%, 42%
+          duration: 500
+- assertVisible:
+    id: ${ID}
+    above:
+      id: ${BAR}

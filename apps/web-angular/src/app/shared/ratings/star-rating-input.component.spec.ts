@@ -28,9 +28,9 @@ describe('StarRatingInputComponent', () => {
     );
     expect(stars().map((star) => star.getAttribute('aria-label'))).toEqual([
       '1 star, Poor',
-      '2 stars, Fair',
-      '3 stars, Good',
-      '4 stars, Great',
+      '2 stars, Not great',
+      '3 stars, Okay',
+      '4 stars, Good',
       '5 stars, Excellent',
     ]);
     expect(stars().map((star) => star.getAttribute('tabindex'))).toEqual([

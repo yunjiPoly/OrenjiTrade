@@ -85,7 +85,9 @@ export const CARD_IMAGE_DIMENSIONS: Readonly<
       display: block;
       flex: 0 0 auto;
       width: var(--card-image-width, var(--ci-width, 100%));
-      max-width: 100%;
+      /* Card art is never wider than 160 CSS px (ADR 0015, web redesign spec 2.5): the one 320 px
+         rendition stays sharp at 2x. */
+      max-width: min(100%, 160px);
       aspect-ratio: 5 / 7;
       overflow: hidden;
       border-radius: var(--card-image-radius, var(--ci-radius, 4.5% / 3.2%));
@@ -105,11 +107,9 @@ export const CARD_IMAGE_DIMENSIONS: Readonly<
     :host([data-size='md']) {
       --ci-width: 120px;
     }
-    :host([data-size='lg']) {
-      --ci-width: 240px;
-    }
+    :host([data-size='lg']),
     :host([data-size='xl']) {
-      --ci-width: 360px;
+      --ci-width: 160px;
     }
     .ci__img {
       display: block;

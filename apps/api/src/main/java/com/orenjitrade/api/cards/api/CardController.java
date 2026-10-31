@@ -50,13 +50,14 @@ public class CardController {
             description =
                     "Full-text search on name, type and text (accent-insensitive, `simple` config)"
                         + " ranked with ts_rank_cd, plus trigram typo tolerance when fewer than 5"
-                        + " rows match. An exact printing code (`AZR-EN001`) returns that card"
-                        + " only. Filters: `game`, `set` (id or code), printing `rarity`,"
-                        + " `language`, `edition`, and `metadata.<key>=<value>` for the game's"
-                        + " filterable GameSchema fields (requires `game`; number, string,"
-                        + " string_list and boolean fields; repeat a string_list key to require"
-                        + " several values). Without `query`: by name. `metadata` in the results"
-                        + " holds the game's summary fields.")
+                        + " rows match. An exact printing code (`AZR-EN001`; typed as printed, a"
+                        + " space for the dash and a padded number also read: `ZTK 0012` also reads"
+                        + " as `ZTK-12`) returns that card only. Filters: `game`, `set` (id or"
+                        + " code), printing `rarity`, `language`, `edition`, and"
+                        + " `metadata.<key>=<value>` for the game's filterable GameSchema fields"
+                        + " (requires `game`; number, string, string_list and boolean fields;"
+                        + " repeat a string_list key to require several values). Without `query`:"
+                        + " by name. `metadata` in the results holds the game's summary fields.")
     public PageResponse<CardSummary> search(
             @Parameter(description = "Game slug, e.g. yugioh")
                     @RequestParam(required = false)
@@ -102,8 +103,12 @@ public class CardController {
             operationId = "suggestCards",
             summary = "Autocomplete cards and printing codes (public)",
             description =
-                    "Printing-code prefixes (`AZR-EN0`) first (kind PRINTING), then cards by name:"
-                            + " prefix, substring, full text, trigram (kind CARD).")
+                    "Printing-code prefixes (`AZR-EN0`; a space reads as the dash) first (kind"
+                        + " PRINTING), then cards by name: prefix, substring, full text, trigram"
+                        + " (kind CARD). Only when no code starts as typed does a padded number"
+                        + " read without its zeros, as the whole number: `ZTK 0012` lists `ZTK-12`"
+                        + " (and `ZTK-12P`), never `ZTK-120`; `ZSK 001` lists `ZSK-001` alone when"
+                        + " the catalogue holds it. Each printing is listed once.")
     public List<CardSuggestion> suggest(
             @Parameter(description = "Game slug") @RequestParam(required = false) @Size(max = 32)
                     @Nullable String game,

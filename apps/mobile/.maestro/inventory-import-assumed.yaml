@@ -1,0 +1,183 @@
+# Inventory import, the copies that were assumed (stage S5, review fix 2): a collector pastes a
+# fictional CSV that names two cards without a set. Each has a 1st Edition and an Unlimited copy
+# in its one set (the sample catalog), so "use the most recent printing" takes the plain copy of
+# both and says so in a snackbar. The snackbar goes away; the lines stay counted on a card above
+# the lines and on the filter that stays on screen, the card's button lists them, and each leaves
+# the list once its copy is picked again (confirmed) or changed. scripts/check-import.js checks
+# what the isolated API holds after the commit.
+appId: ${APP_ID}
+name: Import a CSV whose assumed copies stay to check
+tags:
+  - mobile-s5
+  - inventory-import
+---
+- runScript:
+    file: scripts/create-collector.js
+    env:
+      PREFIX: plain
+      DISPLAY_NAME: Maestro Plain Copies
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+- extendedWaitUntil:
+    visible:
+      id: 'tab-inventory'
+    timeout: 60000
+- tapOn:
+    id: 'tab-inventory'
+- extendedWaitUntil:
+    visible:
+      id: 'inventory-empty'
+    timeout: 60000
+
+# Add cards (stage R2 of the phone redesign), then the import it opens on its source.
+- tapOn:
+    id: 'inventory-add-card'
+- extendedWaitUntil:
+    visible:
+      id: 'add-cards-import-collectr'
+    timeout: 30000
+- tapOn:
+    id: 'add-cards-import-collectr'
+- extendedWaitUntil:
+    visible:
+      id: 'import-choose-file'
+    timeout: 30000
+
+# The text of the export, pasted: the knight and the magician by their names only, the dragon
+# with its printing and its edition.
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'import-paste'
+- tapOn:
+    id: 'import-paste'
+- tapOn:
+    id: 'import-paste-text'
+- inputText: "Product Name,Card Number,Variance,Card Condition,Quantity\nMirrorblade Knight,,,Lightly Played,1\nAzure-Eyes Sky Dragon,AZR-EN001,1st Edition,Near Mint,1\nObsidian Magician Adept,,,Near Mint,2\n"
+- runFlow: subflows/hide-keyboard.yaml
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'import-paste-submit'
+- tapOn:
+    id: 'import-paste-submit'
+
+# The preview: one line ready, two that need a printing. Nothing was assumed yet.
+- extendedWaitUntil:
+    visible:
+      id: 'import-summary'
+    timeout: 60000
+- assertVisible: 'Which copy\? 2'
+- assertNotVisible: '(Plain copy assumed|[0-9]+ assumed).*'
+
+# "Use the newest" of the amber bar (stage R14) takes the plain copy of both, and says so once.
+- assertVisible: '2 lines need a printing\. Pick one on each, or use the newest for all\.'
+- tapOn:
+    id: 'import-bulk-recent'
+- extendedWaitUntil:
+    visible: '2 lines got their most recent printing\. Their most recent set has several versions: the plain copy \(Unlimited, no foil\) was taken\. Check them\.'
+    timeout: 30000
+- extendedWaitUntil:
+    notVisible: '2 lines got their most recent printing.*'
+    timeout: 30000
+
+# The snackbar is gone: the filter that stays on screen still counts the lines, and so does a
+# card above the lines, whose button lists them.
+- assertVisible: '2 assumed: the lines whose plain copy was assumed'
+- runFlow:
+    file: subflows/scroll-down-above.yaml
+    env:
+      ID: 'import-show-assumed'
+      BAR: 'import-commit-bar'
+- assertVisible: 'Plain copy assumed for 2 lines'
+- assertVisible: 'Show these 2 lines'
+- takeScreenshot: import-assumed-card
+- tapOn:
+    id: 'import-show-assumed'
+- runFlow:
+    file: subflows/scroll-down-above.yaml
+    env:
+      ID: 'import-row-0-printing'
+      BAR: 'import-commit-bar'
+- assertVisible: 'Which copy of Mirrorblade Knight: SHV-EN003 · Super Rare · Shadowvale Legacy \(taken as the plain copy: check it\)'
+# Only those lines: the dragon's copy came from the file.
+- assertNotVisible:
+    id: 'import-row-1'
+- takeScreenshot: import-assumed-list
+
+# The knight's plain copy is right: picked again, it is the collector's choice, the line leaves
+# the list and the count goes down.
+- tapOn:
+    id: 'import-row-0-printing'
+- extendedWaitUntil:
+    visible: 'SHV-EN003, .*Unlimited.*'
+    timeout: 30000
+- tapOn: 'SHV-EN003, .*Unlimited.*'
+- extendedWaitUntil:
+    visible: '1 assumed: the line whose plain copy was assumed'
+    timeout: 30000
+- assertNotVisible:
+    id: 'import-row-0'
+
+# The magician is the 1st Edition: changed, and nothing is left to check.
+- runFlow:
+    file: subflows/scroll-down-above.yaml
+    env:
+      ID: 'import-row-2-printing'
+      BAR: 'import-commit-bar'
+- tapOn:
+    id: 'import-row-2-printing'
+- extendedWaitUntil:
+    visible: 'GLM-EN002, .*1st Edition.*'
+    timeout: 30000
+- tapOn: 'GLM-EN002, .*1st Edition.*'
+- extendedWaitUntil:
+    visible: 'No plain copy left to check'
+    timeout: 30000
+- takeScreenshot: import-assumed-none
+# "Show all lines" stands under the text, half behind the bar at the bottom: the list is dragged
+# up by its right edge first (its top is above the bar already, so scroll-down-above.yaml would
+# leave it where it is and the tap would land on the bar).
+- swipe:
+    start: 97%, 60%
+    end: 97%, 40%
+    duration: 500
+- assertVisible:
+    id: 'import-rows-empty-action'
+    above:
+      id: 'import-commit-bar'
+- tapOn:
+    id: 'import-rows-empty-action'
+- extendedWaitUntil:
+    notVisible: '(Plain copy assumed|[0-9]+ assumed).*'
+    timeout: 30000
+
+# The commit: the copies the collector confirmed and chose, private.
+- extendedWaitUntil:
+    visible: 'Add 3 cards \(4 copies\) to my inventory'
+    timeout: 30000
+- tapOn:
+    id: 'import-commit'
+- extendedWaitUntil:
+    visible:
+      id: 'import-result'
+    timeout: 60000
+- assertVisible: '3 cards added'
+- assertVisible: '3 new cards added'
+- runScript:
+    file: scripts/check-import.js
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+      EXPECT_ITEMS: 'AZR-EN001:NEAR_MINT:1:PRIVATE,GLM-EN002:NEAR_MINT:2:PRIVATE,SHV-EN003:LIGHTLY_PLAYED:1:PRIVATE'
+      EXPECT_IMPORT_STATUS: 'COMMITTED'
+- tapOn:
+    id: 'import-result-inventory'
+- extendedWaitUntil:
+    visible: 'Obsidian Magician Adept, GLM-EN002, Private, 2 copies'
+    timeout: 60000
+- assertVisible: '3 cards · 4 copies · 0 public'

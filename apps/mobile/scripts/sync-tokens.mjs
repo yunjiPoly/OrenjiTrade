@@ -22,12 +22,16 @@ const outputPath = resolve(projectRoot, 'src/theme/tokens.ts');
 /** Fallback values (docs/design/design-system.md). Same shape as packages/design-tokens/tokens.json. */
 const FALLBACK_TOKENS = {
   font: {
-    display: { web: '"Sora", system-ui, sans-serif', mobile: 'Sora', use: 'wordmark, page titles' },
+    display: {
+      web: '"Sora", system-ui, sans-serif',
+      mobile: 'Sora',
+      use: 'wordmark, screen titles, big numbers',
+    },
     body: { web: '"Inter", system-ui, sans-serif', mobile: 'Inter', use: 'everything else' },
     mono: {
       web: '"JetBrains Mono", monospace',
-      mobile: 'monospace',
-      use: 'set codes, collector numbers',
+      mobile: 'JetBrains Mono',
+      use: 'card codes, set codes, collector numbers, tracking numbers',
     },
   },
   fontSize: { xs: 12, sm: 14, md: 16, lg: 18, xl: 20, '2xl': 24, '3xl': 30, '4xl': 36 },
@@ -49,10 +53,18 @@ const FALLBACK_TOKENS = {
     durationSlow: '320ms',
     easingStandard: 'cubic-bezier(0.2, 0, 0, 1)',
   },
+  // The games' monogram tiles (stage G), the same in both themes.
+  gameTile: {
+    yugioh: { letter: 'Y', foreground: '#FDBA74', background: '#4A2A0A' },
+    pokemon: { letter: 'P', foreground: '#FDE68A', background: '#3F3A12' },
+    mtg: { letter: 'M', foreground: '#BFDBFE', background: '#1E3A5F' },
+    onepiece: { letter: 'O', foreground: '#FCA5A5', background: '#4A1D1D' },
+    riftbound: { letter: 'R', foreground: '#86EFAC', background: '#1F3B2A' },
+  },
   color: {
     light: {
       primary: '#F4761A',
-      onPrimary: '#FFFFFF',
+      onPrimary: '#1C1917',
       primaryContainer: '#FFE1CB',
       onPrimaryContainer: '#4A1F00',
       accent: '#0F766E',
@@ -84,6 +96,7 @@ const FALLBACK_TOKENS = {
         notAvailable: '#A8A29E',
       },
       online: { online: '#22C55E', recent: '#F59E0B', offline: 'transparent' },
+      deckCore: { tagBackground: '#EDE9FE', tagText: '#5B21B6', switch: '#7C3AED' },
     },
     dark: {
       primary: '#FF8F3D',
@@ -119,6 +132,7 @@ const FALLBACK_TOKENS = {
         notAvailable: '#78716C',
       },
       online: { online: '#4ADE80', recent: '#FBBF24', offline: 'transparent' },
+      deckCore: { tagBackground: '#2E2547', tagText: '#C4B5FD', switch: '#8B5CF6' },
     },
   },
 };
@@ -129,7 +143,11 @@ function isPlainObject(value) {
 
 const LEAF_META_KEYS = new Set(['value', 'type', '$type', 'description', 'comment']);
 
-/** Drops `$meta`-style keys and unwraps `{ value: x }` / `{ $value: x }` leaves recursively. */
+/**
+ * Drops `$meta`-style keys and unwraps `{ value: x }` / `{ $value: x }` leaves recursively. A
+ * group whose `"$platforms"` does not list `mobile` is left out (the web-only groups); one that
+ * lists it (the deck core colours) is kept.
+ */
 function normalise(node) {
   if (!isPlainObject(node)) {
     return node;
@@ -143,6 +161,13 @@ function normalise(node) {
   const out = {};
   for (const [key, child] of Object.entries(node)) {
     if (key.startsWith('$')) continue;
+    if (
+      isPlainObject(child) &&
+      Array.isArray(child.$platforms) &&
+      !child.$platforms.includes('mobile')
+    ) {
+      continue;
+    }
     out[key] = normalise(child);
   }
   return out;

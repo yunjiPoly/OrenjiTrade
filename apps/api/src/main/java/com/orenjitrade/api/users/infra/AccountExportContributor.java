@@ -14,7 +14,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 /**
- * Export sections of the users module: {@code account} (identity attributes, roles, plan), {@code
+ * Export sections of the users module: {@code account} (identity attributes, roles), {@code
  * consents} and {@code deletionRequests}. The provider uid is internal and not exported.
  */
 @Component
@@ -54,7 +54,6 @@ public class AccountExportContributor implements ExportContributor {
         data.put("emailVerified", account.emailVerified());
         data.put("roles", account.roles().stream().map(Enum::name).sorted().toList());
         data.put("status", account.status().name());
-        data.put("plan", account.planCode());
         data.put("createdAt", account.createdAt());
         data.put("lastActiveAt", account.lastActiveAt());
         data.put("consents", consentService.consentsOf(userId));

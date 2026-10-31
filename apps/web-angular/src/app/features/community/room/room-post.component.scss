@@ -1,0 +1,379 @@
+// One post of a room (board W22): 10 12 of padding, radius 14, a 36 avatar 12 from the text; the
+// row lights up on hover or focus and while its "⋯" menu is open.
+:host {
+  display: block;
+}
+
+.post {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  transition: background-color var(--motion-duration-fast) var(--motion-easing-standard);
+}
+
+.post:hover,
+.post:focus-within,
+.post--on {
+  background: var(--color-surface);
+}
+
+.post__avatar {
+  flex: none;
+  display: flex;
+  border-radius: 50%;
+}
+
+.post__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.post__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+}
+
+.post__handle {
+  flex: none;
+  max-width: 60%;
+  overflow: hidden;
+  color: var(--color-ink);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-semibold);
+  line-height: 20px;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.post__handle:hover {
+  text-decoration: underline;
+}
+
+.post__you {
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--color-surface-variant);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-tag);
+  font-weight: var(--font-weight-semibold);
+}
+
+.post__meta {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-meta);
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// The "⋯" shows on hover or focus (spec 10.7), and always for a pointer that cannot hover.
+.post__more {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin: -6px -4px -6px 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--motion-duration-fast) var(--motion-easing-standard);
+}
+
+.post:hover .post__more,
+.post:focus-within .post__more,
+.post__more--on {
+  opacity: 1;
+}
+
+.post__more:hover,
+.post__more--on {
+  background: var(--color-surface-variant);
+}
+
+@media (hover: none) {
+  .post__more {
+    opacity: 1;
+  }
+}
+
+.post__text {
+  max-width: 68ch;
+  margin: 0;
+  color: var(--color-ink);
+  font-size: var(--font-size-body);
+  line-height: 24px;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+// The photos a phone added: read only (the web posts none). One photo keeps its shape within
+// 320 × 240, several are 200 squares (board W22).
+.post__photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.post__photo {
+  flex: none;
+  width: 200px;
+  height: 200px;
+  max-width: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface-variant);
+  cursor: zoom-in;
+}
+
+.post__photos--one .post__photo {
+  width: 320px;
+  height: 240px;
+}
+
+.post__photo:hover,
+.post__photo:focus-visible {
+  border-color: var(--color-border-strong);
+}
+
+.post__photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+// A shared card, deck core or binder: a 320 card (board W22).
+.share {
+  display: flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 12px;
+  width: 320px;
+  max-width: 100%;
+  margin: 4px 0 0;
+  padding: 10px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 16px;
+  background: var(--color-surface);
+}
+
+.share--core {
+  border-color: var(--color-deck-core-border);
+}
+
+.share--gone {
+  width: auto;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-meta);
+}
+
+.share__art {
+  display: grid;
+  flex: none;
+  place-items: center;
+  overflow: hidden;
+}
+
+.share__art--card {
+  width: 48px;
+  border-radius: 5px;
+}
+
+.share__art--core {
+  width: 56px;
+  height: 56px;
+  border: 1px solid var(--color-deck-core-border);
+  border-radius: 10px;
+  background: var(--color-deck-core-surface);
+  color: var(--color-deck-core-tag-text);
+}
+
+.share__art--core img,
+.share__sheet img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.share__stack {
+  position: relative;
+  flex: none;
+  width: 56px;
+  height: 56px;
+}
+
+.share__sheet {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 34px;
+  height: 50px;
+  overflow: hidden;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 5px;
+  background: var(--color-surface-variant);
+}
+
+.share__sheet--back {
+  top: 6px;
+  right: auto;
+  left: 2px;
+  transform: rotate(-6deg);
+}
+
+.share__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.share__name {
+  overflow: hidden;
+  color: var(--color-ink);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.share__code {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  line-height: 16px;
+}
+
+.share__badge {
+  display: flex;
+  align-items: center;
+  align-self: flex-start;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: var(--color-deck-core-tag-background);
+  color: var(--color-deck-core-tag-text);
+  font-size: var(--font-size-tag);
+  font-weight: var(--font-weight-semibold);
+}
+
+.share__line {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-meta);
+  line-height: 18px;
+}
+
+.share__link {
+  display: flex;
+  flex: none;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 6px;
+  color: var(--color-accent);
+  font-size: var(--font-size-meta);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+}
+
+.share__link:hover {
+  text-decoration: underline;
+}
+
+// Editing one's own post in place.
+.post__edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.post__edit-text {
+  width: 100%;
+  min-height: 72px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 12px;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: var(--font-size-body);
+  resize: vertical;
+}
+
+.post__edit-text:focus-visible {
+  outline: 2px solid var(--color-focus-ring, var(--color-accent));
+  outline-offset: 1px;
+}
+
+.post__edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.post__ghost,
+.post__save {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.post__ghost {
+  border: 1px solid var(--color-border-strong);
+  background: transparent;
+  color: var(--color-ink);
+}
+
+.post__save {
+  border: 0;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.post__error {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: var(--font-size-meta);
+}
+
+@media (max-width: 599.98px) {
+  .post {
+    padding: 10px 8px;
+  }
+
+  .post__photos--one .post__photo {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 4 / 3;
+  }
+}

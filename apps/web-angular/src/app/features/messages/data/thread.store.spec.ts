@@ -61,6 +61,7 @@ describe('ThreadStore', () => {
     receipts$: Subject<ReadReceiptNotice>;
     typing$: Subject<TypingNotice>;
     resync$: Subject<void>;
+    conversations$: Subject<{ conversationId: string }>;
     sendTyping: ReturnType<typeof vi.fn>;
   };
 
@@ -91,6 +92,7 @@ describe('ThreadStore', () => {
       receipts$: new Subject(),
       typing$: new Subject(),
       resync$: new Subject(),
+      conversations$: new Subject(),
       sendTyping: vi.fn(),
     };
     TestBed.configureTestingModule({
@@ -177,7 +179,7 @@ describe('ThreadStore', () => {
     api['sendMessage'].mockReturnValueOnce(throwError(() => apiError('MESSAGING_BLOCKED', 403)));
     expect(await store.send({ text: 'Hello?', attachment: null })).toBe(false);
     expect(store.messagingBlocked()).toBe(true);
-    expect(store.sendError()).toContain('You cannot message this collector');
+    expect(store.sendError()).toBe('This collector cannot receive messages right now.');
 
     expect(await store.send({ text: '  ', attachment: null })).toBe(false);
     expect(store.sendError()).toBe('Write a message or attach something.');
@@ -186,6 +188,50 @@ describe('ThreadStore', () => {
     );
     expect(sendErrorMessage(apiError('MESSAGE_BLOCKED', 422))).toContain('community guidelines');
     expect(sendErrorMessage(apiError('PAYLOAD_TOO_LARGE', 413))).toContain('8 MB');
+  });
+
+  it('keeps a failed quick reply for "Try again", which sends that reply (WC review F6, U10)', async () => {
+    api['sendMessage'].mockReturnValueOnce(throwError(() => apiError('SERVICE_UNAVAILABLE', 503)));
+    expect(
+      await store.sendDirect({ text: 'Got your e-Transfer', attachment: null }, true),
+    ).not.toBe(null);
+    expect(store.sendError()).not.toBeNull();
+    expect(store.retryDraft()).toEqual({ text: 'Got your e-Transfer', attachment: null });
+
+    expect(await store.retry()).toBeNull();
+    expect(api['sendMessage'].mock.calls[1][0].sendMessageRequest.body).toBe('Got your e-Transfer');
+    expect(store.sendError()).toBeNull();
+    expect(store.retryDraft()).toBeNull();
+
+    // A dialog's send (no error under the composer) never becomes the composer's retry.
+    api['sendMessage'].mockReturnValueOnce(throwError(() => apiError('SERVICE_UNAVAILABLE', 503)));
+    await store.sendDirect({ text: 'Ship to: 1 Fictional Road', attachment: null });
+    expect(store.retryDraft()).toBeNull();
+
+    // The composer's own failure replaces a failed reply's.
+    api['sendMessage'].mockReturnValueOnce(throwError(() => apiError('SERVICE_UNAVAILABLE', 503)));
+    await store.sendDirect({ text: 'Thanks!', attachment: null }, true);
+    api['sendMessage'].mockReturnValueOnce(throwError(() => apiError('SERVICE_UNAVAILABLE', 503)));
+    await store.send({ text: 'My own words', attachment: null });
+    expect(store.retryDraft()).toBeNull();
+  });
+
+  it('counts the other collector’s sale notes that arrive live, for "Rate" (WC review U5)', () => {
+    api['getConversation'] = vi.fn(() => of(conversation));
+    const note = (id: string, sellerId: string): MessageResponse =>
+      ({
+        ...message(id, '', '2026-09-30T10:06:00Z'),
+        senderId: undefined,
+        kind: Kind.System,
+        payload: { sale: { saleId: `sale-${id}`, sellerId, undone: false } },
+      }) as unknown as MessageResponse;
+    // A sale note is a SYSTEM message without a sender.
+    realtime.messages$.next(note('n1', 'other'));
+    expect(store.liveSales()).toBe(1);
+    // The same note again (the page re-read) and one's own sale do not count.
+    realtime.messages$.next(note('n1', 'other'));
+    realtime.messages$.next(note('n2', 'me'));
+    expect(store.liveSales()).toBe(1);
   });
 
   it('shows read receipts of the other participant', () => {

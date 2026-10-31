@@ -1,10 +1,12 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 
 import ReportCollectorScreen from '@/app/report';
 import MyReportsScreen from '@/app/settings/reports';
+import { PINNED_MAX_FONT_SCALE, darkPalette } from '@/src/theme';
 
+import { expectBoundedBarMessage } from '../support/barMessage';
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
-import { OTHER_ID, REPORT_REASONS, myReportFixture } from '../support/fixtures';
+import { OTHER_ID, REPORT_REASONS, collectorFixture, myReportFixture } from '../support/fixtures';
 import { mockApi, ok, problem, type MockRoutes } from '../support/mockApi';
 import { signedInRoutes } from '../support/routes';
 import { mockParams, mockRouter, resetRouterMock } from '../support/router';
@@ -37,6 +39,9 @@ function routes(extra: MockRoutes = {}): MockRoutes {
     'GET /api/v1/public/report-reasons': ok(REPORT_REASONS),
     'POST /api/v1/reports/collectors': ok(CONFIRMATION, 201),
     'GET /api/v1/me/reports': ok([myReportFixture()]),
+    'GET /api/v1/collectors/collector2': ok(
+      collectorFixture({ handle: 'collector2', displayName: 'Noé Verdun' })
+    ),
     ...extra,
   });
 }
@@ -57,8 +62,9 @@ describe('Report collector', () => {
     fireEvent.changeText(screen.getByTestId('report-details'), '  Never showed up.  ');
     fireEvent.press(screen.getByTestId('report-confirm'));
     expect(await screen.findByTestId('report-sent')).toHaveTextContent(
-      /Thank you. Our moderation team will review your report about Noé Verdun/
+      /Thank you. Our moderators will review your report about Noé Verdun/
     );
+    expect(screen.getByText('Follow it in My reports')).toBeOnTheScreen();
     const call = api.callsTo('POST /api/v1/reports/collectors')[0];
     expect(call?.body).toEqual({
       reportedUserId: OTHER_ID,
@@ -85,6 +91,16 @@ describe('Report collector', () => {
     expect(await screen.findByTestId('report-error')).toHaveTextContent(
       /You already reported Noé Verdun/
     );
+    // Said in the bar at the bottom, where "Send report" was pressed (the R14 walk).
+    expect(
+      within(screen.getByTestId('screen-report-footer')).getByTestId('report-error')
+    ).toBeOnTheScreen();
+    expectBoundedBarMessage('report-error', /You already reported Noé Verdun/);
+    // "My reports" stays in the bar as the button under it does, its words held as theirs.
+    expect(
+      within(screen.getByTestId('report-open-my-reports')).getByText('My reports').props
+        .maxFontSizeMultiplier
+    ).toBe(PINNED_MAX_FONT_SCALE);
     expect(screen.getByTestId('report-confirm')).toBeDisabled();
     fireEvent.press(screen.getByTestId('report-open-my-reports'));
     expect(mockRouter.replace).toHaveBeenCalledWith('/settings/reports');
@@ -111,6 +127,43 @@ describe('Report collector', () => {
     fireEvent.press(screen.getByTestId('report-confirm'));
     expect(await screen.findByTestId('report-error')).toHaveTextContent(/several reports today/);
     expect(screen.getByTestId('report-confirm')).not.toBeDisabled();
+  });
+
+  it('shows the collector with their province only, and "Send report" waits for a reason', async () => {
+    mockApi(routes());
+    renderWithProviders(<ReportCollectorScreen />, { port: port() });
+    // The province of the public profile, never its city (ADR 0017).
+    await waitFor(() =>
+      expect(screen.getByTestId('report-person-line')).toHaveTextContent('@collector2 · Quebec')
+    );
+    expect(screen.getByTestId('report-person-line')).not.toHaveTextContent(/Montréal/);
+    await screen.findByText('Scam or fraud');
+    const send = screen.getByTestId('report-confirm');
+    expect(send).toHaveTextContent('Send report');
+    expect(send).toBeDisabled();
+    expect(screen.getByTestId('report-choose-first')).toHaveTextContent('Choose a reason first.');
+    expect(screen.getByText(/never told who reported them/)).toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId('report-reason-HARASSMENT'));
+    expect(screen.getByTestId('report-confirm')).not.toBeDisabled();
+    expect(screen.queryByTestId('report-choose-first')).toBeNull();
+    expect(screen.getByTestId('report-reason-HARASSMENT')).toBeChecked();
+    // The counter beside the label.
+    fireEvent.changeText(screen.getByTestId('report-details'), 'Rude in the chat.');
+    expect(screen.getByText('17 / 1000')).toBeOnTheScreen();
+  });
+
+  it('says a collector cannot report themselves', async () => {
+    mockApi(
+      routes({
+        'POST /api/v1/reports/collectors': problem(422, 'CANNOT_REPORT_SELF', 'Self'),
+      })
+    );
+    renderWithProviders(<ReportCollectorScreen />, { port: port() });
+    fireEvent.press(await screen.findByTestId('report-reason-HARASSMENT'));
+    fireEvent.press(screen.getByTestId('report-confirm'));
+    expect(await screen.findByTestId('report-error')).toHaveTextContent(
+      /You cannot report yourself\./
+    );
   });
 
   it('refuses a link without a collector', () => {
@@ -149,14 +202,61 @@ describe('My reports', () => {
       'Waiting for a moderator'
     );
     expect(screen.getByTestId('report-status-text-rep-2')).toHaveTextContent(
-      'Reviewed — the team took action'
+      'Reviewed: the team took action'
     );
-    expect(screen.getByLabelText('Status: Action taken')).toBeOnTheScreen();
+    // The status pills (stage R13): Open amber, Action taken teal.
+    expect(screen.getByTestId(`report-status-${first.id}`)).toHaveTextContent('Open');
+    expect(screen.getByTestId('report-status-rep-2')).toHaveTextContent('Action taken');
+    expect(screen.getByTestId('report-rep-2')).toHaveProp(
+      'accessibilityValue',
+      expect.objectContaining({ text: expect.stringContaining('Action taken, Harassment') })
+    );
     fireEvent.press(screen.getByText('Ana Rosemont'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/collectors/[id]',
       params: { id: 'collector3' },
     });
+  });
+
+  it('colours each status pill as the spec names it (review fix 1)', async () => {
+    mockApi(
+      routes({
+        'GET /api/v1/me/reports': ok([
+          myReportFixture({ id: 'open', status: 'OPEN' }),
+          myReportFixture({ id: 'review', status: 'UNDER_REVIEW' }),
+          myReportFixture({ id: 'done', status: 'ACTIONED', resolvedAt: '2026-10-05T12:00:00Z' }),
+          myReportFixture({
+            id: 'closed',
+            status: 'DISMISSED',
+            resolvedAt: '2026-10-05T12:00:00Z',
+          }),
+        ]),
+      })
+    );
+    renderWithProviders(<MyReportsScreen />, { port: port(), scheme: 'dark' });
+    await screen.findByTestId('reports-summary');
+    // Open amber, Under review blue, Action taken teal, Dismissed grey (the dark scheme).
+    const pills = darkPalette.settings;
+    for (const [id, label, background, text] of [
+      ['open', 'Open', pills.pillOpenBackground, pills.pillOpenText],
+      ['review', 'Under review', pills.pillReviewBackground, pills.pillReviewText],
+      ['done', 'Action taken', pills.pillDoneBackground, pills.pillDoneText],
+      ['closed', 'Dismissed', pills.pillClosedBackground, pills.pillClosedText],
+    ] as const) {
+      const pill = screen.getByTestId(`report-status-${id}`);
+      expect(pill).toHaveTextContent(label);
+      expect(pill).toHaveStyle({ backgroundColor: background });
+      expect(within(pill).getByText(label)).toHaveStyle({ color: text });
+    }
+    // Four different colours: no two statuses look alike.
+    expect(
+      new Set([
+        pills.pillOpenBackground,
+        pills.pillReviewBackground,
+        pills.pillDoneBackground,
+        pills.pillClosedBackground,
+      ]).size
+    ).toBe(4);
   });
 
   it('shows the empty state and an error with retry', async () => {

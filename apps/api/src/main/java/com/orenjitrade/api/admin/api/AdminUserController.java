@@ -78,8 +78,10 @@ public class AdminUserController {
             operationId = "suspendUser",
             summary = "Suspend an account (ADMIN, SUPER_ADMIN)",
             description =
-                    "Blocks every API call of the account (403 ACCOUNT_SUSPENDED) and disables the"
-                            + " identity-provider user. Audited.")
+                    "Refuses every non-public API call of the account (403 ACCOUNT_SUSPENDED,"
+                            + " with suspendedUntil when temporary) and its realtime connection."
+                            + " The identity-provider user stays enabled: the collector can sign"
+                            + " in and is shown the suspension. Audited.")
     @ApiResponse(responseCode = "204", description = "Suspended")
     public void suspend(
             @AuthenticationPrincipal AuthenticatedUser actor,
@@ -93,7 +95,9 @@ public class AdminUserController {
     @Operation(
             operationId = "unsuspendUser",
             summary = "Lift a suspension (ADMIN, SUPER_ADMIN)",
-            description = "409 when the account is not suspended. Audited.")
+            description =
+                    "Lifts the suspension (and a ban mark) and enables the identity-provider user."
+                            + " 409 when the account is not suspended. Audited.")
     @ApiResponse(responseCode = "204", description = "Unsuspended")
     public void unsuspend(@AuthenticationPrincipal AuthenticatedUser actor, @PathVariable UUID id) {
         adminUserService.unsuspend(actor, id);

@@ -26,15 +26,47 @@ public final class BinderRequests {
      * @param visibility PRIVATE when omitted
      * @param publicUntil required for TEMPORARILY_PUBLIC (at most 30 days ahead), ignored otherwise
      * @param coverPrintingId printing whose image is the cover
+     * @param sellsAsCore "Sell as a deck core" (stage R3); false when omitted
+     * @param askingPriceText the deck core's asking price as typed, at most 40 characters
+     * @param gameId the game whose cards the binder holds (stage G)
      */
     @Schema(name = "CreateBinderRequest", description = "A new binder")
     public record CreateBinderRequest(
             @NotBlank @Size(max = 80) @Schema(example = "Trade binder") String name,
-            @Size(max = 1000) @Nullable String description,
+            @Size(max = 1000)
+                    @Schema(
+                            description =
+                                    "At most 1 000 characters; a deck core's public note (the"
+                                            + " phone caps it at 500)")
+                    @Nullable String description,
             @Nullable BinderKind kind,
             @Nullable ListingVisibility visibility,
             @Nullable Instant publicUntil,
-            @Nullable UUID coverPrintingId) {}
+            @Nullable UUID coverPrintingId,
+            @Schema(
+                            description =
+                                    "Sell as a deck core: one bundle with photos, one price and"
+                                            + " the description as its note (false when omitted)")
+                    @Nullable Boolean sellsAsCore,
+            @Size(max = 60)
+                    @Schema(
+                            maxLength = 40,
+                            example = "$180",
+                            description =
+                                    "The deck core's asking price as typed (at most 40 characters"
+                                            + " once trimmed, one line): \"$180\", \"Trade only\"."
+                                            + " A plain amount also sets askingPrice")
+                    @Nullable String askingPriceText,
+            @Schema(
+                            description =
+                                    "The game whose cards the binder holds (stage G): an ACTIVE"
+                                        + " game with cards (GET /games, hasCards), else 400. The"
+                                        + " phone always sends it, and only cards of that game go"
+                                        + " in (409 BINDER_GAME_MISMATCH). Without it (the paused"
+                                        + " web) the binder takes the game of the first card filed"
+                                        + " in it while it holds none (Yu-Gi-Oh! until then) and"
+                                        + " refuses no card, as the web's binders always did")
+                    @Nullable UUID gameId) {}
 
     /**
      * {@code PATCH /binders/{id}}: any subset of the fields. {@code publicUntil} and {@code
@@ -51,7 +83,30 @@ public final class BinderRequests {
             @Nullable BinderKind kind,
             @Nullable ListingVisibility visibility,
             @Schema(nullable = true) @Nullable Instant publicUntil,
-            @Schema(nullable = true) @Nullable UUID coverPrintingId) {}
+            @Schema(nullable = true) @Nullable UUID coverPrintingId,
+            @Schema(description = "Sell as a deck core (not null)") @Nullable Boolean sellsAsCore,
+            @Size(max = 60)
+                    @Schema(
+                            nullable = true,
+                            maxLength = 40,
+                            example = "$180",
+                            description =
+                                    "The deck core's asking price as typed (at most 40 characters"
+                                            + " once trimmed); null or blank clears it and its"
+                                            + " amount")
+                    @Nullable String askingPriceText,
+            @Schema(
+                            description =
+                                    "true also confirms the binder and its cards are still"
+                                            + " available, as POST /binders/{id}/confirm (the"
+                                            + " phone's Save changes)")
+                    @Nullable Boolean confirm,
+            @Schema(
+                            description =
+                                    "Another game for the binder (stage G; not null): an ACTIVE"
+                                        + " game with cards, else 400; only while the binder holds"
+                                        + " no card, else 409 BINDER_GAME_LOCKED")
+                    @Nullable UUID gameId) {}
 
     /** {@code POST /binders/{id}/publish}. */
     @Schema(name = "PublishBinderRequest", description = "How to publish a binder")

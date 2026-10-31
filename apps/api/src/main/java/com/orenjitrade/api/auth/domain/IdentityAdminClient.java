@@ -2,8 +2,8 @@ package com.orenjitrade.api.auth.domain;
 
 /**
  * Administrative operations on the identity provider (Firebase Admin SDK in deployed environments,
- * a no-op under the {@code test} profile). Used when suspending accounts, deleting them and to seed
- * the local emulator.
+ * a recording stand-in under the {@code test} profile). Used when banning accounts (a suspension
+ * leaves the login on; lifting either enables it), deleting them and to seed the local emulator.
  */
 public interface IdentityAdminClient {
 

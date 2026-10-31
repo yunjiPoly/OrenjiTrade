@@ -1,5 +1,6 @@
 import { ApiError } from '../../core/http/api-error';
 import {
+  RATING_CRITERIA,
   breakdownEntries,
   canWriteReference,
   formatAverage,
@@ -55,6 +56,15 @@ describe('rating labels', () => {
       { label: 'Shipping', value: 4 },
     ]);
     expect(breakdownEntries(null)).toEqual([]);
+    // No meetups (ADR 0018): an old meetup score is never shown.
+    expect(breakdownEntries({ communication: 5, meetupReliability: 4 })).toEqual([
+      { label: 'Communication', value: 5 },
+    ]);
+    expect(RATING_CRITERIA.map((criterion) => criterion.label)).toEqual([
+      'Communication',
+      'Card condition',
+      'Shipping',
+    ]);
   });
 
   it('formats averages and counts', () => {
@@ -68,7 +78,7 @@ describe('rating labels', () => {
 
   it('explains every refusal inline', () => {
     expect(ratingProblem(apiError(403, 'RATING_NOT_ELIGIBLE'), 'Tess')).toContain(
-      'You can rate Tess after a completed trade',
+      'You can rate Tess after a deal with them',
     );
     expect(ratingProblem(apiError(403, 'RATING_NOT_ELIGIBLE'), 'Tess', 'reference')).toContain(
       'You can write a reference for Tess',

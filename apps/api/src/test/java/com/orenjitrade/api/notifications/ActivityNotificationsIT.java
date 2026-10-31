@@ -133,6 +133,9 @@ class ActivityNotificationsIT extends AbstractWishlistIT {
                 .startsWith("Your binder \"Warned binder\" will be hidden from the map in ")
                 .endsWith("unless you confirm it is still available.");
         assertThat(binderWarning.path("data").path("itemCount").asInt()).isEqualTo(1);
+        assertThat(binderWarning.path("data").path("binderName").asString())
+                .as("stage R9: the reminder row names the binder")
+                .isEqualTo("Warned binder");
         assertThat(binderWarning.path("data").path("hidesAt").asString()).isNotBlank();
         assertThat(binderWarning.path("data").path("deepLink").asString())
                 .isEqualTo("/inventory?binder=" + binderId);
@@ -141,6 +144,7 @@ class ActivityNotificationsIT extends AbstractWishlistIT {
                 .startsWith("1 unfiled card will be hidden from the map");
         assertThat(unfiledWarning.path("data").path("deepLink").asString())
                 .isEqualTo("/inventory?binder=unfiled");
+        assertThat(unfiledWarning.path("data").path("binderName").asString("")).isEmpty();
 
         // Warned once per confirmation cycle.
         awaitNoPendingActivityEvents(runFreshnessJob());
@@ -157,6 +161,8 @@ class ActivityNotificationsIT extends AbstractWishlistIT {
         List<JsonNode> hidden = notificationsOfType(owner, "BINDER_HIDDEN");
         assertThat(byBinder(hidden, binderId).path("body").asString())
                 .startsWith("Your binder \"Warned binder\" was hidden from the map");
+        assertThat(byBinder(hidden, binderId).path("data").path("binderName").asString())
+                .isEqualTo("Warned binder");
         assertThat(byBinder(hidden, null).path("body").asString())
                 .startsWith("1 unfiled card was hidden from the map");
         assertThat(hidden.get(0).path("title").asString())

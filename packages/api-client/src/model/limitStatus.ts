@@ -10,7 +10,7 @@
 
 
 /**
- * Effective usage limit of the caller
+ * A usage limit (the same for every collector) with the caller\'s usage
  */
 export interface LimitStatus { 
     key?: string;
@@ -18,15 +18,12 @@ export interface LimitStatus {
     kind?: LimitStatusKindEnum;
     window?: LimitStatusWindowEnum;
     /**
-     * Effective limit; null means unlimited
+     * The limit; null means unlimited
      */
     limit?: number;
     used?: number;
     remaining?: number;
     resetsAt?: string;
-    planCode?: string;
-    overridden?: boolean;
-    upgradeUrl?: string;
 }
 export enum LimitStatusKindEnum {
     Counter = 'COUNTER',

@@ -1,21 +1,15 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { BinderResponse } from '@/src/api/types';
 import { BottomSheet } from '@/src/components/ui/BottomSheet';
 import { ListRow } from '@/src/components/ui/Layout';
-import {
-  AVAILABILITIES,
-  AVAILABILITY_LABELS,
-  TEMPORARY_DURATIONS,
-  VISIBILITY_INFO,
-} from '@/src/lib/inventory';
+import { Text } from '@/src/components/ui/Text';
 import { elevation, fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 import type { BulkAction } from './bulkActions';
-
-type Menu = 'visibility' | 'duration' | 'binder' | 'availability' | null;
+import { BULK_COPY } from './inventoryCopy';
 
 export interface BulkBarProps {
   count: number;
@@ -28,9 +22,9 @@ export interface BulkBarProps {
 }
 
 /**
- * Actions on the selected cards (the web's `app-bulk-bar`): visibility (private, public, or
- * public for a duration), move to a binder, availability, confirm and delete, with "N selected",
- * select all and clear. Menus open in bottom sheets.
+ * Actions on the selected cards (owner spec 2026-10-14, section 6, Select mode): Move to binder,
+ * Make public, Make private, Still available and Delete, with "{n} selected", select all and
+ * clear. The binders open in a bottom sheet.
  */
 export function BulkBar({
   count,
@@ -42,9 +36,9 @@ export function BulkBar({
   onClear,
 }: BulkBarProps) {
   const { palette } = useTheme();
-  const [menu, setMenu] = useState<Menu>(null);
+  const [moving, setMoving] = useState(false);
   const act = (action: BulkAction) => {
-    setMenu(null);
+    setMoving(false);
     onAction(action);
   };
 
@@ -54,12 +48,16 @@ export function BulkBar({
       accessibilityLabel="Bulk actions"
       aria-busy={busy}
       testID="bulk-bar"
-      style={[styles.bar, elevation.floating, { backgroundColor: palette.ink }]}
+      style={[
+        styles.bar,
+        elevation.floating,
+        { backgroundColor: palette.surfaceElevated, borderColor: palette.borderStrong },
+      ]}
     >
       <View style={styles.head}>
         <Pressable
           accessibilityRole="checkbox"
-          accessibilityLabel="Select all cards on this page"
+          accessibilityLabel={BULK_COPY.selectAll}
           aria-checked={allSelected}
           onPress={onToggleAll}
           hitSlop={8}
@@ -69,25 +67,25 @@ export function BulkBar({
           <MaterialCommunityIcons
             name={allSelected ? 'checkbox-marked' : 'checkbox-blank-outline'}
             size={22}
-            color={palette.background}
+            color={allSelected ? palette.primary : palette.ink}
           />
         </Pressable>
         <Text
           testID="bulk-count"
           accessibilityLiveRegion="polite"
-          style={[textStyle('sm'), styles.count, { color: palette.background }]}
+          style={[textStyle('sm'), styles.count, { color: palette.ink }]}
         >
-          {count} selected
+          {BULK_COPY.selected(count)}
         </Text>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Clear selection"
+          accessibilityLabel={BULK_COPY.clear}
           onPress={onClear}
           hitSlop={8}
           testID="bulk-clear"
           style={styles.check}
         >
-          <MaterialCommunityIcons name="close" size={22} color={palette.background} />
+          <MaterialCommunityIcons name="close" size={22} color={palette.ink} />
         </Pressable>
       </View>
       <ScrollView
@@ -97,36 +95,36 @@ export function BulkBar({
         keyboardShouldPersistTaps="handled"
       >
         <Action
-          icon="eye-outline"
-          label="Visibility"
-          disabled={busy}
-          onPress={() => setMenu('visibility')}
-          testID="bulk-visibility"
-        />
-        <Action
           icon="book-arrow-right-outline"
-          label="Move to binder"
+          label={BULK_COPY.move}
           disabled={busy}
-          onPress={() => setMenu('binder')}
+          onPress={() => setMoving(true)}
           testID="bulk-move"
         />
         <Action
-          icon="swap-horizontal"
-          label="Availability"
+          icon="earth"
+          label={BULK_COPY.makePublic}
           disabled={busy}
-          onPress={() => setMenu('availability')}
-          testID="bulk-availability"
+          onPress={() => act({ kind: 'visibility', visibility: 'PUBLIC' })}
+          testID="bulk-visibility-PUBLIC"
+        />
+        <Action
+          icon="lock-outline"
+          label={BULK_COPY.makePrivate}
+          disabled={busy}
+          onPress={() => act({ kind: 'visibility', visibility: 'PRIVATE' })}
+          testID="bulk-visibility-PRIVATE"
         />
         <Action
           icon="check-circle-outline"
-          label="Confirm"
+          label={BULK_COPY.stillAvailable}
           disabled={busy}
           onPress={() => act({ kind: 'confirm' })}
           testID="bulk-confirm"
         />
         <Action
           icon="delete-outline"
-          label="Delete"
+          label={BULK_COPY.delete}
           tone="danger"
           disabled={busy}
           onPress={() => act({ kind: 'delete' })}
@@ -135,68 +133,15 @@ export function BulkBar({
       </ScrollView>
 
       <BottomSheet
-        visible={menu === 'visibility'}
-        onClose={() => setMenu(null)}
-        title="Visibility"
-        testID="bulk-visibility-sheet"
-      >
-        <ListRow
-          icon="lock-outline"
-          label="Make private"
-          detail={VISIBILITY_INFO.PRIVATE.hint}
-          kind="button"
-          onPress={() => act({ kind: 'visibility', visibility: 'PRIVATE' })}
-          testID="bulk-visibility-PRIVATE"
-        />
-        <ListRow
-          icon="earth"
-          label="Make public"
-          detail={VISIBILITY_INFO.PUBLIC.hint}
-          kind="button"
-          onPress={() => act({ kind: 'visibility', visibility: 'PUBLIC' })}
-          testID="bulk-visibility-PUBLIC"
-        />
-        <ListRow
-          icon="timer-outline"
-          label="Temporarily public"
-          detail={VISIBILITY_INFO.TEMPORARILY_PUBLIC.hint}
-          onPress={() => setMenu('duration')}
-          testID="bulk-visibility-TEMPORARILY_PUBLIC"
-        />
-      </BottomSheet>
-      <BottomSheet
-        visible={menu === 'duration'}
-        onClose={() => setMenu(null)}
-        title="Public for"
-        testID="bulk-duration-sheet"
-      >
-        {TEMPORARY_DURATIONS.map((duration) => (
-          <ListRow
-            key={duration.value}
-            icon="timer-outline"
-            label={`Public for ${duration.label}`}
-            kind="button"
-            onPress={() =>
-              act({
-                kind: 'visibility',
-                visibility: 'TEMPORARILY_PUBLIC',
-                duration: duration.value,
-              })
-            }
-            testID={`bulk-duration-${duration.value}`}
-          />
-        ))}
-      </BottomSheet>
-      <BottomSheet
-        visible={menu === 'binder'}
-        onClose={() => setMenu(null)}
-        title="Move to binder"
+        visible={moving}
+        onClose={() => setMoving(false)}
+        title={BULK_COPY.moveTitle}
         testID="bulk-binder-sheet"
       >
         <ScrollView style={styles.list} keyboardShouldPersistTaps="handled">
           <ListRow
             icon="inbox-outline"
-            label="No binder (unfiled)"
+            label={BULK_COPY.noBinder}
             kind="button"
             onPress={() => act({ kind: 'move', binderId: null, binderName: null })}
             testID="bulk-binder-unfiled"
@@ -212,23 +157,6 @@ export function BulkBar({
             />
           ))}
         </ScrollView>
-      </BottomSheet>
-      <BottomSheet
-        visible={menu === 'availability'}
-        onClose={() => setMenu(null)}
-        title="Availability"
-        testID="bulk-availability-sheet"
-      >
-        {AVAILABILITIES.map((availability) => (
-          <ListRow
-            key={availability}
-            icon="swap-horizontal"
-            label={AVAILABILITY_LABELS[availability]}
-            kind="button"
-            onPress={() => act({ kind: 'availability', availability })}
-            testID={`bulk-availability-${availability}`}
-          />
-        ))}
       </BottomSheet>
     </View>
   );
@@ -250,7 +178,7 @@ function Action({
   testID: string;
 }) {
   const { palette } = useTheme();
-  const color = tone === 'danger' ? '#FCA5A5' : palette.background;
+  const color = tone === 'danger' ? palette.danger : palette.ink;
   return (
     <Pressable
       accessibilityRole="button"
@@ -261,6 +189,7 @@ function Action({
       testID={testID}
       style={({ pressed }) => [
         styles.action,
+        { borderColor: palette.border },
         pressed && styles.pressed,
         disabled && styles.disabled,
       ]}
@@ -272,23 +201,24 @@ function Action({
 }
 
 const styles = StyleSheet.create({
-  bar: { borderRadius: radius.lg, padding: spacing[2], gap: spacing[1] },
+  bar: { borderRadius: radius.lg, borderWidth: 1, padding: spacing[2], gap: spacing[1] },
   head: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[2],
     paddingHorizontal: spacing[1],
   },
-  check: { padding: spacing[1] },
+  check: { padding: spacing[2] },
   count: { flex: 1, fontWeight: fontWeight.semibold },
-  actions: { flexDirection: 'row', gap: spacing[1] },
+  actions: { flexDirection: 'row', gap: spacing[2], paddingVertical: 2 },
   action: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[1],
-    minHeight: 40,
+    minHeight: 44,
     paddingHorizontal: spacing[3],
     borderRadius: radius.pill,
+    borderWidth: 1,
   },
   actionLabel: { fontWeight: fontWeight.semibold },
   list: { flexGrow: 0 },

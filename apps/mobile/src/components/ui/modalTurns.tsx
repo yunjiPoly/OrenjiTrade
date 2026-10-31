@@ -64,18 +64,45 @@ export function modalEntersScreen(): () => void {
   };
 }
 
+let leaving = 0;
+
+/** How many modals iOS is still taking away (hidden by the app, not yet dismissed by iOS). */
+export function modalsLeaving(): number {
+  return leaving;
+}
+
 /**
- * Resolves once no modal of the app is on screen: at once on Android and the web, where nothing
- * is counted. For what iOS itself presents, such as the photo picker: asked for from a sheet row
- * while the sheet slides away, iOS puts it on top of the sheet and takes it away with the sheet.
+ * Records a modal the app has hidden and iOS is still dismissing, until the returned function is
+ * called (once): from the moment a sheet has slid away until its `Modal` reports `onDismiss`.
+ */
+export function modalLeavesScreen(): () => void {
+  leaving += 1;
+  emit();
+  let gone = false;
+  return () => {
+    if (!gone) {
+      gone = true;
+      leaving -= 1;
+      emit();
+    }
+  };
+}
+
+/**
+ * Resolves once no modal of the app is on screen and iOS has dismissed the last one: at once on
+ * Android and the web, where nothing is counted. For what iOS itself presents, such as the photo
+ * picker or the share sheet: asked for from a sheet row while the sheet slides away, iOS puts it
+ * on top of the sheet and takes it away with the sheet. A sheet that has slid away is not enough:
+ * iOS is still dismissing its view controller for a moment, and the share sheet asked for in that
+ * moment never appeared (stage R6, review fix 1: "Share profile" in a profile's "⋯" sheet).
  */
 export function afterModals(): Promise<void> {
-  if (onScreen === 0) {
+  if (onScreen === 0 && leaving === 0) {
     return Promise.resolve();
   }
   return new Promise((resolve) => {
     const stop = subscribe(() => {
-      if (onScreen === 0) {
+      if (onScreen === 0 && leaving === 0) {
         stop();
         resolve();
       }

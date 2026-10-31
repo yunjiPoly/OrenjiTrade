@@ -1,0 +1,293 @@
+@let state = store.state();
+<div class="pbp" [class.pbp--core]="isCore()">
+  @switch (state.kind) {
+    @case ('loading') {
+      <div class="pbp__loading" aria-busy="true">
+        <span class="visually-hidden" role="status">Loading the binder</span>
+        <span class="pbp__bone pbp__bone--crumb" aria-hidden="true"></span>
+        <span class="pbp__bone pbp__bone--title" aria-hidden="true"></span>
+        <div class="pbp__grid-bones" aria-hidden="true">
+          @for (bone of bones; track bone) {
+            <span class="pbp__bone pbp__bone--card"></span>
+          }
+        </div>
+      </div>
+    }
+    @case ('not-found') {
+      <div class="pbp__state" role="status">
+        <h1 class="pbp__state-title">This binder isn't public anymore.</h1>
+        <p class="pbp__state-text">
+          Its owner made it private, its publication ended, or it no longer exists.
+        </p>
+        <a class="pbp__outline" routerLink="/search" [queryParams]="{ tab: 'binders' }"
+          >Back to Search</a
+        >
+      </div>
+    }
+    @case ('limit') {
+      <div class="pbp__state" role="status" data-testid="binder-limit">
+        <h1 class="pbp__state-title">No more binders today</h1>
+        <p class="pbp__state-text">{{ limitMessage() }}</p>
+        <a class="pbp__outline" routerLink="/search" [queryParams]="{ tab: 'binders' }"
+          >Back to Search</a
+        >
+      </div>
+    }
+    @case ('error') {
+      <div class="pbp__state" role="alert">
+        <h1 class="pbp__state-title">This binder could not load</h1>
+        <p class="pbp__state-text">{{ errorMessage() }}</p>
+        <button type="button" class="pbp__outline" (click)="reload()">Try again</button>
+      </div>
+    }
+    @case ('ready') {
+      @if (binder(); as binder) {
+        <nav class="pbp__crumbs" aria-label="Breadcrumb">
+          <a routerLink="/search" [queryParams]="{ tab: 'binders' }"
+            ><app-shell-icon name="arrowLeft" [size]="16" /> Search</a
+          >
+          @if (province()) {
+            <app-shell-icon class="pbp__sep" name="chevronRight" [size]="16" />
+            <a routerLink="/search" [queryParams]="stateQuery()"
+              >{{ isCore() ? 'Deck cores' : 'Binders' }} in {{ province() }}</a
+            >
+          }
+          <app-shell-icon class="pbp__sep" name="chevronRight" [size]="16" />
+          <span aria-current="page">{{ binder.name }}</span>
+        </nav>
+
+        @if (isCore()) {
+          <div class="core">
+            <!-- The name (h1) comes before the photos in the reading order; CSS keeps the photos on
+                 the left (WD review A21). -->
+            <aside class="core__panel" aria-label="About this deck core">
+              <div class="core__tags">
+                <span class="tag tag--core"
+                  ><app-shell-icon name="layers" [size]="14" /> Deck core</span
+                >
+                @if (game()) {
+                  <span class="tag">{{ gameLabel() }}</span>
+                }
+                <button
+                  type="button"
+                  class="pbp__more"
+                  aria-label="More actions"
+                  [matMenuTriggerFor]="moreMenu"
+                >
+                  <app-shell-icon name="more" [size]="20" />
+                </button>
+              </div>
+              <h1 class="core__name">{{ binder.name }}</h1>
+              @if (binder.askingPriceText) {
+                <p class="core__price">{{ binder.askingPriceText }}</p>
+              }
+              <p class="core__facts">{{ facts() }}</p>
+              <app-binder-owner
+                [card]="true"
+                [owner]="binder.owner"
+                [rating]="rating()"
+                [binderCount]="binder.ownerPublicBinderCount"
+                (askProfile)="askProfile(binder, $event)"
+              />
+              @if (isOwn()) {
+                <a
+                  class="pbp__outline"
+                  style="width: 100%"
+                  routerLink="/inventory"
+                  [queryParams]="{ binder: binder.id }"
+                  >Manage in Inventory</a
+                >
+              } @else {
+                <button
+                  type="button"
+                  class="core__message"
+                  data-testid="binder-message"
+                  (click)="messageOwner(binder, $event.currentTarget)"
+                >
+                  <app-shell-icon name="messages" [size]="20" />
+                  Message {{ binder.owner.handle || 'this collector' }}
+                </button>
+              }
+              @if (binder.description) {
+                <h2 class="core__label">About this deck core</h2>
+                <p class="core__note">{{ binder.description }}</p>
+              }
+              <app-ship-notes variant="panel" />
+            </aside>
+            <!-- order -1: the photos stay on the left (inline: the style budget is full). -->
+            <div class="core__main" style="order: -1">
+              <app-deck-core-gallery [photos]="binder.photos ?? []" [name]="binder.name" />
+              @if ((binder.keyCards ?? []).length > 0) {
+                <section class="core__keys" aria-labelledby="core-keys-title">
+                  <h2 class="core__h2" id="core-keys-title">Key cards</h2>
+                  <p class="core__keys-lead">
+                    Chosen by {{ binder.owner.handle || 'the seller' }} from the
+                    {{ binder.itemCount }} cards in this deck core. Ask in the chat for the full
+                    list.
+                  </p>
+                  <app-key-cards
+                    [cards]="binder.keyCards ?? []"
+                    [items]="store.items()"
+                    [game]="game()"
+                  />
+                </section>
+              }
+            </div>
+          </div>
+        } @else {
+          <header class="bnd__head">
+            <div class="bnd__titles">
+              <p class="bnd__game">
+                @if (game(); as game) {
+                  <app-game-monogram [game]="game" [size]="22" />
+                  <span>{{ gameLabel() }}</span>
+                }
+                <span class="tag tag--public"
+                  ><app-shell-icon name="globe" [size]="14" /> Public binder</span
+                >
+              </p>
+              <h1 class="bnd__name">{{ binder.name }}</h1>
+              <p class="bnd__facts"><app-shell-icon name="clock" [size]="16" /> {{ facts() }}</p>
+              @if (binder.description) {
+                <p class="bnd__description">{{ binder.description }}</p>
+              }
+              <app-binder-owner
+                class="bnd__owner"
+                [owner]="binder.owner"
+                [rating]="rating()"
+                [binderCount]="binder.ownerPublicBinderCount"
+                (askProfile)="askProfile(binder, $event)"
+              />
+            </div>
+            <div class="bnd__actions">
+              @if (isOwn()) {
+                <a
+                  class="pbp__outline"
+                  routerLink="/inventory"
+                  [queryParams]="{ binder: binder.id }"
+                  >Manage in Inventory</a
+                >
+              } @else {
+                <button
+                  type="button"
+                  class="bnd__message"
+                  data-testid="binder-message"
+                  (click)="messageOwner(binder, $event.currentTarget)"
+                >
+                  <app-shell-icon name="messages" [size]="18" />
+                  Message {{ binder.owner.handle || 'this collector' }}
+                </button>
+              }
+              <button
+                type="button"
+                class="pbp__more"
+                aria-label="More actions"
+                [matMenuTriggerFor]="moreMenu"
+              >
+                <app-shell-icon name="more" [size]="20" />
+              </button>
+            </div>
+          </header>
+
+          <div class="bnd__toolbar">
+            <label class="bnd__search">
+              <app-shell-icon class="pbp__muted" name="search" [size]="18" />
+              <input
+                type="search"
+                autocomplete="off"
+                placeholder="Search this binder"
+                aria-label="Search this binder"
+                [attr.maxlength]="maxLength"
+                [formControl]="query"
+              />
+            </label>
+            <button
+              type="button"
+              class="bnd__sort"
+              [matMenuTriggerFor]="sortMenu"
+              [attr.aria-label]="'Sort: ' + sortLabel()"
+            >
+              <app-shell-icon name="sort" [size]="16" />
+              <span class="pbp__muted">Sort:</span> {{ sortLabel() }}
+              <app-shell-icon name="chevronDown" [size]="16" />
+            </button>
+            <mat-menu #sortMenu="matMenu" xPosition="before">
+              @for (entry of sorts; track entry.value) {
+                <button
+                  mat-menu-item
+                  type="button"
+                  role="menuitemradio"
+                  [attr.aria-checked]="entry.value === currentSort()"
+                  (click)="setSort(entry.value)"
+                >
+                  {{ entry.label }}
+                </button>
+              }
+            </mat-menu>
+          </div>
+
+          @if (store.itemsState() === 'error' && store.items().length === 0) {
+            <div class="pbp__state" style="padding: 24px 0" role="alert">
+              <p class="pbp__state-text">The cards could not load.</p>
+              <button type="button" class="pbp__outline" (click)="store.retryItems()">
+                Try again
+              </button>
+            </div>
+          } @else if (store.itemsState() === 'loading' && store.items().length === 0) {
+            <div class="pbp__grid-bones" aria-busy="true">
+              <span class="visually-hidden" role="status">Loading the cards</span>
+              @for (bone of bones; track bone) {
+                <span class="pbp__bone pbp__bone--card" aria-hidden="true"></span>
+              }
+            </div>
+          } @else if (store.items().length === 0) {
+            <p class="pbp__empty">
+              {{
+                store.query()
+                  ? 'No card in this binder matches.'
+                  : 'This binder has no public cards right now.'
+              }}
+            </p>
+          } @else {
+            <app-binder-cards
+              [items]="store.items()"
+              [canMessage]="canMessage()"
+              (messageAbout)="messageAbout($event.item, $event.opener)"
+            />
+            @if (store.hasMore()) {
+              <button
+                type="button"
+                class="pbp__outline pbp__more-cards"
+                [disabled]="store.itemsState() === 'loading'"
+                (click)="store.loadMore()"
+              >
+                {{ store.itemsState() === 'loading' ? 'Loading…' : 'Load more' }}
+              </button>
+            }
+            @if (store.itemsState() === 'error') {
+              <p class="pbp__empty" role="alert">
+                More cards could not load.
+                <button type="button" class="pbp__link" (click)="store.retryItems()">
+                  Try again
+                </button>
+              </p>
+            }
+          }
+
+          <app-ship-notes variant="row" />
+        }
+
+        <mat-menu #moreMenu="matMenu" xPosition="before">
+          <button mat-menu-item type="button" (click)="share(binder)">
+            <app-shell-icon name="share" [size]="20" /> Share
+          </button>
+          @if (!isOwn()) {
+            <button mat-menu-item type="button" (click)="reportOwner(binder)">
+              <app-shell-icon name="flag" [size]="20" /> Report {{ binder.name }}
+            </button>
+          }
+        </mat-menu>
+      }
+    }
+  }
+</div>

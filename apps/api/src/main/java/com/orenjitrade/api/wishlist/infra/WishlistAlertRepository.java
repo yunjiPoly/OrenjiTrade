@@ -4,6 +4,7 @@ import com.orenjitrade.api.binders.domain.PublicVisibilityRules;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository;
 import com.orenjitrade.api.location.domain.PublicPlace;
 import com.orenjitrade.api.wishlist.domain.WishlistAlertRules;
+import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -36,6 +37,7 @@ public class WishlistAlertRepository {
                    w.printing_id AS wish_printing_id, w.rarity AS wish_rarity,
                    i.id AS item_id, i.printing_id, i.owner_id AS item_owner_id,
                    c.name AS card_name, p.printing_code, p.rarity AS item_rarity, g.slug AS game,
+                   i.asking_price_text, i.asking_price, i.currency,
                    u.handle AS item_owner_handle, oc.region_code,
                    osd.code AS subdivision_code, osd.name AS subdivision_name,
                    osd.whole_country, oc.name AS country_name
@@ -136,6 +138,9 @@ public class WishlistAlertRepository {
                 rs.getString("printing_code"),
                 rs.getString("item_rarity"),
                 rs.getString("game"),
+                rs.getString("asking_price_text"),
+                rs.getBigDecimal("asking_price"),
+                rs.getString("currency"),
                 rs.getString("item_owner_handle"),
                 new PublicPlace(
                         rs.getString("region_code"),
@@ -161,6 +166,9 @@ public class WishlistAlertRepository {
      * @param printingCode printing code of the item
      * @param itemRarity rarity of the item's printing
      * @param game game slug
+     * @param askingPriceText the item's asking price as its owner typed it, if any
+     * @param askingPrice the item's asking price as an amount, if any
+     * @param currency the currency of {@code askingPrice}
      * @param itemOwnerHandle handle of the item owner
      * @param itemOwnerPlace state/province and country of the item owner (never a city)
      */
@@ -177,6 +185,9 @@ public class WishlistAlertRepository {
             @Nullable String printingCode,
             @Nullable String itemRarity,
             String game,
+            @Nullable String askingPriceText,
+            @Nullable BigDecimal askingPrice,
+            String currency,
             String itemOwnerHandle,
             PublicPlace itemOwnerPlace) {}
 }

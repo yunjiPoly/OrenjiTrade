@@ -145,6 +145,24 @@ function createCollector(prefix, displayName, place) {
   return { email: email, password: password, displayName: displayName, token: token };
 }
 
+/**
+ * The id of a game by its slug (`GET /games`, public): a binder holds the cards of one game (stage
+ * G), so the binders made here name the game of the cards they take.
+ */
+function gameIdOf(slug) {
+  var response = http.get(api + '/api/v1/games');
+  if (!response.ok) {
+    throw new Error('GET /games failed: HTTP ' + response.status);
+  }
+  var games = json(response.body);
+  for (var g = 0; g < games.length; g++) {
+    if (games[g].slug === slug) {
+      return games[g].id;
+    }
+  }
+  throw new Error('No game ' + slug);
+}
+
 if (action === 'setup') {
   var wren = createCollector('wren', 'Wren Maestro', MONTEVIDEO);
   var hal = createCollector('hal', 'Hal Maestro', MONTEVIDEO);
@@ -155,6 +173,8 @@ if (action === 'setup') {
         name: 'Maestro wish binder',
         kind: 'TRADE',
         description: 'Fictional binder of the Maestro flows.',
+        // It takes PFT-002, a Pokémon card (stage G: a binder holds one game).
+        gameId: gameIdOf('pokemon'),
       }),
     }),
     'POST /binders'

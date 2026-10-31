@@ -5,8 +5,7 @@ import {
   CardSuggestionKindEnum,
   FreshnessStateEnum,
 } from '@orenji/api-client';
-import { matchingBinders } from './binder-link-picker.component';
-import { printingForSuggestion } from './link-choices';
+import { matchingBinders, printingForSuggestion } from './link-choices';
 
 function binder(name: string, effectivePublic: boolean): BinderResponse {
   return {

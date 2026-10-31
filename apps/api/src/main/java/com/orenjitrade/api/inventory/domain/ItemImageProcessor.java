@@ -1,5 +1,8 @@
 package com.orenjitrade.api.inventory.domain;
 
+import com.orenjitrade.api.common.ApiException;
+import com.orenjitrade.api.common.ErrorCode;
+import com.orenjitrade.api.common.ProblemFieldError;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
@@ -8,6 +11,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.List;
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
@@ -74,6 +78,22 @@ public class ItemImageProcessor {
      * @param height pixels
      */
     public record Processed(byte[] jpeg, int width, int height) {}
+
+    /**
+     * The API's answer to a refused upload, the same for every route that takes a photo (an item, a
+     * binder): 413 above 8 MB, 415 for other types, 400 for the rest.
+     */
+    public static ApiException problem(ImageRejectedException e) {
+        return switch (e.rejection()) {
+            case TOO_LARGE -> new ApiException(ErrorCode.PAYLOAD_TOO_LARGE, e.getMessage());
+            case UNSUPPORTED_TYPE ->
+                    new ApiException(ErrorCode.UNSUPPORTED_MEDIA_TYPE, e.getMessage());
+            case EMPTY, DIMENSIONS, UNREADABLE ->
+                    ApiException.validation(
+                            "Validation failed",
+                            List.of(new ProblemFieldError("file", e.getMessage())));
+        };
+    }
 
     public ItemImageProcessor() {
         ImageIO.scanForPlugins();

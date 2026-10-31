@@ -1,0 +1,84 @@
+# Get started on a fresh account, stage R7 (owner prompt of 2026-10-19, section 3; mockup v50
+# screen 10c): a new collector in Madrid (Europe, shown on the map, no cards, no wish) lands on
+# Home: the Get started card with "1 of 3" (the province done, its place in grey), "List your first
+# card" with "Add cards" and "Add a card you want" with "Add a wish", over the quiet region's box
+# without chips. "Add a wish" opens Search with the keyboard up. "Hide these steps" hides the card
+# for good on this phone: the box gains "Add cards", and the card stays away after a relaunch.
+appId: ${APP_ID}
+name: Get started on a fresh account, hidden for good
+tags:
+  - mobile-r7
+  - home
+---
+- runScript:
+    file: scripts/create-collector.js
+    env:
+      PREFIX: dayone
+      DISPLAY_NAME: 'Day One'
+      PLACE: 'ES:ES-MD'
+      DISCOVERABLE: 'true'
+      GAMES: 'yugioh'
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+- extendedWaitUntil:
+    visible:
+      id: 'home-get-started'
+    timeout: 60000
+- assertVisible: 'Get started'
+- assertVisible: 'Do these once to sell and find cards in your region.'
+- assertVisible:
+    id: 'home-get-started-progress'
+- assertVisible:
+    id: 'home-step-province-done'
+- assertVisible: 'Choose your province, done\. Community of Madrid, Spain'
+- assertVisible:
+    id: 'home-step-card-action'
+    text: 'Add cards'
+- assertVisible:
+    id: 'home-step-wish-action'
+    text: 'Add a wish'
+# The quiet region (10c): the dashed box, no chips; no "Add cards" of its own under Get started.
+- assertVisible:
+    id: 'home-quiet'
+- assertVisible: 'Nothing new in .* yet'
+- assertNotVisible:
+    id: 'home-chips'
+- assertNotVisible:
+    id: 'home-quiet-add'
+- takeScreenshot: r7-home-day-one
+
+# "Add a wish" opens Search with the keyboard up.
+- tapOn:
+    id: 'home-step-wish-action'
+- extendedWaitUntil:
+    visible:
+      id: 'search-input'
+    timeout: 30000
+- runFlow: subflows/hide-keyboard.yaml
+- tapOn:
+    id: 'tab-home'
+- extendedWaitUntil:
+    visible:
+      id: 'home-get-started'
+    timeout: 30000
+
+# Hidden for good: gone, the box offers "Add cards", and it stays away after a relaunch.
+- tapOn: 'Hide these steps'
+- extendedWaitUntil:
+    notVisible:
+      id: 'home-get-started'
+    timeout: 15000
+- assertVisible:
+    id: 'home-quiet-add'
+    text: 'Add cards'
+- runFlow: subflows/relaunch.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'home-quiet'
+    timeout: 60000
+- assertNotVisible:
+    id: 'home-get-started'

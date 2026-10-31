@@ -28,10 +28,10 @@ export function friendlyError(error: ApiError): FriendlyError {
       };
     }
     case 'LIMIT_REACHED':
-      // No Premium pitch here: the limit dialog names the upgrade only while the flag is on.
+      // The same limits for every collector, nothing to buy (stage F1): the dialog says more.
       return {
-        title: 'Plan limit reached',
-        message: 'You reached a limit of your plan. It resets soon.',
+        title: 'Limit reached',
+        message: 'You reached a usage limit for this action.',
       };
     case 'FEATURE_DISABLED':
       return {
@@ -57,8 +57,9 @@ export function friendlyError(error: ApiError): FriendlyError {
     case 'MESSAGING_BLOCKED':
       return {
         title: 'Messaging unavailable',
-        message:
-          'You cannot message this collector. They may have blocked messages or you blocked them.',
+        // The same words for every refusal (a block, an inactive collector, the messaging
+        // permission): a block is never told apart (owner decision of 2026-10-28).
+        message: 'This collector cannot receive messages right now.',
       };
     case 'MESSAGE_BLOCKED':
       return {
@@ -107,7 +108,7 @@ export function friendlyError(error: ApiError): FriendlyError {
       return {
         title: 'Age confirmation needed',
         message:
-          'OrenjiTrade is for people 18 years of age or older. Confirm your age to become discoverable, message collectors, post or make offers.',
+          'OrenjiTrade is for people 18 years of age or older. Confirm your age to become discoverable, message collectors or post.',
       };
     default:
       if (error.isServerError || error.status === 0) {

@@ -16,5 +16,17 @@ export interface BinderLink {
     id: string;
     name: string;
     ownerHandle: string;
+    /**
+     * Community posts only (stage R11): a deck core buyers can find right now. Absent in messages.
+     */
+    deckCore?: boolean;
+    /**
+     * Community posts only: the deck core\'s price as typed (\"$95\"). Absent without one.
+     */
+    askingPriceText?: string;
+    /**
+     * Community posts only: the binder\'s first photo, else the first card picture buyers see, while it is public.
+     */
+    imageUrl?: string;
 }
 

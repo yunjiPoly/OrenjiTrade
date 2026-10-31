@@ -50,7 +50,7 @@ export class PublicBindersService extends BaseService implements PublicBindersSe
 
     /**
      * A public binder (auth optional)
-     * 404 unless the binder is public right now (visibility, expiry, freshness, the owner\&#39;s account state and privacy settings). The owner block carries their state/province and country while they are discoverable; never a city or coordinates. Signed-in callers other than the owner consume &#x60;binder.views.per_day&#x60; once per binder and UTC day (429 LIMIT_REACHED beyond the plan limit).
+     * 404 unless the binder is public right now (visibility, expiry, freshness, the owner\&#39;s account state and privacy settings). The owner block carries their state/province and country while they are discoverable; never a city or coordinates. A signed-out caller (stage R15) gets the owner block without id, handle, displayName or avatarUrl (null). Signed-in callers other than the owner consume &#x60;binder.views.per_day&#x60; once per binder and UTC day (429 LIMIT_REACHED beyond the usage limit, the same for every collector).
      * @endpoint get /api/v1/public/binders/{id}
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -188,6 +188,7 @@ export class PublicBindersService extends BaseService implements PublicBindersSe
         const availability = requestParameters?.availability;
         const page = requestParameters?.page;
         const size = requestParameters?.size;
+        const excludeDeckCoreItems = requestParameters?.excludeDeckCoreItems;
 
         let localVarQueryParameters = new OpenApiHttpParams(this.encoder);
 
@@ -231,6 +232,15 @@ export class PublicBindersService extends BaseService implements PublicBindersSe
             localVarQueryParameters,
             'size',
             <any>size,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'excludeDeckCoreItems',
+            <any>excludeDeckCoreItems,
             QueryParamStyle.Form,
             true,
         );
@@ -300,6 +310,7 @@ export class PublicBindersService extends BaseService implements PublicBindersSe
         const availability = requestParameters?.availability;
         const page = requestParameters?.page;
         const size = requestParameters?.size;
+        const sort = requestParameters?.sort;
 
         let localVarQueryParameters = new OpenApiHttpParams(this.encoder);
 
@@ -343,6 +354,15 @@ export class PublicBindersService extends BaseService implements PublicBindersSe
             localVarQueryParameters,
             'size',
             <any>size,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'sort',
+            <any>sort,
             QueryParamStyle.Form,
             true,
         );

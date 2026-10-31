@@ -127,6 +127,31 @@ describe('NotificationCenter', () => {
     expect(center.lastPush()?.id).toBe('c');
   });
 
+  it('leaves chats out of the bell: the count, the menu and pushes (spec 12, excludeTypes)', async () => {
+    await signIn();
+    expect(api['getUnreadNotificationCount']).toHaveBeenCalledWith(
+      { excludeTypes: ['MESSAGE'] },
+      'body',
+      false,
+      expect.anything(),
+    );
+    await center.loadRecent();
+    expect(api['listNotifications']).toHaveBeenCalledWith(
+      { limit: 8, excludeTypes: ['MESSAGE'] },
+      'body',
+      false,
+      expect.anything(),
+    );
+    const pushed: string[] = [];
+    center.pushed$.subscribe((item) => pushed.push(item.id));
+    realtime.notifications$.next(notification('chat', { type: Type.Message }));
+    expect(center.unreadCount()).toBe(2);
+    expect(center.recent()?.map((item) => item.id)).toEqual(['a', 'b']);
+    expect(center.lastPush()).toBeNull();
+    // Messages still hears of it.
+    expect(pushed).toEqual(['chat']);
+  });
+
   it('keeps the menu to the latest notifications', async () => {
     await signIn();
     await center.loadRecent();

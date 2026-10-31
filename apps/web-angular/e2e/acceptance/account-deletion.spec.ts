@@ -56,11 +56,14 @@ test.describe('acceptance: account deletion', () => {
     await pageV.getByLabel('Email').fill(viewer.email);
     await pageV.getByLabel('Password', { exact: true }).fill(viewer.password);
     await pageV.getByRole('button', { name: 'Sign in', exact: true }).click();
-    await expect(pageV).toHaveURL(/\/map(\?region=[a-z-]+)?$/, { timeout: 20_000 });
+    await expect(pageV).toHaveURL(/:\d+\/(\?region=[a-z-]+(&game=[a-z-]+)?)?$/, {
+      timeout: 20_000,
+    });
     const before = await openState(pageV, place);
     await expect(stateBinder(before, binder.name)).toBeVisible();
     await pageV.goto(`/binders/${binder.id}`);
-    await expect(pageV.getByRole('article', { name: card, exact: true })).toBeVisible();
+    // The binder page's cards (web stage WD, board W9).
+    await expect(pageV.getByTestId('binder-card').filter({ hasText: card })).toBeVisible();
 
     // --- The collector requests the deletion (re-authentication with the password) -----------
     const pageD = await actors.open(doomed);
@@ -79,9 +82,9 @@ test.describe('acceptance: account deletion', () => {
     // --- The inventory disappears publicly ----------------------------------------------------------
     await pageV.reload();
     await expect(
-      pageV.getByRole('heading', { name: 'This binder is not available' }),
+      pageV.getByRole('heading', { name: "This binder isn't public anymore." }),
     ).toBeVisible();
-    await expect(pageV.getByRole('article', { name: card, exact: true })).toHaveCount(0);
+    await expect(pageV.getByTestId('binder-card')).toHaveCount(0);
     await pageV.goto(`/collectors/${doomed.handle}`);
     await expect(
       pageV.getByRole('heading', { name: 'This collector is not available' }),
@@ -93,7 +96,7 @@ test.describe('acceptance: account deletion', () => {
 
     // --- The collector's binder leaves the map, the collector leaves search -----------------------
     const after = await openState(pageV, place);
-    await expect(after.getByText('No public binders here yet')).toBeVisible();
+    await expect(after.getByTestId('binders-empty')).toBeVisible();
     await expect(stateBinder(after, binder.name)).toHaveCount(0);
     const found = await api.ok<SearchAnswer>('GET', '/api/v1/search', {
       token: viewer.idToken,

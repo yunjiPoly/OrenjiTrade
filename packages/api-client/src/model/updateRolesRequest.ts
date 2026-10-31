@@ -17,7 +17,6 @@ export interface UpdateRolesRequest {
 }
 export enum UpdateRolesRequestRolesEnum {
     User = 'USER',
-    PremiumUser = 'PREMIUM_USER',
     Moderator = 'MODERATOR',
     Admin = 'ADMIN',
     SuperAdmin = 'SUPER_ADMIN'

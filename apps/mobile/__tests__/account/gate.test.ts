@@ -1,4 +1,4 @@
-import { GATE_HOME, gateFor, homeFor, redirectFor } from '@/src/account/gate';
+import { GATE_HOME, gateFor, guestMayOpen, homeFor, redirectFor } from '@/src/account/gate';
 
 describe('auth gate', () => {
   it('maps every account status to a gate', () => {
@@ -12,11 +12,58 @@ describe('auth gate', () => {
     expect(gateFor('ready', false)).toBe('app');
   });
 
-  it('keeps signed-out visitors in the auth group', () => {
-    expect(redirectFor('guest', ['(tabs)'])).toBe('/sign-in');
-    expect(redirectFor('guest', ['settings', 'account'])).toBe('/sign-in');
-    expect(redirectFor('guest', ['(auth)', 'sign-up'])).toBeNull();
-    expect(redirectFor('guest', [])).toBe('/sign-in');
+  it('lets a guest browse Home, Search and the public pages (stage R15)', () => {
+    // The app opens on Home for a signed-out visitor, not on Sign in.
+    expect(GATE_HOME.guest).toBe('/');
+    expect(redirectFor('guest', [])).toBeNull();
+    for (const tab of ['index', 'search', 'inventory', 'messages', 'profile', 'wishlist']) {
+      // The member-only tabs stay in the tab bar and ask to sign in in place.
+      expect(redirectFor('guest', ['(tabs)', tab])).toBeNull();
+    }
+    for (const allowed of [
+      ['(auth)', 'sign-in'],
+      ['(auth)', 'sign-up'],
+      ['(auth)', 'reset-password'],
+      ['cards', '[id]'],
+      ['holders'],
+      ['sets', '[id]'],
+      ['regions', '[region]', '[code]'],
+      ['binders', '[id]'],
+      ['settings', 'appearance'],
+      ['legal'],
+      ['legal', '[key]'],
+      ['+not-found'],
+    ]) {
+      expect(redirectFor('guest', allowed)).toBeNull();
+      expect(guestMayOpen(allowed[0] ?? '', allowed[1])).toBe(true);
+    }
+  });
+
+  it('sends a guest from a member-only screen to Sign in (stage R15)', () => {
+    for (const member of [
+      ['settings', 'account'],
+      ['settings', 'index'],
+      ['settings'],
+      ['binders', 'new'],
+      ['binders', 'edit'],
+      ['collectors', '[id]'],
+      ['collectors', '[id]', 'cards'],
+      ['messages', '[id]'],
+      ['community', '[slug]'],
+      ['notifications'],
+      ['items', 'new'],
+      ['items', '[id]'],
+      ['wishlist', 'new'],
+      ['wishlist', 'edit'],
+      ['report'],
+      ['ratings', 'rate'],
+      ['scan'],
+      ['onboarding'],
+      ['(account)', 'consent'],
+    ]) {
+      expect(redirectFor('guest', member)).toBe('/sign-in');
+      expect(guestMayOpen(member[0] ?? '', member[1])).toBe(false);
+    }
   });
 
   it('lets legal pages and the not-found screen through from every gate', () => {
@@ -54,26 +101,38 @@ describe('auth gate', () => {
     expect(redirectFor('app', ['items', '[id]'])).toBeNull();
     expect(redirectFor('app', ['binders', 'edit'])).toBeNull();
     expect(redirectFor('app', ['messages', '[id]'])).toBeNull();
+    // Stage M9: the binders of a state or province, behind sign-in like the Map tab.
+    expect(redirectFor('app', ['regions', '[region]', '[code]'])).toBeNull();
+    // Stage R15: open to guests too (old links into Search › Binders).
+    expect(redirectFor('guest', ['regions', '[region]', '[code]'])).toBeNull();
+    // The card scan's screens, behind sign-in (the match is a signed-in call).
+    expect(redirectFor('app', ['scan', 'review'])).toBeNull();
+    expect(redirectFor('guest', ['scan', 'review'])).toBe('/sign-in');
     expect(redirectFor('app', ['onboarding'])).toBeNull();
-    // Phases 7 and 8: reports, ratings, offers and trades.
+    // Phase 7: reports and ratings (offers, trades and disputes left the phone, ADR 0018: their
+    // old links are unmatched routes, which the not-found screen moves on to Messages).
     expect(redirectFor('app', ['report'])).toBeNull();
     expect(redirectFor('app', ['ratings', 'rate'])).toBeNull();
     expect(redirectFor('app', ['ratings', 'reference'])).toBeNull();
-    expect(redirectFor('app', ['offers'])).toBeNull();
-    expect(redirectFor('app', ['offers', '[id]'])).toBeNull();
-    expect(redirectFor('app', ['offers', 'new'])).toBeNull();
-    expect(redirectFor('app', ['trades', '[id]'])).toBeNull();
-    expect(redirectFor('guest', ['offers', '[id]'])).toBe('/sign-in');
-    // Phases 9 and 10: checkouts, disputes, Premium, credits and donations.
-    expect(redirectFor('app', ['checkout', 'fake', '[ref]'])).toBeNull();
-    expect(redirectFor('app', ['checkout', 'fake-billing', '[ref]'])).toBeNull();
-    expect(redirectFor('app', ['disputes', '[id]'])).toBeNull();
-    expect(redirectFor('app', ['premium'])).toBeNull();
-    expect(redirectFor('app', ['credits'])).toBeNull();
-    expect(redirectFor('app', ['support'])).toBeNull();
-    expect(redirectFor('app', ['settings', 'payouts'])).toBeNull();
-    expect(redirectFor('guest', ['disputes', '[id]'])).toBe('/sign-in');
-    expect(redirectFor('onboarding', ['premium'])).toBe('/onboarding');
+    expect(redirectFor('app', ['+not-found'])).toBeNull();
+    expect(redirectFor('guest', ['+not-found'])).toBeNull();
+    // Offers, trades, protected payments and disputes left the phone (ADR 0018); Premium, credits,
+    // donations and their checkouts left the app (ADR 0019, stage F1): none is an app root any
+    // more (an old link is an unmatched route, which the not-found screen moves on).
+    for (const removed of [
+      ['offers'],
+      ['offers', '[id]'],
+      ['trades', '[id]'],
+      ['disputes', '[id]'],
+      ['checkout', 'fake', '[ref]'],
+      ['checkout', 'fake-billing', '[ref]'],
+      ['checkout', 'fake-donation', '[ref]'],
+      ['premium'],
+      ['credits'],
+      ['support'],
+    ]) {
+      expect(redirectFor('app', removed)).toBe('/');
+    }
     expect(redirectFor('guest', ['report'])).toBe('/sign-in');
     // Signed out: the inventory screens, profiles and conversations send the visitor to sign in.
     expect(redirectFor('guest', ['items', 'new'])).toBe('/sign-in');
@@ -89,7 +148,8 @@ describe('auth gate', () => {
   it('knows where each state belongs', () => {
     expect(homeFor('ready', false)).toBe(GATE_HOME.app);
     expect(homeFor('ready', true)).toBe('/onboarding');
-    expect(homeFor('anonymous', false)).toBe('/sign-in');
+    // Stage R15: a signed-out visitor belongs on Home, as a guest.
+    expect(homeFor('anonymous', false)).toBe('/');
     expect(homeFor('loading', false)).toBe('/');
   });
 });

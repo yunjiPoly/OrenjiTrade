@@ -107,6 +107,10 @@ export class ConversationsStore {
     this.realtime.resync$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => void this.refresh());
+    // A chat's pinned card changed (the other collector pinned another listing): read it again.
+    this.realtime.conversations$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => void this.refresh());
   }
 
   /** (Re)loads the first page, showing the skeleton. */
@@ -259,8 +263,17 @@ export class ConversationsStore {
       void this.refresh();
       return;
     }
+    if (message.payload?.sale?.undone) {
+      // The undo withdrew the sale's note: the last message goes back to the newest one left.
+      void this.refresh();
+      return;
+    }
     if (conversation.lastMessage?.id === message.id) {
       return;
+    }
+    if (message.payload?.sale) {
+      // The pinned card is sold now (its "Sold" tag and copies): read the list again after.
+      void this.refresh();
     }
     const fromOther = !!message.senderId && message.senderId !== this.selfId();
     const onScreen = this.activeIdState() === message.conversationId && this.visibleState();

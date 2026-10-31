@@ -156,7 +156,7 @@ class AgeConfirmationIT extends AbstractOffersIT {
         assertAgeProblem(
                 callJson(
                         HttpMethod.POST,
-                        "/api/v1/community/channels/general/posts",
+                        "/api/v1/community/channels/americas-north-yugioh/posts",
                         uid,
                         Map.of("body", "Anyone trading this weekend?"),
                         403));
@@ -194,7 +194,7 @@ class AgeConfirmationIT extends AbstractOffersIT {
                 201);
         callJson(
                 HttpMethod.POST,
-                "/api/v1/community/channels/general/posts",
+                "/api/v1/community/channels/americas-north-yugioh/posts",
                 uid,
                 Map.of("body", "Anyone trading this weekend?"),
                 201);

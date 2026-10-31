@@ -23,17 +23,89 @@ import {
   BoundaryCollection,
   BoundaryFeature,
   REGION_VIEW,
-  SHADE_OPACITY,
-  binderCountLabel,
+  mapCountLine,
   shadeLevel,
 } from '../data/boundaries';
 
 type LeafletModule = typeof Leaflet;
 type GeoJsonInput = Parameters<LeafletModule['geoJSON']>[0];
 
+/** How a state's tooltip sits by the pointer (`direction` and `offset` of a Leaflet tooltip). */
+export interface TooltipPlacement {
+  direction: 'top' | 'bottom';
+  offset: [number, number];
+}
+
+/** The tooltip keeps this far inside the map's edges. */
+export const TOOLTIP_EDGE = 8;
+/** Below the pointer, the tooltip clears the cursor. */
+const TOOLTIP_BELOW = 18;
+/** The tooltip's size before its first draw ("Northwest Territories, Canada" and its line). */
+const TOOLTIP_GUESS = { width: 220, height: 50 };
+
+/**
+ * The corner the map's own controls take (container pixels): from `left` to the right edge, from
+ * the top down to `bottom`. A tooltip never sits under them (WD review R2-2).
+ */
+export interface KeepOutZone {
+  left: number;
+  bottom: number;
+}
+
+/**
+ * Where a state's tooltip goes for a pointer at (x, y) on a map `mapWidth` wide (WD review R1-5):
+ * above the pointer, slid sideways to stay inside the map near its left and right edges, and below
+ * the pointer near its top edge. A tooltip that would sit under the top-right controls (`keepOut`)
+ * slides left of them, or, with no room there, below them (R2-2). An unmeasured map (0 wide) keeps
+ * Leaflet's own placement.
+ */
+export function tooltipPlacement(
+  x: number,
+  y: number,
+  mapWidth: number,
+  tipWidth: number,
+  tipHeight: number,
+  keepOut: KeepOutZone | null = null,
+): TooltipPlacement {
+  if (mapWidth <= 0 || tipWidth <= 0) {
+    return { direction: 'top', offset: [0, 0] };
+  }
+  const half = tipWidth / 2;
+  const min = TOOLTIP_EDGE + half;
+  const max = mapWidth - TOOLTIP_EDGE - half;
+  let centre = max < min ? mapWidth / 2 : Math.min(Math.max(x, min), max);
+  // Leaflet's top tooltip sits 6 px above the pointer (its stylesheet's margin).
+  let below = y - tipHeight - 6 < TOOLTIP_EDGE;
+  let offsetY = below ? TOOLTIP_BELOW : 0;
+  if (keepOut) {
+    const top = below ? y + offsetY : y - tipHeight - 6;
+    const under =
+      centre + half > keepOut.left - TOOLTIP_EDGE && top < keepOut.bottom + TOOLTIP_EDGE;
+    if (under) {
+      const shifted = keepOut.left - TOOLTIP_EDGE - half;
+      if (shifted >= min) {
+        centre = shifted;
+      } else {
+        below = true;
+        offsetY = Math.max(TOOLTIP_BELOW, keepOut.bottom + TOOLTIP_EDGE - y);
+      }
+    }
+  }
+  return {
+    direction: below ? 'bottom' : 'top',
+    offset: [Math.round(centre - x), Math.round(offsetY)],
+  };
+}
+
 /** Non-injected global style bundle emitted by angular.json (`bundleName: leaflet`). */
 const LEAFLET_CSS_HREF = 'leaflet.css';
 const CSS_MARKER_ATTR = 'data-orenji-leaflet-css';
+/**
+ * The pane of the outlines drawn over the shapes (your province, the hovered, highlighted and
+ * selected states): its own SVG above the shapes, taking no pointer events. Hover never moves an
+ * interactive path in the DOM (a path re-appended under a pressed mouse loses its click).
+ */
+const TRACE_PANE = 'tracePane';
 const NATURAL_EARTH_CREDIT =
   'Made with <a href="https://www.naturalearthdata.com/" target="_blank" rel="noopener">Natural Earth</a>';
 
@@ -61,18 +133,23 @@ function ensureLeafletCss(doc: Document): Promise<void> {
 }
 
 interface Palette {
-  fill: string;
-  empty: string;
+  steps: [string, string, string, string, string];
   line: string;
   outline: string;
+  hover: string;
   selected: string;
+  home: string;
 }
 
 /**
  * The region map (ADR 0017): Leaflet (lazy chunk) drawing the region's bundled boundary file with
- * no tile layer, states and provinces shaded by their number of public binders. Clicking one emits
- * its code; the page's accessible list offers the same choice by keyboard. No coordinates are
- * read from or sent to anyone: the shapes are static assets.
+ * no tile layer, states and provinces shaded by their number of public binders (`map.step0–4`,
+ * spec 6.4; never by a card's holders). Hover: a 1.5 ink stroke and the tooltip "Ontario, Canada"
+ * / "4 binders · 1 deck core"; the selected state a 2 px orange outline; the viewer's own province
+ * always a 1.5 teal dashed outline; a state highlighted from the list an ink outline. Clicking one
+ * emits its code; the page's accessible list offers the same choice by keyboard (the map itself
+ * is focusable: arrows pan, + and − zoom). No coordinates are read from or sent to anyone: the
+ * shapes are static assets.
  */
 @Component({
   selector: 'app-boundary-map',
@@ -82,6 +159,9 @@ interface Palette {
       #canvas
       class="bmap__canvas"
       data-testid="boundary-map"
+      (keydown.escape)="closeTooltips()"
+      role="region"
+      aria-roledescription="map"
       [attr.aria-label]="label()"
       aria-describedby="boundary-map-hint"
     ></div>
@@ -127,6 +207,7 @@ interface Palette {
       color: var(--color-ink);
     }
   `,
+  host: { '(document:keydown.escape)': 'onDocumentEscape()' },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BoundaryMapComponent {
@@ -142,8 +223,21 @@ export class BoundaryMapComponent {
   readonly counts = input<ReadonlyMap<string, number>>(new Map());
   /** Display label per subdivision code ("Quebec, Canada"). */
   readonly names = input<ReadonlyMap<string, string>>(new Map());
+  /** Public deck cores per subdivision code (among `counts`; the tooltip names them apart). */
+  readonly deckCores = input<ReadonlyMap<string, number>>(new Map());
   readonly selected = input<string | null>(null);
+  /** The viewer's declared province: a teal dashed outline, and the first view fits it. */
+  readonly home = input<string | null>(null);
+  /** A state hovered or focused in the list: an ink outline (nothing is fetched). */
+  readonly highlight = input<string | null>(null);
   readonly label = input('Map of states and provinces');
+  /** Leaflet's own zoom buttons and credit (Home); Search draws its own overlays instead. */
+  readonly controls = input(true);
+  /**
+   * The page's own controls over the map's top-right corner (Search's zoom buttons), measured on
+   * each hover: a tooltip never sits under them (WD review R2-2).
+   */
+  readonly keepOut = input<(() => DOMRect | null) | null>(null);
   readonly subdivisionSelected = output<string>();
 
   protected readonly status = signal<'loading' | 'ready' | 'error'>('loading');
@@ -152,6 +246,15 @@ export class BoundaryMapComponent {
   private map: Leaflet.Map | null = null;
   private outlines: Leaflet.GeoJSON | null = null;
   private shapes: Leaflet.GeoJSON | null = null;
+  private homeLayer: Leaflet.GeoJSON | null = null;
+  private traceLayer: Leaflet.GeoJSON | null = null;
+  private subdivisionFeatures: BoundaryFeature[] = [];
+  private hovered: string | null = null;
+  /** The pointer on the map (container pixels, never a coordinate): where its tooltip goes. */
+  private pointer: Leaflet.Point | null = null;
+  /** The kind of the last press on the map: a touch tap leaves no tooltip behind (R1-5). */
+  private lastPointer = '';
+  private fittedHome = false;
   private readonly layers = new Map<string, Leaflet.Path[]>();
   private drawnRegion: string | null = null;
   private drawRequest = 0;
@@ -172,8 +275,25 @@ export class BoundaryMapComponent {
       this.counts();
       this.names();
       this.selected();
+      this.highlight();
       this.theme.resolved();
       untracked(() => this.restyle());
+    });
+    effect(() => {
+      // A state chosen elsewhere (a link's `state=`, the list) is brought into view when it lies
+      // off the map's view (WD review F17); a click on the map leaves the view as it is.
+      const selected = this.selected();
+      untracked(() => this.bringIntoView(selected));
+    });
+    effect(() => {
+      const home = this.home();
+      untracked(() => {
+        this.drawHome(home);
+        if (home && this.map && !this.fittedHome && this.layers.has(home)) {
+          this.fittedHome = true;
+          this.fitHome(home);
+        }
+      });
     });
     inject(DestroyRef).onDestroy(() => {
       this.destroyed = true;
@@ -200,8 +320,8 @@ export class BoundaryMapComponent {
       }
       this.L = L;
       const map = L.map(this.canvas().nativeElement, {
-        zoomControl: true,
-        attributionControl: true,
+        zoomControl: this.controls(),
+        attributionControl: this.controls(),
         minZoom: 1,
         maxZoom: 9,
         zoomSnap: 0.25,
@@ -209,9 +329,22 @@ export class BoundaryMapComponent {
         worldCopyJump: false,
         keyboard: true,
       });
-      map.attributionControl.setPrefix(false);
-      map.attributionControl.addAttribution(NATURAL_EARTH_CREDIT);
+      if (this.controls()) {
+        map.attributionControl.setPrefix(false);
+        map.attributionControl.addAttribution(NATURAL_EARTH_CREDIT);
+      }
+      const trace = map.createPane(TRACE_PANE);
+      trace.style.zIndex = '450';
+      trace.style.pointerEvents = 'none';
+      trace.setAttribute('aria-hidden', 'true');
+      map.getPane('overlayPane')?.setAttribute('aria-hidden', 'true');
       this.map = map;
+      // Capture: before Leaflet's own handlers, whatever they stop.
+      this.canvas().nativeElement.addEventListener(
+        'pointerdown',
+        (event: PointerEvent) => (this.lastPointer = event.pointerType),
+        true,
+      );
       this.fitRegion(this.region());
       if (typeof ResizeObserver !== 'undefined') {
         this.resizeObserver = new ResizeObserver(() => this.map?.invalidateSize());
@@ -260,8 +393,20 @@ export class BoundaryMapComponent {
     this.outlines = L.geoJSON(countries as unknown as GeoJsonInput, {
       interactive: false,
     }).addTo(map);
+    this.subdivisionFeatures = subdivisions;
     this.drawnRegion = region;
-    this.fitRegion(region);
+    const home = this.home();
+    const selected = this.selected();
+    if (selected && this.layers.has(selected)) {
+      // A link to a state (`state=`) opens the map on it (WD review F17).
+      this.fittedHome = true;
+      this.fitHome(selected);
+    } else if (home && this.layers.has(home)) {
+      this.fittedHome = true;
+      this.fitHome(home);
+    } else {
+      this.fitRegion(region);
+    }
     this.restyle();
     this.status.set('ready');
   }
@@ -275,26 +420,238 @@ export class BoundaryMapComponent {
     const list = this.layers.get(code) ?? [];
     list.push(path);
     this.layers.set(code, list);
+    // Before the tooltip's own mouseover and mousemove handlers, which place it (the order of
+    // registration): the tooltip stays inside the map pane at its edges (WD review R1-5).
+    path.on('mouseover mousemove', (event) =>
+      this.placeTooltip(path, (event as Leaflet.LeafletMouseEvent).originalEvent),
+    );
     path.bindTooltip(() => this.tooltip(code), {
       sticky: true,
       direction: 'top',
       className: 'orenji-boundary-tooltip',
     });
-    path.on('click', () => this.subdivisionSelected.emit(code));
-    path.on('mouseover', () => path.setStyle({ weight: 2 }));
-    path.on('mouseout', () => this.restyleCode(code));
+    // Its first draw measured it: placed again with its real size.
+    path.on('tooltipopen', () => this.placeTooltip(path, null));
+    path.on('click', () => {
+      this.subdivisionSelected.emit(code);
+      // A tap has no pointer leaving: its tooltip would stay over the map and the state card.
+      if (this.lastPointer === 'touch') {
+        path.closeTooltip();
+      }
+    });
+    path.on('mouseover', () => {
+      this.hovered = code;
+      this.drawTrace();
+    });
+    path.on('mouseout', () => {
+      if (this.hovered === code) {
+        this.hovered = null;
+        this.drawTrace();
+      }
+    });
     // The subdivision code (never a coordinate) identifies the shape for styles and tests.
     path.on('add', () => {
       const element = path.getElement();
-      element?.classList.add('orenji-boundary');
-      element?.setAttribute('data-code', code);
+      if (!element) {
+        return;
+      }
+      element.classList.add('orenji-boundary');
+      element.setAttribute('data-code', code);
+      // The tooltip's focus listeners make an SVG path a Tab stop in Chromium: hundreds of unnamed,
+      // invisible stops before Search's overlays. The state list is the keyboard path (spec 6.4).
+      // (Leaflet's `off(element, types)` with two arguments removes every listener of those types.)
+      const off = this.L?.DomEvent.off as unknown as
+        ((el: Element, types: string) => void) | undefined;
+      off?.(element, 'focus blur');
+      element.setAttribute('tabindex', '-1');
+      element.setAttribute('focusable', 'false');
     });
   }
 
   private tooltip(code: string): string {
     const name = this.names().get(code) ?? code;
     const escaped = name.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-    return `<strong>${escaped}</strong><br>${binderCountLabel(this.counts().get(code))}`;
+    const line = mapCountLine(this.counts().get(code), this.deckCores().get(code));
+    const level = shadeLevel(this.counts().get(code));
+    return `<strong>${escaped}</strong><br><span class="orenji-boundary-tooltip__swatch" data-level="${level}"></span>${line}`;
+  }
+
+  private placeTooltip(path: Leaflet.Path, event: MouseEvent | null): void {
+    const map = this.map;
+    const tooltip = path.getTooltip();
+    if (!map || !tooltip) {
+      return;
+    }
+    if (event) {
+      this.pointer = map.mouseEventToContainerPoint(event);
+    }
+    if (!this.pointer) {
+      return;
+    }
+    const element = tooltip.getElement();
+    const placement = tooltipPlacement(
+      this.pointer.x,
+      this.pointer.y,
+      map.getSize().x,
+      element?.offsetWidth || TOOLTIP_GUESS.width,
+      element?.offsetHeight || TOOLTIP_GUESS.height,
+      this.keepOutZone(),
+    );
+    tooltip.options.direction = placement.direction;
+    tooltip.options.offset = placement.offset;
+    if (!event && tooltip.isOpen()) {
+      tooltip.update();
+    }
+  }
+
+  /** The page's controls over the map, in the map's own pixels (R2-2). */
+  private keepOutZone(): KeepOutZone | null {
+    const rect = this.keepOut()?.() ?? null;
+    if (!rect || rect.width === 0) {
+      return null;
+    }
+    const box = this.canvas().nativeElement.getBoundingClientRect();
+    return { left: rect.left - box.left, bottom: rect.bottom - box.top };
+  }
+
+  /** Esc on the map hides a hovered state's tooltip (SC 1.4.13); the next hover shows it again. */
+  protected closeTooltips(): void {
+    this.shapes?.eachLayer((layer) => layer.closeTooltip());
+  }
+
+  /**
+   * Esc anywhere hides the tooltip of the state under the pointer, the focus wherever it is (SC
+   * 1.4.13; WD review R1-4).
+   */
+  protected onDocumentEscape(): void {
+    if (this.hovered) {
+      this.closeTooltips();
+    }
+  }
+
+  /** Zoom one step in or out (Search's own + and − buttons). */
+  zoomIn(): void {
+    this.map?.zoomIn();
+  }
+
+  zoomOut(): void {
+    this.map?.zoomOut();
+  }
+
+  /** "Show my province": centres a declared province (never a device position) and its neighbours. */
+  showCode(code: string | null): void {
+    if (code && this.layers.has(code)) {
+      this.fitHome(code);
+    } else {
+      this.fitRegion(this.region());
+    }
+  }
+
+  private fitHome(code: string): void {
+    const bounds = this.boundsOf(code);
+    if (bounds) {
+      // The province and its neighbours (spec 6.4).
+      this.map?.fitBounds(bounds.pad(0.9), { animate: false });
+    }
+  }
+
+  /** Fits a state chosen off the map's view (its middle outside it); a visible one stays put. */
+  private bringIntoView(code: string | null): void {
+    const map = this.map;
+    const bounds = code ? this.boundsOf(code) : null;
+    if (!map || !bounds || this.status() !== 'ready') {
+      return;
+    }
+    if (!map.getBounds().contains(bounds.getCenter())) {
+      this.fitHome(code as string);
+    }
+  }
+
+  private boundsOf(code: string): Leaflet.LatLngBounds | null {
+    const L = this.L;
+    const paths = this.layers.get(code);
+    if (!L || !paths?.length) {
+      return null;
+    }
+    let bounds: Leaflet.LatLngBounds | null = null;
+    for (const path of paths) {
+      const own = (path as unknown as Leaflet.Polygon).getBounds?.();
+      if (own) {
+        bounds = bounds
+          ? bounds.extend(own)
+          : L.latLngBounds(own.getSouthWest(), own.getNorthEast());
+      }
+    }
+    return bounds;
+  }
+
+  /**
+   * The teal dashed outline of the viewer's province, above every shape and not clickable; the
+   * hovered and selected outlines are drawn above it.
+   */
+  private drawHome(code: string | null, palette = this.palette()): void {
+    this.homeLayer?.remove();
+    this.homeLayer = null;
+    const L = this.L;
+    const map = this.map;
+    const features = code
+      ? this.subdivisionFeatures.filter((feature) => feature.properties.code === code)
+      : [];
+    if (L && map && features.length > 0) {
+      this.homeLayer = L.geoJSON(features as unknown as GeoJsonInput, {
+        interactive: false,
+        pane: TRACE_PANE,
+        style: () => ({
+          color: palette.home,
+          weight: 1.5,
+          dashArray: '4 3',
+          fill: false,
+          opacity: 1,
+        }),
+      }).addTo(map);
+    }
+    this.drawTrace(palette);
+  }
+
+  /**
+   * The hovered or list-highlighted state (1.5 ink) and the selected one (2 orange), drawn as
+   * outlines in their own non-interactive pane: the shapes themselves are never re-ordered.
+   */
+  private drawTrace(palette = this.palette()): void {
+    this.traceLayer?.remove();
+    this.traceLayer = null;
+    const L = this.L;
+    const map = this.map;
+    if (!L || !map) {
+      return;
+    }
+    const selected = this.selected();
+    const traced = new Set([this.hovered, this.highlight()].filter((code) => !!code));
+    const features = this.subdivisionFeatures
+      .filter((feature) => {
+        const code = feature.properties.code;
+        return !!code && (code === selected || traced.has(code));
+      })
+      // The selected outline last, so it stays on top of a traced neighbour.
+      .sort(
+        (a, b) => Number(a.properties.code === selected) - Number(b.properties.code === selected),
+      );
+    if (features.length === 0) {
+      return;
+    }
+    this.traceLayer = L.geoJSON(features as unknown as GeoJsonInput, {
+      interactive: false,
+      pane: TRACE_PANE,
+      style: (feature) => {
+        const isSelected = (feature as unknown as BoundaryFeature).properties.code === selected;
+        return {
+          color: isSelected ? palette.selected : palette.hover,
+          weight: isSelected ? 2 : 1.5,
+          fill: false,
+          opacity: 1,
+        };
+      },
+    }).addTo(map);
   }
 
   private fitRegion(region: string): void {
@@ -308,12 +665,24 @@ export class BoundaryMapComponent {
     const styles = getComputedStyle(this.host.nativeElement);
     const token = (name: string, fallback: string) =>
       styles.getPropertyValue(name).trim() || fallback;
+    // In light, borders of the page's background left white land with no visible edge (step0 is
+    // white on an off-white page): a quiet grey line draws every state's edge (spec 2.6 and 6.4).
+    const light = this.theme.resolved() === 'light';
     return {
-      fill: token('--color-primary', '#e8590c'),
-      empty: token('--color-surface', '#ffffff'),
-      line: token('--color-border', '#d0d0d0'),
+      steps: [
+        token('--color-map-step0', '#2c2724'),
+        token('--color-map-step1', '#5c3418'),
+        token('--color-map-step2', '#8f4a1b'),
+        token('--color-map-step3', '#c9661f'),
+        token('--color-map-step4', '#ff8f3d'),
+      ],
+      line: light
+        ? token('--color-text-disabled', '#a8a29e')
+        : token('--color-background', '#141210'),
       outline: token('--color-border-strong', '#808080'),
-      selected: token('--color-ink', '#111111'),
+      hover: token('--color-ink', '#111111'),
+      selected: token('--color-primary', '#f4761a'),
+      home: token('--color-accent', '#2dd4bf'),
     };
   }
 
@@ -325,23 +694,20 @@ export class BoundaryMapComponent {
     for (const code of this.layers.keys()) {
       this.restyleCode(code, palette);
     }
-    this.outlines?.setStyle({ color: palette.outline, weight: 1.2, fill: false, opacity: 0.9 });
+    this.outlines?.setStyle({ color: palette.outline, weight: 1, fill: false, opacity: 0.6 });
+    this.drawHome(this.home(), palette);
   }
 
   private restyleCode(code: string, palette = this.palette()): void {
     const level = shadeLevel(this.counts().get(code));
-    const selected = this.selected() === code;
     for (const path of this.layers.get(code) ?? []) {
       path.setStyle({
-        color: selected ? palette.selected : palette.line,
-        weight: selected ? 2.5 : 0.6,
+        color: palette.line,
+        weight: 0.8,
         opacity: 1,
-        fillColor: level === 0 ? palette.empty : palette.fill,
-        fillOpacity: level === 0 ? 1 : SHADE_OPACITY[level],
+        fillColor: palette.steps[level],
+        fillOpacity: 1,
       });
-      if (selected) {
-        path.bringToFront();
-      }
     }
   }
 }

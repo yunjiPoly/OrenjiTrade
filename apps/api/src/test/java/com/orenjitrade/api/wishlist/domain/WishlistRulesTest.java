@@ -9,6 +9,7 @@ import com.orenjitrade.api.wishlist.infra.WishlistAlertRepository.Candidate;
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -91,6 +92,10 @@ class WishlistRulesTest {
         assertThat(WishlistAlertRules.conditionFits(CONDITIONS, "UNKNOWN", true)).isFalse();
         assertThat(WishlistAlertRules.conditionFits(CONDITIONS, "DAMAGED", false)).isTrue();
         assertThat(WishlistAlertRules.conditionFits(List.of("GOOD"), "GOOD", true)).isFalse();
+        // Not stated (cards added on the phone, stage R2): a possible match either way.
+        assertThat(WishlistAlertRules.conditionFits(CONDITIONS, null, true)).isTrue();
+        assertThat(WishlistAlertRules.conditionFits(CONDITIONS, null, false)).isTrue();
+        assertThat(WishlistAlertRules.NEAR_MINT_SQL).contains("i.condition IS NULL");
         assertThat(WishlistAlertRules.NEAR_MINT_SQL)
                 .contains("w.near_mint_only")
                 .contains("'NEAR_MINT'");
@@ -149,6 +154,48 @@ class WishlistRulesTest {
                 .isEqualTo("wishlist-alert:" + any.wisherId() + ":" + any.itemId());
     }
 
+    @Test
+    void theAlertCarriesTheRowOfThePhoneWithTheProvinceOnly() {
+        UUID card = UUID.randomUUID();
+        PublicPlace quebec =
+                new PublicPlace("americas-north", "CA", "Canada", "CA-QC", "Quebec", false);
+        Map<String, ?> data =
+                WishlistAlerts.request(candidate(card, null, null, "AZR-EN001", null, quebec), null)
+                        .data();
+        assertThat(data.get("collectorHandle")).isEqualTo("seller");
+        assertThat(data.get("province")).as("the province, not the country").isEqualTo("Quebec");
+        assertThat(data.get("askingPriceText")).isEqualTo("$14.00");
+        assertThat(data.get("askingPrice")).isEqualTo("14.00");
+        assertThat(data.get("currency")).isEqualTo("CAD");
+        assertThat(data.get("cardName")).isEqualTo("Azure-Eyes Sky Dragon");
+
+        PublicPlace puertoRico =
+                new PublicPlace("americas-north", "PR", "Puerto Rico", "PR", "Puerto Rico", true);
+        assertThat(WishlistAlerts.province(puertoRico)).isEqualTo("Puerto Rico");
+        Candidate unpriced =
+                new Candidate(
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        card,
+                        null,
+                        null,
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        "Azure-Eyes Sky Dragon",
+                        null,
+                        null,
+                        "yugioh",
+                        null,
+                        null,
+                        "CAD",
+                        "seller",
+                        puertoRico);
+        Map<String, ?> plain = WishlistAlerts.request(unpriced, null).data();
+        assertThat(plain).doesNotContainKeys("askingPriceText", "askingPrice", "currency");
+        assertThat(plain.get("province")).isEqualTo("Puerto Rico");
+    }
+
     private static Candidate candidate(
             UUID card,
             UUID printing,
@@ -169,6 +216,9 @@ class WishlistRulesTest {
                 code,
                 itemRarity,
                 "yugioh",
+                "$14.00",
+                new BigDecimal("14.00"),
+                "CAD",
                 "seller",
                 place);
     }

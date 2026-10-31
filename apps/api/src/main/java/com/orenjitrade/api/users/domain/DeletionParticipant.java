@@ -37,4 +37,14 @@ public interface DeletionParticipant {
      * account row itself, consents, audit entries and ledgers are kept by the framework.
      */
     void purge(UUID userId);
+
+    /**
+     * As {@link #purge(UUID)}, given the account's handle as it was before the deletion anonymised
+     * it: a module whose rows name the account by its handle only (another collector's rating or
+     * sale notification) can find them without reading another module's tables. The job calls this
+     * one; by default it is {@link #purge(UUID)}.
+     */
+    default void purge(UUID userId, String handle) {
+        purge(userId);
+    }
 }

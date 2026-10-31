@@ -1,6 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Subject } from 'rxjs';
 import { AppConfigService } from '../config/app-config.service';
+import { clearAccountStorage } from './account-storage';
 import { AuthUser, FIREBASE_AUTH_PORT, NoCurrentUserError } from './firebase-auth.port';
 
 /** `loading` until Firebase restored (or ruled out) a persisted session. */
@@ -193,8 +194,20 @@ export class AuthService {
     this.idTokenState.set(token);
     this.authStateState.set(user ? 'authenticated' : 'anonymous');
     this.resolveReady();
+    if (previousUid && !user) {
+      // Signed out: the per-account conveniences of this browser go (WE review P4).
+      clearAccountStorage(this.storage());
+    }
     if (previousUid !== (user?.uid ?? null) || previousToken !== token) {
       this.changes$.next({ user, idToken: token });
+    }
+  }
+
+  private storage(): Storage | null {
+    try {
+      return globalThis.localStorage ?? null;
+    } catch {
+      return null;
     }
   }
 

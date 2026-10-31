@@ -4,12 +4,13 @@ import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
-  Text,
   View,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
 
+import { HANDLE_LABEL_STYLE, HANDLE_TEXT_PROPS } from '@/src/components/ui/HandleText';
+import { Text } from '@/src/components/ui/Text';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
@@ -29,6 +30,17 @@ export interface ButtonProps {
   accessibilityHint?: string;
   /** Read instead of the visible label (e.g. "Make an offer on Lantern Fox"). */
   accessibilityLabel?: string;
+  /**
+   * How far the label follows the system text size: for a button that stays on screen under a
+   * scrolling list (`PINNED_MAX_FONT_SCALE`). On iOS a long press shows it enlarged.
+   */
+  maxFontSizeMultiplier?: number;
+  /**
+   * The label names a collector by handle ("Message {handle}"): one line, capped, its end cut
+   * with "…" where the button is too narrow (`HANDLE_TEXT_PROPS`), so the handle never breaks (owner decision of
+   * 2026-10-28).
+   */
+  handleInLabel?: boolean;
 }
 
 export function Button({
@@ -43,6 +55,8 @@ export function Button({
   testID,
   accessibilityHint,
   accessibilityLabel,
+  maxFontSizeMultiplier,
+  handleInLabel = false,
 }: ButtonProps) {
   const { palette } = useTheme();
   const inactive = disabled || loading;
@@ -64,6 +78,7 @@ export function Button({
           ? palette.ink
           : palette.accent;
   const text = loading && loadingLabel ? loadingLabel : label;
+  const capped = handleInLabel || maxFontSizeMultiplier !== undefined;
 
   return (
     <Pressable
@@ -71,6 +86,8 @@ export function Button({
       accessibilityRole="button"
       accessibilityLabel={loading && loadingLabel ? text : (accessibilityLabel ?? text)}
       accessibilityHint={accessibilityHint}
+      accessibilityShowsLargeContentViewer={capped}
+      accessibilityLargeContentTitle={capped ? text : undefined}
       aria-disabled={inactive}
       aria-busy={loading}
       disabled={inactive}
@@ -89,13 +106,18 @@ export function Button({
         style,
       ]}
     >
-      <View style={styles.content}>
+      <View style={[styles.content, handleInLabel && styles.contentFits]}>
         {loading ? (
           <ActivityIndicator size="small" color={color} />
         ) : icon ? (
           <MaterialCommunityIcons name={icon} size={18} color={color} />
         ) : null}
-        <Text style={[textStyle('md'), styles.label, { color }]}>{text}</Text>
+        <Text
+          {...(handleInLabel ? HANDLE_TEXT_PROPS : { maxFontSizeMultiplier })}
+          style={[textStyle('md'), styles.label, { color }, handleInLabel && HANDLE_LABEL_STYLE]}
+        >
+          {text}
+        </Text>
       </View>
     </Pressable>
   );
@@ -112,6 +134,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   content: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
+  contentFits: { maxWidth: '100%' },
   label: { fontWeight: fontWeight.semibold, textAlign: 'center' },
   pressed: { opacity: 0.8 },
   disabled: { opacity: 0.5 },

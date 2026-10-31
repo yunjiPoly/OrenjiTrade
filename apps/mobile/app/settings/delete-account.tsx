@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { isApiError } from '@/src/api/ApiError';
@@ -9,39 +9,32 @@ import { friendlyMessage } from '@/src/api/errorMessages';
 import { blockerLabel, useRequestDeletion } from '@/src/api/hooks/account';
 import { WRONG_PASSWORD_CODES, authErrorMessage, toAuthError } from '@/src/auth/authErrors';
 import { useSession } from '@/src/auth/session';
-import { Button } from '@/src/components/ui/Button';
-import { ConfirmDialog } from '@/src/components/ui/ConfirmDialog';
 import { Checkbox, FormMessage, PasswordField } from '@/src/components/ui/FormControls';
-import { Screen } from '@/src/components/ui/Screen';
+import { ConfirmSheet } from '@/src/components/ui/ConfirmSheet';
+import { PillButton } from '@/src/components/ui/PillButton';
+import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
 import { exportMyData } from '@/src/features/account/exportData';
 import { SimulatedGoogleAccountDialog } from '@/src/features/auth/SimulatedGoogleAccountDialog';
 import { googleErrorMessage, useGoogleSignIn } from '@/src/features/auth/useGoogleSignIn';
-import { spacing, textStyle, useTheme } from '@/src/theme';
+import { DELETE_ACCOUNT_COPY as COPY } from '@/src/features/settings/settingsCopy';
+import { SettingsPage } from '@/src/features/settings/SettingsPage';
+import { deleteSavedDetails } from '@/src/features/shipping/savedDetails';
+import { fontWeight, PINNED_MAX_FONT_SCALE, spacing, useTheme } from '@/src/theme';
 
-const FACTS = [
-  {
-    icon: 'clock-outline' as const,
-    text: 'Your account is deleted after a 7-day grace period. You can cancel any time before that.',
-  },
-  {
-    icon: 'eye-off-outline' as const,
-    text: 'You disappear from the map and search right away.',
-  },
-  {
-    icon: 'gavel' as const,
-    text: 'Consent records and audit entries are kept as required by law.',
-  },
-];
+const REASON_MAX = 500;
 
 type Step = 'form' | 'working' | 'blocked';
+type WorkingStep = keyof typeof COPY.steps;
 
 /**
- * Account deletion (web: the delete-account dialog): explains the 7-day grace period, optionally
- * exports first, re-authenticates with the password, or with Google for an account without one
- * (the API needs a sign-in younger than five minutes), confirms, then files
- * `POST /me/deletion-requests`. The gate then shows the account status screen with "Cancel
- * deletion".
+ * Delete account (stage R13, mockup v50 screen 57; web: the delete-account dialog): what happens
+ * (7 days to change one's mind, hidden at once, records kept by law), why one leaves (optional),
+ * "Download a copy of my data first", the password (or "You will confirm with Google." for an
+ * account without one; the API needs a sign-in younger than five minutes), and the
+ * acknowledgement: "Delete my account" stays grey until it is ticked, then asks in a sheet. The
+ * working steps show while it runs; the blocked state lists what must be resolved first. The gate
+ * then shows the deletion-pending screen with "Cancel deletion".
  */
 export default function DeleteAccountScreen() {
   const { palette } = useTheme();
@@ -56,15 +49,13 @@ export default function DeleteAccountScreen() {
   const [submitted, setSubmitted] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [step, setStep] = useState<Step>('form');
-  const [status, setStatus] = useState('');
+  const [working, setWorking] = useState<WorkingStep>('confirm');
   const [error, setError] = useState<string | null>(null);
   const [blockers, setBlockers] = useState<string[]>([]);
   const withPassword = session.hasPasswordProvider;
   const google = useGoogleSignIn('reauthenticate');
 
-  const passwordError =
-    submitted && withPassword && !password ? 'Enter your password to continue.' : null;
-  const acknowledgeError = submitted && !acknowledged;
+  const passwordError = submitted && withPassword && !password ? COPY.passwordMissing : null;
 
   const review = () => {
     setSubmitted(true);
@@ -79,7 +70,7 @@ export default function DeleteAccountScreen() {
     setError(null);
     setStep('working');
     try {
-      setStatus('Confirming it is you…');
+      setWorking('confirm');
       if (withPassword) {
         await session.reauthenticate(password);
       } else if (!(await google.start())) {
@@ -88,11 +79,16 @@ export default function DeleteAccountScreen() {
         return;
       }
       if (exportFirst) {
-        setStatus('Preparing your data export…');
+        setWorking('export');
         await exportMyData(account.handle);
       }
-      setStatus('Scheduling the deletion…');
+      setWorking('schedule');
       await request.mutateAsync({ reason: reason.trim() || null, exportFirst });
+      // The saved address and e-Transfer email leave this phone with the account (review fix 1,
+      // P3): no screen is left to delete them from.
+      if (session.user?.uid) {
+        await deleteSavedDetails(session.user.uid);
+      }
       await account.reload();
       // The gate moves to the account status screen (deletion pending).
     } catch (caught) {
@@ -105,7 +101,7 @@ export default function DeleteAccountScreen() {
       if (isApiError(caught)) {
         setError(friendlyMessage(caught));
       } else if (withPassword && WRONG_PASSWORD_CODES.has(toAuthError(caught).code)) {
-        setError('That password is not correct.');
+        setError(COPY.passwordWrong);
         setPassword('');
       } else {
         setError(withPassword ? authErrorMessage(caught) : googleErrorMessage(caught));
@@ -115,120 +111,177 @@ export default function DeleteAccountScreen() {
 
   if (step === 'blocked') {
     return (
-      <Screen scroll safeBottom testID="screen-delete-account">
-        <View style={styles.root}>
-          <FormMessage>
-            Your account cannot be deleted yet. Please resolve the following first:
-          </FormMessage>
+      <SettingsPage
+        title={COPY.title}
+        testID="screen-delete-account"
+        footer={<PillButton label={COPY.close} variant="outline" onPress={() => router.back()} />}
+      >
+        <View style={styles.blocked} testID="delete-blocked">
+          <Text accessibilityRole="header" style={[styles.heading, { color: palette.ink }]}>
+            {COPY.blockedTitle}
+          </Text>
+          <Text style={[styles.body, { color: palette.textMuted }]}>{COPY.blockedText}</Text>
           {(blockers.length > 0 ? blockers : ['SOME_OBLIGATIONS']).map((blocker) => (
-            <Text key={blocker} style={[textStyle('md'), { color: palette.ink }]}>
-              •{' '}
-              {blocker === 'SOME_OBLIGATIONS'
-                ? 'Some obligations are still open.'
-                : blockerLabel(blocker)}
-            </Text>
+            <View key={blocker} style={styles.fact}>
+              <MaterialCommunityIcons
+                name="alert-circle-outline"
+                size={18}
+                color={palette.warning}
+              />
+              <Text style={[styles.body, styles.grow, { color: palette.ink }]}>
+                {blocker === 'SOME_OBLIGATIONS' ? COPY.someObligations : blockerLabel(blocker)}
+              </Text>
+            </View>
           ))}
-          <Button label="Close" onPress={() => router.back()} />
         </View>
-      </Screen>
+      </SettingsPage>
     );
   }
 
   if (step === 'working') {
+    const order: WorkingStep[] = exportFirst
+      ? ['confirm', 'export', 'schedule']
+      : ['confirm', 'schedule'];
+    const reached = order.indexOf(working);
     return (
-      <Screen safeBottom testID="screen-delete-account">
-        <View style={styles.working} accessibilityLiveRegion="polite">
-          <Button label={status} loading loadingLabel={status} variant="secondary" />
+      <SettingsPage title={COPY.title} testID="screen-delete-account">
+        <View
+          style={styles.working}
+          accessibilityLiveRegion="polite"
+          accessibilityLabel={COPY.steps[working]}
+          testID="delete-working"
+        >
+          <Text accessibilityRole="header" style={[styles.heading, { color: palette.ink }]}>
+            {COPY.working}
+          </Text>
+          {order.map((name, index) => (
+            <View key={name} style={styles.fact}>
+              {index < reached ? (
+                <MaterialCommunityIcons name="check" size={20} color={palette.accent} />
+              ) : index === reached ? (
+                <ActivityIndicator size="small" color={palette.primary} />
+              ) : (
+                <MaterialCommunityIcons
+                  name="circle-outline"
+                  size={20}
+                  color={palette.textDisabled}
+                />
+              )}
+              <Text
+                style={[
+                  styles.body,
+                  styles.grow,
+                  { color: index <= reached ? palette.ink : palette.textMuted },
+                ]}
+              >
+                {COPY.steps[name]}
+              </Text>
+            </View>
+          ))}
         </View>
         <SimulatedGoogleAccountDialog {...google.dialog} />
-      </Screen>
+      </SettingsPage>
     );
   }
 
   return (
-    <Screen scroll safeBottom testID="screen-delete-account">
-      <View style={styles.root}>
-        <Text
-          accessibilityRole="header"
-          style={[textStyle('2xl', 'heading'), { color: palette.ink }]}
-        >
-          Delete your account
-        </Text>
-        {FACTS.map((fact) => (
+    <SettingsPage
+      title={COPY.title}
+      testID="screen-delete-account"
+      footer={
+        <>
+          <PillButton
+            label={COPY.submit}
+            variant="danger"
+            disabled={!acknowledged}
+            onPress={review}
+            maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+            testID="delete-submit"
+          />
+          <PillButton
+            label={COPY.keep}
+            variant="quiet"
+            onPress={() => router.back()}
+            maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+            testID="delete-keep"
+          />
+        </>
+      }
+    >
+      <View style={styles.facts}>
+        {COPY.facts.map((fact) => (
           <View key={fact.icon} style={styles.fact}>
             <MaterialCommunityIcons name={fact.icon} size={20} color={palette.textMuted} />
-            <Text style={[textStyle('md'), styles.grow, { color: palette.ink }]}>{fact.text}</Text>
+            <Text style={[styles.body, styles.grow, { color: palette.settings.rowIcon }]}>
+              {fact.text}
+            </Text>
           </View>
         ))}
-        {error ? <FormMessage testID="delete-error">{error}</FormMessage> : null}
-        <TextField
-          label="Why are you leaving? (optional)"
-          value={reason}
-          onChangeText={setReason}
-          multiline
-          maxLength={500}
-          testID="delete-reason"
+      </View>
+      {error ? <FormMessage testID="delete-error">{error}</FormMessage> : null}
+      <TextField
+        label={COPY.reason}
+        labelAside={COPY.reasonCount(reason.length, REASON_MAX)}
+        value={reason}
+        onChangeText={setReason}
+        placeholder={COPY.reasonPlaceholder}
+        multiline
+        maxLength={REASON_MAX}
+        inputStyle={styles.reason}
+        testID="delete-reason"
+      />
+      <Checkbox
+        label={COPY.exportFirst}
+        checked={exportFirst}
+        onChange={setExportFirst}
+        testID="delete-export-first"
+      />
+      {withPassword ? (
+        <PasswordField
+          label={COPY.password}
+          value={password}
+          onChangeText={setPassword}
+          error={passwordError}
+          hint={COPY.passwordHint}
+          autoComplete="current-password"
+          textContentType="password"
+          testID="delete-password"
         />
+      ) : (
+        <Text testID="delete-google-note" style={[styles.body, { color: palette.textMuted }]}>
+          {COPY.google}
+        </Text>
+      )}
+      <View style={[styles.understand, { borderColor: palette.borderStrong }]}>
         <Checkbox
-          label="Download a copy of my data first"
-          checked={exportFirst}
-          onChange={setExportFirst}
-          testID="delete-export-first"
-        />
-        {withPassword ? (
-          <PasswordField
-            label="Password"
-            value={password}
-            onChangeText={setPassword}
-            error={passwordError}
-            hint="For your security, confirm your password."
-            autoComplete="current-password"
-            textContentType="password"
-            testID="delete-password"
-          />
-        ) : (
-          <Text testID="delete-google-note" style={[textStyle('sm'), { color: palette.textMuted }]}>
-            You will confirm with Google.
-          </Text>
-        )}
-        <Checkbox
-          label="I understand that my profile, tags and location will be permanently deleted."
+          label={COPY.understand}
           checked={acknowledged}
           onChange={setAcknowledged}
-          error={acknowledgeError}
           testID="delete-acknowledge"
         />
-        {acknowledgeError ? (
-          <Text accessibilityRole="alert" style={[textStyle('sm'), { color: palette.danger }]}>
-            Please confirm to continue.
-          </Text>
-        ) : null}
-        <Button
-          label="Delete my account"
-          variant="danger"
-          onPress={review}
-          testID="delete-submit"
-        />
-        <Button label="Keep my account" variant="ghost" onPress={() => router.back()} />
       </View>
-      <ConfirmDialog
+      <ConfirmSheet
         visible={confirming}
-        title="Delete your account?"
-        message="You will be hidden right away and your account is deleted in 7 days unless you cancel."
-        confirmLabel="Delete my account"
-        cancelLabel="Keep my account"
-        tone="danger"
+        title={COPY.sheetTitle}
+        message={COPY.sheetBody}
+        confirmLabel={COPY.submit}
+        cancelLabel={COPY.keep}
         onConfirm={() => void submit()}
         onCancel={() => setConfirming(false)}
         testID="delete-confirm"
       />
-    </Screen>
+    </SettingsPage>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { gap: spacing[4] },
+  facts: { gap: spacing[3] },
   fact: { flexDirection: 'row', gap: spacing[3], alignItems: 'flex-start' },
   grow: { flex: 1 },
-  working: { flex: 1, justifyContent: 'center' },
+  body: { fontSize: 14, lineHeight: 20 },
+  heading: { fontSize: 18, lineHeight: 24, fontWeight: fontWeight.bold },
+  reason: { minHeight: 88, textAlignVertical: 'top' },
+  understand: { borderWidth: 1, borderRadius: 14, paddingHorizontal: spacing[3] },
+  working: { gap: spacing[4], paddingTop: spacing[4] },
+  blocked: { gap: spacing[3] },
 });

@@ -13,7 +13,9 @@ import {
 
 describe('discovery labels', () => {
   it('knows the filter values the API accepts', () => {
-    expect(isAvailabilityFilter('ACCEPTS_OFFERS')).toBe(true);
+    expect(isAvailabilityFilter('TRADE_OR_SALE')).toBe(true);
+    // Offers left the web (decision 2).
+    expect(isAvailabilityFilter('ACCEPTS_OFFERS')).toBe(false);
     expect(isAvailabilityFilter('COLLECTION_ONLY')).toBe(false);
     expect(isFreshnessFilter('AGING')).toBe(true);
     expect(isFreshnessFilter('STALE')).toBe(false);

@@ -56,16 +56,19 @@ test.describe('mobile account settings', () => {
     // Deletion: validation, a wrong password, then the real request.
     await account.getByRole('button', { name: 'Delete my account' }).click();
     const deletion = screen(page, 'delete-account');
-    await expect(deletion.getByRole('heading', { name: 'Delete your account' })).toBeVisible();
-    await deletion.getByRole('button', { name: 'Delete my account' }).click();
+    await expect(deletion.getByRole('heading', { name: 'Delete account' })).toBeVisible();
+    // Stage R13: grey until the confirmation is ticked; then the password is asked for.
+    const submit = deletion.getByTestId('delete-submit');
+    await expect(submit).toHaveAttribute('aria-disabled', 'true');
+    await deletion.getByRole('checkbox', { name: /I understand/ }).click();
+    await expect(submit).not.toHaveAttribute('aria-disabled', 'true');
+    await submit.click();
     await expect(deletion.getByText('Enter your password to continue.')).toBeVisible();
-    await expect(deletion.getByText('Please confirm to continue.')).toBeVisible();
 
     await deletion
       .getByLabel('Why are you leaving? (optional)')
       .fill('Just testing the mobile flow.');
     await deletion.getByRole('checkbox', { name: 'Download a copy of my data first' }).click();
-    await deletion.getByRole('checkbox', { name: /I understand/ }).click();
     await deletion.getByLabel('Password', { exact: true }).fill('not-the-password');
     await deletion.getByRole('button', { name: 'Delete my account' }).click();
     await page.getByTestId('delete-confirm-confirm').click();
@@ -105,9 +108,12 @@ test.describe('mobile account settings', () => {
 
     // Changed their mind.
     await pending.getByRole('button', { name: 'Cancel deletion' }).click();
-    await expect(snackbar(page)).toHaveText('Deletion cancelled. Welcome back!', {
+    // Stage R12: "Deletion cancelled" and "Welcome back!" in place, then Continue.
+    await expect(pending.getByRole('heading', { name: 'Deletion cancelled' })).toBeVisible({
       timeout: 30_000,
     });
+    await expect(pending.getByTestId('deletion-cancelled')).toHaveText('Welcome back!');
+    await pending.getByRole('button', { name: 'Continue' }).click();
     await openTab(page, 'Profile');
     await expect(screen(page, 'profile').getByTestId('profile-name')).toHaveText('Mobile Leaver', {
       timeout: 30_000,
@@ -127,11 +133,22 @@ test.describe('mobile account settings', () => {
     const wishlist = privacy.getByRole('switch', { name: 'Let others see what you want' });
     await expect(wishlist).toBeVisible({ timeout: 30_000 });
     const before = (await wishlist.getAttribute('aria-checked')) === 'true';
+    // "All changes saved" is in the top bar from the start (stage R13): wait for each save.
+    const savedPrivacy = () =>
+      page.waitForResponse(
+        (response) =>
+          response.request().method() === 'PUT' &&
+          response.url().endsWith('/api/v1/me/settings/privacy')
+      );
+    let put = savedPrivacy();
     await wishlist.click();
+    await put;
     await expect(privacy.getByTestId('privacy-status')).toContainText('All changes saved', {
       timeout: 30_000,
     });
+    put = savedPrivacy();
     await privacy.getByRole('radio', { name: 'Private' }).click();
+    await put;
     await expect(privacy.getByTestId('privacy-status')).toContainText('All changes saved', {
       timeout: 30_000,
     });
@@ -157,7 +174,9 @@ test.describe('mobile account settings', () => {
     const emailBefore = (await email.getAttribute('aria-checked')) === 'true';
     await email.click();
     await notifications.getByRole('button', { name: 'Save preferences' }).click();
-    await expect(snackbar(page)).toHaveText('Notification preferences saved.', { timeout: 30_000 });
+    await expect(snackbar(page)).toContainText('Notification preferences saved.', {
+      timeout: 30_000,
+    });
     const notif = await request.get(`${API_URL}/api/v1/me/settings/notifications`, {
       headers: authHeader(collector.idToken),
     });

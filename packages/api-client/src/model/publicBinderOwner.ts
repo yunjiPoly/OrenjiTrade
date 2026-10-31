@@ -11,12 +11,21 @@ import { Place } from './place';
 
 
 /**
- * Owner of a public binder
+ * Owner of a public binder. For a signed-out caller (stage R15) id, handle, displayName and avatarUrl are null: the place only
  */
 export interface PublicBinderOwner { 
-    id: string;
-    handle: string;
-    displayName: string;
+    /**
+     * Null for a signed-out caller
+     */
+    id: string | null;
+    /**
+     * Null for a signed-out caller
+     */
+    handle: string | null;
+    /**
+     * Null for a signed-out caller
+     */
+    displayName: string | null;
     avatarUrl?: string | null;
     /**
      * State/province and country; null unless the collector is discoverable with a location

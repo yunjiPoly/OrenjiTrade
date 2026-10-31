@@ -1,5 +1,6 @@
 import {
   binderFixture,
+  feedPageFixture,
   GAMES,
   inventoryPage,
   itemFixture,
@@ -35,6 +36,8 @@ export function signedInRoutes(overrides: MockRoutes = {}): MockRoutes {
     'GET /api/v1/binders': ok([binderFixture()]),
     'GET /api/v1/me/listings/status': ok(listingStatusFixture()),
     'GET /api/v1/wishlist/price-terms': ok(priceTermsFixture()),
+    // Home's feed (stage R7): a quiet region unless a test says otherwise.
+    'GET /api/v1/feed': ok(feedPageFixture()),
     ...overrides,
   };
 }

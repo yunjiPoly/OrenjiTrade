@@ -1,8 +1,9 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { isApiError } from '@/src/api/ApiError';
 import { friendlyMessage } from '@/src/api/errorMessages';
+import { Text } from '@/src/components/ui/Text';
 import { fontFamily, fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 import { Button } from './Button';
@@ -11,6 +12,12 @@ export interface ErrorStateProps {
   /** Any error; `ApiError` instances show their code and request id. */
   error?: unknown;
   title?: string;
+  /**
+   * Keep `title` for a timeout or a lost connection too, instead of the shared "No answer from
+   * OrenjiTrade" / "You appear to be offline" (the friendly sentence still goes under it): for a
+   * screen whose own words the spec fixes (Home's "Couldn't load what's new.").
+   */
+  keepTitle?: boolean;
   message?: string;
   onRetry?: () => void;
   retryLabel?: string;
@@ -30,6 +37,7 @@ function describe(error: unknown, fallback: string): string {
 export function ErrorState({
   error,
   title = 'Something went wrong',
+  keepTitle = false,
   message = 'We could not load this right now.',
   onRetry,
   retryLabel = 'Try again',
@@ -39,7 +47,13 @@ export function ErrorState({
 }: ErrorStateProps) {
   const { palette } = useTheme();
   const apiError = isApiError(error) ? error : null;
-  const resolvedTitle = apiError?.isNetworkError ? 'You appear to be offline' : title;
+  const resolvedTitle = keepTitle
+    ? title
+    : apiError?.isTimeout
+      ? 'No answer from OrenjiTrade'
+      : apiError?.isNetworkError
+        ? 'You appear to be offline'
+        : title;
 
   return (
     <View

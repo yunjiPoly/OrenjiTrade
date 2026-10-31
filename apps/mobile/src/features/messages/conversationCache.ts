@@ -153,12 +153,15 @@ export function applyPresence(
   );
 }
 
-/** Every loaded message of a thread, oldest first, without duplicates. */
+/**
+ * Every loaded message of a thread, oldest first, without duplicates, and without the sale
+ * messages their seller undid (stage R4: the realtime copy of an undone sale says so).
+ */
 export function threadMessages(data: ThreadData | undefined): MessageResponse[] {
   return mergeMessages(
     [],
     (data?.pages ?? []).flatMap((page) => page.items ?? [])
-  );
+  ).filter((message) => message.payload?.sale?.undone !== true);
 }
 
 /**

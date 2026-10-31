@@ -1,6 +1,7 @@
 # Session restore and sign out (Phase 1): a signed-in collector stays signed in after the app is
 # killed and relaunched (Firebase Auth React Native persistence on AsyncStorage), signs out from
-# the Profile tab, and stays signed out after another relaunch.
+# Settings (the Profile tab's gear), lands on Home as a guest (stage R15) and stays signed out
+# after another relaunch.
 appId: ${APP_ID}
 name: Session restore and sign out
 tags:
@@ -27,22 +28,39 @@ tags:
     id: 'profile-name'
     text: 'Maestro Leaver'
 
-# Sign out.
-- scrollUntilVisible:
-    element:
-      id: 'profile-sign-out'
-    direction: DOWN
+# Sign out, in Settings behind the Profile tab's gear (stage R6). (The scroll subflow brings the
+# row into the upper part of the screen before the tap.)
 - tapOn:
-    id: 'profile-sign-out'
+    id: 'profile-settings'
 - extendedWaitUntil:
     visible:
-      id: 'screen-sign-in'
+      id: 'screen-settings'
     timeout: 30000
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'settings-sign-out'
+- tapOn:
+    id: 'settings-sign-out'
+# Stage R15: signing out lands on Home as a guest (the person button for the bell, the guest's
+# card), never on the collector's last screen.
+- extendedWaitUntil:
+    visible:
+      id: 'screen-home'
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: 'person-button-home'
+    timeout: 30000
+- assertVisible:
+    id: 'home-guest-card'
+- assertNotVisible:
+    id: 'screen-settings'
 
-# Still signed out after a relaunch.
+# Still signed out after a relaunch: Home as a guest again.
 - runFlow: subflows/relaunch.yaml
 - extendedWaitUntil:
     visible:
-      id: 'screen-sign-in'
+      id: 'person-button-home'
     timeout: 60000
 - takeScreenshot: signed-out

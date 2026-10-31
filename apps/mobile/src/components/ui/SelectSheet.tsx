@@ -1,7 +1,8 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useState, type ComponentProps } from 'react';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import { Text } from '@/src/components/ui/Text';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 import { BottomSheet } from './BottomSheet';
@@ -21,6 +22,32 @@ export interface SelectSheetProps<T extends string> {
   disabled?: boolean;
   /** Compact pill trigger (filter bars) instead of a full-width field. */
   compact?: boolean;
+  /** An icon before the current choice. */
+  icon?: ComponentProps<typeof MaterialCommunityIcons>['name'];
+  /**
+   * Only the icon, as a round button (a navigation header has no room for the words): the name
+   * "<label>: <current choice>" is still what a screen reader says.
+   */
+  iconOnly?: boolean;
+  /**
+   * A compact trigger whose icon already says what it chooses (the globe of the region pill over
+   * Search's map, mockup screen 11): it shows the choice alone, so the choice keeps the room at
+   * large text sizes. A screen reader still says "<label>: <current choice>".
+   */
+  hideLabel?: boolean;
+  /** `accent` tints the trigger: the choice is not the usual one and should be noticed. */
+  tone?: 'default' | 'accent';
+  /**
+   * A compact trigger that must always show its whole choice (the region switcher): it may take
+   * the width of its row and wraps onto more lines at large text sizes instead of ending in "…".
+   */
+  wrap?: boolean;
+  /**
+   * How far the trigger's text follows the system text size (a trigger that stays on screen
+   * above a scrolling list must not take the screen at the largest sizes). The sheet's own
+   * options always follow it fully.
+   */
+  maxFontSizeMultiplier?: number;
   /** Field id; the sheet is `<testID>-sheet`, each option `<testID>-option-<value>`. */
   testID?: string;
 }
@@ -37,12 +64,20 @@ export function SelectSheet<T extends string>({
   onChange,
   disabled = false,
   compact = false,
+  icon,
+  iconOnly = false,
+  hideLabel = false,
+  tone = 'default',
+  wrap = false,
+  maxFontSizeMultiplier,
   testID,
 }: SelectSheetProps<T>) {
   const { palette } = useTheme();
   const [open, setOpen] = useState(false);
   const current = options.find((option) => option.value === value);
   const currentLabel = current?.label ?? '—';
+  const accent = tone === 'accent';
+  const ink = accent ? palette.onAccentContainer : palette.ink;
 
   return (
     <>
@@ -50,32 +85,60 @@ export function SelectSheet<T extends string>({
         accessibilityRole="button"
         accessibilityLabel={`${label}: ${currentLabel}`}
         accessibilityHint="Opens the choices"
+        accessibilityShowsLargeContentViewer={maxFontSizeMultiplier !== undefined}
+        accessibilityLargeContentTitle={`${label}: ${currentLabel}`}
         aria-disabled={disabled}
         disabled={disabled}
         onPress={() => setOpen(true)}
         testID={testID}
         style={({ pressed }) => [
-          compact ? styles.pill : styles.field,
+          iconOnly ? styles.round : compact ? styles.pill : styles.field,
+          compact && wrap && !iconOnly && styles.wrapping,
           {
-            borderColor: palette.borderStrong,
-            backgroundColor: compact ? palette.surfaceVariant : palette.surface,
+            // A round header button is bare until it has something to say (the accent tone).
+            borderColor: accent ? palette.accent : iconOnly ? 'transparent' : palette.borderStrong,
+            backgroundColor: accent
+              ? palette.accentContainer
+              : iconOnly
+                ? 'transparent'
+                : compact
+                  ? palette.surfaceVariant
+                  : palette.surface,
           },
           pressed && styles.pressed,
           disabled && styles.disabled,
         ]}
       >
-        <View style={compact ? styles.shrink : styles.grow}>
-          {compact ? null : (
-            <Text style={[textStyle('xs'), { color: palette.textMuted }]}>{label}</Text>
-          )}
-          <Text
-            numberOfLines={1}
-            style={[textStyle(compact ? 'sm' : 'md'), styles.value, { color: palette.ink }]}
-          >
-            {compact ? `${label}: ${currentLabel}` : currentLabel}
-          </Text>
-        </View>
-        <MaterialCommunityIcons name="chevron-down" size={20} color={palette.textMuted} />
+        {icon ? (
+          <MaterialCommunityIcons
+            name={icon}
+            size={iconOnly ? 22 : 18}
+            color={accent || iconOnly ? ink : palette.textMuted}
+          />
+        ) : null}
+        {iconOnly ? null : (
+          <>
+            <View style={compact ? styles.shrink : styles.grow}>
+              {compact ? null : (
+                <Text style={[textStyle('xs'), { color: accent ? ink : palette.textMuted }]}>
+                  {label}
+                </Text>
+              )}
+              <Text
+                numberOfLines={compact && wrap ? undefined : 1}
+                maxFontSizeMultiplier={maxFontSizeMultiplier}
+                style={[textStyle(compact ? 'sm' : 'md'), styles.value, { color: ink }]}
+              >
+                {compact && !hideLabel ? `${label}: ${currentLabel}` : currentLabel}
+              </Text>
+            </View>
+            <MaterialCommunityIcons
+              name="chevron-down"
+              size={20}
+              color={accent ? ink : palette.textMuted}
+            />
+          </>
+        )}
       </Pressable>
       <BottomSheet
         visible={open}
@@ -96,6 +159,8 @@ export function SelectSheet<T extends string>({
                 key={option.value}
                 accessibilityRole="radio"
                 accessibilityLabel={option.label}
+                // The second line (a count, "Your region") is said after the choice.
+                accessibilityHint={option.detail}
                 aria-checked={selected}
                 onPress={() => {
                   setOpen(false);
@@ -152,6 +217,18 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     borderWidth: 1,
     maxWidth: 260,
+  },
+  // A pill that shows its whole text: as wide as its row allows, as tall as its lines need. Its
+  // corners are half of one line's height: a pill on one line, a rounded box on several (the
+  // full pill radius turned three lines of large text into an oval).
+  wrapping: { maxWidth: '100%', paddingVertical: spacing[1], borderRadius: 18 },
+  round: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.pill,
+    borderWidth: 1,
   },
   grow: { flexShrink: 1, flexGrow: 1 },
   // Compact pills size to their text (filter bars scroll sideways).

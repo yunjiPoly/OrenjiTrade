@@ -7,6 +7,7 @@ import { of, throwError } from 'rxjs';
 import {
   ReportCollectorDialogComponent,
   ReportDialogData,
+  reportPostExcerpt,
 } from './report-collector-dialog.component';
 
 const REASONS = [
@@ -15,7 +16,8 @@ const REASONS = [
   { code: 'OTHER', label: 'Something else', description: 'Anything else.' },
 ] as ReportReasonOption[];
 
-const DATA: ReportDialogData = {
+let DATA: ReportDialogData;
+const CHAT_DATA: ReportDialogData = {
   target: { id: 'u-2', displayName: 'Tess Trader', handle: 'tess' },
   context: { source: 'CONVERSATION', conversationId: 'c-9' },
 };
@@ -55,6 +57,7 @@ describe('ReportCollectorDialogComponent', () => {
   }
 
   beforeEach(() => {
+    DATA = CHAT_DATA;
     listReportReasons = vi.fn(() => of(REASONS));
     reportCollector = vi.fn(() =>
       of({
@@ -67,20 +70,27 @@ describe('ReportCollectorDialogComponent', () => {
     );
   });
 
-  it('asks why, lists the reasons in server order and keeps Confirm disabled until one is chosen', async () => {
+  it('asks why, lists the reasons in server order and keeps Send report disabled until one is chosen', async () => {
     await create();
-    expect(element.querySelector('h2')?.textContent).toContain('Report collector');
-    expect(element.textContent).toContain('Why are you reporting this user?');
+    // Spec 10.5 (web WC): "Report {handle}", "Choose a reason first." beside a disabled Send.
+    expect(element.querySelector('h2')?.textContent).toMatch(/^Report \S+/);
+    // A collector's report keeps its boxed rows and Material's height (only a post's is compact).
+    expect(element.classList).not.toContain('report--post');
+    expect(element.textContent).toContain('Why are you reporting them?');
+    expect(element.querySelector('[data-testid="report-choose-first"]')?.textContent).toContain(
+      'Choose a reason first.',
+    );
     expect(element.textContent).toContain('Tess Trader');
     const labels = [...element.querySelectorAll('mat-radio-button')].map((node) =>
       node.textContent?.trim(),
     );
     expect(labels).toEqual(['Scam or fraud', 'Spam', 'Something else']);
     expect(confirmButton().disabled).toBe(true);
-    expect(confirmButton().textContent).toContain('Confirm');
+    expect(confirmButton().textContent).toContain('Send report');
     expect(element.textContent).toContain('Cancel');
     await choose('SPAM');
     expect(confirmButton().disabled).toBe(false);
+    expect(element.querySelector('[data-testid="report-choose-first"]')).toBeNull();
   });
 
   it('sends the reason, trimmed details and context with an idempotency key, then confirms', async () => {
@@ -101,6 +111,8 @@ describe('ReportCollectorDialogComponent', () => {
     expect(request.idempotencyKey).toMatch(/^[0-9a-f-]{36}$/);
     expect(element.querySelector('h2')?.textContent).toContain('Report sent');
     expect(element.textContent).toContain('Our moderation team will review your report');
+    expect(element.textContent).toContain('Follow it in My reports');
+    expect(element.textContent).toContain('Done');
   });
 
   it('explains an already open report inline and blocks another attempt', async () => {
@@ -120,7 +132,45 @@ describe('ReportCollectorDialogComponent', () => {
       'You already reported Tess Trader',
     );
     expect(confirmButton().disabled).toBe(true);
-    expect(element.querySelector('h2')?.textContent).toContain('Report collector');
+    expect(element.querySelector('h2')?.textContent).toMatch(/^Report \S+/);
+  });
+
+  it('"Report this post" shows the post, asks why "it", and thanks for the post (web WF, board W22)', async () => {
+    DATA = {
+      target: { id: 'u-3', displayName: 'Lucas', handle: 'lucas_tcg' },
+      context: { source: 'POST', postId: 'p-7' },
+      post: { meta: 'Ontario · 9:31 AM', text: 'Sorted my trade binder last night.' },
+    };
+    await create();
+    expect(element.querySelector('h2')?.textContent).toContain('Report this post');
+    const preview = element.querySelector('[data-testid="report-post-preview"]')!;
+    expect(preview.textContent).toContain('lucas_tcg');
+    expect(preview.textContent).toContain('Ontario · 9:31 AM');
+    expect(preview.textContent).toContain('Sorted my trade binder last night.');
+    expect(element.textContent).toContain('Why are you reporting it?');
+    // Board W22 (WF review U11): Close in the header, rows divided by lines, its own words.
+    const close = element.querySelector<HTMLButtonElement>('[data-testid="report-close"]')!;
+    expect(close.getAttribute('aria-label')).toBe('Close');
+    expect(close.hasAttribute('mat-dialog-close')).toBe(true);
+    expect(element.querySelector('.reasons')?.classList).toContain('reasons--lines');
+    // The compact layout that fits every reason and Details at 1440x900 (WF review R1-4; the
+    // community E2E measures it).
+    expect(element.classList).toContain('report--post');
+    expect(element.querySelector('.privacy')?.textContent).toContain(
+      'Reports are confidential: they are never told who reported them.',
+    );
+    await choose('SPAM');
+    await confirm();
+    const [request] = reportCollector.mock.calls[0];
+    expect(request.reportCollectorRequest.context).toEqual({ source: 'POST', postId: 'p-7' });
+    expect(element.textContent).toContain('Our moderators will review this post by');
+    expect(element.textContent).toContain('lucas_tcg');
+  });
+
+  it('cuts a reported post to one line of 140 characters', () => {
+    expect(reportPostExcerpt('  two\n lines ')).toBe('two lines');
+    const long = 'a'.repeat(150);
+    expect(reportPostExcerpt(long)).toBe(`${'a'.repeat(137)}…`);
   });
 
   it('offers a retry when the reasons cannot load', async () => {

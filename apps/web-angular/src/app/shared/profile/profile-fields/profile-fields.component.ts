@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, booleanAttribute, input } from '@angular/core';
 import { ReactiveFormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -10,7 +10,11 @@ import { BIO_MAX, DISPLAY_NAME_MAX, HANDLE_MAX, HANDLE_MIN, ProfileForm } from '
   imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule],
   template: `
     <div class="fields" [formGroup]="form()">
-      <mat-form-field appearance="outline" class="fields__handle">
+      <mat-form-field
+        appearance="outline"
+        class="fields__handle"
+        [subscriptSizing]="settingsLayout() ? 'dynamic' : 'fixed'"
+      >
         <mat-label>Handle</mat-label>
         <span matTextPrefix>&#64;</span>
         <input
@@ -38,7 +42,10 @@ import { BIO_MAX, DISPLAY_NAME_MAX, HANDLE_MAX, HANDLE_MIN, ProfileForm } from '
         }
       </mat-form-field>
 
-      <mat-form-field appearance="outline">
+      <mat-form-field
+        appearance="outline"
+        [subscriptSizing]="settingsLayout() ? 'dynamic' : 'fixed'"
+      >
         <mat-label>Display name</mat-label>
         <input
           matInput
@@ -63,7 +70,11 @@ import { BIO_MAX, DISPLAY_NAME_MAX, HANDLE_MAX, HANDLE_MIN, ProfileForm } from '
           formControlName="bio"
           rows="3"
           [maxlength]="bioMax"
-          placeholder="What do you collect? Where do you like to meet?"
+          [placeholder]="
+            settingsLayout()
+              ? 'What you collect and trade'
+              : 'What do you collect? Do you trade, sell or ship?'
+          "
         ></textarea>
         <mat-hint align="end">{{ form().controls.bio.value.length }} / {{ bioMax }}</mat-hint>
         @if (form().controls.bio.hasError('server')) {
@@ -94,6 +105,11 @@ import { BIO_MAX, DISPLAY_NAME_MAX, HANDLE_MAX, HANDLE_MIN, ProfileForm } from '
 })
 export class ProfileFieldsComponent {
   readonly form = input.required<ProfileForm>();
+  /**
+   * Settings › Profile (spec 13): the bio's placeholder "What you collect and trade", and hints
+   * that take the room they need (at 390 the handle's two-line hint never covers the next label).
+   */
+  readonly settingsLayout = input(false, { transform: booleanAttribute });
   protected readonly handleMin = HANDLE_MIN;
   protected readonly handleMax = HANDLE_MAX;
   protected readonly nameMax = DISPLAY_NAME_MAX;

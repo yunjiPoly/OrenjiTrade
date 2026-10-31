@@ -1,6 +1,7 @@
 package com.orenjitrade.api.inventory;
 
 import static com.orenjitrade.api.inventory.InventoryTestSupport.binder;
+import static com.orenjitrade.api.inventory.InventoryTestSupport.gameId;
 import static com.orenjitrade.api.inventory.InventoryTestSupport.ids;
 import static com.orenjitrade.api.inventory.InventoryTestSupport.item;
 import static com.orenjitrade.api.inventory.InventoryTestSupport.printing;
@@ -107,9 +108,11 @@ class VisibilityIT extends AbstractIntegrationTest {
                         + " ?",
                 UUID.fromString(unfiledExpired));
 
-        String privateBinder = createBinder(uid, binder("Private", "PRIVATE"));
+        String privateBinder =
+                createBinder(uid, binder("Private", "PRIVATE", gameId(testUsers, "pokemon")));
         String inPrivateBinder = createItem(uid, Map.of("binderId", privateBinder));
-        String publicBinder = createBinder(uid, binder("Public", "PUBLIC"));
+        String publicBinder =
+                createBinder(uid, binder("Public", "PUBLIC", gameId(testUsers, "pokemon")));
         String inPublicBinder = createItem(uid, Map.of("binderId", publicBinder));
         String privateInPublicBinder =
                 createItem(uid, Map.of("binderId", publicBinder, "visibility", "PRIVATE"));
@@ -122,18 +125,21 @@ class VisibilityIT extends AbstractIntegrationTest {
                 "UPDATE inventory_item SET freshness_state = 'STALE' WHERE id = ?",
                 UUID.fromString(staleItem));
 
-        Map<String, Object> temporaryBinderBody = binder("Weekend", "TEMPORARILY_PUBLIC");
+        Map<String, Object> temporaryBinderBody =
+                binder("Weekend", "TEMPORARILY_PUBLIC", gameId(testUsers, "pokemon"));
         temporaryBinderBody.put("publicUntil", future);
         String temporaryBinder = createBinder(uid, temporaryBinderBody);
         String inTemporaryBinder = createItem(uid, Map.of("binderId", temporaryBinder));
-        Map<String, Object> expiredBinderBody = binder("Last week", "TEMPORARILY_PUBLIC");
+        Map<String, Object> expiredBinderBody =
+                binder("Last week", "TEMPORARILY_PUBLIC", gameId(testUsers, "pokemon"));
         expiredBinderBody.put("publicUntil", future);
         String expiredBinder = createBinder(uid, expiredBinderBody);
         String inExpiredBinder = createItem(uid, Map.of("binderId", expiredBinder));
         testUsers.update(
                 "UPDATE binder SET public_until = now() - interval '1 minute' WHERE id = ?",
                 UUID.fromString(expiredBinder));
-        String hiddenBinder = createBinder(uid, binder("Forgotten", "PUBLIC"));
+        String hiddenBinder =
+                createBinder(uid, binder("Forgotten", "PUBLIC", gameId(testUsers, "pokemon")));
         String inHiddenBinder = createItem(uid, Map.of("binderId", hiddenBinder));
         testUsers.update(
                 "UPDATE binder SET freshness_state = 'HIDDEN' WHERE id = ?",
@@ -216,7 +222,8 @@ class VisibilityIT extends AbstractIntegrationTest {
         String handle = collector(uid, true, "PUBLIC");
         UUID id = testUsers.idOf(uid);
         String item = createItem(uid, Map.of("visibility", "PUBLIC"));
-        String binderId = createBinder(uid, binder("Shown", "PUBLIC"));
+        String binderId =
+                createBinder(uid, binder("Shown", "PUBLIC", gameId(testUsers, "pokemon")));
         String inBinder = createItem(uid, Map.of("binderId", binderId));
         assertThat(publicInventory(handle)).containsExactlyInAnyOrder(item, inBinder);
 

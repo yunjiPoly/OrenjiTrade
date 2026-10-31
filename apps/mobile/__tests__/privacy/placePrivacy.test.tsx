@@ -1,15 +1,18 @@
-import { screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 
-import MapScreen from '@/app/(tabs)/index';
+import SearchScreen from '@/app/(tabs)/search';
+import CardScreen from '@/app/cards/[id]';
 import CollectorScreen from '@/app/collectors/[id]';
-import HoldersScreen from '@/app/holders';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
   CARD_ID,
+  binderCountsFixture,
   cardDetailFixture,
   cardHolderFixture,
   cardHoldersPage,
+  collectorByNameFixture,
   collectorFixture,
   conversationFixture,
   locationFixture,
@@ -17,7 +20,7 @@ import {
   matchingItemFixture,
   meFixture,
   messagePage,
-  offerPartyFixture,
+  placeBindersPage,
   publicBinderSummaryFixture,
   publicItemFixture,
   publicItemsPage,
@@ -26,6 +29,7 @@ import {
   searchBinderFixture,
   unifiedSearchFixture,
   wishFixture,
+  wishlistAvailabilityFixture,
 } from '../support/fixtures';
 import { mockApi, ok, type MockRequest } from '../support/mockApi';
 import { signedInRoutes } from '../support/routes';
@@ -87,13 +91,16 @@ const FIXTURES: Record<string, unknown> = {
   holders: cardHoldersPage([cardHolderFixture()]),
   search: unifiedSearchFixture({ collectors: [markerFixture()], binders: [searchBinderFixture()] }),
   wish: wishFixture(),
-  party: offerPartyFixture(),
   binders: [publicBinderSummaryFixture()],
+  binderCounts: binderCountsFixture(),
+  placeBinders: placeBindersPage([searchBinderFixture()]),
   publicItems: publicItemsPage([publicItemFixture()]),
   ratings: ratingsPageFixture(),
   references: referencesPageFixture(),
   conversation: conversationFixture(),
   messages: messagePage(),
+  collectorsByName: [collectorByNameFixture()],
+  wishlistAvailability: wishlistAvailabilityFixture(['w1']),
 };
 
 beforeEach(() => {
@@ -119,30 +126,90 @@ describe('place privacy contract (ADR 0017)', () => {
     expect(findings(fixture)).toEqual([]);
   });
 
-  it('the Map tab draws no map and asks for no collector position', async () => {
-    const api = mockApi(signedInRoutes());
-    renderWithProviders(<MapScreen />, { port: new FakeAuthPort(testUser()) });
-    expect(await screen.findByTestId('map-placeholder')).toBeOnTheScreen();
-    expect(screen.queryByTestId('collector-map-view')).toBeNull();
-    expect(api.calls.filter((call) => /nearby|preview/.test(call.path))).toEqual([]);
+  it("Search's map asks for binder counts by region, draws borders it ships, and never a position", async () => {
+    const api = mockApi(
+      signedInRoutes({
+        'GET /api/v1/regions/{region}/binder-counts': ok(FIXTURES.binderCounts),
+      })
+    );
+    renderWithProviders(<SearchScreen />, { port: new FakeAuthPort(testUser()) });
+    fireEvent(await screen.findByTestId('search-map'), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 392, height: 640 } },
+    });
+    fireEvent(screen.getByTestId('search-field-frame'), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 360, height: 52 } },
+    });
+    const frame = screen.getByTestId('search-region-map-frame');
+    fireEvent(frame, 'layout', {
+      nativeEvent: {
+        layout: { x: 0, y: 0, width: 360, height: StyleSheet.flatten(frame.props.style).height },
+      },
+    });
+    // The map is a drawing of states and provinces: no collector, no marker, no pin on it.
+    expect(await screen.findByTestId('map-shape-CA-QC')).toBeOnTheScreen();
+    expect(screen.queryByTestId(/marker|pin|collector-/)).toBeNull();
+    // The state card of the collector's own province: its counts, never a position.
+    expect(await screen.findByTestId('search-state-card')).toBeOnTheScreen();
+    expect(screen.getByTestId('search-state-name')).toHaveTextContent('Quebec');
+    // What it asked the API: the account, the regions and the counts of one region, by code.
+    expect(api.calls.filter((call) => /nearby|preview|geocod|tile/.test(call.path))).toEqual([]);
     expect(api.calls.flatMap(requestFindings)).toEqual([]);
-    expect(screen.getByTestId('map-privacy-note')).toHaveTextContent(/never uses your GPS/);
+    expect(
+      api.calls.filter((call) => call.path.startsWith('/api/v1/regions')).map((call) => call.path)
+    ).toEqual(expect.arrayContaining(['/api/v1/regions/americas-north/binder-counts']));
+    expect(screen.getByTestId('search-map-privacy')).toHaveTextContent(/never uses your GPS/);
+    expect(screen.queryByText(DISTANCE_TEXT)).toBeNull();
   });
 
-  it('card holders ask by region and show states, never a distance', async () => {
-    mockParams.current = { card: CARD_ID };
+  it("Search › Binders names the owner's state or province, never a city or a distance", async () => {
+    mockParams.current = { segment: 'binders' };
+    const api = mockApi(
+      signedInRoutes({
+        'GET /api/v1/regions/{region}/binders': ok(FIXTURES.placeBinders),
+      })
+    );
+    renderWithProviders(<SearchScreen />, { port: new FakeAuthPort(testUser()) });
+    expect(await screen.findByText(/collector2 · Ontario/)).toBeOnTheScreen();
+    expect(screen.queryByText(DISTANCE_TEXT)).toBeNull();
+    expect(screen.queryByText(/Toronto|Montréal/)).toBeNull();
+    const asked = api.callsTo('GET /api/v1/regions/{region}/binders');
+    expect(asked.map((call) => call.path)).toContain('/api/v1/regions/americas-north/binders');
+    expect(api.calls.flatMap(requestFindings)).toEqual([]);
+  });
+
+  it('collectors while a card is typed ask by region and show a state, never a city', async () => {
+    mockParams.current = { q: 'collector' };
+    const api = mockApi(
+      signedInRoutes({
+        'GET /api/v1/search/collectors': ok(FIXTURES.collectorsByName),
+      })
+    );
+    renderWithProviders(<SearchScreen />, { port: new FakeAuthPort(testUser()) });
+    expect(await screen.findByTestId('search-collector-collector2')).toHaveTextContent(/Ontario/);
+    for (const call of api.callsTo('GET /api/v1/search/collectors')) {
+      expect(call.query.get('region')).toBe('americas-north');
+    }
+    expect(api.calls.flatMap(requestFindings)).toEqual([]);
+    expect(screen.queryByText(DISTANCE_TEXT)).toBeNull();
+    expect(screen.queryByText(/Toronto|Montréal/)).toBeNull();
+  });
+
+  it('who has this card asks by region and groups by state, never a distance', async () => {
+    mockParams.current = { id: CARD_ID };
     const api = mockApi(
       signedInRoutes({
         'GET /api/v1/cards/{id}': ok(cardDetailFixture()),
         'GET /api/v1/search/card-holders': ok(FIXTURES.holders),
+        'GET /api/v1/search/deck-cores': ok([]),
       })
     );
-    renderWithProviders(<HoldersScreen />, { port: new FakeAuthPort(testUser()) });
-    expect(await screen.findByText(/Ontario, Canada/)).toBeOnTheScreen();
+    renderWithProviders(<CardScreen />, { port: new FakeAuthPort(testUser()) });
+    expect(await screen.findByTestId('holders-group-CA-ON')).toHaveTextContent('Ontario');
     const asked = api.callsTo('GET /api/v1/search/card-holders');
     expect(asked.length).toBeGreaterThan(0);
     for (const call of asked) {
       expect(call.query.get('region')).toBe('americas-north');
+      expect(call.query.get('sort')).toBe('province');
     }
     expect(api.calls.flatMap(requestFindings)).toEqual([]);
     expect(screen.queryByText(DISTANCE_TEXT)).toBeNull();
@@ -163,7 +230,8 @@ describe('place privacy contract (ADR 0017)', () => {
     );
     renderWithProviders(<CollectorScreen />, { port: new FakeAuthPort(testUser()) });
     await waitFor(() =>
-      expect(screen.getByTestId('collector-location')).toHaveTextContent('Montréal, Quebec, Canada')
+      // The province (no country) on the line under the header, the city only on its owner's page.
+      expect(screen.getByTestId('profile-line')).toHaveTextContent(/^Montréal, Quebec · /)
     );
     expect(screen.queryByText(DISTANCE_TEXT)).toBeNull();
     expect(screen.queryByText(/\d{2}\.\d{3,}/)).toBeNull();

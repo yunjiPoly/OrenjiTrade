@@ -1,159 +1,107 @@
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
-import { MatIconModule } from '@angular/material/icon';
-import { CardArtComponent } from '../../../shared/ui/card-art/card-art.component';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  booleanAttribute,
+  computed,
+  inject,
+  input,
+} from '@angular/core';
+import { Router, RouterLink } from '@angular/router';
+import { safeReturnUrl } from '../../../core/auth/auth.guards';
+import { GuestActions } from '../../../core/guest/guest-actions.service';
+import {
+  ShellIconComponent,
+  ShellIconName,
+} from '../../../core/layout/shell-icon/shell-icon.component';
+import { ShellLayout } from '../../../core/layout/shell-layout.service';
+import { AuthArtComponent } from '../auth-art/auth-art.component';
 
 /**
- * Two-column frame of the authentication pages: a brand panel with card art on the left (a slim
- * banner on phones) and the page's form on the right.
+ * The split page of the sign-in steps (spec 14, board W27), without the rail or the top bar: the
+ * form panel (560 at 1440, a 400 column) with "Not now, keep browsing" at the top (back to the
+ * page the visitor came from), the wordmark (Sora 32), the page's title and lead, the form, and
+ * "Terms, privacy and community guidelines" at the bottom; beside it, at 960 and wider, the right
+ * panel (`surfaceVariant`) with "Who in my region has this card?" and its decorative map. Below
+ * 960 the form only. An account state (`card`) is the same frame without the right panel, its
+ * words in a centred 480 card (spec 14, "Account states").
  */
 @Component({
   selector: 'app-auth-layout',
-  imports: [MatIconModule, CardArtComponent],
+  imports: [RouterLink, ShellIconComponent, AuthArtComponent],
   template: `
-    <div class="auth">
-      <aside class="auth__hero" aria-hidden="true">
-        <div class="auth__fan">
-          <app-card-art class="auth__card auth__card--left" game="pokemon" />
-          <app-card-art class="auth__card auth__card--mid" game="mtg" />
-          <app-card-art class="auth__card auth__card--right" game="yugioh" />
+    <div class="auth" [class.auth--card]="card()">
+      <div class="auth__main">
+        <div class="auth__top">
+          @if (closeTarget(); as target) {
+            <a
+              class="auth__close"
+              [routerLink]="target"
+              data-testid="auth-close"
+              (click)="guest.forget()"
+            >
+              <app-shell-icon name="close" [size]="20" [stroke]="2" />
+              Not now, keep browsing
+            </a>
+          }
         </div>
-        <p class="auth__tagline">Who in my region has this card?</p>
-        <ul class="auth__points">
-          <li><mat-icon>public</mat-icon>Find collectors and binders of your state or province</li>
-          <li><mat-icon>style</mat-icon>Publish binders for Pokémon, Magic, Yu-Gi-Oh! and more</li>
-          <li><mat-icon>shield_person</mat-icon>No GPS, no exact location: you choose your area</li>
-        </ul>
-      </aside>
-      <section class="auth__panel">
-        <div class="auth__form">
-          <header class="auth__header">
-            <h1 class="auth__title">{{ heading() }}</h1>
-            @if (subheading()) {
-              <p class="auth__subtitle">{{ subheading() }}</p>
+        <div class="auth__middle">
+          <div class="auth__column">
+            <p class="auth__wordmark">Orenji<span class="auth__trade">Trade</span></p>
+            @if (icon(); as name) {
+              <span class="auth__tile" [attr.data-tone]="tone()" aria-hidden="true">
+                <app-shell-icon [name]="name" [size]="28" />
+              </span>
             }
-          </header>
-          <ng-content />
+            <h1
+              class="auth__title"
+              [class.visually-hidden]="hideHeading()"
+              [class.auth__title--after-tile]="!!icon()"
+            >
+              {{ heading() }}
+            </h1>
+            @if (lead()) {
+              <p class="auth__lead" [class.auth__lead--first]="hideHeading()">{{ lead() }}</p>
+            }
+            <ng-content />
+          </div>
         </div>
-      </section>
+        <p class="auth__legal">
+          <a routerLink="/legal">Terms, privacy and community guidelines</a>
+        </p>
+      </div>
+      @if (!card() && !layout.narrow()) {
+        <app-auth-art class="auth__art" />
+      }
     </div>
   `,
-  styles: `
-    :host {
-      display: block;
-    }
-    .auth {
-      display: grid;
-      grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
-      min-height: calc(100dvh - 64px);
-    }
-    .auth__hero {
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      gap: var(--spacing-6);
-      padding: var(--spacing-10) var(--spacing-8);
-      color: #fff;
-      background:
-        radial-gradient(circle at 20% 15%, rgb(255 255 255 / 0.18), transparent 40%),
-        linear-gradient(150deg, #f4761a 0%, #c2410c 55%, #7c2d12 100%);
-    }
-    .auth__fan {
-      position: relative;
-      height: 200px;
-      --card-width: 112px;
-    }
-    .auth__card {
-      position: absolute;
-      top: 10px;
-      left: 50%;
-      transition: transform var(--motion-duration-slow) var(--motion-easing-standard);
-    }
-    .auth__card--left {
-      transform: translateX(-130%) rotate(-12deg);
-    }
-    .auth__card--mid {
-      transform: translateX(-50%) translateY(-12px);
-      z-index: 1;
-    }
-    .auth__card--right {
-      transform: translateX(30%) rotate(12deg);
-    }
-    .auth__tagline {
-      margin: 0;
-      font-family: var(--font-display);
-      font-size: var(--font-size-3xl);
-      font-weight: var(--font-weight-bold);
-      line-height: var(--line-height-heading);
-      text-align: center;
-    }
-    .auth__points {
-      display: grid;
-      gap: var(--spacing-3);
-      margin: 0 auto;
-      padding: 0;
-      list-style: none;
-      max-width: 36ch;
-    }
-    .auth__points li {
-      display: flex;
-      align-items: center;
-      gap: var(--spacing-3);
-    }
-    .auth__panel {
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-      padding: var(--spacing-10) var(--spacing-4);
-      background: var(--color-background);
-    }
-    .auth__form {
-      width: min(440px, 100%);
-    }
-    .auth__header {
-      margin-bottom: var(--spacing-6);
-    }
-    .auth__title {
-      font-size: var(--font-size-3xl);
-    }
-    .auth__subtitle {
-      margin: var(--spacing-2) 0 0;
-      color: var(--color-text-muted);
-    }
-    @media (max-width: 959px) {
-      .auth {
-        grid-template-columns: 1fr;
-        min-height: 0;
-      }
-      .auth__hero {
-        flex-direction: row;
-        align-items: center;
-        gap: var(--spacing-4);
-        padding: var(--spacing-4);
-      }
-      .auth__fan {
-        height: 72px;
-        width: 88px;
-        flex: 0 0 auto;
-        --card-width: 44px;
-      }
-      .auth__card {
-        top: 6px;
-      }
-      .auth__tagline {
-        font-size: var(--font-size-lg);
-        text-align: left;
-      }
-      .auth__points {
-        display: none;
-      }
-      .auth__panel {
-        padding: var(--spacing-6) var(--spacing-4) var(--spacing-10);
-      }
-    }
-  `,
+  styleUrl: './auth-layout.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AuthLayoutComponent {
+  protected readonly layout = inject(ShellLayout);
+  /** "Not now, keep browsing" forgets what the guest tried to do (as the phone's Sign in close). */
+  protected readonly guest = inject(GuestActions);
+  private readonly router = inject(Router);
+
+  /** The page's h1 (Sign in's is read by screen readers only, the wordmark leading the page). */
   readonly heading = input.required<string>();
-  readonly subheading = input('');
+  readonly hideHeading = input(false, { transform: booleanAttribute });
+  /** The line under the title. */
+  readonly lead = input('');
+  /** The 56 tile above the title (the mail of Check your inbox, an account state's sign). */
+  readonly icon = input<ShellIconName | null>(null);
+  readonly tone = input<'accent' | 'warning' | 'danger'>('accent');
+  /**
+   * "Not now, keep browsing": shown for a visitor who may go back to browsing (sign in, create
+   * account, reset password), never on a step of a signed-in account.
+   */
+  readonly closable = input(false, { transform: booleanAttribute });
+  /** Where "Not now" goes: the page the visitor came from (`?returnUrl=`), else Home. */
+  readonly returnUrl = input<string | null | undefined>(null);
+  /** An account state: a centred 480 card, no right panel. */
+  readonly card = input(false, { transform: booleanAttribute });
+
+  protected readonly closeTarget = computed(() =>
+    this.closable() ? this.router.parseUrl(safeReturnUrl(this.returnUrl())) : null,
+  );
 }

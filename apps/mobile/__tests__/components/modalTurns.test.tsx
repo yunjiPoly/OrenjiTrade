@@ -9,6 +9,8 @@ import {
   afterModals,
   mayPresent,
   modalEntersScreen,
+  modalLeavesScreen,
+  modalsLeaving,
   modalsOnScreen,
 } from '@/src/components/ui/modalTurns';
 
@@ -101,6 +103,53 @@ describe('one modal at a time on iOS', () => {
     await waiting;
     expect(free).toBe(true);
     expect(modalsOnScreen()).toBe(0);
+  });
+
+  it('what iOS presents itself waits until iOS has dismissed a sheet that slid away', async () => {
+    // The share sheet asked for while iOS was still dismissing the "⋯" sheet never appeared
+    // (stage R6, review fix 1): the sheet counts until its Modal reports `onDismiss`.
+    const { mockDismissals } = require('react-native/Libraries/Modal/Modal') as {
+      mockDismissals: { count: number };
+    };
+    const before = mockDismissals.count;
+    const seen: number[] = [];
+    function ShareFromSheet() {
+      const [open, setOpen] = useState(true);
+      return (
+        <BottomSheet visible={open} onClose={() => setOpen(false)} testID="menu">
+          <Button
+            label="Share"
+            onPress={() => {
+              setOpen(false);
+              void afterModals().then(() => seen.push(mockDismissals.count));
+            }}
+            testID="menu-share"
+          />
+        </BottomSheet>
+      );
+    }
+    renderWithProviders(<ShareFromSheet />);
+    fireEvent.press(screen.getByTestId('menu-share'));
+    await waitFor(() => expect(seen).toHaveLength(1));
+    expect(seen[0]).toBe(before + 1);
+    expect(modalsOnScreen()).toBe(0);
+    expect(modalsLeaving()).toBe(0);
+  });
+
+  it('counts a modal iOS is still taking away, once, for what iOS presents itself', async () => {
+    const leave = modalLeavesScreen();
+    expect(modalsLeaving()).toBe(1);
+    let free = false;
+    const waiting = afterModals().then(() => {
+      free = true;
+    });
+    await Promise.resolve();
+    expect(free).toBe(false);
+    leave();
+    leave();
+    await waiting;
+    expect(free).toBe(true);
+    expect(modalsLeaving()).toBe(0);
   });
 
   it('a dialog asked for by a sheet row waits until the sheet has left, then appears', async () => {

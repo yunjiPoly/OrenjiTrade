@@ -45,7 +45,7 @@ data centres (covered by Google's compliance), mobile OS compromise.
 | V8 Data protection | Classification, minimisation, secure deletion | Section 3; account deletion job anonymises and removes; `tmp/` uploads purged in 2 days; analytics without PII | planned |
 | V9 Communications | TLS, HSTS, certificate validation | Cloudflare Full (strict), HSTS 1 year, Google-managed certs, `MODERN` SSL policy on the LB, `sslmode=require` to Cloud SQL | infra |
 | V10 Malicious code | Dependency integrity, no backdoors | Dependabot, Trivy, CodeQL, review required on `main`, WIF instead of keys | infra |
-| V11 Business logic | Anti-automation, sequencing, limits | Offer/trade state machines with authorization per transition, freemium limits as data (ADR 0014), rate limits, dedup keys on notifications | planned |
+| V11 Business logic | Anti-automation, sequencing, limits | Offer/trade state machines with authorization per transition, usage limits as data, the same for every collector (ADR 0014, ADR 0019), rate limits, dedup keys on notifications | planned |
 | V12 Files & resources | Upload validation, no path traversal, private storage | Section 5 | planned |
 | V13 API & web services | Auth on every endpoint, JSON schema validation, CORS allow-list | Bearer token filter, OpenAPI generated from code and used to generate clients, CORS only for `https://www.<domain>` + dev origins, `X-Request-Id` on every request | planned |
 | V14 Configuration | Hardened defaults, no debug in prod, security headers, dependency inventory | Swagger only in `local`, actuator limited to health, headers (`CSP`, `X-Content-Type-Options`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` for geolocation/camera) served by nginx and API, Terraform-managed config | infra/planned |
@@ -74,7 +74,7 @@ audited and never includes another collector's city.
   (generated) or by an operator with `gcloud secrets versions add` — never through tfvars,
   git, chat or CI logs. `version_destroy_ttl` keeps destroyed versions recoverable for 7 days.
 - **Who**: runtime service accounts get access to exactly the secrets they need
-  (`api-run`: db-password, service-token, analytics-actor-salt, ads-token-secret, consent-ip-salt, stripe-*; `ml-run`: service-token; no `redis-url` in the sidecar profile of ADR 0016). No
+  (`api-run`: db-password, service-token, analytics-actor-salt, consent-ip-salt, stripe-*; `ml-run`: service-token; no `redis-url` in the sidecar profile of ADR 0016). No
   project-wide `secretmanager.secretAccessor`.
 - **CI/CD**: GitHub Actions authenticates with **Workload Identity Federation** (OIDC) to the
   `github-deployer` SA; the provider trusts only `assertion.repository == "<owner/repo>"` (and
@@ -108,6 +108,16 @@ object becomes referenced.
 | Scanning | Card photos sent to the ML service are processed in memory; the ML service never writes originals; moderation hooks flag reported images for review |
 | Client hints | Web/mobile compress client-side before upload to reduce size, but server rules are authoritative |
 
+**Inventory import files (stage S5, 2026-10-13; `docs/api/contracts/s5-inventory-import.md`).** A
+Yu-Gi-Oh! deck file (.ydk) or a Collectr CSV export is a text upload, not an image, and follows its
+own rules: the content decides (UTF-8 text or `415 UNSUPPORTED_MEDIA_TYPE`, never the extension or
+the client's type); the size and line limits are admin settings read at every upload (YDK 100 kB
+and 500 lines, CSV 2 MB and 5,000 rows by default; the server takes at most 10 MB for any upload);
+the file itself is never stored, logged or exported: a preview row keeps a passcode, or the name,
+set, number and rarity as written, and the copies, and a price column is never read; the preview
+belongs to its collector (404 for anyone else) and is purged once expired (60 minutes by default);
+30 uploads and 30 commits an hour per collector (Redis). OrenjiTrade never calls Collectr.
+
 ## 6. Rate-limiting plan
 
 Two layers: coarse edge limits in Cloudflare (`infrastructure/cloudflare/README.md` section 6.3)
@@ -117,7 +127,7 @@ buckets** (`Lua` script for atomic take/refill, key TTL = window).
 | Scope | Key | Default budget (configurable in `usage_limit`, ADR 0014) |
 | --- | --- | --- |
 | Per IP (anonymous) | `rl:ip:<ip>:<route-group>` | 120 req/min default (`RATE_LIMIT_DEFAULT_PER_MINUTE`), 20 req/min for auth routes |
-| Per user | `rl:user:<id>:<route-group>` | 600 req/min general; premium plans higher |
+| Per user | `rl:user:<id>:<route-group>` | 600 req/min general, the same for everyone |
 | Route groups | `auth`, `search` (search, regions, cards), `messaging` (send message, create conversation, community post), `uploads`, `offers`, `reports`, `admin` | search 60/min, messaging 30/min + 200/day, uploads 30/h, offers 20/h, reports 10/day |
 | WebSocket | connect attempts 10/min per user; outbound STOMP frames 60/min per session | |
 | Notifications | dedup key type+subject+recipient+day; max 50 push/day per user | |
@@ -180,7 +190,9 @@ Findings SLA: Critical 48 h, High 7 days, Medium 30 days, Low next release.
   `grid_cell`, `geo_cell`, `email` reaches `AnalyticsEvent`.
 - Data subject requests (Quebec Law 25 / PIPEDA): export and deletion are admin actions with
   audit entries; deletion completes within 30 days and cascades to media, messages (anonymised
-  for the counterpart), analytics (hash unlinkable). Collectors can also export and delete
+  for the counterpart: the account's text, links and photos erased, and the conversation's
+  last-message preview moved to the newest message left, so no copy of the text stays),
+  analytics (hash unlinkable). Collectors can also export and delete
   themselves (Settings → Account), as the Privacy Policy explains in English and in French.
 - Consent evidence: `user_consent` keeps, per collector, the document type, the version, the
   language the text was shown in (`en` / `fr`, V104), the timestamp, a salted hash of the IP and
@@ -229,7 +241,34 @@ CI runs `node scripts/audit-gate.mjs` (also `npm run audit:gate`) instead of a b
 must state the exposure and why it is acceptable, and carries an expiry date after which the gate
 fails again until someone re-reviews it. Moderate/low advisories are printed but never block.
 
+When a patched release exists but a dependency pins the vulnerable version exactly, the root
+`package.json` **overrides** it to the patched release instead (nothing under the workspaces
+changes): `@grpc/grpc-js` ^1.14.5; `vite` 8.3.4 (GHSA-587H-7WMJ-H5PM: `@angular/build` pins 8.3.0
+even in 22.2.3) and `@modelcontextprotocol/server` 2.3.1 (GHSA-JM63-CQ47-J5JP, GHSA-46JR-4WX8-V453:
+the lockfile's `@angular/cli` 22.2.0 pins 2.0.0; 22.2.2 and later carry 2.3.1), both 2026-10-20.
+Drop an override once the dependency ships the fix itself.
+
 | Advisory | Package | Expires | Why accepted |
 | --- | --- | --- | --- |
-| GHSA-86w9-cpqp-85rv | node-forge ≤ 1.4.0 (no fix published) | 2026-11-30 | Only via Expo build tooling (`@expo/cli` → `@expo/code-signing-certificates`) for expo-updates code signing, which is not used; not in the API or the web bundle. npm's "fix" would downgrade Expo to SDK 44. |
 | GHSA-vfj7-8cjw-p6xm | braces ≤ 3.0.3 (no fix published) | 2026-11-30 | Only via build/test tooling glob matching (micromatch in Metro, Jest, Angular/Expo toolchains) with developer-written patterns; not in the web bundle or the API. |
+| GHSA-qr28-fpjm-wq7f | decode-uri-component ≤ 0.5.0 (the only fix, 0.5.1, is ESM only) | 2026-11-30 | Added 2026-10-29 (web stage WD's checks, an advisory of that day): only via expo-router 57 → query-string 7.1.3, which `require()`s it (an override to 0.5.1 would break the phone's router; the latest query-string drops it but is ESM only and expo-router pins 7). The phone decoding its own route URLs; not in the web bundle or the API. Trivy reports the same advisory as CVE-2026-118664, excepted in `.trivyignore` with the same expiry (2026-10-30). |
+
+When a patched release exists, the fix is an update, not an exception: in `package-lock.json` when
+the dependents' ranges allow it, otherwise with an npm override in the root `package.json` (a
+dependency that pins the affected version exactly). npm does not apply a new override to entries
+already in the lockfile: delete the affected entries (the package and its nested copies) and run
+`npm install --package-lock-only`, then check `npm ls <package> --all`; never `npm dedupe`, which
+moves the whole tree. Example of the first kind (2026-10-28): `re2js` 2.8.6 → 2.8.8 for
+GHSA-gg6h-894w-4m9c (patched in 2.8.7), in the lockfile only, since `@firebase/firestore` asks for
+`^2.8.3`; it reaches the repo through the phone's `firebase`, and neither app imports Firestore, so
+no bundle carries it. Second example (2026-10-30): `node-forge` 1.4.0 → 1.4.2, in the lockfile
+only, since `@expo/cli` and `@expo/code-signing-certificates` ask for `^1.3.3`, for five high
+advisories published that day (GHSA-7wch-p9px-956x, GHSA-jc66-7q78-782g, GHSA-8hrf-8g6f-7xwp,
+GHSA-hqq3-7jhf-c5jx, GHSA-5x38-2vff-x55p, all ≤ 1.4.0); 1.4.2 also fixes GHSA-86w9-cpqp-85rv, so
+its exception is removed. Each override is removed once its dependents move past the fix by
+themselves:
+
+| Override | Pinned by | Advisory | Remove when |
+| --- | --- | --- | --- |
+| `@grpc/grpc-js` `^1.14.5` | `firebase` → `@firebase/firestore` (`~1.9.0`) | CVE-2026-101916 | firebase allows 1.14.5 or newer |
+| `vite` `^8.3.4` (2026-10-20) | `@angular/build` 22.2.x (exactly `8.3.0`) | GHSA-587h-7wmj-h5pm, GHSA-698v-4r3x-3vcv, GHSA-r825-w8mm-5pxw (vite 8.3.0 to 8.3.2) | `@angular/build` pins 8.3.3 or newer (22.3.0-next.2 pins 8.3.4) |

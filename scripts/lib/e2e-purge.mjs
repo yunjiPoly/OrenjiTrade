@@ -18,7 +18,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { deleteEmulatorAccounts, listEmulatorAccounts } from './auth-emulator.mjs';
 import { psql } from './local-db.mjs';
-import { databaseOf, isLocalHost, isLocalUrl, isTestDataEmail, withDatabase } from './web-e2e-guard.mjs';
+import { NO_CARD_PROVIDERS, databaseOf, isLocalHost, isLocalUrl, isTestDataEmail, withDatabase } from './web-e2e-guard.mjs';
 
 /** Prefix of the report line the jar prints (TestAccountPurgeCommand.REPORT_PREFIX). */
 export const REPORT_PREFIX = 'ORENJI_PURGE_REPORT ';
@@ -71,9 +71,7 @@ export function purgeEnv(base, database) {
     DATABASE_URL: withDatabase(base.DATABASE_URL, database),
     FIREBASE_AUTH_EMULATOR_HOST: base.FIREBASE_AUTH_EMULATOR_HOST || 'localhost:9099',
     CARD_IMAGE_ON_DEMAND_ENABLED: 'false',
-    YGOPRODECK_ENABLED: 'false',
-    YGOPRODECK_API_BASE_URL: 'http://127.0.0.1:9/api/v7/',
-    YGOPRODECK_IMAGE_BASE_URL: 'http://127.0.0.1:9/images/cards/',
+    ...NO_CARD_PROVIDERS,
   };
   const dbHost = /^jdbc:postgresql:\/\/(\[[^\]]+\]|[^/:?;]+)/i.exec(env.DATABASE_URL)?.[1];
   if (!isLocalHost(dbHost) || databaseOf(env.DATABASE_URL) !== database) {

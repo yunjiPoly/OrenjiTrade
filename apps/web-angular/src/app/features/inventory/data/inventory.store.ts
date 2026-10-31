@@ -1,4 +1,5 @@
-import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
+import { HttpContext } from '@angular/common/http';
+import { DestroyRef, Injectable, WritableSignal, computed, inject, signal } from '@angular/core';
 import {
   BinderResponse,
   BindersService,
@@ -8,7 +9,6 @@ import {
   InventoryItemResponse,
   InventoryService,
   InventorySummaryResponse,
-  PageResponseInventoryItemResponse,
   PrivacySettings,
   PublishBinderRequest,
   SettingsService,
@@ -17,22 +17,66 @@ import {
 } from '@orenji/api-client';
 import { Observable, Subscription, firstValueFrom } from 'rxjs';
 import { ApiError, toApiError } from '../../../core/http/api-error';
-import { silentErrors } from '../../../core/http/http-context';
+import { SKIP_LIMIT_DIALOG, silentErrors } from '../../../core/http/http-context';
+import { isLimitReached } from '../../../core/limits/limit-reached';
 import { PublishMode } from '../../../shared/inventory/inventory-labels';
 import { BulkAction, toBulkRequest } from './bulk-actions';
-import { InventoryParams, toListRequest } from './inventory-params';
+import { InventoryParams, listKey, toListRequest } from './inventory-params';
+import { pruneSelection, selectAllLoaded, selectRange, toggleOne } from './selection';
 import { ownerIsVisible } from './visibility-status';
 
-/** Cards confirmed at once by "Confirm all" (the bulk endpoint takes at most 500 ids). */
+/** Cards confirmed at once by "Still have them" (the bulk endpoint takes at most 500 ids). */
 const CONFIRM_ALL_MAX = 500;
 const CONFIRM_ALL_PAGE = 100;
+/** How long a new or restored row is highlighted (spec 9.9: 1.5 s). */
+export const HIGHLIGHT_MS = 1500;
+/** Restores sent at once by an Undo (each one counts against the per-minute request limit). */
+export const RESTORE_CONCURRENCY = 4;
+/** How many 429 pauses an Undo waits through before it hands the rest back (F1). */
+export const RESTORE_MAX_WAITS = 2;
+/** The longest pause asked by a 429 that the queue honours (the limit's window is a minute). */
+const RESTORE_WAIT_MAX_S = 60;
+
+export interface RestoreOptions {
+  /** A pause began: the seconds it lasts and how many cards are back so far. */
+  onWait?: (seconds: number, restoredSoFar: number) => void;
+  /** Waits `ms` (tests pass their own). */
+  sleep?: (ms: number) => Promise<void>;
+}
+
+/** What an Undo brought back. */
+export interface RestoreOutcome {
+  restored: string[];
+  /** Past the server's 10 minutes, or gone another way: no Undo brings them back. */
+  gone: string[];
+  /** Still restorable but not restored yet (rate-limited, offline or a server failure). */
+  waiting: string[];
+  /** The server's last "retry in" (429 `RATE_LIMITED`) while cards are waiting, or null. */
+  retryAfterSeconds: number | null;
+}
+
+function isRateLimited(error: ApiError): boolean {
+  return error.errorCode === 'RATE_LIMITED' || (error.status === 429 && !isLimitReached(error));
+}
+
+function retryAfterOf(error: ApiError): number {
+  const seconds = Number(error.problem?.retryAfterSeconds);
+  return Number.isFinite(seconds) && seconds > 0
+    ? Math.min(RESTORE_WAIT_MAX_S, Math.ceil(seconds))
+    : RESTORE_WAIT_MAX_S;
+}
+
+/** A failure after which the same restore may still work (offline, a server error). */
+function restoreMayWork(error: ApiError): boolean {
+  return error.isNetworkError || error.isServerError || error.status === 429;
+}
 
 /**
- * State and API calls of `/inventory` (provided by the page, shared with its dialogs through the
- * page injector). Reads keep signals (`binders`, `summary`, `page`, `privacy`); writes return
- * promises that reject with {@link ApiError} so the calling screen can explain failures, and
- * refresh the affected state on success. Requests are silent: screens show their own messages
- * (the global limit-reached dialog still opens on 429 LIMIT_REACHED).
+ * State and API calls of `/inventory` (provided by the page, shared with its drawers and dialogs).
+ * The cards are loaded 100 at a time with "Load more" (spec 9.4); the summary keeps the full
+ * totals. Writes return promises that reject with {@link ApiError} so the calling screen can
+ * explain failures. Requests are silent: screens show their own messages (the global limit dialog
+ * still opens on 429 LIMIT_REACHED, except where a screen explains the limit itself).
  */
 @Injectable()
 export class InventoryStore {
@@ -44,28 +88,46 @@ export class InventoryStore {
   private readonly bindersErrorState = signal<ApiError | null>(null);
   private readonly summaryState = signal<InventorySummaryResponse | null>(null);
   private readonly privacyState = signal<PrivacySettings | null>(null);
-  private readonly pageState = signal<PageResponseInventoryItemResponse | null>(null);
+  private readonly itemsState = signal<InventoryItemResponse[] | null>(null);
+  private readonly totalState = signal(0);
+  private readonly pagesLoaded = signal(0);
   private readonly itemsLoadingState = signal(true);
+  private readonly loadingMoreState = signal(false);
   private readonly itemsErrorState = signal<ApiError | null>(null);
+  private readonly moreErrorState = signal<ApiError | null>(null);
   private readonly selectionState = signal<ReadonlySet<string>>(new Set());
   private readonly busyItemsState = signal<ReadonlySet<string>>(new Set());
+  private readonly highlightState = signal<ReadonlySet<string>>(new Set());
+  private readonly savedState = signal<ReadonlySet<string>>(new Set());
+  private anchor: string | null = null;
 
   readonly binders = this.bindersState.asReadonly();
   readonly bindersError = this.bindersErrorState.asReadonly();
   readonly summary = this.summaryState.asReadonly();
   readonly privacy = this.privacyState.asReadonly();
-  readonly page = this.pageState.asReadonly();
   readonly itemsLoading = this.itemsLoadingState.asReadonly();
+  readonly loadingMore = this.loadingMoreState.asReadonly();
   readonly itemsError = this.itemsErrorState.asReadonly();
+  readonly moreError = this.moreErrorState.asReadonly();
   readonly selection = this.selectionState.asReadonly();
-  /** Items with a quick edit (quantity) in flight. */
+  /** Items with an inline edit in flight. */
   readonly busyItems = this.busyItemsState.asReadonly();
+  /** Rows just added or restored (a 1.5 s tint). */
+  readonly highlighted = this.highlightState.asReadonly();
+  /** Rows just saved inline (a teal check for 600 ms). */
+  readonly saved = this.savedState.asReadonly();
 
-  readonly items = computed<InventoryItemResponse[]>(() => this.pageState()?.items ?? []);
+  /** `null` before the first answer. */
+  readonly loaded = computed(() => this.itemsState());
+  readonly items = computed<InventoryItemResponse[]>(() => this.itemsState() ?? []);
+  /** Cards matching the current view (all pages). */
+  readonly total = this.totalState.asReadonly();
+  readonly hasMore = computed(() => this.items().length < this.totalState());
   readonly ownerVisible = computed(() => ownerIsVisible(this.privacyState()));
   readonly bindersById = computed(
     () => new Map((this.bindersState() ?? []).map((binder) => [binder.id, binder])),
   );
+  readonly itemsById = computed(() => new Map(this.items().map((item) => [item.id, item])));
   /** Items in no binder (every item minus the binders' counts). */
   readonly unfiledCount = computed(() => {
     const summary = this.summaryState();
@@ -77,6 +139,10 @@ export class InventoryStore {
     return Math.max(0, summary.totalItems - filed);
   });
   readonly selectedCount = computed(() => this.selectionState().size);
+  readonly selectedItems = computed(() => {
+    const selection = this.selectionState();
+    return this.items().filter((item) => selection.has(item.id));
+  });
   readonly allSelected = computed(() => {
     const items = this.items();
     const selection = this.selectionState();
@@ -84,10 +150,12 @@ export class InventoryStore {
   });
 
   private params: InventoryParams | null = null;
+  private key: string | null = null;
   private itemsSubscription: Subscription | null = null;
   private bindersSubscription: Subscription | null = null;
   private summarySubscription: Subscription | null = null;
   private privacySubscription: Subscription | null = null;
+  private readonly timers = new Set<ReturnType<typeof setTimeout>>();
   /** Binder order saves, chained. */
   private orderSaves: Promise<void> = Promise.resolve();
   private orderTicket = 0;
@@ -98,6 +166,7 @@ export class InventoryStore {
       this.bindersSubscription?.unsubscribe();
       this.summarySubscription?.unsubscribe();
       this.privacySubscription?.unsubscribe();
+      this.timers.forEach((timer) => clearTimeout(timer));
     });
   }
 
@@ -131,41 +200,83 @@ export class InventoryStore {
       .subscribe({ next: (summary) => this.summaryState.set(summary), error: () => undefined });
   }
 
-  /** Lists the items for `params` (the previous request is cancelled). Clears the selection. */
-  loadItems(params: InventoryParams): void {
-    const changed = JSON.stringify(params) !== JSON.stringify(this.params);
+  /**
+   * Lists the first 100 cards for `params` (the previous request is cancelled). A new list (other
+   * filters, binder or sort) clears the selection; the same list reloaded keeps it.
+   */
+  loadItems(params: InventoryParams, options: { keepSelection?: boolean } = {}): void {
+    const key = listKey(params);
+    const changed = key !== this.key;
     this.params = params;
-    if (changed) {
+    this.key = key;
+    if (changed && !options.keepSelection) {
       this.clearSelection();
     }
     this.itemsSubscription?.unsubscribe();
     this.itemsLoadingState.set(true);
     this.itemsErrorState.set(null);
-    this.itemsSubscription = this.inventoryApi
-      .listInventoryItems(toListRequest(params), 'body', false, { context: silentErrors() })
+    this.moreErrorState.set(null);
+    // A reload of the same list keeps as many rows as were loaded (up to the API's page).
+    const pages = changed ? 1 : Math.max(1, this.pagesLoaded());
+    this.itemsSubscription = this.loadPages(params, pages).subscribe({
+      next: ({ items, total }) => {
+        this.itemsState.set(items);
+        this.totalState.set(total);
+        this.pagesLoaded.set(pages);
+        this.itemsLoadingState.set(false);
+        this.selectionState.set(
+          pruneSelection(
+            this.selectionState(),
+            items.map((item) => item.id),
+          ),
+        );
+      },
+      error: (error: unknown) => {
+        this.itemsErrorState.set(toApiError(error));
+        this.itemsLoadingState.set(false);
+      },
+    });
+  }
+
+  /** "Load more": the next 100 cards, appended. */
+  loadMore(): void {
+    const params = this.params;
+    if (!params || this.loadingMoreState() || !this.hasMore()) {
+      return;
+    }
+    const page = this.pagesLoaded();
+    this.loadingMoreState.set(true);
+    this.moreErrorState.set(null);
+    this.inventoryApi
+      .listInventoryItems(toListRequest(params, page), 'body', false, { context: silentErrors() })
       .subscribe({
-        next: (page) => {
-          this.pageState.set(page);
-          this.itemsLoadingState.set(false);
-          this.pruneSelection();
+        next: (result) => {
+          const known = new Set(this.items().map((item) => item.id));
+          const fresh = (result.items ?? []).filter((item) => !known.has(item.id));
+          this.itemsState.set([...this.items(), ...fresh]);
+          this.totalState.set(result.totalItems ?? this.totalState());
+          this.pagesLoaded.set(page + 1);
+          this.loadingMoreState.set(false);
         },
         error: (error: unknown) => {
-          this.itemsErrorState.set(toApiError(error));
-          this.itemsLoadingState.set(false);
+          this.moreErrorState.set(toApiError(error));
+          this.loadingMoreState.set(false);
         },
       });
   }
 
-  /** Reloads the items of the current view. */
+  /** Reloads the cards of the current view (keeping the selection and the loaded rows). */
   reloadItems(): void {
     if (this.params) {
-      this.loadItems(this.params);
+      this.loadItems(this.params, { keepSelection: true });
     }
   }
 
   /** Reloads everything a write may have changed. */
-  refresh(options: { binders?: boolean } = {}): void {
-    this.reloadItems();
+  refresh(options: { binders?: boolean; items?: boolean } = {}): void {
+    if (options.items !== false) {
+      this.reloadItems();
+    }
     this.loadSummary();
     if (options.binders !== false) {
       this.loadBinders();
@@ -174,51 +285,65 @@ export class InventoryStore {
 
   // --- selection ---------------------------------------------------------------------------
 
-  toggleSelection(id: string, selected?: boolean): void {
-    const next = new Set(this.selectionState());
-    const add = selected ?? !next.has(id);
-    if (add) {
-      next.add(id);
-    } else {
-      next.delete(id);
-    }
-    this.selectionState.set(next);
+  /** A checkbox, Space or `x`; with `range` (Shift+click) every card since the last one clicked. */
+  toggleSelection(id: string, selected?: boolean, range = false): void {
+    const next = selected ?? !this.selectionState().has(id);
+    this.selectionState.set(
+      range
+        ? selectRange(
+            this.selectionState(),
+            this.items().map((item) => item.id),
+            this.anchor,
+            id,
+            next,
+          )
+        : toggleOne(this.selectionState(), id, next),
+    );
+    this.anchor = id;
   }
 
+  /** Ctrl/Cmd+A: the loaded rows (again: none). */
   toggleAll(): void {
     this.selectionState.set(
-      this.allSelected() ? new Set() : new Set(this.items().map((item) => item.id)),
+      selectAllLoaded(
+        this.selectionState(),
+        this.items().map((item) => item.id),
+      ),
     );
+  }
+
+  /** Selects exactly these cards. */
+  select(ids: readonly string[]): void {
+    this.selectionState.set(new Set(ids));
   }
 
   clearSelection(): void {
     if (this.selectionState().size > 0) {
       this.selectionState.set(new Set());
     }
-  }
-
-  private pruneSelection(): void {
-    const ids = new Set(this.items().map((item) => item.id));
-    const kept = [...this.selectionState()].filter((id) => ids.has(id));
-    if (kept.length !== this.selectionState().size) {
-      this.selectionState.set(new Set(kept));
-    }
+    this.anchor = null;
   }
 
   // --- item writes -------------------------------------------------------------------------
 
-  async createItem(request: CreateInventoryItemRequest): Promise<InventoryItemResponse> {
+  /**
+   * Adds a card. The new row goes to the top of the list with a highlight (spec 9.9), without
+   * reloading it, so the add loop stays quick. `explainLimit`: the caller explains a 429 itself.
+   */
+  async createItem(
+    request: CreateInventoryItemRequest,
+    options: { explainLimit?: boolean } = {},
+  ): Promise<InventoryItemResponse> {
     const item = await this.call(
       this.inventoryApi.createInventoryItem(
         { createInventoryItemRequest: request },
         'body',
         false,
-        {
-          context: silentErrors(),
-        },
+        { context: this.context(options.explainLimit) },
       ),
     );
-    this.refresh();
+    this.prepend(item);
+    this.refresh({ items: false, binders: !!request.binderId });
     return item;
   }
 
@@ -235,27 +360,55 @@ export class InventoryStore {
       ),
     );
     this.replaceItem(item);
-    this.refresh({ binders: 'binderId' in request || 'visibility' in request });
+    this.refresh({ items: false, binders: 'binderId' in request || 'visibility' in request });
     return item;
   }
 
-  /** Quantity stepper: updates in place without reloading the list. */
-  async setQuantity(item: InventoryItemResponse, quantity: number): Promise<void> {
+  /**
+   * An inline edit of the table (spec 9.4): PATCHes only the changed field with `confirm: true`,
+   * so the save also confirms freshness; the row shows a check for 600 ms.
+   */
+  async inlineUpdate(
+    item: InventoryItemResponse,
+    patch: UpdateInventoryItemRequest,
+  ): Promise<InventoryItemResponse> {
     this.markBusy(item.id, true);
     try {
-      const updated = await this.call(
-        this.inventoryApi.updateInventoryItem(
-          { id: item.id, updateInventoryItemRequest: { quantity } },
-          'body',
-          false,
-          { context: silentErrors() },
-        ),
-      );
-      this.replaceItem(updated);
-      this.loadSummary();
+      const updated = await this.updateItem(item.id, { ...patch, confirm: true });
+      this.flash(this.savedState, item.id, 600);
+      return updated;
     } finally {
       this.markBusy(item.id, false);
     }
+  }
+
+  setQuantity(item: InventoryItemResponse, quantity: number): Promise<InventoryItemResponse> {
+    return this.inlineUpdate(item, { quantity });
+  }
+
+  setPrice(item: InventoryItemResponse, text: string | null): Promise<InventoryItemResponse> {
+    return this.inlineUpdate(item, { askingPriceText: text });
+  }
+
+  setVisibility(
+    item: InventoryItemResponse,
+    visibility: 'PRIVATE' | 'PUBLIC',
+  ): Promise<InventoryItemResponse> {
+    return this.inlineUpdate(item, {
+      visibility: visibility as UpdateInventoryItemRequest['visibility'],
+    });
+  }
+
+  /**
+   * Files a card in a binder (or none). Its stored visibility is sent unchanged, so the move keeps
+   * it exactly (a running temporary publication stays temporary, F4) and the server does not
+   * re-derive it for a move to Unfiled.
+   */
+  setBinder(item: InventoryItemResponse, binderId: string | null): Promise<InventoryItemResponse> {
+    return this.inlineUpdate(item, {
+      binderId,
+      visibility: item.visibility as string as UpdateInventoryItemRequest['visibility'],
+    });
   }
 
   async confirmItem(id: string): Promise<InventoryItemResponse> {
@@ -263,16 +416,89 @@ export class InventoryStore {
       this.inventoryApi.confirmInventoryItem({ id }, 'body', false, { context: silentErrors() }),
     );
     this.replaceItem(item);
-    this.refresh();
+    this.refresh({ items: false });
     return item;
   }
 
+  /** Deletes a card (the API keeps it 10 minutes for an undo); the row leaves at once. */
   async deleteItem(id: string): Promise<void> {
     await this.call(
       this.inventoryApi.deleteInventoryItem({ id }, 'body', false, { context: silentErrors() }),
     );
-    this.toggleSelection(id, false);
+    this.removeRows([id]);
+    this.refresh({ items: false });
+  }
+
+  /**
+   * Undo of a delete: `POST /items/{id}/restore` for each card (no bulk restore yet, decision 19),
+   * a few at a time. Every restore counts against the collector's per-minute request limit, so a
+   * 429 `RATE_LIMITED` pauses the queue for the server's `retryAfterSeconds` and retries the card
+   * (at most {@link RESTORE_MAX_WAITS} pauses); the cards still restorable after that, or after a
+   * network or server failure, come back as `waiting` so the caller can offer Undo again. Only a
+   * card the server can no longer restore (its 10 minutes passed) is `gone`.
+   */
+  async restoreItems(
+    ids: readonly string[],
+    options: RestoreOptions = {},
+  ): Promise<RestoreOutcome> {
+    const sleep = options.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+    const queue = [...ids];
+    const restored: string[] = [];
+    const gone: string[] = [];
+    const waiting: string[] = [];
+    let retryAfterSeconds: number | null = null;
+    let pause: Promise<void> | null = null;
+    let waits = 0;
+    let stopped = false;
+    const worker = async (): Promise<void> => {
+      while (queue.length > 0 && !stopped) {
+        if (pause) {
+          await pause;
+          continue;
+        }
+        const id = queue.shift()!;
+        try {
+          await this.call(
+            this.inventoryApi.restoreInventoryItem({ id }, 'body', false, {
+              context: silentErrors(),
+            }),
+          );
+          restored.push(id);
+        } catch (error) {
+          const apiError = error as ApiError;
+          if (!isRateLimited(apiError)) {
+            (restoreMayWork(apiError) ? waiting : gone).push(id);
+            continue;
+          }
+          retryAfterSeconds = retryAfterOf(apiError);
+          queue.unshift(id);
+          if (pause) {
+            continue;
+          }
+          if (waits >= RESTORE_MAX_WAITS) {
+            stopped = true;
+            continue;
+          }
+          waits++;
+          options.onWait?.(retryAfterSeconds, restored.length);
+          pause = sleep(retryAfterSeconds * 1000).then(() => {
+            pause = null;
+          });
+        }
+      }
+    };
+    await Promise.all(
+      Array.from({ length: Math.min(RESTORE_CONCURRENCY, ids.length) }, () => worker()),
+    );
+    waiting.push(...queue);
     this.refresh();
+    restored.forEach((id) => this.flash(this.highlightState, id, HIGHLIGHT_MS));
+    return {
+      restored,
+      gone,
+      waiting,
+      retryAfterSeconds: waiting.length ? retryAfterSeconds : null,
+    };
   }
 
   async uploadImage(id: string, file: Blob): Promise<InventoryItemResponse> {
@@ -285,13 +511,21 @@ export class InventoryStore {
     return item;
   }
 
-  async deleteImage(id: string, imageId: string): Promise<void> {
+  async deleteImage(item: InventoryItemResponse, imageId: string): Promise<InventoryItemResponse> {
     await this.call(
-      this.inventoryApi.deleteInventoryItemImage({ id, imageId }, 'body', false, {
+      this.inventoryApi.deleteInventoryItemImage({ id: item.id, imageId }, 'body', false, {
         context: silentErrors(),
       }),
     );
-    this.reloadItems();
+    const updated = { ...item, images: item.images.filter((image) => image.id !== imageId) };
+    this.replaceItem(updated);
+    return updated;
+  }
+
+  async getItem(id: string): Promise<InventoryItemResponse> {
+    return this.call(
+      this.inventoryApi.getInventoryItem({ id }, 'body', false, { context: silentErrors() }),
+    );
   }
 
   async bulk(action: BulkAction, itemIds: readonly string[]): Promise<BulkInventoryResponse> {
@@ -304,13 +538,15 @@ export class InventoryStore {
       ),
     );
     if (action.kind === 'delete') {
+      const skipped = new Set(response.skipped.map((entry) => entry.itemId));
+      this.removeRows(itemIds.filter((id) => !skipped.has(id)));
       this.clearSelection();
     }
-    this.refresh({ binders: action.kind !== 'availability' });
+    this.refresh();
     return response;
   }
 
-  /** "Confirm all": confirms every stale or hidden item (up to 500 at once). */
+  /** "Still have them": confirms every stale or hidden card (up to 500 at once). */
   async confirmAllStale(): Promise<BulkInventoryResponse> {
     const ids: string[] = [];
     for (const freshness of ['STALE', 'HIDDEN'] as const) {
@@ -335,12 +571,20 @@ export class InventoryStore {
     return this.bulk({ kind: 'confirm' }, ids.slice(0, CONFIRM_ALL_MAX));
   }
 
+  /** Highlights rows for 1.5 s (a card just added). */
+  highlight(ids: readonly string[]): void {
+    ids.forEach((id) => this.flash(this.highlightState, id, HIGHLIGHT_MS));
+  }
+
   // --- binder writes -----------------------------------------------------------------------
 
-  async createBinder(request: CreateBinderRequest): Promise<BinderResponse> {
+  async createBinder(
+    request: CreateBinderRequest,
+    options: { explainLimit?: boolean } = {},
+  ): Promise<BinderResponse> {
     const binder = await this.call(
       this.bindersApi.createBinder({ createBinderRequest: request }, 'body', false, {
-        context: silentErrors(),
+        context: this.context(options.explainLimit),
       }),
     );
     this.bindersState.update((binders) => [...(binders ?? []), binder]);
@@ -352,6 +596,7 @@ export class InventoryStore {
       this.bindersApi.updateBinder({ id, updateBinderRequest: request }, 'body', false, {
         context: silentErrors(),
       }),
+      'visibility' in request,
     );
   }
 
@@ -381,6 +626,21 @@ export class InventoryStore {
     );
   }
 
+  async uploadBinderPhoto(id: string, file: Blob): Promise<BinderResponse> {
+    return this.binderWrite(
+      this.bindersApi.uploadBinderImage({ id, file }, 'body', false, { context: silentErrors() }),
+    );
+  }
+
+  async deleteBinderPhoto(id: string, imageId: string): Promise<void> {
+    await this.call(
+      this.bindersApi.deleteBinderImage({ id, imageId }, 'body', false, {
+        context: silentErrors(),
+      }),
+    );
+    this.loadBinders();
+  }
+
   /**
    * Deletes a binder once the order saves still queued are done: a save sent after the deletion
    * would name the deleted binder, be refused (404) and lose the move.
@@ -395,9 +655,8 @@ export class InventoryStore {
   }
 
   /**
-   * Saves a new order. The list is updated right away; saves run one after the other (quick
-   * keyboard moves never race) and only the latest answer is applied. On a failure the order is
-   * reloaded from the server.
+   * Saves a new order. The list is updated right away; saves run one after the other and only the
+   * latest answer is applied. On a failure the order is reloaded from the server.
    */
   reorderBinders(ids: readonly string[]): Promise<void> {
     const byId = this.bindersById();
@@ -429,6 +688,45 @@ export class InventoryStore {
 
   // --- helpers -----------------------------------------------------------------------------
 
+  private loadPages(
+    params: InventoryParams,
+    pages: number,
+  ): Observable<{ items: InventoryItemResponse[]; total: number }> {
+    // One request of up to 100 rows per loaded page, in order (a reload after "Load more").
+    return new Observable((subscriber) => {
+      const items: InventoryItemResponse[] = [];
+      let total = 0;
+      let current: Subscription | null = null;
+      const next = (page: number) => {
+        current = this.inventoryApi
+          .listInventoryItems(toListRequest(params, page), 'body', false, {
+            context: silentErrors(),
+          })
+          .subscribe({
+            next: (result) => {
+              const known = new Set(items.map((item) => item.id));
+              items.push(...(result.items ?? []).filter((item) => !known.has(item.id)));
+              total = result.totalItems ?? items.length;
+              if (page + 1 < pages && items.length < total) {
+                next(page + 1);
+              } else {
+                subscriber.next({ items, total });
+                subscriber.complete();
+              }
+            },
+            error: (error: unknown) => subscriber.error(error),
+          });
+      };
+      next(0);
+      return () => current?.unsubscribe();
+    });
+  }
+
+  private context(explainLimit = false): HttpContext {
+    const context = silentErrors();
+    return explainLimit ? context.set(SKIP_LIMIT_DIALOG, true) : context;
+  }
+
   private async binderWrite(
     request: Observable<BinderResponse>,
     refreshItems = false,
@@ -443,16 +741,33 @@ export class InventoryStore {
     return binder;
   }
 
+  private prepend(item: InventoryItemResponse): void {
+    const items = this.itemsState() ?? [];
+    if (!items.some((candidate) => candidate.id === item.id)) {
+      this.itemsState.set([item, ...items]);
+      this.totalState.update((total) => total + 1);
+    } else {
+      this.replaceItem(item);
+    }
+    this.flash(this.highlightState, item.id, HIGHLIGHT_MS);
+  }
+
+  private removeRows(ids: readonly string[]): void {
+    const gone = new Set(ids);
+    const items = this.itemsState();
+    if (items) {
+      const kept = items.filter((item) => !gone.has(item.id));
+      this.totalState.update((total) => Math.max(0, total - (items.length - kept.length)));
+      this.itemsState.set(kept);
+    }
+    if ([...gone].some((id) => this.selectionState().has(id))) {
+      this.selectionState.set(new Set([...this.selectionState()].filter((id) => !gone.has(id))));
+    }
+  }
+
   private replaceItem(item: InventoryItemResponse): void {
-    this.pageState.update((page) =>
-      page
-        ? {
-            ...page,
-            items: (page.items ?? []).map((candidate) =>
-              candidate.id === item.id ? item : candidate,
-            ),
-          }
-        : page,
+    this.itemsState.update((items) =>
+      items ? items.map((candidate) => (candidate.id === item.id ? item : candidate)) : items,
     );
   }
 
@@ -464,6 +779,17 @@ export class InventoryStore {
       next.delete(id);
     }
     this.busyItemsState.set(next);
+  }
+
+  private flash(state: WritableSignal<ReadonlySet<string>>, id: string, ms: number): void {
+    state.set(new Set([...state(), id]));
+    const timer = setTimeout(() => {
+      this.timers.delete(timer);
+      const next = new Set(state());
+      next.delete(id);
+      state.set(next);
+    }, ms);
+    this.timers.add(timer);
   }
 
   private async call<T>(request: Observable<T>): Promise<T> {

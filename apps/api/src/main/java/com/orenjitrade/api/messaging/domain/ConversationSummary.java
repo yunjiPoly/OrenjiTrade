@@ -18,6 +18,7 @@ import org.jspecify.annotations.Nullable;
  * @param muted the caller muted the conversation (no notifications, Phase 6)
  * @param archived the caller archived the conversation (a new message un-archives it)
  * @param createdAt creation
+ * @param subject the card or deck core the chat is about (stage R4), {@code null} without one
  */
 @Schema(name = "ConversationSummary", description = "A private conversation of the caller")
 public record ConversationSummary(
@@ -28,4 +29,6 @@ public record ConversationSummary(
         @Schema(requiredMode = RequiredMode.REQUIRED) int unreadCount,
         @Schema(requiredMode = RequiredMode.REQUIRED) boolean muted,
         @Schema(requiredMode = RequiredMode.REQUIRED) boolean archived,
-        @Schema(requiredMode = RequiredMode.REQUIRED) Instant createdAt) {}
+        @Schema(requiredMode = RequiredMode.REQUIRED) Instant createdAt,
+        @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
+                @Nullable ConversationSubject subject) {}

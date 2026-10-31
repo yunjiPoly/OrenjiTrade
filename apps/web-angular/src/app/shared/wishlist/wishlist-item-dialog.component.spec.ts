@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { CardDetail, CatalogService, WishPriceTerm, WishlistService } from '@orenji/api-client';
 import { Observable, Subject, of, throwError } from 'rxjs';
 import { WishlistDialogData, WishlistItemDialogComponent } from './wishlist-item-dialog.component';
@@ -92,7 +92,11 @@ function problem(
 describe('WishlistItemDialogComponent', () => {
   let fixture: ComponentFixture<WishlistItemDialogComponent>;
   let element: HTMLElement;
-  let wishlist: { createWishlistItem: ReturnType<typeof vi.fn>; listWishPriceTerms: unknown };
+  let wishlist: {
+    createWishlistItem: ReturnType<typeof vi.fn>;
+    deleteWishlistItem: ReturnType<typeof vi.fn>;
+    listWishPriceTerms: unknown;
+  };
   let close: ReturnType<typeof vi.fn>;
   let keydowns: Subject<KeyboardEvent>;
   let dialogRef: { close: ReturnType<typeof vi.fn>; disableClose: boolean };
@@ -124,18 +128,17 @@ describe('WishlistItemDialogComponent', () => {
     await fixture.whenStable();
   }
 
-  /** The copy selected in the printing picker (its checked radio). */
-  function checkedCopy(): string | null {
-    return (
-      element
-        .querySelector('app-printing-picker input[type="radio"]:checked')
-        ?.getAttribute('data-testid') ??
-      element
-        .querySelector('app-printing-picker input[type="radio"]:checked')
-        ?.closest('[data-testid]')
-        ?.getAttribute('data-testid') ??
-      null
-    );
+  /** The value of "Which copy" (`any`, `rarity:<r>` or a printing id). */
+  function checkedCopy(): string {
+    return (fixture.componentInstance as unknown as { copy(): string }).copy();
+  }
+
+  /** Opens "Which copy" and returns its options (rendered in the overlay). */
+  async function copyOptions(): Promise<HTMLElement[]> {
+    element.querySelector<HTMLElement>('.mat-mdc-select-trigger')!.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    return [...document.querySelectorAll<HTMLElement>('mat-option')];
   }
 
   async function pick(picked: { cardId: string; printingCode: string | null }): Promise<void> {
@@ -153,6 +156,7 @@ describe('WishlistItemDialogComponent', () => {
     );
     wishlist = {
       createWishlistItem: vi.fn(),
+      deleteWishlistItem: vi.fn(() => of(undefined)),
       listWishPriceTerms: vi.fn(() => of({ terms: TERMS })),
     };
   });
@@ -212,7 +216,7 @@ describe('WishlistItemDialogComponent', () => {
 
   it('takes the focus back to the save button when a refusal left it nowhere', async () => {
     wishlist.createWishlistItem.mockReturnValue(
-      problem(429, 'LIMIT_REACHED', 'You reached a plan limit.'),
+      problem(429, 'LIMIT_REACHED', 'You have reached the limit for this action'),
     );
     await create({ mode: 'create', cardId: 'c1' });
     (document.activeElement as HTMLElement | null)?.blur();
@@ -225,21 +229,28 @@ describe('WishlistItemDialogComponent', () => {
     await create({ mode: 'create' });
     await pick({ cardId: 'c2', printingCode: 'SHV-EN003' });
     // Neither the 1st Edition nor the Unlimited printing is picked for the collector.
-    expect(checkedCopy()).toBe('printing-option-any');
-    expect(
-      element.querySelectorAll('app-printing-picker input[type="radio"]:checked'),
-    ).toHaveLength(1);
-    // The picker points at the code: its two printings, each with its edition, and the reason.
-    expect(element.querySelector('[data-testid="printing-option-k1"]')?.textContent).toContain(
-      '1st Edition',
+    expect(checkedCopy()).toBe('any');
+    expect(element.querySelector('[data-testid="wish-copy-hint"]')?.textContent).toContain(
+      '2 printings share the code SHV-EN003: choose one in Which copy for that copy only.',
     );
-    expect(element.querySelector('[data-testid="printing-option-k2"]')?.textContent).toContain(
-      'Unlimited',
+    // "Which copy" lists the code's two printings first, each with its edition.
+    const options = await copyOptions();
+    expect(options.map((option) => option.getAttribute('data-testid'))).toEqual([
+      'printing-option-any',
+      'printing-option-rarity-Super Rare',
+      'printing-option-rarity-Common',
+      'printing-option-k1',
+      'printing-option-k2',
+      'printing-option-k3',
+    ]);
+    expect(options[3].textContent).toContain(
+      'SHV-EN003 · Shadowvale Legacy · Super Rare · 1st Edition',
     );
-    expect(element.querySelector('[data-testid="printing-option-k3"]')).toBeNull();
-    expect(element.querySelector('.pp__hint')?.textContent).toContain(
-      '2 printings share the code SHV-EN003: choose one below for that copy only.',
-    );
+    expect(options[4].textContent).toContain('Unlimited');
+    // Never a market price or an amount (decision 10).
+    expect(document.body.textContent).not.toMatch(/≈|\d+\.\d\d (USD|CAD)/);
+    TestBed.inject(MatDialog).closeAll();
+    document.querySelector('.cdk-overlay-container')?.replaceChildren();
     // Saved as it stands, the wish is for any printing of the card.
     wishlist.createWishlistItem.mockReturnValue(of({ id: 'w1' }));
     await submit();
@@ -251,13 +262,81 @@ describe('WishlistItemDialogComponent', () => {
   it('preselects the printing of a typed code that only one printing has', async () => {
     await create({ mode: 'create' });
     await pick({ cardId: 'c2', printingCode: 'SHX-EN010' });
-    expect(checkedCopy()).toBe('printing-option-k3');
-    expect(element.querySelector('.pp__hint')?.textContent).toContain('Only SHX-EN010');
+    expect(checkedCopy()).toBe('k3');
+    expect(element.querySelector('[data-testid="wish-copy-hint"]')?.textContent).toContain(
+      'Only SHX-EN010',
+    );
     // A card suggestion (no code) is any printing.
     (fixture.componentInstance as unknown as { changeCard(): void }).changeCard();
     await pick({ cardId: 'c2', printingCode: null });
-    expect(checkedCopy()).toBe('printing-option-any');
-    expect(element.querySelector('[data-testid="printing-option-k3"]')).not.toBeNull();
+    expect(checkedCopy()).toBe('any');
+    expect(element.querySelector('[data-testid="wish-copy-hint"]')).toBeNull();
+  });
+
+  it('is the 520 dialog of spec 6.6: price chips with no amount, the note 0 / 280', async () => {
+    await create({ mode: 'create', cardId: 'c1' });
+    expect(element.textContent).toContain('Add a wish');
+    expect(element.textContent).toContain('1 printing in the catalog');
+    const chips = [...element.querySelectorAll('[data-testid^="wish-term-"]')].map((chip) =>
+      chip.textContent?.trim(),
+    );
+    expect(chips).toEqual(['No price', '85% TCG']);
+    expect(
+      element.querySelector<HTMLInputElement>('[data-testid="wish-term-none"] input')?.checked,
+    ).toBe(true);
+    expect(element.textContent).toContain('0 / 280');
+    expect(element.textContent).toContain(
+      'Sellers see it; listings in other conditions still show.',
+    );
+    expect(element.textContent).not.toMatch(/≈|market price of this printing/);
+    // Only Edit wish has "Remove from wishlist".
+    expect(element.querySelector('[data-testid="wish-remove"]')).toBeNull();
+  });
+
+  it('Edit wish removes the wish once "You stop getting alerts for it." is confirmed', async () => {
+    const item = {
+      id: 'w9',
+      game: 'yugioh',
+      card: { id: 'c1', name: 'Azure-Eyes Sky Dragon' },
+      note: '',
+      nearMintOnly: false,
+    };
+    await create({ mode: 'edit', item } as unknown as WishlistDialogData);
+    const confirm = vi
+      .spyOn(fixture.debugElement.injector.get(MatDialog), 'open')
+      .mockReturnValue({ afterClosed: () => of(true) } as never);
+    element.querySelector<HTMLButtonElement>('[data-testid="wish-remove"]')!.click();
+    await fixture.whenStable();
+    expect(confirm.mock.calls[0][1]?.data).toEqual(
+      expect.objectContaining({
+        title: 'Remove Azure-Eyes Sky Dragon?',
+        message: 'You stop getting alerts for it.',
+        confirmLabel: 'Remove from wishlist',
+      }),
+    );
+    expect(wishlist.deleteWishlistItem).toHaveBeenCalledWith(
+      { id: 'w9' },
+      'body',
+      false,
+      expect.anything(),
+    );
+    expect(close).toHaveBeenCalledWith();
+  });
+
+  it('keeps the dialog open with the reason when the removal fails', async () => {
+    wishlist.deleteWishlistItem.mockReturnValue(problem(503, 'UNAVAILABLE', 'Down'));
+    const item = { id: 'w9', game: 'yugioh', card: { id: 'c1', name: 'Azure-Eyes Sky Dragon' } };
+    await create({ mode: 'edit', item } as unknown as WishlistDialogData);
+    vi.spyOn(fixture.debugElement.injector.get(MatDialog), 'open').mockReturnValue({
+      afterClosed: () => of(true),
+    } as never);
+    element.querySelector<HTMLButtonElement>('[data-testid="wish-remove"]')!.click();
+    await fixture.whenStable();
+    await fixture.whenStable();
+    expect(element.querySelector('[data-testid="wish-error"]')?.textContent).toContain(
+      'This wish could not be removed.',
+    );
+    expect(close).not.toHaveBeenCalled();
   });
 
   it('does not close on a backdrop click while the form holds unsaved input', async () => {

@@ -16,6 +16,7 @@ import {
 } from '@/src/legal/legalContent.fr';
 
 import { useLegalLanguage, type LegalLanguage } from './legalLanguage';
+import { withPhoneAdditions } from './phoneLegalAdditions';
 
 /** Labels of the legal screens' chrome (the rest of the app stays English for now). */
 export interface LegalPageLabels {
@@ -41,7 +42,7 @@ export const LEGAL_PAGE_LABELS: Record<LegalLanguage, LegalPageLabels> = {
     version: 'Version',
     lastUpdated: 'Last updated',
     versionToAccept: 'Version to accept:',
-    currentVersion: (version) => `Current version ${version}.`,
+    currentVersion: (version) => `Version ${version}.`,
     definitions: 'Definitions',
     contact: 'Contact',
     indexTitle: 'Legal',
@@ -80,12 +81,20 @@ export interface LegalTexts {
   labels: LegalPageLabels;
 }
 
+/** The English drafts with the phone's additions (stage R15's Privacy Policy lines). */
+const PHONE_DOCUMENTS = Object.fromEntries(
+  Object.entries(LEGAL_DOCUMENTS).map(([key, document]) => [key, withPhoneAdditions(document)])
+) as Record<LegalKey, LegalDocument>;
+const PHONE_DOCUMENT_LIST: readonly LegalDocument[] = LEGAL_DOCUMENT_LIST.map(
+  (document) => PHONE_DOCUMENTS[document.key]
+);
+
 export function legalTextsFor(language: LegalLanguage): LegalTexts {
   const french = language === 'fr';
   return {
     language,
-    documents: french ? LEGAL_DOCUMENTS_FR : LEGAL_DOCUMENTS,
-    documentList: french ? LEGAL_DOCUMENT_LIST_FR : LEGAL_DOCUMENT_LIST,
+    documents: french ? LEGAL_DOCUMENTS_FR : PHONE_DOCUMENTS,
+    documentList: french ? LEGAL_DOCUMENT_LIST_FR : PHONE_DOCUMENT_LIST,
     draftBanner: french ? LEGAL_DRAFT_BANNER_FR : LEGAL_DRAFT_BANNER,
     translationNotice: french ? LEGAL_TRANSLATION_NOTICE_FR : null,
     effectiveDatePlaceholder: french

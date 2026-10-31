@@ -10,12 +10,17 @@ export interface RatedCollector {
 
 const ID = /^[\w-]{1,64}$/;
 const HANDLE = /^[\w.-]{1,40}$/;
-const KINDS: readonly InteractionKind[] = ['TRADE', 'OFFER_ACCEPTED', 'CONVERSATION_QUALIFIED'];
+const KINDS: readonly InteractionKind[] = [
+  'TRADE',
+  'OFFER_ACCEPTED',
+  'CONVERSATION_QUALIFIED',
+  'SALE',
+];
 
 /**
  * Route params of the rating and reference screens (`/ratings/rate`, `/ratings/reference`): the
- * collector, and for a rating optionally the interaction kind to rate (`TRADE` from a completed
- * trade) or the caller's own rating to edit (`rating`).
+ * collector, and for a rating optionally the interaction kind to rate (`SALE` from a sale's
+ * message, stage R4; `TRADE` from an old completed trade) or the caller's own rating to edit (`rating`).
  */
 export function ratingParams(
   collector: Pick<RatedCollector, 'id' | 'displayName' | 'handle'>,

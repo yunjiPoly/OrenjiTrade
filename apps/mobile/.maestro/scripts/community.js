@@ -3,7 +3,7 @@
 // with EXPECT_REPLIES it also checks the post's reply count.
 //
 // Inputs (env): API_URL, AUTH_EMULATOR_URL, EMAIL, PASSWORD (a run account), SLUG, BODY,
-// EXPECT_REPLIES (optional).
+// EXPECT_REPLIES (optional), EXPECT_PHOTOS (optional, stage R11: the post's photo count).
 // Outputs: output.post.{id}.
 
 var api = typeof API_URL !== 'undefined' ? API_URL : 'http://localhost:8090';
@@ -54,5 +54,12 @@ if (!post) {
 }
 if (typeof EXPECT_REPLIES !== 'undefined' && String(post.replyCount) !== String(EXPECT_REPLIES)) {
   throw new Error('Expected ' + EXPECT_REPLIES + ' replies, got ' + post.replyCount + '.');
+}
+var photos = (post.payload && post.payload.photos) || [];
+if (typeof EXPECT_PHOTOS !== 'undefined' && String(photos.length) !== String(EXPECT_PHOTOS)) {
+  throw new Error('Expected ' + EXPECT_PHOTOS + ' photos, got ' + photos.length + '.');
+}
+if (post.place && post.place.city) {
+  throw new Error('A post carries a city: ' + JSON.stringify(post.place));
 }
 output.post = { id: post.id };

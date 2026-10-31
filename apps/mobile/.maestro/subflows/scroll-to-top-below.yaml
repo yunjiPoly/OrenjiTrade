@@ -1,0 +1,20 @@
+# Scrolls a list back up until its first element, with id ID, sits below the element with text
+# HEAD (the title of the navigation header): the top of the list. For a list whose controls stand
+# in its header (the import preview): a flow goes back to the top, then down to what it needs
+# (scroll-down-above.yaml). The list is dragged by its right edge, never on a row's control.
+appId: ${APP_ID}
+---
+- repeat:
+    while:
+      notVisible:
+        id: ${ID}
+        below: ${HEAD}
+    times: 30
+    commands:
+      - swipe:
+          start: 97%, 40%
+          end: 97%, 62%
+          duration: 500
+- assertVisible:
+    id: ${ID}
+    below: ${HEAD}

@@ -5,12 +5,15 @@ import static org.awaitility.Awaitility.await;
 
 import com.orenjitrade.api.admin.AbstractPhase7IT;
 import com.orenjitrade.api.auth.domain.Role;
+import com.orenjitrade.api.auth.infra.NoopIdentityAdminClient;
+import com.orenjitrade.api.common.seed.SeedWordingTest;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
@@ -25,6 +28,8 @@ import tools.jackson.databind.JsonNode;
  * suspension and ban actions.
  */
 class ReportFlowIT extends AbstractPhase7IT {
+
+    @Autowired private NoopIdentityAdminClient identity;
 
     @Test
     void reasonsArePublicAndOrdered() {
@@ -43,6 +48,16 @@ class ReportFlowIT extends AbstractPhase7IT {
                         "OTHER");
         assertThat(reasons.get(0).path("label").asString()).isNotBlank();
         assertThat(reasons.get(0).path("description").asString()).isNotBlank();
+        // Deals ship by mail (ADR 0018): no reason speaks of meetups any more.
+        assertThat(reasons.get(4).path("description").asString())
+                .isEqualTo("Behaviour that breaks the Community Guidelines.");
+        List<String> wording = new ArrayList<>();
+        reasons.forEach(
+                reason -> {
+                    wording.addAll(SeedWordingTest.findings(reason.path("label").asString()));
+                    wording.addAll(SeedWordingTest.findings(reason.path("description").asString()));
+                });
+        assertThat(wording).isEmpty();
     }
 
     @Test
@@ -244,6 +259,9 @@ class ReportFlowIT extends AbstractPhase7IT {
                 .extracting(row -> row.get("action"))
                 .contains("user.suspend");
         callJson(HttpMethod.GET, "/api/v1/me", reported.uid(), null, 403);
+        assertThat(identity.isDisabled(reported.uid()))
+                .as("owner decision of 2026-10-28: a suspension leaves the login on")
+                .isFalse();
 
         callJson(
                 HttpMethod.POST,
@@ -261,6 +279,7 @@ class ReportFlowIT extends AbstractPhase7IT {
         assertThat(testUsers.auditRowsFor(banned.id()))
                 .extracting(row -> row.get("action"))
                 .contains("user.ban");
+        assertThat(identity.isDisabled(banned.uid())).as("a ban disables the login").isTrue();
 
         // Lifting the suspension also lifts the ban mark.
         callJson(
@@ -270,6 +289,7 @@ class ReportFlowIT extends AbstractPhase7IT {
                 null,
                 204);
         assertThat(testUsers.row(banned.id()).get("banned_at")).isNull();
+        assertThat(identity.isDisabled(banned.uid())).isFalse();
 
         // The reported collector's history lists the decisions.
         JsonNode history =

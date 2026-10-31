@@ -1,6 +1,5 @@
 package com.orenjitrade.api.wishlist.domain;
 
-import com.orenjitrade.api.billing.domain.Limits;
 import com.orenjitrade.api.cards.domain.CardSummary;
 import com.orenjitrade.api.cards.domain.CatalogService;
 import com.orenjitrade.api.cards.domain.PrintingSummary;
@@ -9,10 +8,15 @@ import com.orenjitrade.api.common.ProblemFieldError;
 import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.games.domain.GameService;
 import com.orenjitrade.api.games.domain.GameView;
+import com.orenjitrade.api.limits.domain.Limits;
+import com.orenjitrade.api.location.domain.LocationService;
+import com.orenjitrade.api.location.domain.RegionCatalog;
+import com.orenjitrade.api.location.domain.RegionView;
 import com.orenjitrade.api.moderation.domain.ModerationScope;
 import com.orenjitrade.api.moderation.domain.ModerationVerdict;
 import com.orenjitrade.api.moderation.domain.TextModerationService;
 import com.orenjitrade.api.profiles.domain.BlockRelationProvider;
+import com.orenjitrade.api.profiles.domain.CollectorLookup;
 import com.orenjitrade.api.profiles.domain.PrivacyPolicyService;
 import com.orenjitrade.api.profiles.domain.PrivacySettingsService;
 import com.orenjitrade.api.profiles.domain.PrivacySettingsView;
@@ -24,6 +28,7 @@ import com.orenjitrade.api.wishlist.domain.WishlistChanges.WishlistPatch;
 import com.orenjitrade.api.wishlist.domain.WishlistItemView.CardRef;
 import com.orenjitrade.api.wishlist.events.WishlistItemCreated;
 import com.orenjitrade.api.wishlist.infra.WishlistAlertRepository;
+import com.orenjitrade.api.wishlist.infra.WishlistAvailabilityRepository;
 import com.orenjitrade.api.wishlist.infra.WishlistRepository;
 import com.orenjitrade.api.wishlist.infra.WishlistRepository.Values;
 import java.time.Instant;
@@ -75,43 +80,55 @@ public class WishlistService {
 
     private final WishlistRepository repository;
     private final WishlistAlertRepository alertRepository;
+    private final WishlistAvailabilityRepository availabilityRepository;
     private final WishlistSettings settings;
     private final CatalogService catalog;
     private final GameService games;
     private final Limits limits;
     private final TextModerationService moderation;
     private final UserAccountService accounts;
+    private final CollectorLookup collectors;
     private final PrivacySettingsService privacySettings;
     private final PrivacyPolicyService privacyPolicy;
     private final ObjectProvider<BlockRelationProvider> blocks;
+    private final RegionCatalog regions;
+    private final LocationService locations;
     private final ApplicationEventPublisher events;
     private final TimeProvider timeProvider;
 
     public WishlistService(
             WishlistRepository repository,
             WishlistAlertRepository alertRepository,
+            WishlistAvailabilityRepository availabilityRepository,
             WishlistSettings settings,
             CatalogService catalog,
             GameService games,
             Limits limits,
             TextModerationService moderation,
             UserAccountService accounts,
+            CollectorLookup collectors,
             PrivacySettingsService privacySettings,
             PrivacyPolicyService privacyPolicy,
             ObjectProvider<BlockRelationProvider> blocks,
+            RegionCatalog regions,
+            LocationService locations,
             ApplicationEventPublisher events,
             TimeProvider timeProvider) {
         this.repository = repository;
         this.alertRepository = alertRepository;
+        this.availabilityRepository = availabilityRepository;
         this.settings = settings;
         this.catalog = catalog;
         this.games = games;
         this.limits = limits;
         this.moderation = moderation;
         this.accounts = accounts;
+        this.collectors = collectors;
         this.privacySettings = privacySettings;
         this.privacyPolicy = privacyPolicy;
         this.blocks = blocks;
+        this.regions = regions;
+        this.locations = locations;
         this.events = events;
         this.timeProvider = timeProvider;
     }
@@ -124,6 +141,82 @@ public class WishlistService {
     @Transactional(readOnly = true)
     public List<WishlistItemView> list(UUID ownerId) {
         return views(repository.findByOwner(ownerId));
+    }
+
+    /**
+     * The wishes {@code ids} with their cards and printings, in the order of {@code ids}; unknown
+     * ids are left out. For Home's feed (stage R7), whose SQL already decided that each wish is
+     * public (its owner shows their wishlist and is discoverable) and seen by the viewer: this only
+     * reads the catalog references, it decides nothing.
+     */
+    @Transactional(readOnly = true)
+    public List<WishlistItemView> viewsOf(List<UUID> ids) {
+        Map<UUID, WishlistItemRow> byId = new HashMap<>();
+        for (WishlistItemRow row : repository.findByIds(ids)) {
+            byId.put(row.id(), row);
+        }
+        List<WishlistItemRow> ordered = new ArrayList<>();
+        for (UUID id : ids) {
+            WishlistItemRow row = byId.get(id);
+            if (row != null) {
+                ordered.add(row);
+            }
+        }
+        return views(ordered);
+    }
+
+    /**
+     * {@code GET /wishlist?region=}: the caller's items, newest first, and which of them are
+     * available in the region (stage R5: "Available" or "None yet"), computed by one grouped query
+     * for the whole list.
+     *
+     * @param region platform region code; {@code null} for the caller's home region, else the
+     *     default region (400 VALIDATION_FAILED on {@code region} for an unknown code)
+     */
+    @Transactional(readOnly = true)
+    public Listing listWithAvailability(UUID ownerId, @Nullable String region) {
+        RegionView scope = scope(ownerId, region);
+        List<WishlistItemView> items = list(ownerId);
+        return new Listing(items, available(ownerId, items, scope.code()), scope.code());
+    }
+
+    /**
+     * Which of {@code items} (wishes of {@code ownerId}) a public holder of the caller's home
+     * region has right now (the answer of a write: {@code POST} and {@code PATCH /wishlist}).
+     */
+    @Transactional(readOnly = true)
+    public Set<UUID> availableAtHome(UUID ownerId, List<WishlistItemView> items) {
+        return available(ownerId, items, scope(ownerId, null).code());
+    }
+
+    private Set<UUID> available(UUID ownerId, List<WishlistItemView> items, String regionCode) {
+        return availabilityRepository.availableAmong(
+                ownerId,
+                items.stream().map(view -> view.row().id()).toList(),
+                regionCode,
+                timeProvider.now());
+    }
+
+    private RegionView scope(UUID ownerId, @Nullable String requested) {
+        if (requested != null && !requested.isBlank()) {
+            return regions.requireRegion(requested, "region");
+        }
+        return regions.resolve(null, locations.homeRegionOf(ownerId).orElse(null));
+    }
+
+    /**
+     * The caller's wishlist with its availability.
+     *
+     * @param items the wishes, newest first
+     * @param available ids of the wishes a public holder of the region has right now
+     * @param region the platform region the availability is computed for
+     */
+    public record Listing(List<WishlistItemView> items, Set<UUID> available, String region) {
+
+        public Listing {
+            items = List.copyOf(items);
+            available = Set.copyOf(available);
+        }
     }
 
     @Transactional(readOnly = true)
@@ -256,24 +349,62 @@ public class WishlistService {
     // ---------------------------------------------------------------------------------------
 
     /**
+     * The collector who made the wish {@code wishId}, when the viewer may see it (stage R15: "I
+     * have it" of a guest, resumed after signing in, names the wish, never the collector): the
+     * owner always; others while the owner shows their wishlist, the profile is visible to them and
+     * no block exists ({@link PrivacyPolicyService#canSeeWishlist}). Empty otherwise, and for an
+     * unknown wish or an account that is suspended, pending deletion or deleted.
+     */
+    @Transactional(readOnly = true)
+    public Optional<UUID> visibleOwnerOf(@Nullable UUID viewerId, UUID wishId) {
+        Instant now = timeProvider.now();
+        Optional<WishlistItemRow> row = repository.findByIds(List.of(wishId)).stream().findFirst();
+        if (row.isEmpty()) {
+            return Optional.empty();
+        }
+        UUID targetId = row.get().ownerId();
+        Optional<UserAccountSnapshot> account =
+                accounts.findSnapshot(targetId)
+                        .filter(candidate -> isPubliclyVisible(candidate, now));
+        if (account.isEmpty()) {
+            return Optional.empty();
+        }
+        boolean blocked = false;
+        if (viewerId != null && !viewerId.equals(targetId)) {
+            @Nullable BlockRelationProvider provider = blocks.getIfAvailable();
+            blocked = provider != null && provider.isBlocked(viewerId, targetId);
+        }
+        PrivacySettingsView privacy = privacySettings.settingsOf(targetId);
+        return privacyPolicy.canSeeWishlist(
+                        new ViewerContext(viewerId, false, blocked), targetId, privacy)
+                ? Optional.of(targetId)
+                : Optional.empty();
+    }
+
+    /**
      * {@code GET /collectors/{handle}/wishlist}: every wish (which copy, public note, Near Mint
      * only, price term) when the collector shows their wishlist; 404 otherwise (unknown, suspended,
      * pending deletion, hidden wishlist, profile not visible, block).
      */
     @Transactional(readOnly = true)
     public List<WishlistItemView> publicSummary(@Nullable UUID viewerId, String handle) {
-        Instant now = timeProvider.now();
+        // A collector who blocked the viewer is a miss of the lookup itself: the unknown handle's
+        // answer at the same cost (owner decision of 2026-10-28).
         UserAccountSnapshot account =
-                accounts.findByHandle(handle)
-                        .filter(candidate -> isPubliclyVisible(candidate, now))
+                collectors
+                        .visibleByHandle(viewerId, handle)
                         .orElseThrow(() -> ApiException.notFound(WISHLIST_NOT_FOUND));
         UUID targetId = account.id();
-        PrivacySettingsView privacy = privacySettings.settingsOf(targetId);
+        // The viewer who blocked the collector (also when both did) gets the same 404.
         boolean blocked = false;
         if (viewerId != null && !viewerId.equals(targetId)) {
             @Nullable BlockRelationProvider provider = blocks.getIfAvailable();
             blocked = provider != null && provider.isBlocked(viewerId, targetId);
         }
+        if (blocked) {
+            throw ApiException.notFound(WISHLIST_NOT_FOUND);
+        }
+        PrivacySettingsView privacy = privacySettings.settingsOf(targetId);
         if (!privacyPolicy.canSeeWishlist(
                 new ViewerContext(viewerId, false, blocked), targetId, privacy)) {
             throw ApiException.notFound(WISHLIST_NOT_FOUND);

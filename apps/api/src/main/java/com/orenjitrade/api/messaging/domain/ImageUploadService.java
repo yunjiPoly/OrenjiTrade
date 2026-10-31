@@ -13,6 +13,7 @@ import com.orenjitrade.api.messaging.infra.ImageUploadRepository.UploadRow;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -62,12 +63,13 @@ public class ImageUploadService {
     }
 
     /**
-     * Stores an upload. {@code 413} above 8 MB, {@code 415} for other types, {@code 400} for
-     * unreadable images, the INVENTORY kind (inventory photos keep their own route) or content the
-     * inspector refuses.
+     * Stores an upload. {@code 413} above the kind's limit (8 MB for a message, 3 MB for a
+     * community post), {@code 415} for other types (videos included), {@code 400} for unreadable
+     * images, the INVENTORY kind (inventory photos keep their own route) or content the inspector
+     * refuses.
      */
     public ImageUploadView upload(UUID ownerId, UploadKind kind, byte[] content) {
-        if (kind != UploadKind.MESSAGE) {
+        if (kind == UploadKind.INVENTORY) {
             throw ApiException.validation(
                     "Validation failed",
                     List.of(
@@ -75,6 +77,10 @@ public class ImageUploadService {
                                     "kind",
                                     "Inventory photos are uploaded with POST"
                                             + " /inventory/items/{id}/images")));
+        }
+        if (content.length > kind.maxBytes()) {
+            throw new ApiException(
+                    ErrorCode.PAYLOAD_TOO_LARGE, "The image must be at most " + kind.maxLabel());
         }
         ItemImageProcessor.Processed processed;
         try {
@@ -126,12 +132,41 @@ public class ImageUploadService {
     }
 
     /**
-     * Locks an attachable upload of the owner (same transaction as the message insert); empty when
-     * unknown, of someone else, already attached or expired.
+     * Locks an attachable MESSAGE upload of the owner (same transaction as the message insert);
+     * empty when unknown, of someone else, already attached or expired.
      */
     public Optional<UploadRow> lockAttachable(UUID ownerId, UUID uploadId) {
         return repository.lockPending(
                 uploadId, ownerId, UploadKind.MESSAGE.name(), timeProvider.now().minus(TTL));
+    }
+
+    /**
+     * Locks an attachable upload of the owner and of {@code kind} (same transaction as the insert
+     * of what it is attached to); empty when unknown, of someone else, of another kind, already
+     * attached or expired.
+     */
+    public Optional<AttachableUpload> lockAttachable(UUID ownerId, UUID uploadId, UploadKind kind) {
+        return repository
+                .lockPending(uploadId, ownerId, kind.name(), timeProvider.now().minus(TTL))
+                .map(
+                        row ->
+                                new AttachableUpload(
+                                        row.id(),
+                                        row.storageKey(),
+                                        row.width(),
+                                        row.height(),
+                                        row.bytes()));
+    }
+
+    /** Deletes stored objects (photos of a deleted message or post), once and quietly. */
+    public void deleteObjects(Collection<String> storageKeys) {
+        for (String key : storageKeys) {
+            try {
+                storage.delete(key);
+            } catch (RuntimeException e) {
+                log.warn("Could not delete stored photo {}", key, e);
+            }
+        }
     }
 
     /** Marks an upload attached (same transaction as the message insert). */

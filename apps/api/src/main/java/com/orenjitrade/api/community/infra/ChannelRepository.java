@@ -6,6 +6,7 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,17 +20,25 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class ChannelRepository {
 
-    private static final String SELECT =
-            """
-            SELECT ch.id, ch.slug, ch.name, ch.kind, ch.game_slug, ch.region_label,
-                   ch.description, ch.status, ch.post_rate_limit_per_hour, ch.sort_order,
-                   ch.updated_at,
-                   (SELECT count(*) FROM community_post p
-                     WHERE p.channel_id = ch.id AND p.deleted_at IS NULL
-                       AND p.moderation_state <> 'REMOVED' AND p.created_at > :since)
-                       AS post_count_24h
-              FROM community_channel ch
-            """;
+    /** Every post that is not deleted or removed (the moderators' count). */
+    private static final String STORED_POSTS =
+            "p.deleted_at IS NULL AND p.moderation_state <> 'REMOVED'";
+
+    private static final String SELECT = select(STORED_POSTS);
+
+    /** The channel columns with the 24 h count of the posts that match {@code postFilter}. */
+    private static String select(String postFilter) {
+        return """
+        SELECT ch.id, ch.slug, ch.name, ch.kind, ch.game_slug, ch.region_label,
+               ch.description, ch.status, ch.post_rate_limit_per_hour, ch.sort_order,
+               ch.updated_at,
+               (SELECT count(*) FROM community_post p
+                 WHERE p.channel_id = ch.id AND %s AND p.created_at > :since)
+                   AS post_count_24h
+          FROM community_channel ch
+        """
+                .formatted(postFilter);
+    }
 
     private final JdbcClient jdbc;
 
@@ -44,7 +53,37 @@ public class ChannelRepository {
      */
     public List<ChannelRow> list(
             boolean activeOnly, @Nullable String game, @Nullable String region, Instant now) {
+        return list(SELECT, new LinkedHashMap<>(), activeOnly, game, region, now);
+    }
+
+    /**
+     * The active channels as a member lists them (stage R11 review fix 1): the 24 h post count
+     * holds only the posts the member may see, as {@link #lastPosts} does: not deleted, not
+     * REMOVED, their author listed ({@link PostRepository#authorListed}) and not among {@code
+     * hiddenAuthors} (blocks of the member, both directions), in the SQL.
+     */
+    public List<ChannelRow> listForMember(
+            @Nullable String game,
+            @Nullable String region,
+            Collection<UUID> hiddenAuthors,
+            Instant now) {
         Map<String, Object> params = new LinkedHashMap<>();
+        params.put("now", Timestamp.from(now));
+        String filter = PostRepository.visible("p");
+        if (!hiddenAuthors.isEmpty()) {
+            filter += " AND p.author_id NOT IN (:hidden)";
+            params.put("hidden", hiddenAuthors);
+        }
+        return list(select(filter), params, true, game, region, now);
+    }
+
+    private List<ChannelRow> list(
+            String select,
+            Map<String, Object> params,
+            boolean activeOnly,
+            @Nullable String game,
+            @Nullable String region,
+            Instant now) {
         params.put("since", Timestamp.from(now.minus(Duration.ofHours(24))));
         StringBuilder where = new StringBuilder(" WHERE true");
         if (activeOnly) {
@@ -60,10 +99,52 @@ public class ChannelRepository {
                             + " lower(unaccent_immutable(:region))");
             params.put("region", region);
         }
-        return jdbc.sql(SELECT + where + " ORDER BY ch.sort_order, ch.name, ch.slug")
+        return jdbc.sql(select + where + " ORDER BY ch.sort_order, ch.name, ch.slug")
                 .params(params)
                 .query(ChannelRepository::map)
                 .list();
+    }
+
+    /**
+     * The newest visible post of each channel (stage R11, the room list): not deleted, not REMOVED,
+     * its author listed ({@link PostRepository#authorListed}) and not among {@code hiddenAuthors}
+     * (blocks of the viewer, both directions). Channels without one are absent.
+     */
+    public Map<UUID, LastPostRow> lastPosts(
+            Collection<UUID> channelIds, Collection<UUID> hiddenAuthors, Instant now) {
+        Map<UUID, LastPostRow> result = new LinkedHashMap<>();
+        if (channelIds.isEmpty()) {
+            return result;
+        }
+        Map<String, Object> params = new LinkedHashMap<>();
+        params.put("ids", channelIds);
+        params.put("now", Timestamp.from(now));
+        String hidden = "";
+        if (!hiddenAuthors.isEmpty()) {
+            hidden = " AND p.author_id NOT IN (:hidden)";
+            params.put("hidden", hiddenAuthors);
+        }
+        jdbc.sql(
+                        "SELECT ch.id AS channel_id, lp.id, lp.author_id, lp.body, lp.created_at"
+                                + " FROM community_channel ch CROSS JOIN LATERAL (SELECT p.id,"
+                                + " p.author_id, p.body, p.created_at FROM community_post p"
+                                + " WHERE p.channel_id = ch.id AND "
+                                + PostRepository.visible("p")
+                                + hidden
+                                + " ORDER BY p.created_at DESC, p.id DESC LIMIT 1) lp"
+                                + " WHERE ch.id IN (:ids)")
+                .params(params)
+                .query(
+                        (rs, rowNum) ->
+                                new LastPostRow(
+                                        rs.getObject("channel_id", UUID.class),
+                                        rs.getObject("id", UUID.class),
+                                        rs.getObject("author_id", UUID.class),
+                                        rs.getString("body"),
+                                        rs.getTimestamp("created_at").toInstant()))
+                .list()
+                .forEach(row -> result.put(row.channelId(), row));
+        return result;
     }
 
     public Optional<ChannelRow> findBySlug(String slug, Instant now) {
@@ -180,6 +261,10 @@ public class ChannelRepository {
             int sortOrder,
             Instant updatedAt,
             int postCount24h) {}
+
+    /** The newest visible post of a channel. */
+    public record LastPostRow(
+            UUID channelId, UUID postId, UUID authorId, String body, Instant createdAt) {}
 
     /** A channel to insert. */
     public record NewChannel(

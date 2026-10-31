@@ -5,6 +5,7 @@ import com.orenjitrade.api.delisting.domain.FreshnessState;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
@@ -31,6 +32,10 @@ public final class InventoryChanges {
      * @param visibility PUBLIC inside a binder (the binder decides), PRIVATE otherwise
      * @param publicUntil end of a TEMPORARILY_PUBLIC publication
      * @param binderId binder (the caller's)
+     * @param askingPriceText the asking price as typed (stage R2); a plain amount also gives {@code
+     *     askingPrice}, which must then be absent
+     * @param conditionStated {@code false}: the condition is not stated ({@code condition} must be
+     *     absent); {@code null} or {@code true}: {@code condition} or its default
      */
     public record NewItem(
             UUID printingId,
@@ -47,12 +52,53 @@ public final class InventoryChanges {
             @Nullable String publicNotes,
             @Nullable ListingVisibility visibility,
             @Nullable Instant publicUntil,
-            @Nullable UUID binderId) {}
+            @Nullable UUID binderId,
+            @Nullable String askingPriceText,
+            @Nullable Boolean conditionStated) {
+
+        /** A new item without the stage R2 fields (the asking price text, a stated condition). */
+        public NewItem(
+                UUID printingId,
+                @Nullable Integer quantity,
+                @Nullable String condition,
+                @Nullable String language,
+                @Nullable String edition,
+                @Nullable String finish,
+                @Nullable BigDecimal askingPrice,
+                @Nullable String currency,
+                @Nullable Availability availability,
+                @Nullable Boolean acceptsOffers,
+                @Nullable String notes,
+                @Nullable String publicNotes,
+                @Nullable ListingVisibility visibility,
+                @Nullable Instant publicUntil,
+                @Nullable UUID binderId) {
+            this(
+                    printingId,
+                    quantity,
+                    condition,
+                    language,
+                    edition,
+                    finish,
+                    askingPrice,
+                    currency,
+                    availability,
+                    acceptsOffers,
+                    notes,
+                    publicNotes,
+                    visibility,
+                    publicUntil,
+                    binderId,
+                    null,
+                    null);
+        }
+    }
 
     /**
      * A partial update: a field is changed only when {@link #has(String)} says it was sent;
-     * nullable fields ({@code askingPrice}, {@code publicUntil}, {@code binderId}, {@code notes},
-     * {@code publicNotes}) may then be cleared.
+     * nullable fields ({@code askingPrice}, {@code askingPriceText}, {@code publicUntil}, {@code
+     * binderId}, {@code notes}, {@code publicNotes}) may then be cleared. {@code confirm} (stage
+     * R2, "Save changes" on the phone) also confirms the item, as {@code POST .../confirm} does.
      */
     public record ItemPatch(
             java.util.Set<String> present,
@@ -70,10 +116,51 @@ public final class InventoryChanges {
             @Nullable String publicNotes,
             @Nullable ListingVisibility visibility,
             @Nullable Instant publicUntil,
-            @Nullable UUID binderId) {
+            @Nullable UUID binderId,
+            @Nullable String askingPriceText,
+            boolean confirm) {
 
         public ItemPatch {
             present = java.util.Set.copyOf(present);
+        }
+
+        /** A patch without the stage R2 fields. */
+        public ItemPatch(
+                java.util.Set<String> present,
+                @Nullable UUID printingId,
+                @Nullable Integer quantity,
+                @Nullable String condition,
+                @Nullable String language,
+                @Nullable String edition,
+                @Nullable String finish,
+                @Nullable BigDecimal askingPrice,
+                @Nullable String currency,
+                @Nullable Availability availability,
+                @Nullable Boolean acceptsOffers,
+                @Nullable String notes,
+                @Nullable String publicNotes,
+                @Nullable ListingVisibility visibility,
+                @Nullable Instant publicUntil,
+                @Nullable UUID binderId) {
+            this(
+                    present,
+                    printingId,
+                    quantity,
+                    condition,
+                    language,
+                    edition,
+                    finish,
+                    askingPrice,
+                    currency,
+                    availability,
+                    acceptsOffers,
+                    notes,
+                    publicNotes,
+                    visibility,
+                    publicUntil,
+                    binderId,
+                    null,
+                    false);
         }
 
         public boolean has(String field) {
@@ -113,7 +200,12 @@ public final class InventoryChanges {
         /** Unknown, deleted or not the caller's item. */
         NOT_FOUND,
         /** Already in the requested state. */
-        UNCHANGED
+        UNCHANGED,
+        /**
+         * MOVE_TO_BINDER: the card is of another game than the binder, which holds the cards of one
+         * game (stage G); the card stays where it was.
+         */
+        BINDER_GAME_MISMATCH
     }
 
     /**
@@ -132,11 +224,68 @@ public final class InventoryChanges {
      */
     public record BulkResult(int updated, List<Skipped> skipped) {}
 
+    /**
+     * What makes two copies one inventory item for an import: the printing, the condition, the
+     * edition and the language (owner spec 2026-10-08, section 6).
+     *
+     * @param printingId printing
+     * @param condition condition code
+     * @param edition edition code of the copy
+     * @param language language of the copy
+     */
+    public record MergeKey(UUID printingId, String condition, String edition, String language) {}
+
+    /**
+     * One line of an import, validated and normalised by the caller: the copies to add to the
+     * owner's equal item, or a new PRIVATE unfiled item when there is none.
+     *
+     * @param printingId printing (of an ACTIVE game)
+     * @param condition condition code of the game
+     * @param language language of the copy
+     * @param edition edition of the copy
+     * @param finish finish (the printing's)
+     * @param quantity copies, 1-9999
+     */
+    public record ImportLine(
+            UUID printingId,
+            String condition,
+            String language,
+            String edition,
+            String finish,
+            int quantity) {
+
+        public MergeKey key() {
+            return new MergeKey(printingId, condition, edition, language);
+        }
+    }
+
+    /**
+     * What a chunk of an import wrote.
+     *
+     * @param created new items
+     * @param merged existing items whose quantity was raised
+     * @param copies copies added (fewer than asked when an item reached 9 999)
+     * @param notAdded copies asked for and not added because their item reached 9 999
+     */
+    public record ImportOutcome(int created, int merged, int copies, int notAdded) {}
+
+    /**
+     * The copies an owner holds in the items equal to some lines of an import.
+     *
+     * @param privateCopies in private items: an import adds its copies to such an item
+     * @param shownCopies in items the owner shows (visibility other than PRIVATE): an import never
+     *     raises those, its copies become a private item of their own
+     */
+    public record OwnedCopies(
+            Map<MergeKey, Integer> privateCopies, Map<MergeKey, Integer> shownCopies) {}
+
     /** Sort keys of the owner's inventory list. */
     public enum SortKey {
         UPDATED,
         NAME,
-        PRICE
+        PRICE,
+        /** Creation, newest first by default: "Recently added" on the phone (stage R2). */
+        CREATED
     }
 
     /**
@@ -147,6 +296,8 @@ public final class InventoryChanges {
      * @param binderId only this binder
      * @param unfiled only items without a binder
      * @param visibility only this visibility
+     * @param markedPublic only the items set to public: PUBLIC or TEMPORARILY_PUBLIC (the phone's
+     *     "Public" filter, review fix 1 of stage R2)
      * @param availability only this availability
      * @param condition only this condition
      * @param freshness only this freshness
@@ -154,6 +305,8 @@ public final class InventoryChanges {
      * @param descending sort direction
      * @param page zero-based page
      * @param size page size
+     * @param cardId only the printings of this card (stage R6: "I have it" looks for the caller's
+     *     copies of a wished card)
      */
     public record OwnerQuery(
             @Nullable String query,
@@ -161,13 +314,48 @@ public final class InventoryChanges {
             @Nullable UUID binderId,
             boolean unfiled,
             @Nullable ListingVisibility visibility,
+            boolean markedPublic,
             @Nullable Availability availability,
             @Nullable String condition,
             @Nullable FreshnessState freshness,
             SortKey sort,
             boolean descending,
             int page,
-            int size) {}
+            int size,
+            @Nullable UUID cardId) {
+
+        /** Every card (no card filter). */
+        public OwnerQuery(
+                @Nullable String query,
+                @Nullable String game,
+                @Nullable UUID binderId,
+                boolean unfiled,
+                @Nullable ListingVisibility visibility,
+                boolean markedPublic,
+                @Nullable Availability availability,
+                @Nullable String condition,
+                @Nullable FreshnessState freshness,
+                SortKey sort,
+                boolean descending,
+                int page,
+                int size) {
+            this(
+                    query,
+                    game,
+                    binderId,
+                    unfiled,
+                    visibility,
+                    markedPublic,
+                    availability,
+                    condition,
+                    freshness,
+                    sort,
+                    descending,
+                    page,
+                    size,
+                    null);
+        }
+    }
 
     /**
      * Filters of public item lists.
@@ -177,11 +365,51 @@ public final class InventoryChanges {
      * @param availability only this availability
      * @param page zero-based page
      * @param size page size
+     * @param excludeDeckCoreItems leave out the cards filed in a deck core (they sell only with it,
+     *     owner spec 2026-10-14, section 7: the profile's Cards of stage R6)
+     * @param sort the order of the page (web stage WD: a public binder's sort pill); by card name
+     *     unless asked
      */
     public record PublicQuery(
             @Nullable String query,
             @Nullable String game,
             @Nullable Availability availability,
             int page,
-            int size) {}
+            int size,
+            boolean excludeDeckCoreItems,
+            PublicSort sort) {
+
+        /** Every public card, a deck core's included, by card name. */
+        public PublicQuery(
+                @Nullable String query,
+                @Nullable String game,
+                @Nullable Availability availability,
+                int page,
+                int size) {
+            this(query, game, availability, page, size, false);
+        }
+
+        /** By card name. */
+        public PublicQuery(
+                @Nullable String query,
+                @Nullable String game,
+                @Nullable Availability availability,
+                int page,
+                int size,
+                boolean excludeDeckCoreItems) {
+            this(query, game, availability, page, size, excludeDeckCoreItems, PublicSort.NAME);
+        }
+    }
+
+    /**
+     * Orders of a public item list (web stage WD, spec 8.2: "Recently added, Name, Price"): {@code
+     * NAME} by card name (the default, as before), {@code RECENT} the newest first, {@code PRICE}
+     * the lowest plain amount first, then prices that are no plain amount ("85% TCG"), then the
+     * cards without a price.
+     */
+    public enum PublicSort {
+        NAME,
+        RECENT,
+        PRICE
+    }
 }

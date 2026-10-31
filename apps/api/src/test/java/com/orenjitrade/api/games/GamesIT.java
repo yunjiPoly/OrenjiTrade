@@ -4,7 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.orenjitrade.api.AbstractIntegrationTest;
 import com.orenjitrade.api.auth.domain.Role;
+import com.orenjitrade.api.cards.domain.CatalogImportService;
 import com.orenjitrade.api.games.domain.GameService;
+import com.orenjitrade.api.inventory.InventoryTestSupport;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -20,6 +22,7 @@ import tools.jackson.databind.node.ObjectNode;
 class GamesIT extends AbstractIntegrationTest {
 
     @Autowired private GameService gameService;
+    @Autowired private CatalogImportService importService;
 
     private static List<String> slugs(JsonNode games) {
         List<String> slugs = new ArrayList<>();
@@ -30,7 +33,8 @@ class GamesIT extends AbstractIntegrationTest {
     @Test
     void publicGamesCarryTheirSchemaInDisplayOrder() {
         JsonNode games = callJson(HttpMethod.GET, "/api/v1/games", null, null, 200);
-        assertThat(slugs(games)).containsExactly("yugioh", "pokemon", "mtg", "riftbound");
+        assertThat(slugs(games))
+                .containsExactly("yugioh", "pokemon", "mtg", "onepiece", "riftbound");
         JsonNode yugioh = games.get(0);
         assertThat(yugioh.path("shortName").asString()).isEqualTo("Yu-Gi-Oh!");
         assertThat(yugioh.path("publisher").asString()).isEqualTo("Konami");
@@ -49,6 +53,52 @@ class GamesIT extends AbstractIntegrationTest {
         assertThat(pokemon.path("name").asString()).isEqualTo("Pokémon Trading Card Game");
         assertThat(pokemon.path("schema").path("finishes").toString()).contains("REVERSE_HOLO");
         callJson(HttpMethod.GET, "/api/v1/games/chess", null, null, 404);
+    }
+
+    @Test
+    void onePieceIsListedWithItsEnglishOnlySchemaAndNoCardsYet() {
+        InventoryTestSupport.ensureCatalog(importService);
+        gameService.invalidate();
+        JsonNode onePiece = callJson(HttpMethod.GET, "/api/v1/games/onepiece", null, null, 200);
+        assertThat(onePiece.path("name").asString()).isEqualTo("One Piece Card Game");
+        assertThat(onePiece.path("shortName").asString()).isEqualTo("One Piece");
+        assertThat(onePiece.path("status").asString()).isEqualTo("ACTIVE");
+        JsonNode schema = onePiece.path("schema");
+        assertThat(schema.path("languages").toString()).isEqualTo("[\"en\"]");
+        assertThat(schema.path("rarities").toString())
+                .isEqualTo("[\"C\",\"UC\",\"R\",\"SR\",\"SEC\",\"L\",\"SP\",\"TR\",\"P\"]");
+        assertThat(schema.path("finishes").toString()).contains("NORMAL", "PARALLEL");
+        assertThat(schema.path("conditions").toString()).contains("NEAR_MINT", "DAMAGED");
+
+        // hasCards: whether the catalogue holds a card of the game (the mock catalogue has none
+        // of One Piece).
+        Map<String, Boolean> hasCards = new HashMap<>();
+        callJson(HttpMethod.GET, "/api/v1/games", null, null, 200)
+                .forEach(
+                        game ->
+                                hasCards.put(
+                                        game.path("slug").asString(),
+                                        game.path("hasCards").asBoolean()));
+        assertThat(hasCards)
+                .containsEntry("yugioh", true)
+                .containsEntry("pokemon", true)
+                .containsEntry("mtg", true)
+                .containsEntry("riftbound", true)
+                .containsEntry("onepiece", false);
+        // A game without cards can still be on a profile.
+        String collector = uniqueUid("games-onepiece");
+        provisionCompliant(collector);
+        Map<String, Object> profile = new LinkedHashMap<>();
+        profile.put("handle", me(collector).path("handle").asString());
+        profile.put("displayName", "One Piece fan");
+        profile.put("bio", "");
+        profile.put("games", List.of("onepiece"));
+        profile.put("languages", List.of("en"));
+        assertThat(
+                        callJson(HttpMethod.PUT, "/api/v1/me/profile", collector, profile, 200)
+                                .path("games")
+                                .toString())
+                .contains("onepiece");
     }
 
     @Test

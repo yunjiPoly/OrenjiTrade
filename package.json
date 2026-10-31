@@ -45,7 +45,10 @@
     "audit:gate": "node scripts/audit-gate.mjs"
   },
   "overrides": {
-    "@grpc/grpc-js": "^1.14.5"
+    "@grpc/grpc-js": "^1.14.5",
+    "re2js": "~2.8.8",
+    "undici": "^8.12.2",
+    "vite": "^8.3.4"
   },
   "devDependencies": {
     "@babel/generator": "7.29.8",

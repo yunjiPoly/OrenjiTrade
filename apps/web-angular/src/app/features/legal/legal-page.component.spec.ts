@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { FeatureFlagsService } from '../../core/feature-flags/feature-flags.service';
 import { LEGAL_DOCUMENTS, LEGAL_DRAFT_BANNER, LEGAL_KEYS } from './legal-content';
 import {
   LEGAL_DOCUMENTS_FR,
@@ -31,6 +32,33 @@ describe('LegalPageComponent', () => {
     await fixture.whenStable();
     return fixture.nativeElement as HTMLElement;
   };
+
+  const seeAlso = (element: HTMLElement) =>
+    Array.from(element.querySelectorAll<HTMLAnchorElement>('.legal__related a'), (a) =>
+      a.getAttribute('href'),
+    );
+
+  it('"See also" leaves out the payment policies while protectedPayments is off (decision 23)', async () => {
+    TestBed.inject(LegalLanguageService).set('en');
+    for (const key of ['terms', 'trading-safely', 'payment-protection']) {
+      const links = seeAlso(await render(key));
+      expect(links).not.toContain('/legal/payment-protection');
+      expect(links).not.toContain('/legal/refund-dispute');
+      expect(links).toContain(key === 'terms' ? '/legal/privacy' : '/legal/terms');
+    }
+    // The pages themselves stay reachable by a direct link.
+    expect((await render('refund-dispute')).querySelector('h1')?.textContent).toBe(
+      LEGAL_DOCUMENTS['refund-dispute'].title,
+    );
+  });
+
+  it('"See also" lists them while protectedPayments is on', async () => {
+    TestBed.inject(LegalLanguageService).set('en');
+    TestBed.inject(FeatureFlagsService).set({ protectedPayments: true });
+    const links = seeAlso(await render('terms'));
+    expect(links).toContain('/legal/payment-protection');
+    expect(links).toContain('/legal/refund-dispute');
+  });
 
   it('exposes all nine legal route keys', () => {
     expect(LEGAL_KEYS).toEqual([
@@ -124,7 +152,7 @@ describe('LegalPageComponent', () => {
     const element = await render('trading-safely', 'fr');
     expect(language.language()).toBe('fr');
     expect(element.querySelector('h1')?.textContent).toBe('Échanger en toute sécurité');
-    expect(element.textContent).toContain('zones d’échange sécuritaires');
+    expect(element.textContent).toContain('les cartes sont expédiées par la poste');
   });
 
   it('renders an error state for an unknown key', async () => {

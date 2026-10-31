@@ -1,13 +1,16 @@
-# Trading safety (launch readiness): Ben (a fresh fictional collector driven from the host,
-# scripts/messaging.js) writes to Ada, who uses the app. Her first conversation shows the
-# dismissible "Trade safely" notice under the header: the guide link opens the "Trading safely"
-# page in-app, the composer keeps working with the notice on screen, Dismiss removes it, and it
-# stays gone after a relaunch (the dismissal lives on the device, per collector).
+# Trading safety (stage R1 of the phone redesign, ADR 0018: deals ship by mail, payment stays
+# outside the app): Ben (a fresh fictional collector driven from the host, scripts/messaging.js)
+# writes to Ada, who uses the app. Her chat opens with the small safety tip at its start, in the
+# wording of a chat without a card (the chat has no pinned card; the buying and selling tips are
+# native flows 3 and 4, deal-deck-core-chat.yaml and deal-mark-sold.yaml): tapping it opens
+# the "Trading safely" page in-app, the composer keeps working with the tip on screen, and the tip
+# is still there after a relaunch (it is not dismissed; it replaced the meetup notice).
 appId: ${APP_ID}
-name: Safety notice in a first conversation
+name: Safety tip at the start of a chat
 tags:
   - launch-readiness
   - messages
+  - redesign-r1
 ---
 - runScript:
     file: scripts/messaging.js
@@ -37,15 +40,18 @@ tags:
     timeout: 60000
 - extendedWaitUntil:
     visible:
-      id: 'safety-notice'
+      id: 'chat-safety-tip'
     timeout: 30000
-- assertVisible: 'Trade safely'
+- assertVisible:
+    id: 'chat-safety-tip'
+    text: '.*Agree on the price and shipping here\. Check ratings before you send an e-Transfer\.'
+- assertNotVisible: '.*[Mm]eet in a busy public place.*'
 - assertVisible: 'Hi Ada, still trading the Emberfang Fox\?'
-- takeScreenshot: safety-notice
+- takeScreenshot: chat-safety-tip
 
-# The guide, in-app, then back to the thread with the notice still there.
+# The guide, in-app, then back to the chat with the tip still there.
 - tapOn:
-    id: 'safety-notice-guide'
+    id: 'chat-safety-tip'
 - extendedWaitUntil:
     visible:
       id: 'screen-legal-document'
@@ -56,18 +62,18 @@ tags:
 - runFlow: subflows/go-back.yaml
 - extendedWaitUntil:
     visible:
-      id: 'safety-notice'
+      id: 'chat-safety-tip'
     timeout: 30000
 
-# The composer is never blocked by the notice.
+# The composer is never blocked by the tip.
 - tapOn:
     id: 'conversation-input'
-- inputText: 'Lets meet at the library.'
+- inputText: 'How much with shipping?'
 - runFlow: subflows/hide-keyboard.yaml
 - tapOn:
     id: 'conversation-send'
 - extendedWaitUntil:
-    visible: 'Lets meet at the library\.'
+    visible: 'How much with shipping\?'
     timeout: 60000
 - runScript:
     file: scripts/messaging.js
@@ -76,18 +82,12 @@ tags:
       EMAIL: ${output.ben.email}
       PASSWORD: ${output.ben.password}
       CONVERSATION: ${output.conversation.id}
-      EXPECT_BODY: 'Lets meet at the library.'
+      EXPECT_BODY: 'How much with shipping?'
       EXPECT_READ: 'false'
 - assertVisible:
-    id: 'safety-notice'
+    id: 'chat-safety-tip'
 
-# Dismiss: gone now, and still gone after a relaunch.
-- tapOn:
-    id: 'safety-notice-dismiss'
-- assertNotVisible:
-    id: 'safety-notice'
-- assertVisible:
-    id: 'conversation-input'
+# Not dismissed: still at the start of the chat after a relaunch.
 - runFlow: subflows/relaunch.yaml
 - extendedWaitUntil:
     visible:
@@ -105,7 +105,7 @@ tags:
     visible:
       id: 'conversation-profile'
     timeout: 60000
-- assertVisible: 'Lets meet at the library\.'
-- assertNotVisible:
-    id: 'safety-notice'
-- takeScreenshot: safety-notice-dismissed
+- assertVisible: 'How much with shipping\?'
+- assertVisible:
+    id: 'chat-safety-tip'
+- takeScreenshot: chat-safety-tip-relaunch

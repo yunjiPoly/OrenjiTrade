@@ -138,14 +138,33 @@ public final class RatingResponses {
             @Schema(requiredMode = RequiredMode.REQUIRED) UUID id,
             @Schema(requiredMode = RequiredMode.REQUIRED) InteractionKind kind,
             @Schema(requiredMode = RequiredMode.REQUIRED) Instant occurredAt,
-            @Schema(requiredMode = RequiredMode.REQUIRED) boolean alreadyRated) {
+            @Schema(requiredMode = RequiredMode.REQUIRED) boolean alreadyRated,
+            @Schema(
+                            nullable = true,
+                            description =
+                                    "A sale's card or deck core as named when it was marked sold"
+                                            + " (stage R14: the rating form names the deal); null"
+                                            + " for other kinds",
+                            example = "Ash Blossom & Joyous Spring")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable String dealName,
+            @Schema(
+                            nullable = true,
+                            description =
+                                    "A sale: true when the caller bought it (\"sold to you\"),"
+                                            + " false when the caller sold it; null for other"
+                                            + " kinds")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable Boolean soldToYou) {
 
         static EligibleInteractionResponse from(EligibleInteraction interaction) {
             return new EligibleInteractionResponse(
                     interaction.id(),
                     interaction.kind(),
                     interaction.occurredAt(),
-                    interaction.alreadyRated());
+                    interaction.alreadyRated(),
+                    interaction.dealName(),
+                    interaction.soldToYou());
         }
     }
 

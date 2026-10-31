@@ -53,48 +53,58 @@ test.describe('acceptance: map', () => {
     await expect(page.getByText('All changes saved')).toBeVisible();
     await expect(page.getByText(/Collectors see you in/)).toContainText(place.label);
     await page.goto(`/inventory?binder=${binder.id}`);
-    await page.getByRole('button', { name: `Publish ${binder.name}` }).click();
-    await page.getByRole('menuitem', { name: 'Public until disabled' }).click();
+    // Web WB: the binder strip's [Private | Public].
+    await page.getByTestId('binder-strip').getByRole('radio', { name: 'Public' }).click();
     await expect(
-      page.getByText(`“${binder.name}” is public until you make it private.`),
+      page.getByTestId('toast').filter({ hasText: `${binder.name} is public` }),
     ).toBeVisible();
     api.trackPublished(a, binder.id);
 
     // --- B opens the map: A's state is shaded, its panel lists A's binder --------------------------
     const pageB = await actors.anonymous();
     await signIn(pageB, b);
-    await pageB.goto('/map');
-    await expect(pageB).toHaveURL(/\/map\?region=americas-north$/);
+    // Web stage WE: the map is Search › Binders (Home's map card is a static picture).
+    await pageB.goto('/search?tab=binders');
+    await expect(pageB).toHaveURL(/region=americas-north/);
     const shape = pageB.locator(`.leaflet-overlay-pane path[data-code="${place.subdivisionCode}"]`);
     await expect(shape).toBeAttached({ timeout: 20_000 });
+    // Shaded with a map step (spec 6.4's `map.step1–4`), not the empty step.
+    const empty = await pageB.evaluate(() =>
+      getComputedStyle(document.documentElement).getPropertyValue('--color-map-step0').trim(),
+    );
     await expect
-      .poll(async () => Number(await shape.getAttribute('fill-opacity')), {
+      .poll(async () => (await shape.getAttribute('fill'))?.toLowerCase(), {
         message: "A's state is shaded",
       })
-      .toBeLessThan(1);
+      .not.toBe(empty.toLowerCase());
     await expect(pageB.locator('.leaflet-tile-pane img')).toHaveCount(0);
     expect(await privacy.scanDom(pageB), 'DOM attributes checked').toBeGreaterThan(100);
 
     const panel = await openState(pageB, place);
     const card = stateBinder(panel, binder.name);
     await expect(card).toBeVisible();
-    await expect(card).toContainText(`@${a.handle}`);
+    await expect(card).toContainText(a.handle);
     await expect(panel).not.toContainText(city);
     await expect(panel).not.toContainText(/\bkm\b/);
     await privacy.scanDom(pageB);
 
     // Full profile (the city, shown by A's choice), then the public binder.
-    await card.getByRole('link', { name: new RegExp(escapeRegExp(a.displayName)) }).click();
-    await expect(pageB).toHaveURL(new RegExp(`/collectors/${escapeRegExp(a.handle)}$`));
+    await pageB.goto(`/collectors/${encodeURIComponent(a.handle)}`);
     await expect(pageB.getByRole('heading', { level: 1, name: a.displayName })).toBeVisible();
-    await expect(pageB.getByTestId('collector-public-label')).toContainText(place.label);
+    // The header names the province (spec 11), the city before it by A's choice.
+    await expect(pageB.getByTestId('collector-public-label')).toContainText(
+      place.label.split(',')[0],
+    );
     await expect(pageB.getByTestId('collector-city')).toHaveText(city);
     await privacy.scanDom(pageB);
-    await pageB.getByRole('link', { name: 'View public binder' }).click();
+    await pageB
+      .getByRole('list', { name: 'Public binders' })
+      .getByRole('link', { name: new RegExp(escapeRegExp(binder.name)) })
+      .click();
     await expect(pageB).toHaveURL(new RegExp(`/binders/${binder.id}$`));
     await expect(pageB.getByRole('heading', { level: 1, name: binder.name })).toBeVisible();
     await expect(pageB.getByRole('main')).toContainText('Lantern Fox Spirit');
-    await expect(pageB.getByTestId('owner-public-label')).toContainText(place.label);
+    await expect(pageB.getByTestId('owner-public-label')).toContainText(place.label.split(',')[0]);
     await expect(pageB.getByRole('main')).not.toContainText(city);
 
     await privacy.settle();

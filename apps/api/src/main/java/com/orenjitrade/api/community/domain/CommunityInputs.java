@@ -1,5 +1,6 @@
 package com.orenjitrade.api.community.domain;
 
+import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
@@ -14,8 +15,23 @@ public final class CommunityInputs {
      * @param body text (1-2000 characters)
      * @param cardPrintingId optional shared printing
      * @param binderId optional shared public binder
+     * @param photoUploadIds COMMUNITY uploads of the author to attach, in order (at most 4)
      */
-    public record NewPost(String body, @Nullable UUID cardPrintingId, @Nullable UUID binderId) {}
+    public record NewPost(
+            String body,
+            @Nullable UUID cardPrintingId,
+            @Nullable UUID binderId,
+            List<UUID> photoUploadIds) {
+
+        public NewPost {
+            photoUploadIds = List.copyOf(photoUploadIds);
+        }
+
+        /** A post without photos. */
+        public NewPost(String body, @Nullable UUID cardPrintingId, @Nullable UUID binderId) {
+            this(body, cardPrintingId, binderId, List.of());
+        }
+    }
 
     /**
      * A channel created by a moderator.

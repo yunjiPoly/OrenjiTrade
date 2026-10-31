@@ -1,27 +1,38 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Linking, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Linking, StyleSheet } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
+import { useFlowLock } from '@/src/account/flowLock';
 import { isApiError } from '@/src/api/ApiError';
 import { messageOf } from '@/src/api/errorMessages';
 import { pendingDeletion, useCancelDeletion, useDeletionRequests } from '@/src/api/hooks/account';
 import { useSession } from '@/src/auth/session';
-import { Button } from '@/src/components/ui/Button';
 import { FormMessage } from '@/src/components/ui/FormControls';
-import { Screen } from '@/src/components/ui/Screen';
+import { PillButton } from '@/src/components/ui/PillButton';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
+import { Text } from '@/src/components/ui/Text';
+import {
+  DELETION_COPY,
+  SUSPENDED_COPY,
+  suspensionReason,
+} from '@/src/features/account/accountCopy';
 import { exportMyData } from '@/src/features/account/exportData';
-import { formatDateTime, formatLongDate } from '@/src/lib/dates';
-import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
+import { StatusPage, StatusText } from '@/src/features/account/StatusPage';
+import { formatLongDate } from '@/src/lib/dates';
+import { PINNED_MAX_FONT_SCALE, fontWeight, useTheme } from '@/src/theme';
 
-const SUPPORT_EMAIL = 'support@orenjitrade.com';
+/** The flow lock's name while "Deletion cancelled" shows in place of the deletion. */
+export const DELETION_CANCELLED_FLOW = 'deletion-cancelled';
 
 /**
- * Why the account cannot be used (web: `/auth/suspended`): a suspension (temporary, or without an
- * end date when the account was banned) or a pending deletion during its 7-day grace period, with
- * "Cancel deletion" and "Download my data".
+ * 44 Suspended and 45 Scheduled for deletion (stage R12, mockup v50; web: `/auth/suspended`):
+ * centred with a 72 pt icon. A suspension (temporary, or without an end date when the account was
+ * banned) says why and until when, with the support address, "Community guidelines" and Sign out.
+ * A pending deletion (its 7-day grace period) offers "Cancel deletion", "Download my data" and Sign
+ * out; once cancelled, "Deletion cancelled" and "Welcome back!" show in place (the gate is held
+ * meanwhile) and Continue goes on.
  */
 export default function SuspendedScreen() {
   const { palette } = useTheme();
@@ -34,13 +45,19 @@ export default function SuspendedScreen() {
   const router = useRouter();
   const [working, setWorking] = useState<'cancel' | 'export' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [cancelled, setCancelled] = useState(false);
+
+  // Leaving the screen any other way never leaves the gate held.
+  useEffect(
+    () => () => {
+      if (useFlowLock.getState().lockedBy === DELETION_CANCELLED_FLOW) {
+        useFlowLock.getState().unlock();
+      }
+    },
+    []
+  );
 
   const request = pendingDeletion(requests.data);
-  const heading = pending
-    ? 'Your account is scheduled for deletion'
-    : account.status === 'suspended'
-      ? 'Your account is suspended'
-      : 'Your account is active';
 
   const cancelDeletion = async () => {
     if (!request) {
@@ -48,15 +65,17 @@ export default function SuspendedScreen() {
     }
     setWorking('cancel');
     setError(null);
+    // "Deletion cancelled" shows here before the gate moves on (Continue releases it).
+    useFlowLock.getState().lock(DELETION_CANCELLED_FLOW);
     try {
       await cancel.mutateAsync(request.id);
-      await account.reload();
-      snackbar.show('Deletion cancelled. Welcome back!');
+      setCancelled(true);
+      // The account is active again; `/me` says so to the gate (Continue asks again if this fails).
+      await account.reload().catch(() => undefined);
     } catch (caught) {
+      useFlowLock.getState().unlock();
       setError(
-        isApiError(caught) && caught.status === 401
-          ? 'Your session ended. Sign in again, then cancel the deletion.'
-          : messageOf(caught)
+        isApiError(caught) && caught.status === 401 ? DELETION_COPY.sessionEnded : messageOf(caught)
       );
     } finally {
       setWorking(null);
@@ -68,99 +87,168 @@ export default function SuspendedScreen() {
     setError(null);
     try {
       const name = await exportMyData(account.handle);
-      snackbar.show(`Your data export ${name} is ready.`);
+      snackbar.show(DELETION_COPY.exported(name));
     } catch (caught) {
-      setError(messageOf(caught, 'The export failed. Please try again.'));
+      setError(messageOf(caught, DELETION_COPY.exportFailed));
     } finally {
       setWorking(null);
     }
   };
 
-  return (
-    <Screen scroll safeBottom testID="screen-suspended">
-      <Text
-        accessibilityRole="header"
-        style={[textStyle('2xl', 'heading'), styles.title, { color: palette.ink }]}
+  /** Continue after "Deletion cancelled": releases the gate, which opens the app. */
+  const proceed = async () => {
+    if (account.status !== 'ready') {
+      await account.reload().catch(() => undefined);
+    }
+    useFlowLock.getState().unlock();
+  };
+
+  const signOut = (
+    <PillButton
+      label={SUSPENDED_COPY.signOut}
+      variant="quiet"
+      maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+      disabled={working !== null}
+      onPress={() => void session.signOut()}
+      testID="suspended-sign-out"
+    />
+  );
+
+  if (cancelled) {
+    return (
+      <StatusPage
+        icon="check"
+        tone="accent"
+        title={DELETION_COPY.cancelledTitle}
+        testID="screen-suspended"
+        pinActions
+        actions={
+          <PillButton
+            label={DELETION_COPY.continue}
+            maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+            onPress={() => void proceed()}
+            testID="deletion-cancelled-continue"
+          />
+        }
       >
-        {heading}
-      </Text>
-      <View style={styles.body}>
-        {error ? <FormMessage>{error}</FormMessage> : null}
-        {pending ? (
-          requests.isPending ? (
-            <SkeletonList rows={2} rowHeight={48} />
-          ) : (
+        <StatusText testID="deletion-cancelled">{DELETION_COPY.cancelledText}</StatusText>
+      </StatusPage>
+    );
+  }
+
+  if (pending) {
+    return (
+      <StatusPage
+        icon="trash-can-outline"
+        tone="warning"
+        title={DELETION_COPY.title}
+        testID="screen-suspended"
+        pinActions
+        actions={
+          requests.isPending ? null : (
             <>
-              <FormMessage tone="info" testID="deletion-scheduled">
-                {request
-                  ? `Your account and profile will be permanently deleted on ${formatLongDate(request.scheduledFor)}. Until then you are hidden from the map and search.`
-                  : 'Your account is hidden while its deletion is pending.'}
-              </FormMessage>
-              <Text style={[textStyle('md'), { color: palette.textMuted }]}>
-                Changed your mind? Cancel the deletion to restore everything exactly as it was. You
-                can also download a copy of your data first.
-              </Text>
-              <Button
-                label="Cancel deletion"
+              <PillButton
+                label={DELETION_COPY.cancel}
+                maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
                 loading={working === 'cancel'}
-                disabled={!request || working !== null}
+                loadingLabel={DELETION_COPY.cancelling}
+                disabled={!request || working === 'export'}
                 onPress={() => void cancelDeletion()}
                 testID="cancel-deletion"
               />
-              <Button
-                label="Download my data"
-                variant="secondary"
+              <PillButton
+                label={DELETION_COPY.download}
+                maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+                variant="outline"
                 icon="download"
                 loading={working === 'export'}
-                disabled={working !== null}
+                loadingLabel={DELETION_COPY.downloading}
+                disabled={working === 'cancel'}
                 onPress={() => void exportData()}
                 testID="suspended-export"
               />
+              {signOut}
             </>
           )
+        }
+      >
+        {error ? (
+          <FormMessage style={styles.notice} testID="suspended-error">
+            {error}
+          </FormMessage>
+        ) : null}
+        {requests.isPending ? (
+          <SkeletonList rows={2} rowHeight={48} />
         ) : (
           <>
-            <FormMessage testID="suspension-message">
-              {account.suspension?.message || 'This account is suspended.'}
-              {account.suspension?.until
-                ? ` The suspension ends on ${formatDateTime(account.suspension.until)}.`
-                : ''}
-            </FormMessage>
-            <Text style={[textStyle('md'), { color: palette.textMuted }]}>
-              While suspended you cannot use OrenjiTrade. If you think this is a mistake, contact{' '}
-              <Text
-                accessibilityRole="link"
-                style={[styles.link, { color: palette.accent }]}
-                onPress={() =>
-                  void Linking.openURL(`mailto:${SUPPORT_EMAIL}`).catch(() => undefined)
-                }
-              >
-                {SUPPORT_EMAIL}
-              </Text>{' '}
-              and quote your account email.
-            </Text>
-            <Button
-              label="Community guidelines"
-              variant="secondary"
-              onPress={() =>
-                router.push({ pathname: '/legal/[key]', params: { key: 'community-guidelines' } })
-              }
-            />
+            <StatusText testID="deletion-scheduled">
+              {request ? (
+                <>
+                  {DELETION_COPY.scheduledBefore}
+                  <Text style={[styles.strong, { color: palette.ink }]}>
+                    {formatLongDate(request.scheduledFor)}
+                  </Text>
+                  {DELETION_COPY.scheduledAfter}
+                </>
+              ) : (
+                DELETION_COPY.noRequest
+              )}
+            </StatusText>
+            <StatusText>{DELETION_COPY.changedMind}</StatusText>
           </>
         )}
-        <Button
-          label="Sign out"
-          variant="ghost"
-          onPress={() => void session.signOut()}
-          testID="suspended-sign-out"
-        />
-      </View>
-    </Screen>
+      </StatusPage>
+    );
+  }
+
+  const suspension = account.suspension;
+  const reason = suspensionReason(suspension?.message);
+  return (
+    <StatusPage
+      icon="shield-alert-outline"
+      tone="danger"
+      title={account.status === 'suspended' ? SUSPENDED_COPY.title : SUSPENDED_COPY.activeTitle}
+      testID="screen-suspended"
+      pinActions
+      actions={
+        <>
+          <PillButton
+            label={SUSPENDED_COPY.guidelines}
+            maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+            variant="outline"
+            onPress={() =>
+              router.push({ pathname: '/legal/[key]', params: { key: 'community-guidelines' } })
+            }
+            testID="suspended-guidelines"
+          />
+          {signOut}
+        </>
+      }
+    >
+      {reason ? <StatusText testID="suspension-message">{reason}</StatusText> : null}
+      {suspension?.until ? (
+        <StatusText strong testID="suspension-until">
+          {SUSPENDED_COPY.endsOn(formatLongDate(suspension.until))}
+        </StatusText>
+      ) : null}
+      <StatusText>
+        {SUSPENDED_COPY.contactBefore}
+        <Text
+          accessibilityRole="link"
+          style={[styles.strong, { color: palette.accent }]}
+          onPress={() =>
+            void Linking.openURL(`mailto:${SUSPENDED_COPY.supportEmail}`).catch(() => undefined)
+          }
+        >
+          {SUSPENDED_COPY.supportEmail}
+        </Text>
+        {SUSPENDED_COPY.contactAfter}
+      </StatusText>
+    </StatusPage>
   );
 }
 
 const styles = StyleSheet.create({
-  title: { fontWeight: fontWeight.bold, marginBottom: spacing[4] },
-  body: { gap: spacing[4] },
-  link: { fontWeight: fontWeight.semibold, textDecorationLine: 'underline' },
+  strong: { fontWeight: fontWeight.semibold },
+  notice: { alignSelf: 'stretch' },
 });

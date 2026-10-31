@@ -1,7 +1,8 @@
 import { Image } from 'expo-image';
 import { useState } from 'react';
-import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
+import { Text } from '@/src/components/ui/Text';
 import { safeCardImageUrl } from '@/src/lib/cardImages';
 import { initialsOf } from '@/src/lib/profile';
 import { fontWeight, useTheme } from '@/src/theme';
@@ -59,6 +60,9 @@ export function Avatar({
         />
       ) : (
         <Text
+          // The initials are sized to their circle, which does not grow with the text size: at
+          // the largest sizes they overflowed it (seen in stage R3's walk).
+          allowFontScaling={false}
           style={[
             styles.initials,
             { color: palette.onPrimaryContainer, fontSize: Math.round(size * 0.38) },

@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, type RenderOptions } from '@testing-library/react-native';
 import type { ReactElement, ReactNode } from 'react';
@@ -5,8 +6,19 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AccountProvider } from '@/src/account/AccountProvider';
 import { useFlowLock } from '@/src/account/flowLock';
+import { useGuestAction } from '@/src/account/guestAction';
 import { usePendingLink } from '@/src/account/pendingLink';
 import { useActiveConversation } from '@/src/features/messages/activeConversation';
+import { usePendingDrafts } from '@/src/features/messages/pendingDraft';
+import { resetGetStarted } from '@/src/features/home/getStarted';
+import { useHomeChip } from '@/src/features/home/homeChip';
+import { resetRoomVisits } from '@/src/features/community/roomVisits';
+import { resetBrowsingGame } from '@/src/features/games/browsingGame';
+import {
+  BROWSING_REGION_STORAGE_KEY,
+  GUEST_BROWSING_REGION_STORAGE_KEY,
+  resetBrowsingRegion,
+} from '@/src/features/regions/browsingRegion';
 import { useSessionNotice } from '@/src/auth/sessionNotice';
 import { clearAccountSignal } from '@/src/api/accountSignal';
 import type { AuthPort } from '@/src/auth/authPort';
@@ -15,6 +27,8 @@ import { SnackbarProvider } from '@/src/components/ui/Snackbar';
 import type { RealtimeClient } from '@/src/realtime/realtimeClient';
 import { RealtimeCacheSync } from '@/src/realtime/RealtimeCacheSync';
 import { RealtimeProvider } from '@/src/realtime/RealtimeProvider';
+import { resetSavedDetails } from '@/src/features/shipping/savedDetails';
+import { useAppStore } from '@/src/store/useAppStore';
 import { ThemeProvider } from '@/src/theme/ThemeProvider';
 import type { ColorScheme } from '@/src/theme/palette';
 
@@ -96,11 +110,26 @@ export function renderWithProviders(
   return { ...result, queryClient: client };
 }
 
-/** Resets module-level state shared between tests (signals, locks, pending link, notices). */
+/**
+ * Resets module-level state shared between tests (signals, locks, pending link, notices, the
+ * browsed region and the Map tab's view).
+ */
 export function resetAppState(): void {
   clearAccountSignal();
   useFlowLock.getState().unlock();
   usePendingLink.getState().clear();
+  useGuestAction.getState().clear();
   useSessionNotice.getState().clear();
   useActiveConversation.getState().set(null);
+  usePendingDrafts.setState({ drafts: {} });
+  resetBrowsingRegion();
+  void AsyncStorage.removeItem(BROWSING_REGION_STORAGE_KEY);
+  void AsyncStorage.removeItem(GUEST_BROWSING_REGION_STORAGE_KEY);
+  resetBrowsingGame();
+  resetRoomVisits();
+  resetGetStarted();
+  useHomeChip.setState({ kind: 'ALL' });
+  useAppStore.getState().reset();
+  resetSavedDetails();
+  (require('expo-secure-store') as { mockStore: Map<string, string> }).mockStore.clear();
 }

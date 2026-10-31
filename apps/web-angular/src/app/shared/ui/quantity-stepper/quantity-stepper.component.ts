@@ -11,7 +11,11 @@ import { MatIconModule } from '@angular/material/icon';
 /** Largest quantity the stepper allows by default (the API's copy limit). */
 export const QUANTITY_STEPPER_MAX = 9999;
 
-/** − 2 + stepper for the number of copies; emits the new quantity (never below `min`). */
+/**
+ * − 2 + stepper for the number of copies; emits the new quantity (never below `min`). A button at
+ * its limit is `aria-disabled`, not `disabled`: it keeps the focus that pressed it there (WCAG
+ * 2.4.3, WC review A1).
+ */
 @Component({
   selector: 'app-quantity-stepper',
   imports: [MatIconModule],
@@ -20,7 +24,7 @@ export const QUANTITY_STEPPER_MAX = 9999;
       <button
         type="button"
         class="qs__btn"
-        [disabled]="disabled() || value() <= min()"
+        [attr.aria-disabled]="disabled() || value() <= min() ? 'true' : null"
         [attr.aria-label]="'Decrease quantity of ' + label()"
         (click)="step(-1)"
       >
@@ -30,7 +34,7 @@ export const QUANTITY_STEPPER_MAX = 9999;
       <button
         type="button"
         class="qs__btn"
-        [disabled]="disabled() || value() >= max()"
+        [attr.aria-disabled]="disabled() || value() >= max() ? 'true' : null"
         [attr.aria-label]="'Increase quantity of ' + label()"
         (click)="step(1)"
       >
@@ -62,10 +66,10 @@ export const QUANTITY_STEPPER_MAX = 9999;
       cursor: pointer;
       transition: background var(--motion-duration-fast) var(--motion-easing-standard);
     }
-    .qs__btn:hover:not(:disabled) {
+    .qs__btn:hover:not([aria-disabled='true']) {
       background: var(--color-surface-variant);
     }
-    .qs__btn:disabled {
+    .qs__btn[aria-disabled='true'] {
       color: var(--color-text-disabled);
       cursor: default;
     }
@@ -98,6 +102,9 @@ export class QuantityStepperComponent {
   readonly valueChange = output<number>();
 
   protected step(delta: number): void {
+    if (this.disabled()) {
+      return;
+    }
     const next = Math.min(this.max(), Math.max(this.min(), this.value() + delta));
     if (next !== this.value()) {
       this.valueChange.emit(next);

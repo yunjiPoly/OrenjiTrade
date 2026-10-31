@@ -82,6 +82,7 @@ class CardImageUrlContractIT extends AbstractCardImageIT {
                         || field.equals("cardImageUrl")
                         || field.equals("primaryImageUrl")
                         || field.equals("coverImageUrl")
+                        || field.equals("previewImages")
                         || field.equals("url"))) {
             urls.add(node.asString());
         }
@@ -112,12 +113,9 @@ class CardImageUrlContractIT extends AbstractCardImageIT {
         // A discoverable collector with a public binder holding test printings.
         String owner = uniqueUid("img-contract");
         provisionCompliant(owner);
-        callJson(
-                HttpMethod.PUT,
-                "/api/v1/me/settings/privacy",
-                owner,
-                InventoryTestSupport.privacy(true, "PUBLIC"),
-                200);
+        Map<String, Object> privacy = InventoryTestSupport.privacy(true, "PUBLIC");
+        privacy.put("wishlistVisible", true);
+        callJson(HttpMethod.PUT, "/api/v1/me/settings/privacy", owner, privacy, 200);
         String handle = me(owner).path("handle").asString();
         callJson(
                 HttpMethod.PUT,
@@ -130,7 +128,10 @@ class CardImageUrlContractIT extends AbstractCardImageIT {
                                 HttpMethod.POST,
                                 "/api/v1/binders",
                                 owner,
-                                InventoryTestSupport.binder("Real art", "PUBLIC"),
+                                InventoryTestSupport.binder(
+                                        "Real art",
+                                        "PUBLIC",
+                                        InventoryTestSupport.gameId(testUsers, GAME)),
                                 201)
                         .path("id")
                         .asString();
@@ -143,6 +144,23 @@ class CardImageUrlContractIT extends AbstractCardImageIT {
         Map<String, Object> wish = new LinkedHashMap<>();
         wish.put("cardId", cardId("900000006").toString());
         callJson(HttpMethod.POST, "/api/v1/wishlist", owner, wish, 201);
+        // For Home's feed: a public card of its own and a deck core without photos (its key
+        // cards' pictures stand in for them).
+        Map<String, Object> publicCard = InventoryTestSupport.item(printingId("ZTST-EN001"));
+        publicCard.put("visibility", "PUBLIC");
+        callJson(HttpMethod.POST, "/api/v1/inventory/items", owner, publicCard, 201);
+        Map<String, Object> coreBody =
+                InventoryTestSupport.binder(
+                        "Real art core", "PUBLIC", InventoryTestSupport.gameId(testUsers, GAME));
+        coreBody.put("sellsAsCore", true);
+        coreBody.put("askingPriceText", "$40");
+        String coreId =
+                callJson(HttpMethod.POST, "/api/v1/binders", owner, coreBody, 201)
+                        .path("id")
+                        .asString();
+        Map<String, Object> keyCard = InventoryTestSupport.item(printingId("ZTPR-EN001"));
+        keyCard.put("binderId", coreId);
+        callJson(HttpMethod.POST, "/api/v1/inventory/items", owner, keyCard, 201);
 
         // A private message with a card link.
         String friend = uniqueUid("img-friend");
@@ -219,6 +237,18 @@ class CardImageUrlContractIT extends AbstractCardImageIT {
                 get("/api/v1/conversations/" + conversation + "/messages", friend),
                 "message card link");
         get("/api/v1/conversations", friend);
+
+        // Home's feed as another collector of the region sees it (R7 review P3): a new card's,
+        // a wish's and a deck core's pictures are OrenjiTrade's too, chip by chip.
+        String feed = "/api/v1/feed?region=americas-north&game=" + GAME + "&limit=50&kind=";
+        for (String kind : List.of("NEW_CARDS", "WANTED", "DECK_CORES")) {
+            JsonNode page = get(feed + kind, friend);
+            assertThat(page.path("items").findValuesAsString("handle"))
+                    .as("the owner's %s post", kind)
+                    .contains(handle);
+            assertCardImageUrls(page, "home feed " + kind);
+        }
+        assertCardImageUrls(get(feed + "ALL", friend), "home feed");
     }
 
     @Test
@@ -298,7 +328,7 @@ class CardImageUrlContractIT extends AbstractCardImageIT {
         assertThat(hidden.path("item").path("imageUrl").asString()).matches(dragonPicture);
     }
 
-    /** A discoverable collector with a profile and a trading area; returns the account id. */
+    /** A discoverable collector with a profile and a declared location; returns the account id. */
     private UUID collector(String uid) {
         UUID id = provisionCompliant(uid);
         String handle = me(uid).path("handle").asString();

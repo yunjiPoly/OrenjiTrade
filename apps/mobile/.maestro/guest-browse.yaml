@@ -1,0 +1,126 @@
+# Stage R15 ("Browse without an account", owner prompt of 2026-10-20, Tests): the member-only
+# tabs as a guest (Inventory, Messages, Profile and Search › Wishlist show a page in place), Sign
+# in's close button back to where the guest was, the sheet's "Not now", and a deep link to a member
+# screen (Notifications) that opens Sign in and continues to it once a seed collector signed in.
+appId: ${APP_ID}
+name: A guest's tabs, Sign in's close button and a link to a member screen
+tags:
+  - mobile-r15
+  - guest
+---
+- runScript:
+    file: scripts/confirm-age.js
+    env:
+      EMAIL: ${SEED_EMAIL}
+      PASSWORD: ${SEED_PASSWORD}
+- runFlow: subflows/launch-fresh.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'person-button-home'
+    timeout: 60000
+
+# Inventory (73).
+- tapOn:
+    id: 'tab-inventory'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-inventory-guest'
+    timeout: 30000
+- assertVisible:
+    id: 'guest-inventory-title'
+    text: 'Your cards, in one place'
+- assertVisible: 'Add cards in seconds, sort them into binders, and let collectors in your region find the ones you sell or trade\.'
+- takeScreenshot: r15-inventory-guest
+
+# Messages (74).
+- tapOn:
+    id: 'tab-messages'
+- extendedWaitUntil:
+    visible:
+      id: 'guest-messages-title'
+      text: 'Talk to collectors'
+    timeout: 30000
+- takeScreenshot: r15-messages-guest
+
+# Profile (75), with Appearance, Trading safely and Legal.
+- tapOn:
+    id: 'tab-profile'
+- extendedWaitUntil:
+    visible:
+      id: 'guest-profile-title'
+      text: 'Your collector profile'
+    timeout: 30000
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'guest-profile-legal'
+- assertVisible:
+    id: 'guest-profile-appearance'
+- assertVisible:
+    id: 'guest-profile-trading-safely'
+- takeScreenshot: r15-profile-guest
+- tapOn:
+    id: 'guest-profile-appearance'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-settings-appearance'
+    timeout: 30000
+- runFlow: subflows/go-back.yaml
+
+# Search › Wishlist (72): its page in place; Sign in, then the close button back to it.
+- tapOn:
+    id: 'tab-search'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-search'
+    timeout: 30000
+- tapOn:
+    id: 'search-segment-wishlist'
+- extendedWaitUntil:
+    visible:
+      id: 'guest-wishlist-title'
+      text: 'Get told when it’s listed'
+    timeout: 30000
+- takeScreenshot: r15-wishlist-guest
+- tapOn:
+    id: 'guest-wishlist-sign-in'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-sign-in'
+    timeout: 30000
+- assertVisible:
+    id: 'sign-in-close'
+- takeScreenshot: r15-sign-in-close
+- tapOn:
+    id: 'sign-in-close'
+- extendedWaitUntil:
+    visible:
+      id: 'guest-wishlist-title'
+    timeout: 30000
+- assertNotVisible:
+    id: 'screen-sign-in'
+
+# Home again, as a guest.
+- tapOn:
+    id: 'tab-home'
+- extendedWaitUntil:
+    visible:
+      id: 'home-guest-card'
+    timeout: 30000
+
+# A deep link to a member screen: Sign in, then the screen once signed in.
+- openLink: ${APP_URL}/--/notifications
+- extendedWaitUntil:
+    visible:
+      id: 'screen-sign-in'
+    timeout: 60000
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${SEED_EMAIL}
+      PASSWORD: ${SEED_PASSWORD}
+- extendedWaitUntil:
+    visible:
+      id: 'screen-notifications'
+    timeout: 60000
+- takeScreenshot: r15-deep-link-after-sign-in

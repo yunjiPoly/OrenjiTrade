@@ -39,8 +39,17 @@ test.describe('acceptance: search', () => {
 
     await signIn(page, searcher);
 
-    // Top-bar card search → card detail.
-    const search = page.getByRole('banner').getByRole('combobox', { name: 'Search cards' });
+    // Top-bar card search → Who has this card (web stage WD): the holders of the browsed region,
+    // grouped by state or province. Its answers are recorded in a route before the page gets them
+    // (support/answers.ts): read back from the browser, a body Chromium no longer kept could fail
+    // the test under the load of a full run.
+    const holdersAnswers = await recordAnswers<HoldersPage>(
+      page,
+      /\/api\/v1\/search\/card-holders(\?|$)/,
+    );
+    const search = page
+      .getByRole('banner')
+      .getByRole('combobox', { name: /^Search Yu-Gi-Oh! cards/ });
     await search.fill('Tidecaller');
     await page
       .getByRole('option', { name: new RegExp(CARD) })
@@ -48,45 +57,38 @@ test.describe('acceptance: search', () => {
       .click();
     await expect(page).toHaveURL(/\/cards\/[0-9a-f-]{36}/);
     await expect(page.getByRole('heading', { level: 1, name: CARD })).toBeVisible();
-
-    // "Who has this in my region" → the card-holders view with every filter. Its answers are
-    // recorded in a route before the page gets them (support/answers.ts): read back from the
-    // browser, a body Chromium no longer kept could fail the test under the load of a full run.
-    const holdersAnswers = await recordAnswers<HoldersPage>(
-      page,
-      /\/api\/v1\/search\/card-holders(\?|$)/,
-    );
-    await page.getByRole('link', { name: 'Who has this in my region' }).click();
-    await expect(page).toHaveURL(/\/search\?card=[0-9a-f-]{36}$/);
-    const row = page
-      .getByRole('list', { name: 'Card holders in your region' })
-      .getByRole('article', { name: new RegExp(`^${escapeRegExp(holder.displayName)}`) });
+    const province = place.label.split(',')[0];
+    const row = page.getByTestId('holder-row').filter({ hasText: holder.handle });
     await expect(row).toContainText('$17.50', { timeout: 20_000 });
     await holdersAnswers.stop();
-    await expect(row).toContainText(place.label);
+    await expect(row).toContainText(province);
+    await expect(
+      page.getByRole('region', { name: new RegExp(`^${escapeRegExp(province)}`) }),
+    ).toBeVisible();
     await expect(row).not.toContainText(/\bkm\b/);
     await expect(row).not.toContainText(place.city ?? '');
-    await expect(row.getByRole('link', { name: 'View binder' })).toHaveAttribute(
-      'href',
-      `/binders/${binder.id}`,
-    );
+    void binder;
 
     // Another region does not list the holder.
-    await page.getByTestId('region-switcher').click();
-    await page.getByRole('menuitemradio', { name: 'Europe' }).click();
-    await expect(page.getByText('Collectors in Europe, freshest listings first.')).toBeVisible();
+    await page.getByTestId('region-pill').click();
+    await page.getByRole('radio', { name: /^Europe/ }).click();
+    await expect(
+      page.getByRole('heading', { level: 2, name: /Who has this card in Europe/ }),
+    ).toBeVisible();
     await expect(row).toBeHidden();
 
-    // Unified search by printing code (back in the home region) lists the holder.
-    await page.getByTestId('region-switcher').click();
-    await page.getByRole('menuitemradio', { name: /Americas \(North\)/ }).click();
+    // Search › Cards by printing code (back in the home region): Enter opens that printing,
+    // whose holders list the holder.
+    await page.getByTestId('region-pill').click();
+    await page.getByRole('radio', { name: /^Americas \(North\)/ }).click();
     await page.goto(`/search?q=${CODE}`);
-    await expect(page.getByRole('heading', { name: new RegExp(`Who has ${CARD}`) })).toBeVisible();
+    const pane = page.getByRole('combobox', { name: 'Search Yu-Gi-Oh! cards by name or code' });
     await expect(
-      page
-        .getByRole('list', { name: 'Holders in your region' })
-        .getByRole('link', { name: holder.displayName }),
+      page.getByRole('option', { name: new RegExp(`${CARD}, ${CODE}`) }).first(),
     ).toBeVisible();
+    await pane.press('Enter');
+    await expect(page).toHaveURL(/\/cards\/[0-9a-f-]{36}\?printing=/);
+    await expect(page.getByTestId('holder-row').filter({ hasText: holder.handle })).toBeVisible();
 
     // The holder was described by state and country only.
     const seen = holdersAnswers.received

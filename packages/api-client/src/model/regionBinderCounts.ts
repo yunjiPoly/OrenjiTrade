@@ -16,12 +16,16 @@ import { SubdivisionBinderCount } from './subdivisionBinderCount';
 export interface RegionBinderCounts { 
     region: string;
     /**
-     * Public binders in all
+     * Public binders in all (deck cores included)
      */
     total: number;
     /**
      * Subdivisions holding at least one public binder
      */
     subdivisions: Array<SubdivisionBinderCount>;
+    /**
+     * The public deck cores among `total` (stage R3). Always sent
+     */
+    deckCoreTotal?: number;
 }
 

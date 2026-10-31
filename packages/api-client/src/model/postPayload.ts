@@ -9,13 +9,22 @@
  */
 import { BinderLink } from './binderLink';
 import { CardLink } from './cardLink';
+import { PostPhoto } from './postPhoto';
 
 
 /**
- * Links attached to a community post
+ * Links and photos attached to a community post
  */
 export interface PostPayload { 
     card?: CardLink;
     binder?: BinderLink;
+    /**
+     * Up to 4 photos in their order (stage R11); empty when none
+     */
+    photos?: Array<PostPhoto>;
+    /**
+     * Stage R11: true when the post shared a binder the reader can no longer open (no longer public, sold or deleted, its owner hidden or blocked with the reader); `binder` is absent then. Absent otherwise.
+     */
+    binderUnavailable?: boolean;
 }
 

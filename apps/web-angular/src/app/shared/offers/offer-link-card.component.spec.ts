@@ -29,15 +29,22 @@ describe('offer cards in the conversation', () => {
     return fixture.nativeElement as HTMLElement;
   }
 
-  it('shows the SYSTEM line with a card linking to the live proposal', async () => {
+  it('shows the SYSTEM line with the offer as history: no link (decision 2, web WA)', async () => {
     const element = await render(message({}));
+    // Spec 10.3 (web WC): an old offer reads "Offer (no longer available)".
     expect(element.querySelector('[data-testid="system-message"]')?.textContent).toContain(
-      'Ben made an offer',
+      'Offer (no longer available) · Ben made an offer',
     );
-    const link = element.querySelector<HTMLAnchorElement>('[data-testid="offer-link-card"]');
-    expect(link?.getAttribute('href')).toBe('/offers/offer-2');
-    expect(link?.getAttribute('aria-label')).toBe(
-      'Open the offer: 42.00 CAD for Lantern Fox Spirit, Countered',
+    const card = element.querySelector<HTMLElement>('[data-testid="offer-link-card"]');
+    expect(card?.tagName).toBe('DIV');
+    expect(card?.getAttribute('href')).toBeNull();
+    expect(element.querySelector('a[href^="/offers"]')).toBeNull();
+    // A countered or open offer can no longer be answered: no live status chip.
+    expect(card?.getAttribute('aria-label')).toBe(
+      'Past offer: 42.00 CAD for Lantern Fox Spirit, No longer available',
+    );
+    expect(element.querySelector('[data-testid="status-chip"]')?.textContent).toContain(
+      'No longer available',
     );
   });
 
@@ -49,6 +56,7 @@ describe('offer cards in the conversation', () => {
       '42.00 CAD for Lantern Fox Spirit',
     );
     expect(element.textContent).toContain('Here is my offer.');
+    expect(element.textContent).toContain('Offer (no longer available)');
   });
 
   it('shows the offered card picture the API sent, with an offer badge', async () => {

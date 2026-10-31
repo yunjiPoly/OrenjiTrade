@@ -393,7 +393,7 @@ public class ProblemDetailsExceptionHandler extends ResponseEntityExceptionHandl
                 detail.getProperties() != null
                         ? detail.getProperties().get(ProblemDetailFactory.ERROR_CODE)
                         : null;
-        // 501 NOT_IMPLEMENTED answers a reserved route (Phase 10 mobile receipts): not a failure.
+        // 501 NOT_IMPLEMENTED answers a reserved route: not a failure.
         if (detail.getStatus() >= 500 && detail.getStatus() != 501) {
             log.error(
                     "Request failed requestId={} status={} errorCode={} path={}",
@@ -409,7 +409,17 @@ public class ProblemDetailsExceptionHandler extends ResponseEntityExceptionHandl
                     detail.getStatus(),
                     errorCode,
                     detail.getInstance(),
-                    ex.getMessage());
+                    rejectionReason(ex));
         }
+    }
+
+    /**
+     * Why a request was rejected, for the DEBUG log, without what the client sent: an application
+     * exception's message is the safe one it answers with; any other exception (a body that fails
+     * validation or cannot be read, a value of the wrong type) is named by its type only, since its
+     * message echoes the rejected values (a card scan's read text, the words of a message).
+     */
+    private static @Nullable String rejectionReason(Throwable ex) {
+        return ex instanceof ApiException ? ex.getMessage() : ex.getClass().getSimpleName();
     }
 }

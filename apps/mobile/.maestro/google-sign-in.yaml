@@ -24,10 +24,8 @@ tags:
       EMAIL: ${output.collector.email}
       PASSWORD: ${output.collector.password}
 - runFlow: subflows/launch-fresh.yaml
-- extendedWaitUntil:
-    visible:
-      id: 'screen-sign-in'
-    timeout: 60000
+# Since stage R15 the app opens on Home as a guest; the person button opens Sign in.
+- runFlow: subflows/open-sign-in.yaml
 
 # Dismissed: no error, still signed out.
 - runFlow:
@@ -75,7 +73,7 @@ tags:
     timeout: 60000
 - extendedWaitUntil:
     visible:
-      id: 'screen-map'
+      id: 'screen-home'
     timeout: 60000
 
 # The same account: its handle on the Profile tab, both methods under Settings -> Account.

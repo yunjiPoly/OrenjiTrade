@@ -22,6 +22,7 @@ import com.orenjitrade.api.cards.events.CatalogSyncRequestedEvent;
 import com.orenjitrade.api.cards.infra.CatalogWriteRepository;
 import com.orenjitrade.api.cards.infra.CatalogWriteRepository.CardImageLink;
 import com.orenjitrade.api.cards.infra.CatalogWriteRepository.CardWrite;
+import com.orenjitrade.api.cards.infra.CatalogWriteRepository.PrintingImageLink;
 import com.orenjitrade.api.cards.infra.CatalogWriteRepository.PrintingState;
 import com.orenjitrade.api.cards.infra.CatalogWriteRepository.PrintingValues;
 import com.orenjitrade.api.cards.infra.CatalogWriteRepository.PrintingWrite;
@@ -317,6 +318,8 @@ public class CatalogImportService {
                     report.cardsCreated,
                     report.cardsUpdated,
                     counts.printings());
+            // A game's first cards change its hasCards (stage G): the cached games are read again.
+            gameService.invalidate();
             try {
                 events.publishEvent(
                         new CatalogImportedEvent(
@@ -525,6 +528,7 @@ public class CatalogImportService {
             }
         }
         state.images.putAll(writes.providerImageIds(providerId));
+        state.printingImages.putAll(writes.printingImageIds(gameId));
         return state;
     }
 
@@ -636,6 +640,7 @@ public class CatalogImportService {
         final Map<String, PrintingState> printings = new HashMap<>();
         final Map<String, PrintingState> variants = new HashMap<>();
         final Map<String, UUID> images = new HashMap<>();
+        final Map<UUID, UUID> printingImages = new HashMap<>();
 
         /** Applies a committed plan. */
         void apply(Plan plan) {
@@ -646,6 +651,7 @@ public class CatalogImportService {
             printings.putAll(plan.newPrintings);
             images.putAll(plan.newImages);
             cardImages.putAll(plan.newCardImages);
+            printingImages.putAll(plan.newPrintingImages);
         }
     }
 
@@ -669,6 +675,10 @@ public class CatalogImportService {
         final List<ProviderImageWrite> imageUpdates = new ArrayList<>();
         final List<CardImageLink> links = new ArrayList<>();
         final List<PrintingImageWrite> printingImages = new ArrayList<>();
+        final List<PrintingImageLink> printingLinks = new ArrayList<>();
+
+        /** Provider artworks the printings of the card being planned point at (printing, id). */
+        private final List<Map.Entry<UUID, String>> pendingArtworks = new ArrayList<>();
 
         final Map<String, UUID> newCardIds = new HashMap<>();
         final Set<String> newSlugs = new HashSet<>();
@@ -677,6 +687,7 @@ public class CatalogImportService {
         final Map<String, PrintingState> newPrintings = new HashMap<>();
         final Map<String, UUID> newImages = new HashMap<>();
         final Map<UUID, UUID> newCardImages = new HashMap<>();
+        final Map<UUID, UUID> newPrintingImages = new HashMap<>();
         final Map<UUID, String> cardExternalIds = new HashMap<>();
 
         final Set<UUID> changedCards = new LinkedHashSet<>();
@@ -769,11 +780,13 @@ public class CatalogImportService {
             }
             cardExternalIds.put(cardId, card.externalId());
 
+            pendingArtworks.clear();
             for (ProviderPrinting printing : card.printings()) {
                 printing(cardId, printing, setIds, sets);
             }
 
             List<UUID> artworks = new ArrayList<>();
+            Map<String, UUID> cardArtworks = new HashMap<>();
             int position = 0;
             for (ProviderImage image : card.images()) {
                 if (image.providerImageId() == null
@@ -818,6 +831,7 @@ public class CatalogImportService {
                     imageUpdates.add(write);
                 }
                 artworks.add(imageId);
+                cardArtworks.put(image.providerImageId(), imageId);
                 position++;
             }
             if (!artworks.isEmpty()) {
@@ -827,6 +841,34 @@ public class CatalogImportService {
                     newCardImages.put(cardId, primary);
                 }
             }
+            linkPrintingArtworks(card, cardArtworks);
+        }
+
+        /**
+         * Points printings at their own artwork (Magic: one per artwork, Pokémon: one per printing)
+         * through {@code card_printing.image_id}; the artwork must be one of the card's.
+         */
+        private void linkPrintingArtworks(ProviderCard card, Map<String, UUID> cardArtworks) {
+            for (Map.Entry<UUID, String> pending : pendingArtworks) {
+                UUID printingId = pending.getKey();
+                @Nullable UUID imageId = cardArtworks.get(pending.getValue());
+                if (imageId == null) {
+                    warnings.add(
+                            "artwork of a printing of card "
+                                    + abbreviate(card.externalId())
+                                    + " skipped: not an artwork of its card");
+                    continue;
+                }
+                UUID current = newPrintingImages.get(printingId);
+                if (current == null) {
+                    current = state.printingImages.get(printingId);
+                }
+                if (!imageId.equals(current)) {
+                    printingLinks.add(new PrintingImageLink(printingId, imageId));
+                    newPrintingImages.put(printingId, imageId);
+                }
+            }
+            pendingArtworks.clear();
         }
 
         private static String kind(@Nullable String kind) {
@@ -913,7 +955,12 @@ public class CatalogImportService {
             newVariants.put(key, state);
             newPrintings.put(printing.externalId(), state);
             for (ProviderImage image : printing.images()) {
-                if (image.url() != null && !image.url().isBlank() && image.url().length() <= 1000) {
+                if (image.providerImageId() != null) {
+                    // A provider artwork of the card: linked once the card's artworks are planned.
+                    pendingArtworks.add(Map.entry(printingId, image.providerImageId()));
+                } else if (image.url() != null
+                        && !image.url().isBlank()
+                        && image.url().length() <= 1000) {
                     printingImages.add(new PrintingImageWrite(cardId, printingId, image));
                 }
             }
@@ -998,6 +1045,12 @@ public class CatalogImportService {
             for (int i = 0; i < linkCounts.length; i++) {
                 if (linkCounts[i] != 0) {
                     changedCards.add(links.get(i).cardId());
+                }
+            }
+            int[] printingLinkCounts = writes.linkPrintingImages(printingLinks, now);
+            for (int i = 0; i < printingLinkCounts.length; i++) {
+                if (printingLinkCounts[i] != 0) {
+                    changedPrintings.add(printingLinks.get(i).printingId());
                 }
             }
             for (PrintingImageWrite image : printingImages) {

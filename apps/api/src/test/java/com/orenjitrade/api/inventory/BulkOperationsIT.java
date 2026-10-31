@@ -1,6 +1,7 @@
 package com.orenjitrade.api.inventory;
 
 import static com.orenjitrade.api.inventory.InventoryTestSupport.binder;
+import static com.orenjitrade.api.inventory.InventoryTestSupport.gameId;
 import static com.orenjitrade.api.inventory.InventoryTestSupport.ids;
 import static com.orenjitrade.api.inventory.InventoryTestSupport.item;
 import static com.orenjitrade.api.inventory.InventoryTestSupport.printing;
@@ -109,11 +110,21 @@ class BulkOperationsIT extends AbstractIntegrationTest {
         String uid = uniqueUid("bulk-move");
         provisionCompliant(uid);
         String privateBinder =
-                callJson(HttpMethod.POST, "/api/v1/binders", uid, binder("Private", "PRIVATE"), 201)
+                callJson(
+                                HttpMethod.POST,
+                                "/api/v1/binders",
+                                uid,
+                                binder("Private", "PRIVATE", gameId(testUsers, "mtg")),
+                                201)
                         .path("id")
                         .asString();
         String publicBinder =
-                callJson(HttpMethod.POST, "/api/v1/binders", uid, binder("Public", "PUBLIC"), 201)
+                callJson(
+                                HttpMethod.POST,
+                                "/api/v1/binders",
+                                uid,
+                                binder("Public", "PUBLIC", gameId(testUsers, "mtg")),
+                                201)
                         .path("id")
                         .asString();
         String a = createItem(uid, Map.of("binderId", privateBinder));
@@ -167,7 +178,7 @@ class BulkOperationsIT extends AbstractIntegrationTest {
                                 HttpMethod.POST,
                                 "/api/v1/binders",
                                 other,
-                                binder("Theirs", "PRIVATE"),
+                                binder("Theirs", "PRIVATE", gameId(testUsers, "mtg")),
                                 201)
                         .path("id")
                         .asString();

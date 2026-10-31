@@ -16,7 +16,9 @@ import com.orenjitrade.api.common.storage.ObjectStorage;
 import com.orenjitrade.api.delisting.domain.FreshnessState;
 import com.orenjitrade.api.inventory.domain.InventoryItemView;
 import com.orenjitrade.api.inventory.domain.PublicInventoryService;
+import com.orenjitrade.api.location.domain.PublicPlace;
 import com.orenjitrade.api.location.domain.RegionView;
+import com.orenjitrade.api.profiles.domain.PrivacyPolicyService;
 import com.orenjitrade.api.profiles.domain.TagService;
 import com.orenjitrade.api.profiles.domain.TagView;
 import com.orenjitrade.api.profiles.domain.ViewerContext;
@@ -30,6 +32,7 @@ import com.orenjitrade.api.search.infra.CardHolderRepository;
 import com.orenjitrade.api.search.infra.CardHolderRepository.HolderPage;
 import com.orenjitrade.api.search.infra.CollectorSearchRepository;
 import com.orenjitrade.api.search.infra.CollectorSearchRepository.CollectorHit;
+import com.orenjitrade.api.search.infra.RegionBinderRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayDeque;
@@ -69,10 +72,12 @@ public class SearchService {
     private final CollectorSearchRepository collectors;
     private final CardHolderRepository cardHolders;
     private final BinderSearchRepository binders;
+    private final RegionBinderRepository regionBinders;
     private final PublicBinderService publicBinderService;
     private final PublicInventoryService publicInventoryService;
     private final TagService tagService;
     private final MarkerAssembler assembler;
+    private final PrivacyPolicyService privacyPolicy;
     private final ObjectStorage storage;
     private final TimeProvider timeProvider;
     private final ApplicationEventPublisher events;
@@ -83,10 +88,12 @@ public class SearchService {
             CollectorSearchRepository collectors,
             CardHolderRepository cardHolders,
             BinderSearchRepository binders,
+            RegionBinderRepository regionBinders,
             PublicBinderService publicBinderService,
             PublicInventoryService publicInventoryService,
             TagService tagService,
             MarkerAssembler assembler,
+            PrivacyPolicyService privacyPolicy,
             ObjectStorage storage,
             TimeProvider timeProvider,
             ApplicationEventPublisher events) {
@@ -95,10 +102,12 @@ public class SearchService {
         this.collectors = collectors;
         this.cardHolders = cardHolders;
         this.binders = binders;
+        this.regionBinders = regionBinders;
         this.publicBinderService = publicBinderService;
         this.publicInventoryService = publicInventoryService;
         this.tagService = tagService;
         this.assembler = assembler;
+        this.privacyPolicy = privacyPolicy;
         this.storage = storage;
         this.timeProvider = timeProvider;
         this.events = events;
@@ -116,13 +125,27 @@ public class SearchService {
      * @param game game slug
      * @param region platform region code, {@code null} for the caller's home region
      * @param limit maximum entries per section
+     * @param deckCore binders section: deck cores only ({@code true}), other binders only ({@code
+     *     false}) or both ({@code null})
      */
     public record UnifiedQuery(
             String q,
             Set<SearchType> types,
             @Nullable String game,
             @Nullable String region,
-            int limit) {}
+            int limit,
+            @Nullable Boolean deckCore) {
+
+        /** Every binder (before stage R3). */
+        public UnifiedQuery(
+                String q,
+                Set<SearchType> types,
+                @Nullable String game,
+                @Nullable String region,
+                int limit) {
+            this(q, types, game, region, limit, null);
+        }
+    }
 
     /**
      * {@code GET /search}: every requested section; when {@code q} designates a printing or a card
@@ -166,7 +189,10 @@ public class SearchService {
                         ? catalogService.sets(game, q, 0, limit).items()
                         : List.of();
         List<CollectorMarker> found = List.of();
-        if (types.contains(SearchType.COLLECTORS)) {
+        // The holders of a resolved card for everyone; collectors matching the text by name for
+        // members only: a signed-out visitor never finds who a collector is (stage R15).
+        boolean byName = resolved == null;
+        if (types.contains(SearchType.COLLECTORS) && (!byName || seesWho(viewerId))) {
             DiscoveryCriteria criteria =
                     resolved != null
                             ? new DiscoveryCriteria(
@@ -195,7 +221,16 @@ public class SearchService {
         if (types.contains(SearchType.BINDERS)) {
             binderHits =
                     publicBinderService.publicBinders(
-                            viewerId, binders.search(q, game, region.code(), limit, now));
+                            viewerId,
+                            binders.search(
+                                    q,
+                                    game,
+                                    region.code(),
+                                    viewerId,
+                                    query.deckCore(),
+                                    seesWho(viewerId),
+                                    limit,
+                                    now));
         }
         UnifiedSearch result =
                 new UnifiedSearch(
@@ -211,7 +246,7 @@ public class SearchService {
                                 ? "none"
                                 : resolved.printingId() != null ? "printing" : "card",
                         result.resultCount(),
-                        game == null ? List.of() : List.of("game"),
+                        searchFilters(game, query.deckCore()),
                         region.code(),
                         null,
                         now));
@@ -239,6 +274,11 @@ public class SearchService {
      * @param sort freshness or price
      * @param page zero-based page
      * @param size page size
+     * @param excludeDeckCoreItems leave out the cards filed in a deck core (they sell only with it;
+     *     the phone shows the core instead, stage R5)
+     * @param rarity any printing of the card in this rarity, as the catalogue names it (a wish of
+     *     any printing in one rarity, stage R5)
+     * @param game that game's cards only (stage G, the phone's browsed game)
      */
     public record HolderQuery(
             @Nullable UUID printingId,
@@ -254,12 +294,56 @@ public class SearchService {
             @Nullable Boolean acceptsOffers,
             HolderSort sort,
             int page,
-            int size) {}
+            int size,
+            boolean excludeDeckCoreItems,
+            @Nullable String rarity,
+            @Nullable String game) {
+
+        /** A query of every game (before stage G). */
+        public HolderQuery(
+                @Nullable UUID printingId,
+                @Nullable UUID cardId,
+                @Nullable String region,
+                @Nullable SearchAvailability availability,
+                @Nullable String condition,
+                @Nullable BigDecimal minPrice,
+                @Nullable BigDecimal maxPrice,
+                @Nullable FreshnessState freshness,
+                @Nullable String edition,
+                @Nullable String language,
+                @Nullable Boolean acceptsOffers,
+                HolderSort sort,
+                int page,
+                int size,
+                boolean excludeDeckCoreItems,
+                @Nullable String rarity) {
+            this(
+                    printingId,
+                    cardId,
+                    region,
+                    availability,
+                    condition,
+                    minPrice,
+                    maxPrice,
+                    freshness,
+                    edition,
+                    language,
+                    acceptsOffers,
+                    sort,
+                    page,
+                    size,
+                    excludeDeckCoreItems,
+                    rarity,
+                    null);
+        }
+    }
 
     /**
      * {@code GET /search/card-holders}: effectively public, fresh (ACTIVE or AGING) items of the
      * printing or card held by discoverable collectors of the region (the caller's own items
-     * excluded), with each holder's marker.
+     * excluded), with each holder's marker. Collectors in a block relation with the caller, in
+     * either direction, are left out by the repository's SQL, so {@code totalItems} counts exactly
+     * the rows the pages hold.
      */
     @Transactional(readOnly = true)
     public PageResponse<CardHolder> cardHolders(@Nullable UUID viewerId, HolderQuery query) {
@@ -269,6 +353,7 @@ public class SearchService {
         }
         @Nullable String condition = code("condition", query.condition(), errors);
         @Nullable String edition = code("edition", query.edition(), errors);
+        @Nullable String game = discovery.normaliseGame(query.game(), errors);
         @Nullable String language = null;
         if (query.language() != null && !query.language().isBlank()) {
             language = query.language().trim().toLowerCase(Locale.ROOT);
@@ -291,12 +376,14 @@ public class SearchService {
         if (!errors.isEmpty()) {
             throw ApiException.validation("Validation failed", errors);
         }
+        @Nullable String rarity =
+                query.rarity() == null || query.rarity().isBlank() ? null : query.rarity().trim();
         RegionView region = discovery.scope(viewerId, query.region());
         ItemFilter filter =
                 new ItemFilter(
                         query.printingId(),
                         query.cardId(),
-                        null,
+                        game,
                         query.availability(),
                         condition,
                         query.minPrice(),
@@ -304,7 +391,8 @@ public class SearchService {
                         query.freshness(),
                         edition,
                         language,
-                        query.acceptsOffers());
+                        query.acceptsOffers(),
+                        rarity);
         Instant now = timeProvider.now();
         HolderPage page =
                 cardHolders.page(
@@ -312,6 +400,7 @@ public class SearchService {
                         region.code(),
                         query.sort(),
                         viewerId,
+                        query.excludeDeckCoreItems(),
                         query.page(),
                         query.size(),
                         now);
@@ -334,7 +423,7 @@ public class SearchService {
             ViewerContext viewer = new ViewerContext(viewerId, false, false);
             for (InventoryItemView item : items) {
                 @Nullable MarkerRow owner = owners.get(item.row().ownerId());
-                if (owner == null || assembler.isBlocked(viewerId, owner.id())) {
+                if (owner == null) {
                     continue;
                 }
                 rows.add(new CardHolder(assembler.marker(owner, viewer, now), item));
@@ -349,11 +438,110 @@ public class SearchService {
                         List.of(),
                         query.printingId() != null ? "printing" : "card",
                         page.total(),
-                        filter.names(),
+                        holderFilters(filter, query.excludeDeckCoreItems()),
                         region.code(),
                         null,
                         now));
         return PageResponse.of(rows, query.page(), query.size(), page.total());
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // GET /search/deck-cores
+    // ---------------------------------------------------------------------------------------
+
+    /** The most deck cores {@code GET /search/deck-cores} lists. */
+    public static final int DECK_CORES_MAX = 10;
+
+    /**
+     * {@code GET /search/deck-cores}: the public deck cores of the region holding a key card of
+     * {@code cardId} (any printing, whatever the card's own visibility), most recently updated
+     * first ("Also in a deck core" on the card page, stage R5). The caller's own and those of
+     * collectors blocked with them are left out.
+     */
+    @Transactional(readOnly = true)
+    public List<PublicBinderHit> deckCoresWithCard(
+            @Nullable UUID viewerId,
+            UUID cardId,
+            @Nullable String regionCode,
+            @Nullable String gameSlug,
+            int limit) {
+        RegionView region = discovery.scope(viewerId, regionCode);
+        @Nullable String game = requireGame(gameSlug);
+        int size = Math.max(1, Math.min(limit, DECK_CORES_MAX));
+        Instant now = timeProvider.now();
+        return publicBinderService.publicBinders(
+                viewerId,
+                regionBinders.deckCoresWithCard(cardId, region.code(), game, viewerId, size, now));
+    }
+
+    /** The ACTIVE game's slug, {@code null} without one; {@code 400} for an unknown game. */
+    private @Nullable String requireGame(@Nullable String game) {
+        List<ProblemFieldError> errors = new ArrayList<>();
+        @Nullable String slug = discovery.normaliseGame(game, errors);
+        if (!errors.isEmpty()) {
+            throw ApiException.validation("Validation failed", errors);
+        }
+        return slug;
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // GET /search/collectors
+    // ---------------------------------------------------------------------------------------
+
+    /** The most collectors {@code GET /search/collectors} lists. */
+    public static final int COLLECTORS_BY_NAME_MAX = 10;
+
+    /**
+     * A collector found by name while a card is typed.
+     *
+     * @param id account id
+     * @param handle handle
+     * @param displayName display name
+     * @param avatarUrl public avatar URL, when any
+     * @param place state/province and country (never a city)
+     */
+    public record CollectorByName(
+            UUID id,
+            String handle,
+            String displayName,
+            @Nullable String avatarUrl,
+            PublicPlace place) {}
+
+    /**
+     * {@code GET /search/collectors}: the "Collectors" section under the cards while a card is
+     * typed on the phone (stage R5): discoverable collectors of the region who allow name search,
+     * whose handle or display name contains the text, at most {@code limit}; never the caller nor a
+     * collector blocked with them (in SQL, before the limit). No analytics event: the text a
+     * collector types never leaves for analytics.
+     */
+    @Transactional(readOnly = true)
+    public List<CollectorByName> collectorsByName(
+            @Nullable UUID viewerId,
+            String q,
+            @Nullable String regionCode,
+            @Nullable String gameSlug,
+            int limit) {
+        RegionView region = discovery.scope(viewerId, regionCode);
+        @Nullable String game = requireGame(gameSlug);
+        if (!seesWho(viewerId)) {
+            // A signed-out visitor never finds who a collector is (stage R15).
+            return List.of();
+        }
+        int size = Math.max(1, Math.min(limit, COLLECTORS_BY_NAME_MAX));
+        return collectors
+                .byName(q, region.code(), game, viewerId, size, timeProvider.now())
+                .stream()
+                .map(
+                        hit ->
+                                new CollectorByName(
+                                        hit.id(),
+                                        hit.handle(),
+                                        hit.displayName(),
+                                        hit.avatarKey() == null
+                                                ? null
+                                                : storage.publicUrl(hit.avatarKey()),
+                                        hit.place()))
+                .toList();
     }
 
     // ---------------------------------------------------------------------------------------
@@ -363,7 +551,8 @@ public class SearchService {
     /**
      * {@code GET /search/suggest}: mixed autocomplete. Printing codes and cards (catalog suggest),
      * discoverable collectors of the region who allow name search, sets, public binders of the
-     * region and tags, interleaved one per kind in that order until {@code limit}.
+     * region and tags, interleaved one per kind in that order until {@code limit}. Collectors
+     * blocked with the caller, and their binders, are left out in SQL before each kind's limit.
      */
     @Transactional(readOnly = true)
     public List<Suggestion> suggest(
@@ -398,10 +587,12 @@ public class SearchService {
         }
         sources.add(catalog);
         Deque<Suggestion> people = new ArrayDeque<>();
-        for (CollectorHit hit : collectors.suggest(text, region.code(), limit, now)) {
-            if (assembler.isBlocked(viewerId, hit.id())) {
-                continue;
-            }
+        // No collector for a signed-out visitor: they never see who a collector is (stage R15).
+        List<CollectorHit> peopleHits =
+                seesWho(viewerId)
+                        ? collectors.suggest(text, region.code(), viewerId, limit, now)
+                        : List.of();
+        for (CollectorHit hit : peopleHits) {
             people.add(
                     new Suggestion(
                             SuggestionType.COLLECTOR,
@@ -429,10 +620,7 @@ public class SearchService {
         }
         sources.add(sets);
         Deque<Suggestion> binderEntries = new ArrayDeque<>();
-        for (BinderName binder : binders.suggest(text, region.code(), limit, now)) {
-            if (assembler.isBlocked(viewerId, binder.ownerId())) {
-                continue;
-            }
+        for (BinderName binder : binders.suggest(text, region.code(), viewerId, limit, now)) {
             binderEntries.add(
                     new Suggestion(
                             SuggestionType.BINDER,
@@ -460,6 +648,11 @@ public class SearchService {
         }
         sources.add(tags);
         return interleave(sources, limit);
+    }
+
+    /** Whether the caller may see who a collector is: members only (the privacy matrix, R15). */
+    private boolean seesWho(@Nullable UUID viewerId) {
+        return privacyPolicy.canSeeWho(ViewerContext.of(viewerId));
     }
 
     /** One entry per source in turn until {@code limit} entries or every source is exhausted. */
@@ -497,6 +690,27 @@ public class SearchService {
             return null;
         }
         return code;
+    }
+
+    /** Filter names of a unified search (analytics; no values). */
+    private static List<String> searchFilters(@Nullable String game, @Nullable Boolean deckCore) {
+        List<String> names = new ArrayList<>();
+        if (game != null) {
+            names.add("game");
+        }
+        if (deckCore != null) {
+            names.add("deck_core");
+        }
+        return names;
+    }
+
+    /** Filter names of a card-holder search (analytics; no values). */
+    private static List<String> holderFilters(ItemFilter filter, boolean excludeDeckCoreItems) {
+        List<String> names = new ArrayList<>(filter.names());
+        if (excludeDeckCoreItems) {
+            names.add("exclude_deck_core_items");
+        }
+        return names;
     }
 
     private static @Nullable String joinNonBlank(@Nullable String first, @Nullable String second) {

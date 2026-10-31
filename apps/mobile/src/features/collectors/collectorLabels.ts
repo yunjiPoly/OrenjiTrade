@@ -51,7 +51,7 @@ export function holdersTarget(params: {
   return card ? { kind: 'card', id: card } : null;
 }
 
-/** Readable tag from its slug (`local-meetups` -> `Local meetups`). */
+/** Readable tag from its slug (`cube-drafter` -> `Cube drafter`). */
 export function tagLabel(slug: string): string {
   const words = slug.replace(/[-_]+/g, ' ').trim();
   return words ? (words[0]?.toUpperCase() ?? '') + words.slice(1) : slug;

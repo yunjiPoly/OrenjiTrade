@@ -2,7 +2,7 @@
 # collector signs in, lands on the tabs (Map | Inventory | Search | Messages | Wishlist | Profile)
 # and sees their profile. The seed account is only signed in to, never modified in the emulator;
 # its 18+ confirmation (the seed predates the rule) is recorded through the API first, as the
-# onboarding age step would (proven on its own by age-step-existing-account.yaml).
+# age line of Review our terms would (proven on its own by age-step-existing-account.yaml).
 appId: ${APP_ID}
 name: Sign in with a seed collector
 tags:
@@ -15,10 +15,8 @@ tags:
       EMAIL: ${SEED_EMAIL}
       PASSWORD: ${SEED_PASSWORD}
 - runFlow: subflows/launch-fresh.yaml
-- extendedWaitUntil:
-    visible:
-      id: 'screen-sign-in'
-    timeout: 60000
+# Since stage R15 the app opens on Home as a guest; the person button opens Sign in.
+- runFlow: subflows/open-sign-in.yaml
 
 # Client validation, then the friendly Firebase error.
 - tapOn:
@@ -53,17 +51,20 @@ tags:
     timeout: 60000
 - extendedWaitUntil:
     visible:
-      id: 'screen-map'
+      id: 'screen-home'
     timeout: 60000
+# The five tabs of stage R7, Home first; the old Map and Wishlist tabs are inside Search.
 - assertVisible:
-    id: 'tab-index'
-- assertVisible:
-    id: 'tab-inventory'
+    id: 'tab-home'
 - assertVisible:
     id: 'tab-search'
 - assertVisible:
+    id: 'tab-inventory'
+- assertVisible:
     id: 'tab-messages'
 - assertVisible:
+    id: 'tab-profile'
+- assertNotVisible:
     id: 'tab-wishlist'
 - runFlow: subflows/open-profile-tab.yaml
 - assertVisible:

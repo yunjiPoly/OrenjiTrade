@@ -3,7 +3,7 @@
 // PASSWORD through the local Firebase Auth emulator and the isolated mobile E2E API (:8090,
 // database orenjitrade_mobile_e2e). Idempotent on the API. Used before the flows that sign in to
 // a seed collector (the seed predates the rule: without this the app would show them the
-// onboarding age step first; the step itself is proven by age-step-existing-account.yaml); the
+// age line of Review our terms first; it is proven by age-step-existing-account.yaml); the
 // emulator account is only signed in to, the consent row lives in the isolated database.
 //
 // Inputs (env): API_URL, AUTH_EMULATOR_URL, EMAIL, PASSWORD. Outputs: output.ageConfirmed.

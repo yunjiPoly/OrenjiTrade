@@ -2,6 +2,7 @@ import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core'
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   CursorPageNotificationResponse,
+  ListNotificationsRequestParams,
   NotificationResponse,
   NotificationsService,
 } from '@orenji/api-client';
@@ -9,9 +10,12 @@ import { Subscription, firstValueFrom } from 'rxjs';
 import { ApiError, toApiError } from '../../../core/http/api-error';
 import { silentErrors } from '../../../core/http/http-context';
 import {
+  EXCLUDED_NOTIFICATION_TYPES,
   NotificationCenter,
   ReadChange,
+  bellShows,
 } from '../../../core/notifications/notification-center.service';
+import { ReminderAnswers } from '../../../core/notifications/reminder-answers.service';
 import { RealtimeService } from '../../../core/realtime/realtime.service';
 
 /** Notifications per page of `GET /notifications`. */
@@ -33,31 +37,59 @@ function startOfDay(time: number): number {
   return date.getTime();
 }
 
-/** Splits newest-first notifications into day sections (local time). Empty sections are left out. */
+const MONTH = new Intl.DateTimeFormat('en-US', { month: 'long' });
+const MONTH_YEAR = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' });
+
+/**
+ * The day section of a notification (local time; board W24): "Today", "Yesterday", "Earlier this
+ * week" (2 to 6 days), "Last week" (7 to 13 days), then its month ("September", with the year
+ * when it is another year's).
+ */
+export function dayLabel(createdAt: string, now: number = Date.now()): string {
+  const created = Date.parse(createdAt);
+  if (!Number.isFinite(created)) {
+    return 'Older';
+  }
+  const today = startOfDay(now);
+  if (created >= today) {
+    return 'Today';
+  }
+  if (created >= today - DAY_MS) {
+    return 'Yesterday';
+  }
+  if (created >= today - 6 * DAY_MS) {
+    return 'Earlier this week';
+  }
+  if (created >= today - 13 * DAY_MS) {
+    return 'Last week';
+  }
+  const date = new Date(created);
+  return date.getFullYear() === new Date(now).getFullYear()
+    ? MONTH.format(date)
+    : MONTH_YEAR.format(date);
+}
+
+/** Splits newest-first notifications into day sections, in order. Empty sections are left out. */
 export function groupByDay(
   items: readonly NotificationResponse[],
   now: number = Date.now(),
 ): FeedGroup[] {
-  const today = startOfDay(now);
-  const labels = ['Today', 'Yesterday', 'Earlier this week', 'Older'];
-  const groups: NotificationResponse[][] = [[], [], [], []];
+  const groups: FeedGroup[] = [];
   for (const item of items) {
-    const created = Date.parse(item.createdAt);
-    let index = 3;
-    if (Number.isFinite(created)) {
-      if (created >= today) {
-        index = 0;
-      } else if (created >= today - DAY_MS) {
-        index = 1;
-      } else if (created >= today - 6 * DAY_MS) {
-        index = 2;
+    const label = dayLabel(item.createdAt, now);
+    const last = groups[groups.length - 1];
+    if (last && last.label === label) {
+      last.items.push(item);
+    } else {
+      const existing = groups.find((group) => group.label === label);
+      if (existing) {
+        existing.items.push(item);
+      } else {
+        groups.push({ label, items: [item] });
       }
     }
-    groups[index].push(item);
   }
-  return groups
-    .map((group, index) => ({ label: labels[index], items: group }))
-    .filter((group) => group.items.length > 0);
+  return groups;
 }
 
 /**
@@ -73,6 +105,7 @@ export class NotificationFeedStore {
   private readonly api = inject(NotificationsService);
   private readonly center = inject(NotificationCenter);
   private readonly realtime = inject(RealtimeService);
+  private readonly answers = inject(ReminderAnswers);
   private readonly destroyRef = inject(DestroyRef);
 
   private readonly itemsState = signal<NotificationResponse[]>([]);
@@ -82,6 +115,12 @@ export class NotificationFeedStore {
   private readonly loadingMoreState = signal(false);
   private readonly moreFailedState = signal(false);
   private readonly unreadOnlyState = signal(false);
+  /**
+   * Reminders answered in place ("Still have them") while the unread view is on screen: marked
+   * read, they stay until the next load, so the row says "Confirmed. They stay in search." and
+   * keeps the focus (WE review R2-1, WCAG 2.4.3).
+   */
+  private readonly keptState = signal<ReadonlySet<string>>(new Set());
 
   readonly items = this.itemsState.asReadonly();
   readonly status = this.statusState.asReadonly();
@@ -91,6 +130,16 @@ export class NotificationFeedStore {
   readonly moreFailed = this.moreFailedState.asReadonly();
   readonly unreadOnly = this.unreadOnlyState.asReadonly();
   readonly groups = computed(() => groupByDay(this.itemsState()));
+  /**
+   * The unread notifications shown ("New", board W24), with a reminder answered in the unread
+   * view until the next load.
+   */
+  readonly fresh = computed(() => {
+    const kept = this.keptState();
+    return this.itemsState().filter((item) => !item.readAt || kept.has(item.id));
+  });
+  /** The read ones by day ("Earlier"). */
+  readonly earlier = computed(() => groupByDay(this.itemsState().filter((item) => !!item.readAt)));
 
   private nextCursor: string | null = null;
   private loadSubscription: Subscription | null = null;
@@ -107,7 +156,7 @@ export class NotificationFeedStore {
     this.started = true;
     this.center.pushed$
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((notification) => this.prepend(notification));
+      .subscribe((notification) => bellShows(notification) && this.prepend(notification));
     this.center.readChanges$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((change) => this.applyRead(change));
@@ -138,6 +187,7 @@ export class NotificationFeedStore {
     this.errorState.set(null);
     this.moreFailedState.set(false);
     this.loadingMoreState.set(false);
+    this.keptState.set(new Set());
     this.loadSubscription = this.api
       .listNotifications(this.request(), 'body', false, { context: silentErrors() })
       .subscribe({
@@ -213,8 +263,9 @@ export class NotificationFeedStore {
     return this.center.markAllRead();
   }
 
-  private request(): { limit: number; unreadOnly?: boolean } {
-    return this.unreadOnlyState() ? { limit: FEED_PAGE, unreadOnly: true } : { limit: FEED_PAGE };
+  private request(): ListNotificationsRequestParams {
+    const base = { limit: FEED_PAGE, excludeTypes: EXCLUDED_NOTIFICATION_TYPES };
+    return this.unreadOnlyState() ? { ...base, unreadOnly: true } : base;
   }
 
   private setCursor(page: CursorPageNotificationResponse): void {
@@ -239,6 +290,15 @@ export class NotificationFeedStore {
     const matches = (item: NotificationResponse) =>
       !item.readAt && (change.kind === 'all' || item.id === change.id);
     if (this.unreadOnlyState()) {
+      // A reminder answered here stays, read, until the next load (WE review R2-1).
+      const answered = change.kind === 'one' ? change.id : null;
+      if (answered && answered === this.answers.confirming()) {
+        this.keptState.update((kept) => new Set([...kept, answered]));
+        this.itemsState.update((items) =>
+          items.map((item) => (matches(item) ? { ...item, readAt: change.readAt } : item)),
+        );
+        return;
+      }
       this.itemsState.update((items) => items.filter((item) => !matches(item)));
       return;
     }

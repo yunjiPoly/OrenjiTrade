@@ -14,6 +14,9 @@
  */
 export interface CreateBinderRequest { 
     name: string;
+    /**
+     * At most 1 000 characters; a deck core\'s public note (the phone caps it at 500)
+     */
     description?: string;
     kind?: CreateBinderRequestKindEnum;
     /**
@@ -22,6 +25,18 @@ export interface CreateBinderRequest {
     visibility?: CreateBinderRequestVisibilityEnum;
     publicUntil?: string;
     coverPrintingId?: string;
+    /**
+     * Sell as a deck core: one bundle with photos, one price and the description as its note (false when omitted)
+     */
+    sellsAsCore?: boolean;
+    /**
+     * The deck core\'s asking price as typed (at most 40 characters once trimmed, one line): \"$180\", \"Trade only\". A plain amount also sets askingPrice
+     */
+    askingPriceText?: string;
+    /**
+     * The game whose cards the binder holds (stage G): an ACTIVE game with cards (GET /games, hasCards), else 400. The phone always sends it, and only cards of that game go in (409 BINDER_GAME_MISMATCH). Without it (the paused web) the binder takes the game of the first card filed in it while it holds none (Yu-Gi-Oh! until then) and refuses no card, as the web\'s binders always did
+     */
+    gameId?: string;
 }
 export enum CreateBinderRequestKindEnum {
     Collection = 'COLLECTION',

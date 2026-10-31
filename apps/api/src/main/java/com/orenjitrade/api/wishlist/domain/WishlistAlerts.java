@@ -2,6 +2,7 @@ package com.orenjitrade.api.wishlist.domain;
 
 import com.orenjitrade.api.cards.domain.CatalogService;
 import com.orenjitrade.api.common.TimeProvider;
+import com.orenjitrade.api.location.domain.PublicPlace;
 import com.orenjitrade.api.notifications.domain.NotificationCards;
 import com.orenjitrade.api.notifications.domain.NotificationRequest;
 import com.orenjitrade.api.notifications.domain.NotificationService;
@@ -29,7 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
  * Nothing is stored about the pairing except the sent-alert key ({@code wishlist_alert_sent}): one
  * item alerts one collector at most once, whichever of their wishes it fits and however often it is
  * republished. Collectors without a location get no alerts (the region rule needs one); the on/off
- * switch, quiet hours and the {@code wishlist.alerts.per_day} plan limit apply in {@link
+ * switch, quiet hours and the {@code wishlist.alerts.per_day} usage limit apply in {@link
  * NotificationService#notify}. The place is the item owner's state/province and country, never a
  * city or a distance (ADR 0017).
  */
@@ -124,6 +125,14 @@ public class WishlistAlerts {
         return link.toString();
     }
 
+    /**
+     * The place a wishlist alert's row names: the state or province, or the country of a
+     * whole-country pseudo-subdivision ("Puerto Rico").
+     */
+    static String province(PublicPlace place) {
+        return place.wholeCountry() ? place.countryName() : place.subdivisionName();
+    }
+
     static NotificationRequest request(Candidate candidate, @Nullable String imageUrl) {
         Map<String, @Nullable Object> data = new LinkedHashMap<>();
         data.put("wishlistItemId", candidate.wishlistItemId().toString());
@@ -138,6 +147,17 @@ public class WishlistAlerts {
         data.put("collectorId", candidate.itemOwnerId().toString());
         NotificationCards.put(data, candidate.cardName(), candidate.game(), imageUrl);
         data.put("regionCode", candidate.itemOwnerPlace().regionCode());
+        // Stage R9: the phone's row "{card} from your wishlist was listed in {province}" over
+        // "{handle} · {price}". The state or province only (ADR 0017: never a city).
+        data.put("collectorHandle", candidate.itemOwnerHandle());
+        data.put("province", province(candidate.itemOwnerPlace()));
+        if (candidate.askingPriceText() != null) {
+            data.put("askingPriceText", candidate.askingPriceText());
+        }
+        if (candidate.askingPrice() != null) {
+            data.put("askingPrice", candidate.askingPrice().toPlainString());
+            data.put("currency", candidate.currency());
+        }
         data.put("deepLink", deepLink(candidate));
         return new NotificationRequest(
                 candidate.wisherId(),

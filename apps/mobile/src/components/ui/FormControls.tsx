@@ -1,16 +1,9 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState, type ReactNode } from 'react';
-import {
-  Pressable,
-  StyleSheet,
-  Switch,
-  Text,
-  View,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import { Pressable, StyleSheet, Switch, View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import { Text } from '@/src/components/ui/Text';
+import { fontWeight, radius, spacing, textStyle, useStackedRows, useTheme } from '@/src/theme';
 
 import { TextField, type TextFieldProps } from './TextField';
 
@@ -69,6 +62,13 @@ export function Checkbox({
   );
 }
 
+/**
+ * The thumb of every switch: white in both schemes, as in the mockup (a white thumb on #44403C in
+ * dark). It was the surface colour, a dark thumb on a dark track in dark, so a switch that was off
+ * could hardly be seen (10 : 1 now against the off track).
+ */
+export const SWITCH_THUMB = '#FFFFFF';
+
 export interface SwitchRowProps {
   label: string;
   help?: string;
@@ -84,6 +84,9 @@ export interface SwitchRowProps {
  */
 export function SwitchRow({ label, help, value, onChange, disabled, testID }: SwitchRowProps) {
   const { palette } = useTheme();
+  // At the largest text sizes the switch goes under its words, which keep the row's width
+  // (beside them it left the words a narrow column and sat off screen in a row taller than it).
+  const stacked = useStackedRows();
   return (
     <Pressable
       testID={testID}
@@ -96,11 +99,12 @@ export function SwitchRow({ label, help, value, onChange, disabled, testID }: Sw
       onPress={() => onChange(!value)}
       style={({ pressed }) => [
         styles.switchRow,
+        stacked && styles.switchRowStacked,
         pressed && styles.pressed,
         disabled && styles.disabled,
       ]}
     >
-      <View style={styles.grow}>
+      <View style={stacked ? undefined : styles.grow}>
         <Text style={[textStyle('md'), styles.rowLabel, { color: palette.ink }]}>{label}</Text>
         {help ? <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{help}</Text> : null}
       </View>
@@ -113,7 +117,7 @@ export function SwitchRow({ label, help, value, onChange, disabled, testID }: Sw
           value={value}
           disabled={disabled}
           trackColor={{ true: palette.primary, false: palette.borderStrong }}
-          thumbColor={palette.surface}
+          thumbColor={SWITCH_THUMB}
         />
       </View>
     </Pressable>
@@ -197,28 +201,32 @@ export function PasswordField(props: Omit<TextFieldProps, 'secureTextEntry'>) {
   const { palette } = useTheme();
   const [visible, setVisible] = useState(false);
   return (
-    <View>
-      <TextField {...props} secureTextEntry={!visible} autoCapitalize="none" autoCorrect={false} />
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={visible ? 'Hide password' : 'Show password'}
-        aria-pressed={visible}
-        onPress={() => setVisible((current) => !current)}
-        hitSlop={8}
-        style={styles.eye}
-        testID={props.testID ? `${props.testID}-toggle` : undefined}
-      >
-        <MaterialCommunityIcons
-          name={visible ? 'eye-off-outline' : 'eye-outline'}
-          size={20}
-          color={palette.textMuted}
-        />
-      </Pressable>
-    </View>
+    <TextField
+      {...props}
+      secureTextEntry={!visible}
+      autoCapitalize="none"
+      autoCorrect={false}
+      trailing={
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={visible ? 'Hide password' : 'Show password'}
+          aria-pressed={visible}
+          onPress={() => setVisible((current) => !current)}
+          style={styles.eye}
+          testID={props.testID ? `${props.testID}-toggle` : undefined}
+        >
+          <MaterialCommunityIcons
+            name={visible ? 'eye-off-outline' : 'eye-outline'}
+            size={20}
+            color={palette.textMuted}
+          />
+        </Pressable>
+      }
+    />
   );
 }
 
-export type FormMessageTone = 'error' | 'info' | 'success';
+export type FormMessageTone = 'error' | 'info' | 'success' | 'warning';
 
 export interface FormMessageProps {
   tone?: FormMessageTone;
@@ -228,6 +236,11 @@ export interface FormMessageProps {
   detailTestID?: string;
   style?: StyleProp<ViewStyle>;
   testID?: string;
+  /**
+   * How far its words follow the system text size (no limit by default): a message in the bar at
+   * the bottom of a page follows it as little as the button beside it (`PINNED_MAX_FONT_SCALE`).
+   */
+  maxFontSizeMultiplier?: number;
 }
 
 /** Inline alert above or below a form (role alert for errors, status otherwise). */
@@ -238,16 +251,25 @@ export function FormMessage({
   detailTestID,
   style,
   testID,
+  maxFontSizeMultiplier,
 }: FormMessageProps) {
   const { palette } = useTheme();
   const color =
-    tone === 'error' ? palette.danger : tone === 'success' ? palette.success : palette.info;
+    tone === 'error'
+      ? palette.danger
+      : tone === 'success'
+        ? palette.success
+        : tone === 'warning'
+          ? palette.warning
+          : palette.info;
   const icon =
     tone === 'error'
       ? 'alert-circle-outline'
       : tone === 'success'
         ? 'check-circle-outline'
-        : 'information-outline';
+        : tone === 'warning'
+          ? 'alert-outline'
+          : 'information-outline';
   return (
     <View
       testID={testID}
@@ -263,9 +285,18 @@ export function FormMessage({
       {/* Decorative: iOS builds the alert's spoken name from its children, glyph included. */}
       <MaterialCommunityIcons name={icon} size={20} color={color} accessibilityElementsHidden />
       <View style={styles.grow}>
-        <Text style={[textStyle('sm'), { color: palette.ink }]}>{children}</Text>
+        <Text
+          maxFontSizeMultiplier={maxFontSizeMultiplier}
+          style={[textStyle('sm'), { color: palette.ink }]}
+        >
+          {children}
+        </Text>
         {detail ? (
-          <Text testID={detailTestID} style={[textStyle('xs'), { color: palette.textMuted }]}>
+          <Text
+            maxFontSizeMultiplier={maxFontSizeMultiplier}
+            testID={detailTestID}
+            style={[textStyle('xs'), { color: palette.textMuted }]}
+          >
             {detail}
           </Text>
         ) : null}
@@ -294,6 +325,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
     paddingVertical: spacing[2],
   },
+  switchRowStacked: { flexDirection: 'column', alignItems: 'flex-start', gap: spacing[2] },
   rowLabel: { fontWeight: fontWeight.medium },
   radioGroup: { gap: spacing[1] },
   radioRow: {
@@ -312,7 +344,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   radioDot: { width: 10, height: 10, borderRadius: 5 },
-  eye: { position: 'absolute', right: spacing[3], top: 36 },
+  eye: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   message: {
     flexDirection: 'row',
     alignItems: 'flex-start',

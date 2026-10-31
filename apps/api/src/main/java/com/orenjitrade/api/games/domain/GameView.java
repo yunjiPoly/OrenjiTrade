@@ -17,6 +17,8 @@ import java.util.UUID;
  * @param sortOrder display order
  * @param schema vocabularies and metadata fields
  * @param updatedAt last change
+ * @param hasCards whether the catalogue holds a card of the game (stage G: a game without cards is
+ *     shown as "Cards coming soon", can't be browsed and holds no binder)
  */
 @Schema(name = "GameResponse", description = "Supported trading card game")
 public record GameView(
@@ -28,7 +30,13 @@ public record GameView(
         GameStatus status,
         int sortOrder,
         GameSchema schema,
-        Instant updatedAt) {
+        Instant updatedAt,
+        @Schema(
+                        description =
+                                "Whether the catalogue holds a card of this game (stage G): a game"
+                                        + " without cards can be on a profile but is not browsed"
+                                        + " and holds no binder")
+                boolean hasCards) {
 
     @JsonIgnore
     public boolean isActive() {
