@@ -131,7 +131,10 @@ test.describe('admin platform rules', () => {
     await staff.demote();
   });
 
-  test('admins validate a game schema and run a mock catalog sync', async ({ page, request }) => {
+  test('admins validate a game schema, run a mock catalog sync, add a card and a printing', async ({
+    page,
+    request,
+  }) => {
     test.setTimeout(120_000);
     await stubCardImages(page);
     const staff = await createStaffMember(request, 'catalog', ['ADMIN']);
@@ -149,31 +152,68 @@ test.describe('admin platform rules', () => {
     await page.getByRole('button', { name: 'Discard changes' }).click();
     await expect(page.getByText('Valid schema')).toBeVisible();
 
-    // Cards: find a card, open its editor, then import the Riftbound mock catalog.
+    // Card data and images (board A12): the Riftbound mock catalog, its report, the cache.
+    await page.goto('/admin/card-data');
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Card data and images' }),
+    ).toBeVisible();
+    await page.locator('#cd-game').selectOption({ label: 'Riftbound' });
+    await page.getByRole('radio', { name: 'None' }).click();
+    await page.getByRole('button', { name: 'Run sync' }).click();
+    await expect(page.getByText('Sync of Riftbound queued.')).toBeVisible();
+    await expect(
+      page.getByText(/Sync of Riftbound finished: [\d,]+ cards and [\d,]+ printings written\./),
+    ).toBeVisible({ timeout: 60_000 });
+    const runs = page.getByRole('table', { name: 'Catalog sync runs' });
+    await expect(runs.getByRole('row').nth(1)).toContainText('Succeeded');
+    await runs
+      .getByRole('row')
+      .nth(1)
+      .getByRole('button', { name: /^Report of the Riftbound/ })
+      .click();
+    const report = page.getByTestId('sync-report');
+    await expect(report.getByRole('heading', { name: 'Sync report' })).toBeVisible();
+    await expect(report).toContainText('Cards read');
+    await page.keyboard.press('Escape');
+    await expect(report).toHaveCount(0);
+
+    // Cards (board A11): find a card, open it in the drawer; New card, then Add printing.
     await page.goto('/admin/cards');
     await page.getByLabel('Name, text or printing code').fill('Lantern');
     await expect(page).toHaveURL(/query=Lantern/);
-    await page.getByRole('link', { name: 'Lantern Fox Spirit', exact: true }).click();
-    await expect(page.getByRole('heading', { level: 1, name: 'Lantern Fox Spirit' })).toBeVisible();
-    await expect(page.getByLabel('ATK')).toHaveValue('800');
+    await page.getByRole('button', { name: 'Lantern Fox Spirit', exact: true }).click();
+    const drawer = page.getByTestId('card-drawer');
+    await expect(drawer.getByRole('heading', { name: 'Lantern Fox Spirit' })).toBeVisible();
+    await expect(page).toHaveURL(/open=/);
+    await expect(drawer.getByLabel('ATK')).toHaveValue('800');
     await expect(
-      page.getByRole('button', { name: 'Edit printing AZR-EN011' }).first(),
+      drawer.getByRole('button', { name: 'Edit printing AZR-EN011' }).first(),
     ).toBeEnabled();
+    await page.keyboard.press('Escape');
+    await expect(drawer).toHaveCount(0);
 
-    await page.goto('/admin/cards');
-    const sync = page.getByRole('region', { name: 'Catalog sync' });
-    await sync.getByRole('combobox', { name: 'Game' }).click();
-    await page.getByRole('option', { name: 'Riftbound' }).click();
-    await sync.getByRole('button', { name: 'Run sync' }).click();
-    await expect(page.getByText('Sync queued for riftbound.')).toBeVisible();
-    await expect(
-      page.getByText(/Sync finished: \d+ cards and \d+ printings updated\./),
-    ).toBeVisible({
-      timeout: 60_000,
-    });
-    await expect(
-      sync.getByRole('table', { name: 'Catalog sync runs' }).getByRole('row').nth(1),
-    ).toContainText('Succeeded');
+    const name = `E2E WH2 Card ${Date.now().toString(36)}`;
+    await page.getByRole('button', { name: 'New card' }).click();
+    await expect(drawer.getByRole('heading', { name: 'New card' }).first()).toBeVisible();
+    await drawer.getByLabel('Game').selectOption({ label: 'Riftbound' });
+    await drawer.getByRole('button', { name: 'Create card' }).click();
+    await expect(drawer.getByText('A name is required.')).toBeVisible();
+    await drawer.getByLabel('Name').fill(name);
+    await drawer.getByRole('button', { name: 'Create card' }).click();
+    await expect(page.getByText(`${name} created.`)).toBeVisible();
+    await expect(drawer.getByRole('heading', { name })).toBeVisible();
+    await expect(drawer.getByText('No printings yet.', { exact: false })).toBeVisible();
+    await drawer.getByRole('button', { name: 'Add printing' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Add printing' });
+    await dialog.getByRole('combobox', { name: 'Set' }).click();
+    await page.getByRole('option').first().click();
+    await dialog.getByLabel('Collector number').fill('W2H001');
+    await dialog.getByLabel('Printing code').fill('WH2-E2E1');
+    await dialog.getByRole('button', { name: 'Add printing' }).click();
+    await expect(page.getByText('Printing WH2-E2E1 added.')).toBeVisible();
+    await expect(drawer.getByRole('button', { name: 'Edit printing WH2-E2E1' })).toBeVisible();
+    await drawer.getByRole('button', { name: 'Close' }).click();
+
     await staff.demote();
   });
 });

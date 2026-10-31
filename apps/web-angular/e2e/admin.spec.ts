@@ -76,7 +76,7 @@ test.describe('admin console', () => {
     // --- Audit log -------------------------------------------------------------------------
     await page.getByRole('link', { name: 'Full audit log' }).click();
     await expect(page).toHaveURL(new RegExp(`/admin/audit-logs\\?.*targetId=${target.id}`));
-    await expect(page.getByRole('heading', { level: 1, name: 'Audit logs' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Audit log' })).toBeVisible();
     const entries = page.getByRole('table', { name: 'Audit entries' });
     await expect(entries.getByText('Suspended an account')).toBeVisible();
     await expect(entries.getByText('Lifted a suspension')).toBeVisible();
@@ -85,8 +85,9 @@ test.describe('admin console', () => {
     await expect(entries.getByText('@admin').first()).toBeVisible();
 
     // Filtering by action narrows the list.
-    await page.getByLabel('Action', { exact: true }).click();
-    await page.getByRole('option', { name: 'Lifted a suspension' }).click();
+    await page
+      .getByRole('combobox', { name: /^Action/ })
+      .selectOption({ label: 'Lifted a suspension' });
     await page.getByRole('button', { name: 'Apply' }).click();
     await expect(page).toHaveURL(/action=user\.unsuspend/);
     await expect(entries.getByText('Lifted a suspension')).toBeVisible();

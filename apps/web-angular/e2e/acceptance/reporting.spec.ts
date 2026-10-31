@@ -91,7 +91,7 @@ test.describe('acceptance: collector reporting', () => {
     await staff.getByRole('main').getByRole('link', { name: 'Audit log', exact: true }).click();
     await expect(staff).toHaveURL(new RegExp(`/admin/audit-logs\\?.*targetId=${reportId}`));
     const entries = staff.getByRole('table', { name: 'Audit entries' });
-    await expect(entries.getByText('Resolved a collector report')).toBeVisible();
+    await expect(entries.getByText('Resolved a report')).toBeVisible();
     await expect(entries.getByText('REPORT_RESOLVED', { exact: true })).toBeVisible();
     await expect(entries.getByText('report.assign', { exact: true })).toBeVisible();
     await expect(entries.getByText(`@${admin.handle}`).first()).toBeVisible();
