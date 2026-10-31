@@ -83,6 +83,7 @@
             title="Reports could not load"
             [message]="errorMessage()"
             [requestId]="error.requestId"
+            retryLabel="Try again"
             (retry)="reload()"
           />
         </div>
@@ -92,7 +93,7 @@
           <app-skeleton variant="list" lines="5" />
         </div>
       } @else {
-        <p class="rp__count" aria-live="polite">
+        <p class="rp__count" id="reports-count" tabindex="-1" aria-live="polite">
           {{ countLine() }}
           @if (loading()) {
             <span> · updating…</span>
@@ -127,13 +128,12 @@
                   [routerLink]="['/admin/reports', report.id]"
                   queryParamsHandling="preserve"
                   [attr.aria-current]="current ? 'true' : null"
-                  [attr.aria-label]="rowLabel(report)"
                   [attr.data-report]="report.id"
                 >
                   <span class="cp-avatar" aria-hidden="true">{{
                     initials(report.reportedUser.handle)
                   }}</span>
-                  <span class="rrow__text" aria-hidden="true">
+                  <span class="rrow__text">
                     <span class="rrow__top">
                       <strong class="rrow__who">&#64;{{ report.reportedUser.handle }}</strong>
                       @if (report.openReportsAgainstUser > 1) {
@@ -147,7 +147,10 @@
                       {{ reasonLabel(report.reason) }} · {{ context(report.contextSource) }}
                     </span>
                     <span class="rrow__meta">
-                      <span class="cp-mono">{{ number(report.number) }}</span>
+                      <span class="cp-mono"
+                        ><span class="visually-hidden">Report </span
+                        >{{ number(report.number) }}</span
+                      >
                       ·
                       <span [class.rrow__free]="!report.assignee">{{ assigneeLabel(report) }}</span>
                     </span>

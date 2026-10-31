@@ -23,7 +23,7 @@
 .rp__on {
   border-color: var(--color-primary);
   background: var(--color-primary-tint);
-  color: var(--color-primary);
+  color: var(--app-primary-text);
 }
 .rp__split {
   display: grid;
@@ -112,7 +112,7 @@
   font-size: var(--font-size-xs);
 }
 .rrow__free {
-  color: var(--color-warning);
+  color: var(--app-warning-text);
   font-weight: var(--font-weight-semibold);
 }
 .rp__pages {

@@ -34,6 +34,32 @@ export function staffQueryReady(query: StaffQuery, admin: boolean): boolean {
   return query.number !== null || (admin && query.text.replace(/^#/, '').length >= 2);
 }
 
+/**
+ * Whether a text also goes to the card catalog (review fix 1): an email or a handle (anything with
+ * an "@") can never be a card name, and the public card search's address would carry it into
+ * request logs; it goes to accounts only.
+ */
+export function asksCards(text: string): boolean {
+  return !text.includes('@');
+}
+
+/** One group's answer: its results, or that the request failed. */
+export interface StaffGroupAnswer {
+  results: StaffSearchResult[];
+  failed: boolean;
+}
+
+/**
+ * Whether the search failed as a whole (review fix 1): a group failed and nothing came back, so
+ * "Nothing matches" would not be true. Partial results are shown as they are.
+ */
+export function staffSearchFailed(answers: readonly StaffGroupAnswer[]): boolean {
+  return (
+    answers.some((answer) => answer.failed) &&
+    answers.every((answer) => answer.results.length === 0)
+  );
+}
+
 /** The results in the order the dropdown lists them (Collectors, Cards, Reports). */
 export function orderedResults(results: readonly StaffSearchResult[]): StaffSearchResult[] {
   const order = STAFF_SEARCH_GROUPS.map((group) => group.id);

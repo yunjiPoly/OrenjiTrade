@@ -23,9 +23,20 @@ export interface ReportQuery {
   page?: string;
 }
 
-/** The tab of a URL: Open by default, `ALL` for every status. */
-export function reportTabOf(status: string | undefined): ReportTab {
-  return (REPORT_TABS.find((tab) => tab.value === status)?.value ?? 'OPEN') as ReportTab;
+/**
+ * The tab of a URL: Open by default, `ALL` for every status. A list scoped to the caller's reports
+ * ("Assigned to me") or to one collector ("All reports about them") shows All by default (review
+ * fix 1): assigning a report moves it to Under review, so Open plus "mine" could list nothing,
+ * and a collector's reports are read in every state.
+ */
+export function reportTabOf(status: string | undefined, scoped = false): ReportTab {
+  return (REPORT_TABS.find((tab) => tab.value === status)?.value ??
+    (scoped ? 'ALL' : 'OPEN')) as ReportTab;
+}
+
+/** Whether a URL scopes the list to the caller's reports or to one collector. */
+export function scopedQuery(query: Pick<ReportQuery, 'mine' | 'reportedUserId'>): boolean {
+  return query.mine === '1' || UUID.test(query.reportedUserId ?? '');
 }
 
 /** The list request of a URL: unknown values are left out, the caller's id for "mine". */
@@ -34,7 +45,7 @@ export function reportListParams(
   myId: string | null,
   size: number,
 ): ListReportsRequestParams {
-  const tab = reportTabOf(query.status);
+  const tab = reportTabOf(query.status, scopedQuery(query));
   const reason = query.reason ?? '';
   const subject = query.reportedUserId ?? '';
   const page = Number.parseInt(query.page ?? '', 10);

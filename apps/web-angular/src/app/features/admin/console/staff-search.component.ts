@@ -9,7 +9,7 @@ import {
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { AdminReportsService, AdminUsersService, CatalogService } from '@orenji/api-client';
-import { Subscription, catchError, forkJoin, map, of, timer, switchMap } from 'rxjs';
+import { Observable, Subscription, catchError, forkJoin, map, of, timer, switchMap } from 'rxjs';
 import { SessionService } from '../../../core/auth/session.service';
 import { silentErrors } from '../../../core/http/http-context';
 import { GLOBAL_SEARCH_ID } from '../../../core/keyboard/keyboard-shortcuts.service';
@@ -17,11 +17,14 @@ import { reportReasonLabel } from '../../../shared/reports/report-labels';
 import { AdminIconComponent } from './admin-icon.component';
 import {
   STAFF_SEARCH_GROUPS,
+  StaffGroupAnswer,
   StaffSearchResult,
+  asksCards,
   orderedResults,
   parseStaffQuery,
   reportNumberLabel,
   staffQueryReady,
+  staffSearchFailed,
 } from './staff-search';
 
 const DEBOUNCE_MS = 250;
@@ -69,6 +72,18 @@ const DEBOUNCE_MS = 250;
         >
           @if (searching() && results().length === 0) {
             <p class="ss__note" role="presentation">Searching…</p>
+          } @else if (failed()) {
+            <p class="ss__note ss__note--error" role="presentation">
+              Search failed.
+              <button
+                type="button"
+                class="ss__retry"
+                (mousedown)="$event.preventDefault()"
+                (click)="retry()"
+              >
+                Try again
+              </button>
+            </p>
           } @else if (results().length === 0) {
             <p class="ss__note" role="presentation">{{ emptyLine() }}</p>
           } @else {
@@ -202,6 +217,26 @@ const DEBOUNCE_MS = 250;
       color: var(--color-text-secondary);
       font-size: var(--font-size-sm);
     }
+    .ss__note--error {
+      color: var(--color-danger);
+    }
+    .ss__retry {
+      min-height: 24px;
+      margin-left: 6px;
+      padding: 0 6px;
+      border: 0;
+      border-radius: 6px;
+      background: none;
+      color: var(--color-accent);
+      font: inherit;
+      font-weight: var(--font-weight-semibold);
+      text-decoration: underline;
+      cursor: pointer;
+    }
+    .ss__retry:focus-visible {
+      outline: var(--focus-width) solid var(--color-focus-ring);
+      outline-offset: 2px;
+    }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -218,6 +253,8 @@ export class StaffSearchComponent {
   protected readonly focused = signal(false);
   protected readonly searching = signal(false);
   protected readonly results = signal<StaffSearchResult[]>([]);
+  /** Every asked group failed and nothing came back (review fix 1): an error, not "no match". */
+  protected readonly failed = signal(false);
   private readonly activeIndex = signal(-1);
   private readonly asked = signal(false);
   private subscription: Subscription | null = null;
@@ -247,6 +284,9 @@ export class StaffSearchComponent {
   protected readonly announcement = computed(() => {
     if (!this.open() || this.searching()) {
       return '';
+    }
+    if (this.failed()) {
+      return 'Search failed. Try again.';
     }
     const count = this.results().length;
     return count === 0 ? this.emptyLine() : `${count} ${count === 1 ? 'result' : 'results'}`;
@@ -313,9 +353,15 @@ export class StaffSearchComponent {
     void this.router.navigate(result.link);
   }
 
+  /** "Try again" after a failed search: the same text once more. */
+  protected retry(): void {
+    this.search(this.text());
+  }
+
   protected clear(): void {
     this.subscription?.unsubscribe();
     this.text.set('');
+    this.failed.set(false);
     this.results.set([]);
     this.asked.set(false);
     this.searching.set(false);
@@ -324,6 +370,7 @@ export class StaffSearchComponent {
 
   private search(raw: string): void {
     this.subscription?.unsubscribe();
+    this.failed.set(false);
     const query = parseStaffQuery(raw);
     const admin = this.admin();
     if (!staffQueryReady(query, admin)) {
@@ -336,57 +383,69 @@ export class StaffSearchComponent {
     this.asked.set(true);
     this.searching.set(true);
     const options = { context: silentErrors() };
+    const none: Observable<StaffGroupAnswer> = of({ results: [], failed: false });
+    const answer = (request: Observable<StaffSearchResult[]>): Observable<StaffGroupAnswer> =>
+      request.pipe(
+        map((results) => ({ results, failed: false })),
+        catchError(() => of({ results: [] as StaffSearchResult[], failed: true })),
+      );
     const reports = query.number
-      ? this.reportsApi.listReports({ number: query.number, size: 5 }, 'body', false, options).pipe(
-          map((page) =>
-            (page.items ?? []).map((report): StaffSearchResult => ({
-              id: report.id,
-              group: 'reports',
-              title: `${reportNumberLabel(report.number)} · @${report.reportedUser.handle}`,
-              line: reportReasonLabel(report.reason),
-              link: ['/admin/reports', report.id],
-            })),
-          ),
-          catchError(() => of([] as StaffSearchResult[])),
+      ? answer(
+          this.reportsApi
+            .listReports({ number: query.number, size: 5 }, 'body', false, options)
+            .pipe(
+              map((page) =>
+                (page.items ?? []).map((report): StaffSearchResult => ({
+                  id: report.id,
+                  group: 'reports',
+                  title: `${reportNumberLabel(report.number)} · @${report.reportedUser.handle}`,
+                  line: reportReasonLabel(report.reason),
+                  link: ['/admin/reports', report.id],
+                })),
+              ),
+            ),
         )
-      : of([] as StaffSearchResult[]);
+      : none;
     const text = query.text.replace(/^#/, '');
     const collectors =
       admin && query.number === null
-        ? this.usersApi.listUsers({ query: text, size: 5 }, 'body', false, options).pipe(
-            map((page) =>
-              (page.items ?? []).map((user): StaffSearchResult => ({
-                id: user.id,
-                group: 'collectors',
-                title: user.displayName || `@${user.handle}`,
-                line: `@${user.handle}`,
-                link: ['/admin/users', user.id],
-              })),
-            ),
-            catchError(() => of([] as StaffSearchResult[])),
-          )
-        : of([] as StaffSearchResult[]);
-    const cards =
-      admin && query.number === null
-        ? this.catalogApi.searchCards({ query: text, size: 5 }, 'body', false, options).pipe(
-            map((page) =>
-              (page.items ?? [])
-                .filter((card) => !!card.id)
-                .map((card): StaffSearchResult => ({
-                  id: card.id as string,
-                  group: 'cards',
-                  title: card.name ?? '',
-                  line: card.cardType ?? '',
-                  link: ['/admin/cards', card.id as string],
+        ? answer(
+            this.usersApi.listUsers({ query: text, size: 5 }, 'body', false, options).pipe(
+              map((page) =>
+                (page.items ?? []).map((user): StaffSearchResult => ({
+                  id: user.id,
+                  group: 'collectors',
+                  title: user.displayName || `@${user.handle}`,
+                  line: `@${user.handle}`,
+                  link: ['/admin/users', user.id],
                 })),
+              ),
             ),
-            catchError(() => of([] as StaffSearchResult[])),
           )
-        : of([] as StaffSearchResult[]);
+        : none;
+    const cards =
+      admin && query.number === null && asksCards(text)
+        ? answer(
+            this.catalogApi.searchCards({ query: text, size: 5 }, 'body', false, options).pipe(
+              map((page) =>
+                (page.items ?? [])
+                  .filter((card) => !!card.id)
+                  .map((card): StaffSearchResult => ({
+                    id: card.id as string,
+                    group: 'cards',
+                    title: card.name ?? '',
+                    line: card.cardType ?? '',
+                    link: ['/admin/cards', card.id as string],
+                  })),
+              ),
+            ),
+          )
+        : none;
     this.subscription = timer(DEBOUNCE_MS)
       .pipe(switchMap(() => forkJoin([collectors, cards, reports])))
-      .subscribe((lists) => {
-        this.results.set(orderedResults(lists.flat()));
+      .subscribe((answers) => {
+        this.failed.set(staffSearchFailed(answers));
+        this.results.set(orderedResults(answers.flatMap((group) => group.results)));
         this.activeIndex.set(-1);
         this.searching.set(false);
       });

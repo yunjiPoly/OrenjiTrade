@@ -1,4 +1,5 @@
-import { DatePipe } from '@angular/common';
+import { LiveAnnouncer } from '@angular/cdk/a11y';
+import { DOCUMENT, DatePipe, formatDate } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -11,6 +12,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
+import { Title } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import {
   AdminReportsService,
@@ -63,13 +65,17 @@ interface ConversationDay {
   messages: ReportedConversationMessage[];
 }
 
-/** Groups the newest-first messages into days, oldest first (as a chat reads). */
+/**
+ * Groups the newest-first messages into days, oldest first (as a chat reads). A day is the local
+ * calendar day, as the times beside the messages are local (review fix 1: the UTC date put an
+ * evening message of the Americas under the next day).
+ */
 export function conversationDays(
   messages: readonly ReportedConversationMessage[],
 ): ConversationDay[] {
   const days: ConversationDay[] = [];
   for (const message of [...messages].reverse()) {
-    const day = message.createdAt.slice(0, 10);
+    const day = formatDate(message.createdAt, 'yyyy-MM-dd', 'en-US');
     const last = days.at(-1);
     if (last && last.day === day) {
       last.messages.push(message);
@@ -117,6 +123,9 @@ export class ReportPanelComponent {
   private readonly sync = inject(ReportsSync, { optional: true });
   private readonly counts = inject(AdminCounts, { optional: true });
   private readonly notesView = viewChild(ModeratorNotesComponent);
+  private readonly title = inject(Title);
+  private readonly announcer = inject(LiveAnnouncer);
+  private readonly document = inject(DOCUMENT);
   protected readonly session = inject(SessionService);
   protected readonly layout = inject(ShellLayout);
 
@@ -171,25 +180,48 @@ export class ReportPanelComponent {
   constructor() {
     effect(() => {
       this.id();
-      untracked(() => void this.load());
+      untracked(() => void this.openReport());
     });
+  }
+
+  /**
+   * A report opened from the list (review fix 1, WCAG 2.4.3): in one pane (below 1280) the list
+   * went away, so the focus moves to the report's heading; beside the list it stays on the row and
+   * the opening is announced. The document title names the report.
+   */
+  private async openReport(): Promise<void> {
+    await this.load();
+    const report = this.report();
+    if (!report) {
+      return;
+    }
+    if (this.onePane()) {
+      this.focusTitle();
+    } else {
+      void this.announcer.announce(`Report ${reportNumberLabel(report.number)} opened`);
+    }
   }
 
   protected async load(): Promise<void> {
     this.loading.set(true);
     this.error.set(null);
     try {
-      this.report.set(
-        await firstValueFrom(
-          this.api.getReport({ id: this.id() }, 'body', false, { context: silentErrors() }),
-        ),
+      const report = await firstValueFrom(
+        this.api.getReport({ id: this.id() }, 'body', false, { context: silentErrors() }),
       );
+      this.report.set(report);
+      this.title.setTitle(`Report ${reportNumberLabel(report.number)} · Admin · OrenjiTrade`);
     } catch (error) {
       this.report.set(null);
       this.error.set(toApiError(error));
     } finally {
       this.loading.set(false);
     }
+  }
+
+  /** The heading of the report, once drawn (after a write its buttons may be gone). */
+  private focusTitle(): void {
+    setTimeout(() => this.document.getElementById('report-title')?.focus());
   }
 
   /** "Their conversation with @lucas.tcg", "Their public binder"... */
@@ -247,6 +279,7 @@ export class ReportPanelComponent {
     if (done) {
       await this.load();
       this.changed();
+      this.focusTitle();
     }
   }
 
@@ -315,6 +348,7 @@ export class ReportPanelComponent {
     if (done) {
       await this.load();
       this.changed();
+      this.focusTitle();
     }
   }
 }

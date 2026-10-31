@@ -99,6 +99,13 @@ html {
     color-mix(in srgb, var(--color-primary) 60%, var(--color-ink)),
     var(--color-primary)
   );
+  // Status tones as text (the admin console's chips, counts and states; web WH1 review fix 1):
+  // the tokens in dark; in light, where amber, green, red and teal text on their own tints fall
+  // under 4.5:1, darker tones (app/features/admin/console/console-tones.ts, tested).
+  --app-warning-text: light-dark(#92400e, var(--color-warning));
+  --app-success-text: light-dark(#166534, var(--color-success));
+  --app-danger-text: light-dark(#b91c1c, var(--color-danger));
+  --app-accent-text: light-dark(#115e59, var(--color-accent));
 
   // Per-component overrides: the phone's controls sized for a pointer (spec 2.4 and 4.8).
   // Text buttons in the orange text tone; outline buttons in ink in light (board W30).

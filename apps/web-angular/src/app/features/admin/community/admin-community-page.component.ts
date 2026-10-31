@@ -34,6 +34,7 @@ import {
   ROOM_GAMES,
   RoomCell,
   RoomDraft,
+  otherChannelName,
   rateLine,
   roomDraftErrors,
   roomTitle,
@@ -53,7 +54,9 @@ interface OpenRoom {
  * R11 as a grid (3 regions x 5 games), each cell with its posts of the last 24 hours, its hourly
  * limit and Open or Archived. A cell opens the room drawer: name, description, posts per member
  * per hour, position, the slug read-only, "Open the room", Archive or Restore, Save. The older
- * channels read under "Archived channels". No "New channel": the apps only list the rooms.
+ * channels read under "Archived channels"; one named after a city (`cityChannel`) reads
+ * "Archived channel · {game}" and its drawer shows neither its name, slug nor description, nor
+ * Restore (it stays archived, review fix 1). No "New channel": the apps only list the rooms.
  * Removing posts stays in the room, from the post's menu. The flags live in Flags and rules.
  */
 @Component({
@@ -97,6 +100,7 @@ export class AdminCommunityPageComponent {
   protected readonly gameLabel = (slug: string) => gameName(slug) ?? slug;
   protected readonly letter = (slug: string) => gameInfo(slug).letter;
   protected readonly rate = rateLine;
+  protected readonly otherName = otherChannelName;
 
   protected readonly grid = computed(() => roomsGrid(this.channels() ?? []));
   protected readonly summary = computed(() => roomsSummary(this.grid().rows));
@@ -107,7 +111,9 @@ export class AdminCommunityPageComponent {
     if (!room) {
       return '';
     }
-    return room.region && room.game ? roomTitle(room.region, room.game) : room.channel.name;
+    return room.region && room.game
+      ? roomTitle(room.region, room.game)
+      : otherChannelName(room.channel);
   });
 
   constructor() {
@@ -228,7 +234,7 @@ export class AdminCommunityPageComponent {
 
   protected async save(): Promise<void> {
     const room = this.open();
-    if (!room || this.busy()) {
+    if (!room || this.busy() || room.channel.cityChannel) {
       return;
     }
     this.tried.set(true);
@@ -257,7 +263,7 @@ export class AdminCommunityPageComponent {
 
   protected async toggleArchived(): Promise<void> {
     const room = this.open();
-    if (!room || this.busy()) {
+    if (!room || this.busy() || room.channel.cityChannel) {
       return;
     }
     const archive = room.channel.status !== 'ARCHIVED';

@@ -53,7 +53,7 @@ import { StaffSearchComponent } from './console/staff-search.component';
         @if (roleLabel(); as role) {
           <span class="ct__role" data-testid="admin-role">
             <app-admin-icon name="shield" [size]="16" />
-            {{ role }}
+            <span class="visually-hidden">Role: </span>{{ role }}
           </span>
         }
         <a class="ct__back" routerLink="/" data-testid="admin-back">
@@ -77,7 +77,7 @@ import { StaffSearchComponent } from './console/staff-search.component';
               <li>
                 <a
                   class="cs__item"
-                  [routerLink]="['/admin', item.path]"
+                  [routerLink]="item.path ? ['/admin', item.path] : '/admin'"
                   routerLinkActive="cs__item--active"
                   ariaCurrentWhenActive="page"
                   [routerLinkActiveOptions]="{ exact: item.path === '' }"
@@ -172,7 +172,7 @@ import { StaffSearchComponent } from './console/staff-search.component';
       padding: 0 12px;
       border-radius: var(--radius-pill);
       background: var(--color-accent-tint);
-      color: var(--color-accent);
+      color: light-dark(var(--color-on-accent-container), var(--color-accent));
       font-size: var(--font-size-sm);
       font-weight: var(--font-weight-semibold);
       white-space: nowrap;
@@ -248,10 +248,11 @@ import { StaffSearchComponent } from './console/staff-search.component';
     .cs__item:hover {
       background: var(--color-surface-variant);
     }
+    /* In light the label is ink on the tint (orange text there is 2.4:1; review fix 1). */
     .cs__item--active,
     .cs__item--active:hover {
       background: var(--color-primary-tint);
-      color: var(--color-primary);
+      color: light-dark(var(--color-ink), var(--color-primary));
       font-weight: var(--font-weight-semibold);
     }
     .cs__label {
@@ -304,9 +305,14 @@ import { StaffSearchComponent } from './console/staff-search.component';
         justify-content: center;
       }
     }
-    /* Below 960: the nav is a grid of items above the page; the search takes its own row. */
+    /*
+     * Below 960: the nav is a grid of items above the page; the search takes its own row. The
+     * bar, three rows tall there, scrolls away with the page (review fix 1, WCAG 2.4.11: kept
+     * sticky it hid focused controls under it at 200% zoom and at 390).
+     */
     @media (max-width: 959.98px) {
       .ct {
+        position: static;
         flex-wrap: wrap;
         height: auto;
         padding: 10px 16px;

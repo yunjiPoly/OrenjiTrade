@@ -1,3 +1,4 @@
+import type { ModerationFlag } from '@orenji/api-client';
 import { ALL_GAMES } from '../../../shared/domain/games';
 import { PLATFORM_REGION_NAMES } from '../../../shared/regions/regions.store';
 
@@ -85,4 +86,23 @@ export function sharedDetailLine(detail: string | null | undefined): string | nu
     return 'Shipping address shared · hidden from staff';
   }
   return detail === 'ETRANSFER_EMAIL' ? 'e-Transfer email shared · hidden from staff' : null;
+}
+
+/**
+ * "Americas (North) · Yu-Gi-Oh!": a flagged post's room, never its codes. A channel that is not a
+ * platform region's room (one from before the rooms; the API names no channel of a city) reads
+ * "An archived channel · Yu-Gi-Oh!".
+ */
+export function flagRoomLine(flag: Pick<ModerationFlag, 'community'>): string | null {
+  const content = flag.community;
+  if (!content) {
+    return null;
+  }
+  const game = gameName(content.game);
+  if (!content.regionCode) {
+    return ['An archived channel', game].filter((part): part is string => !!part).join(' · ');
+  }
+  return [regionName(content.regionCode), game ?? content.roomName]
+    .filter((part): part is string => !!part)
+    .join(' · ');
 }

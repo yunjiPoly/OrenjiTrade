@@ -20,12 +20,13 @@ import {
   PageResponseAdminReference,
 } from '@orenji/api-client';
 import { Observable, Subscription, forkJoin } from 'rxjs';
+import { SessionService } from '../../../core/auth/session.service';
 import { ToastService } from '../../../core/feedback/toast.service';
 import { ApiError, toApiError } from '../../../core/http/api-error';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
 import { silentErrors } from '../../../core/http/http-context';
 import { RelativeTimePipe } from '../../../shared/pipes/relative-time.pipe';
-import { breakdownEntries, interactionKindLabel } from '../../../shared/ratings/rating-labels';
+import { breakdownEntries } from '../../../shared/ratings/rating-labels';
 import { StarRatingComponent } from '../../../shared/ratings/star-rating.component';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
@@ -39,6 +40,7 @@ import {
   RatingsTab,
   ShowFilter,
   peopleOf,
+  ratingFollowedLabel,
   ratingsParams,
   ratingsTabOf,
   showFilterOf,
@@ -52,6 +54,8 @@ interface Row {
   kind: 'rating' | 'reference';
   author: { handle: string; displayName: string };
   subject: { handle: string; displayName: string };
+  /** The rated collector's (or the reference subject's) account id: the filter, the account. */
+  subjectId: string;
   overall: number | null;
   line: string;
   createdAt: string;
@@ -69,8 +73,9 @@ function ratingRow(entry: AdminRating): Row {
     kind: 'rating',
     author: entry.rating.rater,
     subject: entry.ratee,
+    subjectId: entry.rateeId,
     overall: entry.rating.overall,
-    line: interactionKindLabel(entry.rating.interactionKind),
+    line: ratingFollowedLabel(entry.rating.interactionKind),
     createdAt: entry.rating.createdAt,
     text: entry.rating.comment ?? null,
     criteria: breakdownEntries(entry.rating.breakdown),
@@ -87,6 +92,7 @@ function referenceRow(entry: AdminReference): Row {
     kind: 'reference',
     author: entry.reference.author,
     subject: entry.subject,
+    subjectId: entry.subjectId,
     overall: null,
     line: 'Reference',
     createdAt: entry.reference.createdAt,
@@ -131,6 +137,7 @@ export class AdminRatingsPageComponent {
   private readonly dialog = inject(MatDialog);
   private readonly toasts = inject(ToastService);
   private readonly document = inject(DOCUMENT);
+  protected readonly session = inject(SessionService);
 
   /** Query parameters (withComponentInputBinding). */
   readonly tab = input<string | undefined>();
@@ -190,6 +197,8 @@ export class AdminRatingsPageComponent {
   );
 
   private subscription: Subscription | null = null;
+  /** The row whose Hide or Restore ran: its button gets the focus once the list is read again. */
+  private focusRow: string | null = null;
 
   constructor() {
     effect(() => {
@@ -235,6 +244,11 @@ export class AdminRatingsPageComponent {
   protected setPerson(key: 'rateeId' | 'raterId', event: Event): void {
     const value = (event.target as HTMLSelectElement).value;
     this.navigate({ [key]: value || null });
+  }
+
+  /** "@handle" of a row: the list of that collector only (today's shortcut, review fix 1). */
+  protected onlyAbout(row: Row): void {
+    this.navigate({ rateeId: row.subjectId });
   }
 
   protected goPage(delta: number): void {
@@ -303,6 +317,18 @@ export class AdminRatingsPageComponent {
         });
         this.people.update((known) => peopleOf(known, page.items ?? [], tab));
         this.loading.set(false);
+        const focus = this.focusRow;
+        if (focus) {
+          // Once the list is drawn again (review fix 1, WCAG 2.4.3): the row's new button, or
+          // the count line when the row left the list (Show: Visible or Hidden).
+          this.focusRow = null;
+          setTimeout(() =>
+            (
+              this.document.getElementById(`row-${focus}`) ??
+              this.document.getElementById('ratings-count')
+            )?.focus(),
+          );
+        }
       },
       error: (error: unknown) => {
         this.error.set(toApiError(error));
@@ -380,9 +406,9 @@ export class AdminRatingsPageComponent {
         : 'Someone already changed this reference.',
     );
     this.busy.set(null);
-    this.reload();
     if (done) {
-      setTimeout(() => this.document.getElementById(`row-${row.id}`)?.focus());
+      this.focusRow = row.id;
     }
+    this.reload();
   }
 }

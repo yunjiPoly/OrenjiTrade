@@ -1,3 +1,4 @@
+import { DOCUMENT } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -33,6 +34,7 @@ import {
   reportCountLine,
   reportListParams,
   reportTabOf,
+  scopedQuery,
 } from './report-filters';
 import { ReportsSync } from './reports-sync.service';
 
@@ -72,6 +74,7 @@ export class AdminReportsPageComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly session = inject(SessionService);
   private readonly sync = inject(ReportsSync);
+  private readonly document = inject(DOCUMENT);
   protected readonly counts = inject(AdminCounts);
   protected readonly layout = inject(ShellLayout);
 
@@ -96,7 +99,12 @@ export class AdminReportsPageComponent {
   /** The report the panel shows (its route's id), `null` without one. */
   protected readonly openId = signal<string | null>(null);
 
-  protected readonly tab = computed<ReportTab>(() => reportTabOf(this.status()));
+  protected readonly tab = computed<ReportTab>(() =>
+    reportTabOf(
+      this.status(),
+      scopedQuery({ mine: this.mine(), reportedUserId: this.reportedUserId() }),
+    ),
+  );
   protected readonly params = computed(() =>
     reportListParams(
       {
@@ -139,6 +147,8 @@ export class AdminReportsPageComponent {
   protected readonly onePane = computed(() => this.layout.narrow() || this.layout.medium());
 
   private subscription: Subscription | null = null;
+  /** After Clear filters or the "Only @handle" chip, the focus goes to the count line. */
+  private focusAfterLoad = false;
 
   constructor() {
     effect(() => {
@@ -168,7 +178,9 @@ export class AdminReportsPageComponent {
   }
 
   protected setTab(tab: ReportTab): void {
-    this.navigate({ status: tab === 'OPEN' ? null : tab });
+    // Open is the URL's default, except for a scoped list ("mine", one collector): All is.
+    const scoped = scopedQuery({ mine: this.mine(), reportedUserId: this.reportedUserId() });
+    this.navigate({ status: tab === (scoped ? 'ALL' : 'OPEN') ? null : tab });
   }
 
   protected setReason(event: Event): void {
@@ -177,17 +189,27 @@ export class AdminReportsPageComponent {
   }
 
   protected toggleMine(): void {
-    this.navigate({ mine: this.mine() === '1' ? null : '1' });
+    // The tab on screen stays the tab of the URL (its default changes with the scope).
+    this.navigate({ mine: this.mine() === '1' ? null : '1', status: this.explicitStatus() });
   }
 
   protected clearSubject(): void {
-    this.navigate({ reportedUserId: null });
+    this.focusAfterLoad = true;
+    this.navigate({ reportedUserId: null, status: this.explicitStatus() });
   }
 
   protected clear(): void {
+    this.focusAfterLoad = true;
+    const status = this.tab();
     void this.router.navigate(['/admin/reports'], {
-      queryParams: { status: this.status() ?? null },
+      queryParams: { status: status === 'OPEN' ? null : status },
     });
+  }
+
+  /** The tab on screen written into the URL (Open as the default), so a scope change keeps it. */
+  private explicitStatus(): string | null {
+    const tab = this.tab();
+    return tab === 'OPEN' ? null : tab;
   }
 
   protected goPage(delta: number): void {
@@ -213,7 +235,16 @@ export class AdminReportsPageComponent {
    * the same panel when only the id changes (another row of the list).
    */
   private readOpenId(): void {
-    this.openId.set(this.route.snapshot?.firstChild?.paramMap.get('id') ?? null);
+    const previous = this.openId();
+    const next = this.route.snapshot?.firstChild?.paramMap.get('id') ?? null;
+    this.openId.set(next);
+    if (previous && !next && this.onePane()) {
+      // "All reports" in one pane (review fix 1): the focus goes back to the row that was open.
+      setTimeout(() => {
+        const row = this.document.querySelector<HTMLElement>(`[data-report="${previous}"]`);
+        (row ?? this.document.getElementById('reports-count'))?.focus();
+      });
+    }
   }
 
   protected assigneeLabel(report: ReportSummary): string {
@@ -221,13 +252,6 @@ export class AdminReportsPageComponent {
       return 'Unassigned';
     }
     return report.assignee.id === this.session.me()?.id ? 'You' : `@${report.assignee.handle}`;
-  }
-
-  /** The row's accessible name: who, why, which number, its state. */
-  protected rowLabel(report: ReportSummary): string {
-    const open =
-      report.openReportsAgainstUser > 1 ? `, ${report.openReportsAgainstUser} open reports` : '';
-    return `Report ${reportNumberLabel(report.number)} about @${report.reportedUser.handle}${open}, ${reportReasonLabel(report.reason)}, ${this.assigneeLabel(report)}`;
   }
 
   private navigate(changes: Record<string, string | null>): void {
@@ -247,6 +271,10 @@ export class AdminReportsPageComponent {
         next: (result) => {
           this.result.set(result);
           this.loading.set(false);
+          if (this.focusAfterLoad) {
+            this.focusAfterLoad = false;
+            setTimeout(() => this.document.getElementById('reports-count')?.focus());
+          }
         },
         error: (error: unknown) => {
           this.error.set(toApiError(error));

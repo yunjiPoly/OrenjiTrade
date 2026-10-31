@@ -39,6 +39,26 @@
 .rrow__subject:hover {
   text-decoration: underline;
 }
+strong.rrow__subject {
+  color: var(--color-ink);
+}
+.rrow__only {
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+.rrow__only:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.rrow__account {
+  font-size: var(--font-size-xs);
+}
 .rrow__line {
   display: flex;
   align-items: center;
@@ -70,7 +90,7 @@
   color: var(--color-ink);
 }
 .rrow__hide {
-  color: var(--color-danger);
+  color: var(--app-danger-text);
 }
 .rt__pages {
   display: flex;

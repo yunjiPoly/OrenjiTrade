@@ -1,4 +1,10 @@
-import { pageRangeLine, reportCountLine, reportListParams, reportTabOf } from './report-filters';
+import {
+  pageRangeLine,
+  reportCountLine,
+  reportListParams,
+  reportTabOf,
+  scopedQuery,
+} from './report-filters';
 
 const ME = '00000000-0000-4000-8000-000000000001';
 const THEM = '3f2a4b5c-0000-4000-8000-000000000002';
@@ -10,6 +16,23 @@ describe('Reports filters (spec 15.4)', () => {
     expect(reportTabOf('ALL')).toBe('ALL');
     expect(reportListParams({ status: 'ALL' }, ME, 20).status).toBeUndefined();
     expect(reportListParams({}, ME, 20).status).toBe('OPEN');
+  });
+
+  it('shows every status by default for "Assigned to me" and one collector (review fix 1)', () => {
+    // Assigning moves a report to Under review: Open plus "mine" could list nothing (the
+    // moderator Overview's "Assigned to you" link), and a user page's "Reports about them" read
+    // every state before WH1.
+    expect(reportListParams({ mine: '1' }, ME, 20).status).toBeUndefined();
+    expect(reportListParams({ mine: '1' }, ME, 20).assignedTo).toBe(ME);
+    expect(reportListParams({ reportedUserId: THEM }, ME, 20).status).toBeUndefined();
+    expect(reportTabOf(undefined, scopedQuery({ mine: '1' }))).toBe('ALL');
+    expect(reportTabOf(undefined, scopedQuery({ reportedUserId: THEM }))).toBe('ALL');
+    expect(reportTabOf(undefined, scopedQuery({ reportedUserId: 'not-an-id' }))).toBe('OPEN');
+    // A tab chosen in the URL still wins.
+    expect(reportListParams({ mine: '1', status: 'OPEN' }, ME, 20).status).toBe('OPEN');
+    expect(reportListParams({ mine: '1', status: 'UNDER_REVIEW' }, ME, 20).status).toBe(
+      'UNDER_REVIEW',
+    );
   });
 
   it('keeps the URL filters it knows: reason, mine, one collector, page', () => {

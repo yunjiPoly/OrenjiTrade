@@ -92,10 +92,11 @@
         [title]="current() === 'ratings' ? 'Ratings could not load' : 'References could not load'"
         [message]="message(error)"
         [requestId]="error.requestId"
+        retryLabel="Try again"
         (retry)="reload()"
       />
     } @else if (rows(); as list) {
-      <p class="cp-count" aria-live="polite">
+      <p class="cp-count" id="ratings-count" tabindex="-1" aria-live="polite">
         {{ countLine() }}
         @if (loading()) {
           · updating…
@@ -121,9 +122,31 @@
                   <span class="cp-muted">{{
                     row.kind === 'rating' ? 'rated' : 'wrote about'
                   }}</span>
-                  <a class="rrow__subject" [routerLink]="['/collectors', row.subject.handle]"
-                    >&#64;{{ row.subject.handle }}</a
-                  >
+                  @if (params().rateeId === row.subjectId) {
+                    <strong class="rrow__subject">&#64;{{ row.subject.handle }}</strong>
+                  } @else {
+                    <button
+                      type="button"
+                      class="rrow__subject rrow__only"
+                      [attr.aria-label]="
+                        'Only the ' +
+                        (row.kind === 'rating' ? 'ratings' : 'references') +
+                        ' about @' +
+                        row.subject.handle
+                      "
+                      (click)="onlyAbout(row)"
+                    >
+                      &#64;{{ row.subject.handle }}
+                    </button>
+                  }
+                  @if (session.isAdmin()) {
+                    <a
+                      class="cp-link rrow__account"
+                      [routerLink]="['/admin/users', row.subjectId]"
+                      [attr.aria-label]="'Account of @' + row.subject.handle"
+                      >Account</a
+                    >
+                  }
                   @if (row.overall !== null) {
                     <app-star-rating [value]="row.overall" size="sm" />
                   }

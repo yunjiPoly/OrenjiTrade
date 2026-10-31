@@ -185,12 +185,12 @@ a.qrow__text:focus-visible {
   gap: 6px;
   margin: 0;
   padding: 4px 20px 8px;
-  color: var(--color-success);
+  color: var(--app-success-text);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
 }
 .sys__status--down {
-  color: var(--color-danger);
+  color: var(--app-danger-text);
 }
 .sys__dot {
   width: 8px;

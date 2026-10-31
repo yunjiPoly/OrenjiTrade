@@ -132,8 +132,9 @@ test.describe('collector reporting', () => {
       await nav.getByRole('link', { name: 'Reports' }).click();
       // Reports is one split view (web stage WH1, board A2): the list, then the open report.
       await expect(staff.getByRole('heading', { level: 1, name: 'Reports' })).toBeVisible();
+      // A row is named by what it shows (review fix 1): the handle first, the number after.
       await staff
-        .getByRole('link', { name: new RegExp(`^Report #\\d+ about @${reported.handle},`) })
+        .getByRole('link', { name: new RegExp(`^@${reported.handle}\\b.*Report #\\d+`) })
         .click();
 
       await expect(
@@ -175,6 +176,13 @@ test.describe('collector reporting', () => {
       await expect(resolve.getByText('Choose the action to take.')).toBeVisible();
       await expect(resolve.getByText('A note is required.')).toBeVisible();
       await resolve.getByRole('radio', { name: /^Send a warning/ }).check();
+      // The arrows stay inside the Action group (review fix 1): past the locked Suspend and Ban
+      // they wrap, and never reach "Dismiss".
+      await resolve.getByRole('radio', { name: /^Send a warning/ }).press('ArrowDown');
+      await expect(resolve.getByRole('radio', { name: /^Pause their listings/ })).toBeChecked();
+      await resolve.getByRole('radio', { name: /^Pause their listings/ }).press('ArrowDown');
+      await expect(resolve.getByRole('radio', { name: /^Send a warning/ })).toBeChecked();
+      await expect(resolve.getByRole('radio', { name: 'Take action' })).toBeChecked();
       await resolve
         .getByRole('textbox', { name: /^Resolution note/ })
         .fill('Repeated spam; warned.');

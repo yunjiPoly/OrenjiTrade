@@ -69,7 +69,7 @@ test.describe('admin console (WH1)', () => {
       const page = await openSignedIn(browser, moderator);
       await page.goto('/admin');
       await expect(page.getByRole('heading', { level: 1, name: 'Overview' })).toBeVisible();
-      await expect(page.getByTestId('admin-role')).toHaveText('Moderator');
+      await expect(page.getByTestId('admin-role')).toHaveText('Role: Moderator');
       const nav = page.getByRole('navigation', { name: 'Admin sections' });
       await expect(nav.getByRole('link')).toHaveText([
         'Overview',
@@ -78,6 +78,11 @@ test.describe('admin console (WH1)', () => {
         'Community',
         'Ratings',
       ]);
+      // The Overview is the current page on /admin (review fix 1).
+      await expect(nav.getByRole('link', { name: 'Overview' })).toHaveAttribute(
+        'aria-current',
+        'page',
+      );
       await expect(page.getByRole('heading', { name: 'What moderators decide' })).toBeVisible();
       await expect(page.getByRole('heading', { name: 'Unassigned' })).toBeVisible();
       await expect(nav.getByText('Every staff action is recorded in the audit log.')).toBeVisible();
@@ -123,7 +128,7 @@ test.describe('admin console (WH1)', () => {
       const paymentsOn = ((await flags.json()) as Record<string, boolean>)['protectedPayments'];
       const adminPage = await openSignedIn(browser, admin);
       await adminPage.goto('/admin');
-      await expect(adminPage.getByTestId('admin-role')).toHaveText('Admin');
+      await expect(adminPage.getByTestId('admin-role')).toHaveText('Role: Admin');
       const adminNav = adminPage.getByRole('navigation', { name: 'Admin sections' });
       for (const group of ['Moderation', 'Collectors', 'Catalog', 'Rules', 'System']) {
         await expect(adminNav.getByText(group, { exact: true })).toBeVisible();
@@ -133,6 +138,22 @@ test.describe('admin console (WH1)', () => {
         paymentsOn ? 1 : 0,
       );
       await expect(adminPage.locator('[data-tile="disputes"]')).toHaveCount(paymentsOn ? 1 : 0);
+      await expect(adminNav.getByRole('link', { name: 'Overview' })).toHaveAttribute(
+        'aria-current',
+        'page',
+      );
+      // Typed into the address bar, a payments page opens only while the flag is on (review
+      // fix 1): off, it says so and the Overview opens.
+      await adminPage.goto('/admin/disputes');
+      if (paymentsOn) {
+        await expect(adminPage.getByRole('heading', { level: 1, name: 'Disputes' })).toBeVisible();
+      } else {
+        await expect(adminPage).toHaveURL(/\/admin$/, { timeout: 20_000 });
+        await expect(
+          adminPage.getByText('Protected payments is not available right now.'),
+        ).toBeVisible();
+      }
+      await adminPage.goto('/admin');
       await expect(adminPage.getByRole('heading', { name: 'Report queue' })).toBeVisible();
       await expect(adminPage.getByRole('heading', { name: 'Recent staff actions' })).toBeVisible();
       // Back to OrenjiTrade leaves the console.
@@ -220,6 +241,16 @@ test.describe('admin console (WH1)', () => {
         data: { reportedUserId: reported.id, reason: 'OTHER', details: 'E2E: raw values (WH1).' },
       });
       const reportId = ((await filed.json()) as { id: string }).id;
+      // A flagged community post (the banned-term FLAG rule): its room line must read as words.
+      const posted = await request.post(
+        `${API_URL}/api/v1/community/channels/europe-pokemon/posts`,
+        {
+          headers: authHeader(reporter.idToken),
+          data: { body: `Great fnordpromo bundle here (WH1 raw values)` },
+        },
+      );
+      expect(posted.status(), 'POST community post').toBe(201);
+      const postId = ((await posted.json()) as { id: string }).id;
       const page = await openSignedIn(browser, admin);
       for (const path of [
         '/admin',
@@ -237,8 +268,16 @@ test.describe('admin console (WH1)', () => {
         const text = await visibleText(page);
         expect(text, `${path}: a UUID on screen`).not.toMatch(UUID);
         expect(text, `${path}: a region code on screen`).not.toMatch(REGION_CODE);
+        if (path === '/admin/moderation?state=ALL') {
+          await expect(
+            page.locator('li[data-flag]').filter({ hasText: 'WH1 raw values' }),
+          ).toContainText('Europe · Pokémon');
+        }
       }
       await page.context().close();
+      await request.delete(`${API_URL}/api/v1/community/posts/${postId}`, {
+        headers: authHeader(reporter.idToken),
+      });
     } finally {
       await admin.demote();
     }

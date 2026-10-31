@@ -65,3 +65,19 @@ export function peopleOf(
   }
   return people;
 }
+
+/**
+ * What a rating followed, as board A6 words it (review fix 1): a sale or a qualified conversation
+ * is a deal in the chat; trades and offers are history since ADR 0018 ("(old)"). The console's
+ * own words: the profile keeps the shared labels.
+ */
+const FOLLOWED: Readonly<Record<string, string>> = {
+  SALE: 'Deal in the chat',
+  CONVERSATION_QUALIFIED: 'Deal in the chat',
+  TRADE: 'Completed trade (old)',
+  OFFER_ACCEPTED: 'Accepted offer (old)',
+};
+
+export function ratingFollowedLabel(kind: string | null | undefined): string {
+  return kind ? (FOLLOWED[kind] ?? 'Deal in the chat') : '';
+}

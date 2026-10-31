@@ -1,6 +1,7 @@
 import {
   chipClass,
   contextPhrase,
+  flagRoomLine,
   gameName,
   initialsOf,
   messageKindLabel,
@@ -42,5 +43,44 @@ describe('console labels', () => {
     );
     expect(sharedDetailLine('ETRANSFER_EMAIL')).toBe('e-Transfer email shared · hidden from staff');
     expect(sharedDetailLine(null)).toBeNull();
+  });
+});
+
+describe("a flag's room line (review fix 1)", () => {
+  const content = (extra: Record<string, unknown>) =>
+    ({
+      community: {
+        postId: 'p',
+        roomSlug: 'americas-north-yugioh',
+        roomName: 'Yu-Gi-Oh!',
+        regionCode: 'americas-north',
+        game: 'yugioh',
+        text: 'x',
+        removed: false,
+        ...extra,
+      },
+    }) as Parameters<typeof flagRoomLine>[0];
+
+  it('names a room by its region and game, never a code', () => {
+    expect(flagRoomLine(content({}))).toBe('Americas (North) · Yu-Gi-Oh!');
+    expect(flagRoomLine(content({ game: 'onepiece', roomName: 'One Piece' }))).toBe(
+      'Americas (North) · One Piece',
+    );
+    expect(flagRoomLine(content({}))).not.toMatch(/americas-north|yugioh/);
+  });
+
+  it('reads an archived channel (one named after a city sends no slug or name) by its game', () => {
+    expect(flagRoomLine(content({ roomSlug: null, roomName: null, regionCode: null }))).toBe(
+      'An archived channel · Yu-Gi-Oh!',
+    );
+    expect(
+      flagRoomLine(
+        content({ roomSlug: 'general', roomName: 'General', regionCode: null, game: null }),
+      ),
+    ).toBe('An archived channel');
+  });
+
+  it('has no line for a private message or an account', () => {
+    expect(flagRoomLine({ community: undefined })).toBeNull();
   });
 });

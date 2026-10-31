@@ -169,7 +169,7 @@
   color: var(--color-ink);
 }
 .msg__role {
-  color: var(--color-danger);
+  color: var(--app-danger-text);
 }
 .msg__bubble {
   display: flex;
@@ -277,10 +277,10 @@
   font-size: var(--font-size-xs);
 }
 .stats--hot strong {
-  color: var(--color-warning);
+  color: var(--app-warning-text);
 }
 .stats--live strong {
-  color: var(--color-success);
+  color: var(--app-success-text);
 }
 .side__links {
   display: flex;

@@ -14,22 +14,23 @@
   font-weight: var(--font-weight-semibold);
   white-space: nowrap;
 }
+// Text in the AA tones of styles.scss (review fix 1, A3); the tints stay the tokens'.
 .cp-chip--warning {
   background: color-mix(in srgb, var(--color-warning) 16%, transparent);
-  color: var(--color-warning);
+  color: var(--app-warning-text);
 }
 .cp-chip--info,
 .cp-chip--accent {
   background: var(--color-accent-tint);
-  color: var(--color-accent);
+  color: var(--app-accent-text);
 }
 .cp-chip--danger {
   background: color-mix(in srgb, var(--color-danger) 16%, transparent);
-  color: var(--color-danger);
+  color: var(--app-danger-text);
 }
 .cp-chip--success {
   background: color-mix(in srgb, var(--color-success) 16%, transparent);
-  color: var(--color-success);
+  color: var(--app-success-text);
 }
 
 // Buttons.
@@ -101,7 +102,7 @@
   height: 36px;
   border-radius: 50%;
   background: var(--color-primary-tint);
-  color: var(--color-primary);
+  color: light-dark(var(--color-on-primary-container), var(--color-primary));
   font-size: 12px;
   font-weight: var(--font-weight-bold);
 }

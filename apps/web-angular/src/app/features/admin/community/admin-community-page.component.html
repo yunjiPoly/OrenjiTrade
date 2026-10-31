@@ -32,6 +32,7 @@
       title="The rooms could not load"
       [message]="message(error)"
       [requestId]="error.requestId"
+      retryLabel="Try again"
       (retry)="load()"
     />
   } @else if (channels()) {
@@ -71,9 +72,10 @@
                     [attr.data-room]="room.slug"
                     (click)="openCell(cell, $event)"
                   >
+                    <span class="cell__game">{{ gameLabel(cell.game) }}</span>
                     <span class="cell__posts"
                       ><strong>{{ room.postCount24h }}</strong>
-                      {{ room.postCount24h === 1 ? 'post' : 'posts' }} in 24 h</span
+                      {{ room.postCount24h === 1 ? 'post' : 'posts' }} in 24&nbsp;h</span
                     >
                     <span class="cell__rate">{{ rate(room.postRateLimitPerHour) }}</span>
                     <span class="cell__state" [class.cell__state--off]="room.status !== 'ACTIVE'">
@@ -82,7 +84,9 @@
                     </span>
                   </button>
                 } @else {
-                  <span class="cell cell--none">No room yet</span>
+                  <span class="cell cell--none"
+                    ><span class="cell__game">{{ gameLabel(cell.game) }}</span> No room yet</span
+                  >
                 }
               </span>
             }
@@ -114,10 +118,10 @@
               <button
                 type="button"
                 class="other"
-                [attr.data-channel]="channel.slug"
+                [attr.data-channel]="channel.cityChannel ? null : channel.slug"
                 (click)="openOther(channel, $event)"
               >
-                <span class="other__name">{{ channel.name }}</span>
+                <span class="other__name">{{ otherName(channel) }}</span>
                 <span class="cp-chip" [class.cp-chip--success]="channel.status === 'ACTIVE'">{{
                   stateLabel(channel)
                 }}</span>
@@ -137,7 +141,7 @@
 
 @if (open(); as room) {
   <div class="scrim" (click)="closeDrawer()" aria-hidden="true"></div>
-  <aside
+  <div
     class="drawer"
     role="dialog"
     aria-modal="true"
@@ -167,169 +171,186 @@
       </button>
     </header>
 
-    <form class="drawer__body" (submit)="$event.preventDefault(); save()" novalidate>
-      <p class="drawer__state">
-        <span
-          class="cp-chip"
-          [class.cp-chip--success]="room.channel.status === 'ACTIVE'"
-          data-testid="room-state"
-          >{{ stateLabel(room.channel) }}</span
-        >
-        <app-admin-icon name="lock" [size]="14" />
-        <span class="cp-mono" data-raw="slug">{{ room.channel.slug }}</span>
-        <span class="cp-muted">· fixed address</span>
-      </p>
-
-      @let d = draft();
-      @let e = shownErrors();
-      <div class="field">
-        <div class="field__row">
-          <label class="field__label" for="room-name">Room name</label>
-          <span class="field__count" aria-hidden="true">{{ d.name.length }} / {{ nameMax }}</span>
-        </div>
-        <input
-          id="room-name"
-          class="cp-input"
-          [value]="d.name"
-          [attr.maxlength]="nameMax"
-          [attr.aria-invalid]="e.name ? 'true' : null"
-          [attr.aria-describedby]="e.name ? 'room-name-error' : null"
-          (input)="edit('name', $event)"
-        />
-        @if (e.name) {
-          <p class="field__error" id="room-name-error">{{ e.name }}</p>
-        }
-      </div>
-      <div class="field">
-        <div class="field__row">
-          <label class="field__label" for="room-description">Description</label>
-          <span class="field__count" aria-hidden="true"
-            >{{ d.description.length }} / {{ descriptionMax }}</span
-          >
-        </div>
-        <textarea
-          id="room-description"
-          class="cp-input"
-          rows="3"
-          [value]="d.description"
-          [attr.maxlength]="descriptionMax"
-          [attr.aria-invalid]="e.description ? 'true' : null"
-          [attr.aria-describedby]="
-            e.description ? 'room-description-error room-description-hint' : 'room-description-hint'
-          "
-          (input)="edit('description', $event)"
-        ></textarea>
-        <p class="field__hint" id="room-description-hint">
-          Shown under the room’s name on the phone and the web.
+    @if (room.channel.cityChannel) {
+      <div class="drawer__body">
+        <p class="drawer__state">
+          <span class="cp-chip" data-testid="room-state">{{ stateLabel(room.channel) }}</span>
         </p>
-        @if (e.description) {
-          <p class="field__error" id="room-description-error">{{ e.description }}</p>
-        }
+        <p class="drawer__box drawer__box--plain" data-testid="city-channel-note">
+          A channel from before the rooms, named after a city. It stays archived: members do not see
+          it or its posts, and its name is not shown here. Nothing is deleted.
+        </p>
       </div>
-      <div class="field__pair">
-        <div class="field">
-          <label class="field__label" for="room-postRateLimitPerHour"
-            >Posts per member per hour</label
+      <footer class="drawer__foot">
+        <button type="button" class="cb cb--outline" (click)="closeDrawer()">Close</button>
+      </footer>
+    } @else {
+      <form class="drawer__body" (submit)="$event.preventDefault(); save()" novalidate>
+        <p class="drawer__state">
+          <span
+            class="cp-chip"
+            [class.cp-chip--success]="room.channel.status === 'ACTIVE'"
+            data-testid="room-state"
+            >{{ stateLabel(room.channel) }}</span
           >
-          <input
-            id="room-postRateLimitPerHour"
-            class="cp-input"
-            type="number"
-            inputmode="numeric"
-            min="1"
-            max="1000"
-            [value]="d.postRateLimitPerHour"
-            [attr.aria-invalid]="e.postRateLimitPerHour ? 'true' : null"
-            [attr.aria-describedby]="
-              e.postRateLimitPerHour ? 'room-rate-error room-rate-hint' : 'room-rate-hint'
-            "
-            (input)="edit('postRateLimitPerHour', $event)"
-          />
-          <p class="field__hint" id="room-rate-hint">1 to 1,000. The default is 10.</p>
-          @if (e.postRateLimitPerHour) {
-            <p class="field__error" id="room-rate-error">{{ e.postRateLimitPerHour }}</p>
-          }
-        </div>
-        <div class="field">
-          <label class="field__label" for="room-sortOrder">Position in lists</label>
-          <input
-            id="room-sortOrder"
-            class="cp-input"
-            type="number"
-            inputmode="numeric"
-            min="0"
-            max="100000"
-            [value]="d.sortOrder"
-            [attr.aria-invalid]="e.sortOrder ? 'true' : null"
-            [attr.aria-describedby]="
-              e.sortOrder ? 'room-order-error room-order-hint' : 'room-order-hint'
-            "
-            (input)="edit('sortOrder', $event)"
-          />
-          <p class="field__hint" id="room-order-hint">0 to 100,000. Lower comes first.</p>
-          @if (e.sortOrder) {
-            <p class="field__error" id="room-order-error">{{ e.sortOrder }}</p>
-          }
-        </div>
-      </div>
+          <app-admin-icon name="lock" [size]="14" />
+          <span class="cp-mono" data-raw="slug">{{ room.channel.slug }}</span>
+          <span class="cp-muted">· fixed address</span>
+        </p>
 
-      @if (room.region && room.channel.status === 'ACTIVE') {
-        <div class="drawer__box">
-          <a
-            class="cp-link"
-            [routerLink]="['/messages/community', room.channel.slug]"
-            target="_blank"
-            rel="noopener"
-            aria-label="Open the room, opens in a new tab"
-          >
-            Open the room <app-admin-icon name="external" [size]="14" />
-          </a>
-          <p>
-            To remove a post, open the room and use the post’s menu. Removing is recorded in the
-            audit log.
+        @let d = draft();
+        @let e = shownErrors();
+        <div class="field">
+          <div class="field__row">
+            <label class="field__label" for="room-name">Room name</label>
+            <span class="field__count" aria-hidden="true">{{ d.name.length }} / {{ nameMax }}</span>
+          </div>
+          <input
+            id="room-name"
+            class="cp-input"
+            [value]="d.name"
+            [attr.maxlength]="nameMax"
+            [attr.aria-invalid]="e.name ? 'true' : null"
+            [attr.aria-describedby]="e.name ? 'room-name-error' : null"
+            (input)="edit('name', $event)"
+          />
+          @if (e.name) {
+            <p class="field__error" id="room-name-error">{{ e.name }}</p>
+          }
+        </div>
+        <div class="field">
+          <div class="field__row">
+            <label class="field__label" for="room-description">Description</label>
+            <span class="field__count" aria-hidden="true"
+              >{{ d.description.length }} / {{ descriptionMax }}</span
+            >
+          </div>
+          <textarea
+            id="room-description"
+            class="cp-input"
+            rows="3"
+            [value]="d.description"
+            [attr.maxlength]="descriptionMax"
+            [attr.aria-invalid]="e.description ? 'true' : null"
+            [attr.aria-describedby]="
+              e.description
+                ? 'room-description-error room-description-hint'
+                : 'room-description-hint'
+            "
+            (input)="edit('description', $event)"
+          ></textarea>
+          <p class="field__hint" id="room-description-hint">
+            Shown under the room’s name on the phone and the web.
           </p>
+          @if (e.description) {
+            <p class="field__error" id="room-description-error">{{ e.description }}</p>
+          }
         </div>
-      }
+        <div class="field__pair">
+          <div class="field">
+            <label class="field__label" for="room-postRateLimitPerHour"
+              >Posts per member per hour</label
+            >
+            <input
+              id="room-postRateLimitPerHour"
+              class="cp-input"
+              type="number"
+              inputmode="numeric"
+              min="1"
+              max="1000"
+              [value]="d.postRateLimitPerHour"
+              [attr.aria-invalid]="e.postRateLimitPerHour ? 'true' : null"
+              [attr.aria-describedby]="
+                e.postRateLimitPerHour ? 'room-rate-error room-rate-hint' : 'room-rate-hint'
+              "
+              (input)="edit('postRateLimitPerHour', $event)"
+            />
+            <p class="field__hint" id="room-rate-hint">1 to 1,000. The default is 10.</p>
+            @if (e.postRateLimitPerHour) {
+              <p class="field__error" id="room-rate-error">{{ e.postRateLimitPerHour }}</p>
+            }
+          </div>
+          <div class="field">
+            <label class="field__label" for="room-sortOrder">Position in lists</label>
+            <input
+              id="room-sortOrder"
+              class="cp-input"
+              type="number"
+              inputmode="numeric"
+              min="0"
+              max="100000"
+              [value]="d.sortOrder"
+              [attr.aria-invalid]="e.sortOrder ? 'true' : null"
+              [attr.aria-describedby]="
+                e.sortOrder ? 'room-order-error room-order-hint' : 'room-order-hint'
+              "
+              (input)="edit('sortOrder', $event)"
+            />
+            <p class="field__hint" id="room-order-hint">0 to 100,000. Lower comes first.</p>
+            @if (e.sortOrder) {
+              <p class="field__error" id="room-order-error">{{ e.sortOrder }}</p>
+            }
+          </div>
+        </div>
 
-      <div class="drawer__archive">
-        @if (room.channel.status === 'ACTIVE') {
-          <p>Archiving hides the room and its posts from members. Nothing is deleted.</p>
-          <button
-            type="button"
-            id="room-archive-toggle"
-            class="cb cb--danger-outline"
-            [attr.aria-disabled]="busy() ? 'true' : null"
-            (click)="toggleArchived()"
-          >
-            <app-admin-icon name="archive" [size]="18" />
-            Archive room
-          </button>
-        } @else {
-          <p>Archived: members do not see it or its posts. Restoring shows them again.</p>
-          <button
-            type="button"
-            id="room-archive-toggle"
-            class="cb cb--outline"
-            [attr.aria-disabled]="busy() ? 'true' : null"
-            (click)="toggleArchived()"
-          >
-            <app-admin-icon name="restore" [size]="18" />
-            Restore room
-          </button>
+        @if (room.region && room.channel.status === 'ACTIVE') {
+          <div class="drawer__box">
+            <a
+              class="cp-link"
+              [routerLink]="['/messages/community', room.channel.slug]"
+              target="_blank"
+              rel="noopener"
+              aria-label="Open the room, opens in a new tab"
+            >
+              Open the room <app-admin-icon name="external" [size]="14" />
+            </a>
+            <p>
+              To remove a post, open the room and use the post’s menu. Removing is recorded in the
+              audit log.
+            </p>
+          </div>
         }
-      </div>
-    </form>
 
-    <footer class="drawer__foot">
-      <button type="button" class="cb cb--outline" (click)="closeDrawer()">Cancel</button>
-      <button
-        type="button"
-        class="cb cb--primary"
-        [attr.aria-disabled]="busy() ? 'true' : null"
-        (click)="save()"
-      >
-        Save room
-      </button>
-    </footer>
-  </aside>
+        <div class="drawer__archive">
+          @if (room.channel.status === 'ACTIVE') {
+            <p>Archiving hides the room and its posts from members. Nothing is deleted.</p>
+            <button
+              type="button"
+              id="room-archive-toggle"
+              class="cb cb--danger-outline"
+              [attr.aria-disabled]="busy() ? 'true' : null"
+              (click)="toggleArchived()"
+            >
+              <app-admin-icon name="archive" [size]="18" />
+              Archive room
+            </button>
+          } @else {
+            <p>Archived: members do not see it or its posts. Restoring shows them again.</p>
+            <button
+              type="button"
+              id="room-archive-toggle"
+              class="cb cb--outline"
+              [attr.aria-disabled]="busy() ? 'true' : null"
+              (click)="toggleArchived()"
+            >
+              <app-admin-icon name="restore" [size]="18" />
+              Restore room
+            </button>
+          }
+        </div>
+      </form>
+
+      <footer class="drawer__foot">
+        <button type="button" class="cb cb--outline" (click)="closeDrawer()">Cancel</button>
+        <button
+          type="button"
+          class="cb cb--primary"
+          [attr.aria-disabled]="busy() ? 'true' : null"
+          (click)="save()"
+        >
+          Save room
+        </button>
+      </footer>
+    }
+  </div>
 }

@@ -1,5 +1,12 @@
 import type { AdminCommunityChannel } from '@orenji/api-client';
-import { rateLine, roomDraftErrors, roomTitle, roomsGrid, roomsSummary } from './community-rooms';
+import {
+  otherChannelName,
+  rateLine,
+  roomDraftErrors,
+  roomTitle,
+  roomsGrid,
+  roomsSummary,
+} from './community-rooms';
 
 function channel(slug: string, extra: Record<string, unknown> = {}): AdminCommunityChannel {
   const [region, game] = slug.startsWith('americas')
@@ -18,6 +25,7 @@ function channel(slug: string, extra: Record<string, unknown> = {}): AdminCommun
     sortOrder: 0,
     postCount24h: 2,
     updatedAt: '2026-10-30T00:00:00Z',
+    cityChannel: false,
     ...extra,
   } as unknown as AdminCommunityChannel;
 }
@@ -30,8 +38,9 @@ describe('community rooms (spec 15.4, A5)', () => {
       channel('europe-mtg', { postCount24h: 5 }),
       channel('montreal-yugioh', {
         kind: 'REGION',
-        regionLabel: 'Montréal',
+        regionLabel: null,
         status: 'ARCHIVED',
+        cityChannel: true,
       }),
       channel('general', { kind: 'GENERAL', game: null, regionLabel: null, status: 'ARCHIVED' }),
     ];
@@ -94,5 +103,21 @@ describe('community rooms (spec 15.4, A5)', () => {
       postRateLimitPerHour: 'Between 1 and 1,000.',
       sortOrder: 'Between 0 and 100,000.',
     });
+  });
+});
+
+describe('archived channels named after a city (review fix 1, spec 15.2)', () => {
+  it('reads by its game only, never its name', () => {
+    const city = channel('montreal-yugioh', {
+      name: 'Montréal / Yu-Gi-Oh!',
+      regionLabel: null,
+      status: 'ARCHIVED',
+      cityChannel: true,
+    });
+    expect(otherChannelName(city)).toBe('Archived channel · Yu-Gi-Oh!');
+    expect(otherChannelName({ ...city, game: null })).toBe('Archived channel');
+    expect(otherChannelName(channel('general', { name: 'General', cityChannel: false }))).toBe(
+      'General',
+    );
   });
 });

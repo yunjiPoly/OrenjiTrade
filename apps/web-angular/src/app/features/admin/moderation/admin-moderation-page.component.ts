@@ -72,7 +72,7 @@ export function moderationTabOf(value: string | undefined): Tab {
         @if (current() === 'flags') {
           <app-admin-flags [stateParam]="state()" [subjectParam]="subject()" [rules]="rules()" />
         } @else {
-          <app-moderation-rules (rulesChange)="rules.set($event)" />
+          <app-moderation-rules [focusRule]="rule()" (rulesChange)="rules.set($event)" />
         }
       </div>
     </div>
@@ -90,6 +90,8 @@ export class AdminModerationPageComponent {
   readonly tab = input<string | undefined>();
   readonly state = input<string | undefined>();
   readonly subject = input<string | undefined>();
+  /** `?rule=`: the rule a flag's "Rule …" link points out in Rules (review fix 1). */
+  readonly rule = input<string | undefined>();
 
   protected readonly tabs = TABS;
   protected readonly current = computed(() => moderationTabOf(this.tab()));

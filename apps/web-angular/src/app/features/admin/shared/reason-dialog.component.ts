@@ -90,7 +90,8 @@ export interface ReasonDialogResult {
       margin-bottom: var(--spacing-2);
     }
     .reason__danger {
-      --mat-button-filled-container-color: var(--color-danger);
+      /* The fill red (white on it is 4.8:1 in both themes; review fix 1, A10). */
+      --mat-button-filled-container-color: var(--color-danger-fill);
       --mat-button-filled-label-text-color: #fff;
     }
   `,

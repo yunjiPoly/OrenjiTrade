@@ -1,3 +1,4 @@
+import { DOCUMENT } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -25,7 +26,7 @@ import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.componen
 import { AdminCounts } from '../console/admin-counts.service';
 import { AdminIconComponent } from '../console/admin-icon.component';
 import { RECORDED } from '../console/console-actions';
-import { gameName, regionName } from '../console/console-labels';
+import { flagRoomLine } from '../console/console-labels';
 import { pageRangeLine } from '../reports/report-filters';
 import { describeRate, ruleActionLabel, ruleKindLabel } from '../moderation/moderation-rule-labels';
 import {
@@ -58,17 +59,6 @@ export function flagStateOf(value: string | undefined): FlagStateFilter {
 export function flagSubjectOf(value: string | undefined): SubjectFilter {
   return (FLAG_SUBJECT_FILTERS.find((filter) => filter.value === value)?.value ??
     '') as SubjectFilter;
-}
-
-/** "Americas (North) · Yu-Gi-Oh!": a flagged post's room, never its codes. */
-export function flagRoomLine(flag: Pick<ModerationFlag, 'community'>): string | null {
-  const content = flag.community;
-  if (!content) {
-    return null;
-  }
-  return [regionName(content.regionCode), gameName(content.game) ?? content.roomName]
-    .filter((part): part is string => !!part)
-    .join(' · ');
 }
 
 /**
@@ -122,10 +112,11 @@ export function flagRoomLine(flag: Pick<ModerationFlag, 'community'>): string | 
         title="Flags could not load"
         [message]="message(error)"
         [requestId]="error.requestId"
+        retryLabel="Try again"
         (retry)="load()"
       />
     } @else if (flags(); as list) {
-      <p class="cp-count" aria-live="polite">{{ countLine() }}</p>
+      <p class="cp-count" id="flags-count" tabindex="-1" aria-live="polite">{{ countLine() }}</p>
       @if (list.length === 0) {
         <app-empty-state
           icon="verified"
@@ -216,10 +207,10 @@ export function flagRoomLine(flag: Pick<ModerationFlag, 'community'>): string | 
                 }
 
                 <div class="flag__foot">
-                  @if (flag.community; as content) {
+                  @if (flag.community?.roomSlug; as roomSlug) {
                     <a
                       class="cp-link"
-                      [routerLink]="['/messages/community', content.roomSlug]"
+                      [routerLink]="['/messages/community', roomSlug]"
                       target="_blank"
                       rel="noopener"
                       [attr.aria-label]="'Open the post in its room, opens in a new tab'"
@@ -240,6 +231,7 @@ export function flagRoomLine(flag: Pick<ModerationFlag, 'community'>): string | 
                     <button
                       type="button"
                       class="cb cb--outline cb--small flag__resolve"
+                      [id]="'flag-resolve-' + flag.id"
                       [attr.aria-disabled]="busy() === flag.id ? 'true' : null"
                       [attr.aria-label]="
                         'Resolve the flag: ' +
@@ -449,6 +441,7 @@ export class AdminFlagsComponent {
   private readonly router = inject(Router);
   private readonly toasts = inject(ToastService);
   private readonly counts = inject(AdminCounts, { optional: true });
+  private readonly document = inject(DOCUMENT);
 
   /** `?state=` and `?subject=` (the page passes the URL's values). */
   readonly stateParam = input<string | undefined>();
@@ -559,6 +552,21 @@ export class AdminFlagsComponent {
     return friendlyMessage(error);
   }
 
+  /**
+   * After a flag is resolved its Resolve button is gone (review fix 1, WCAG 2.4.3): the focus goes
+   * to the next open flag's Resolve, else the one before, else the count line.
+   */
+  private focusAfterResolve(id: string, order: readonly string[]): void {
+    const at = order.indexOf(id);
+    const after = [...order.slice(at + 1), ...order.slice(0, Math.max(0, at)).reverse()];
+    setTimeout(() => {
+      const next = after
+        .map((other) => this.document.getElementById(`flag-resolve-${other}`))
+        .find((button): button is HTMLElement => !!button);
+      (next ?? this.document.getElementById('flags-count'))?.focus();
+    });
+  }
+
   protected async resolve(flag: ModerationFlag): Promise<void> {
     const subject = `${flagSubjectLabel(flag.subjectType)}${
       flag.authorHandle ? ` by @${flag.authorHandle}` : ''
@@ -575,6 +583,7 @@ export class AdminFlagsComponent {
       return;
     }
     this.busy.set(flag.id);
+    const order = (this.flags() ?? []).map((item) => item.id);
     try {
       const resolved = await firstValueFrom(
         this.api.resolveModerationFlag(
@@ -598,6 +607,7 @@ export class AdminFlagsComponent {
       this.toasts.show({ title: 'Flag resolved.', sub: RECORDED });
       this.resolved.emit();
       void this.counts?.refresh();
+      this.focusAfterResolve(flag.id, order);
     } catch (error) {
       const apiError = toApiError(error);
       this.toasts.show({

@@ -66,6 +66,18 @@ export function roomsGrid(channels: readonly AdminCommunityChannel[]): {
   return { rows, others };
 }
 
+/**
+ * An "Archived channels" row's name: its own, or for a channel of the old model named after a city
+ * (the API's `cityChannel`) "Archived channel · Yu-Gi-Oh!": no admin list shows a city (spec 15.2).
+ */
+export function otherChannelName(channel: AdminCommunityChannel): string {
+  if (!channel.cityChannel) {
+    return channel.name;
+  }
+  const game = gameName(channel.game);
+  return game ? `Archived channel · ${game}` : 'Archived channel';
+}
+
 /** "15 rooms · 15 open · 52 posts in 24 h" */
 export function roomsSummary(rows: readonly RoomRow[]): string {
   const rooms = rows.flatMap((row) => row.cells).filter((cell) => cell.room);

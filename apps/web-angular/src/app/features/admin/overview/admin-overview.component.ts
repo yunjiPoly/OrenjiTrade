@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { DOCUMENT, DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import {
@@ -31,9 +31,9 @@ import { runConsoleAction } from '../console/console-actions';
 import {
   chipClass,
   contextPhrase,
+  flagRoomLine,
   gameName,
   initialsOf,
-  regionName,
 } from '../console/console-labels';
 import { reportNumberLabel } from '../console/staff-search';
 import {
@@ -46,6 +46,25 @@ import {
 } from '../dashboard-tiles';
 import { auditActionLabel } from '../shared/admin-labels';
 import { reportStatusTone } from '../reports/report-tones';
+
+/** An unassigned report: nobody holds it and it is still Open ("Assign to me" is offered). */
+export function canTakeReport(report: Pick<ReportSummary, 'status' | 'assignee'>): boolean {
+  return report.status === 'OPEN' && !report.assignee;
+}
+
+/** How many audit entries the Overview reads to find the last five staff actions. */
+export const STAFF_AUDIT_WINDOW = 50;
+
+/**
+ * The last staff actions of an audit page (review fix 1): entries by an ADMIN actor (staff:
+ * moderators and admins act as ADMIN), never a collector's own consent or self-service rows.
+ */
+export function staffActions<T extends { actor: { type: string } }>(
+  entries: readonly T[],
+  count = 5,
+): T[] {
+  return entries.filter((entry) => entry.actor.type === 'ADMIN').slice(0, count);
+}
 
 /** One card's data with its own loading and error (each card retries alone). */
 interface Section<T> {
@@ -101,6 +120,7 @@ export class AdminOverviewComponent {
   private readonly auditApi = inject(AdminAuditService);
   private readonly toasts = inject(ToastService);
   private readonly flags = inject(FeatureFlagsService);
+  private readonly document = inject(DOCUMENT);
   protected readonly session = inject(SessionService);
   protected readonly counts = inject(AdminCounts);
 
@@ -248,23 +268,33 @@ export class AdminOverviewComponent {
   protected loadAudit(): Promise<void> {
     return this.into(this.audit, async () => {
       const page = await firstValueFrom(
-        this.auditApi.listAuditLogs({ size: 5 }, 'body', false, this.options),
+        this.auditApi.listAuditLogs({ size: STAFF_AUDIT_WINDOW }, 'body', false, this.options),
       );
-      return page.items ?? [];
+      return staffActions(page.items ?? []);
     });
   }
 
+  /** The caller's desk: their Under review (and Open) reports, asked by status (review fix 1). */
   protected loadMine(): Promise<void> {
     return this.into(this.mine, async () => {
       const me = this.myId();
       if (!me) {
         return [];
       }
-      const page = await firstValueFrom(
-        this.reportsApi.listReports({ assignedTo: me, size: 20 }, 'body', false, this.options),
+      const [review, open] = await Promise.all(
+        (['UNDER_REVIEW', 'OPEN'] as const).map((status) =>
+          firstValueFrom(
+            this.reportsApi.listReports(
+              { assignedTo: me, status, size: 20 },
+              'body',
+              false,
+              this.options,
+            ),
+          ),
+        ),
       );
-      return (page.items ?? []).filter(
-        (report) => report.status === 'OPEN' || report.status === 'UNDER_REVIEW',
+      return [...(review.items ?? []), ...(open.items ?? [])].sort((a, b) =>
+        b.createdAt.localeCompare(a.createdAt),
       );
     });
   }
@@ -294,10 +324,7 @@ export class AdminOverviewComponent {
     }
   }
 
-  /** An unassigned report: nobody holds it and it is still Open. */
-  protected canTake(report: ReportSummary): boolean {
-    return report.status === 'OPEN' && !report.assignee;
-  }
+  protected readonly canTake = canTakeReport;
 
   protected assigneeLabel(report: ReportSummary): string {
     if (!report.assignee) {
@@ -319,6 +346,15 @@ export class AdminOverviewComponent {
     this.assigning.set(null);
     if (done) {
       await this.loadAll();
+      // The button went away (review fix 1, WCAG 2.4.3): the focus goes to the report, now on
+      // the caller's desk or marked "You" in the queue.
+      setTimeout(() =>
+        (
+          this.document.querySelector<HTMLElement>(`[data-mine="${report.id}"]`) ??
+          this.document.querySelector<HTMLElement>(`[data-queue="${report.id}"]`) ??
+          this.document.getElementById(this.admin() ? 'ov-queue' : 'ov-mine')
+        )?.focus(),
+      );
     }
   }
 
@@ -329,14 +365,7 @@ export class AdminOverviewComponent {
   }
 
   /** The room of a community flag ("Americas (North) · Yu-Gi-Oh!"), never its codes. */
-  protected flagRoom(flag: ModerationFlag): string | null {
-    const content = flag.community;
-    if (!content) {
-      return null;
-    }
-    const parts = [regionName(content.regionCode), gameName(content.game) ?? content.roomName];
-    return parts.filter((part): part is string => !!part).join(' · ');
-  }
+  protected readonly flagRoom = flagRoomLine;
 
   /** The system's components as rows (database, cache), statuses only. */
   protected components(health: SystemHealth): { name: string; status: string }[] {

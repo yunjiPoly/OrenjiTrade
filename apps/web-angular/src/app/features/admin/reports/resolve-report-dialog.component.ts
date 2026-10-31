@@ -1,3 +1,4 @@
+import { DOCUMENT } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -99,6 +100,20 @@ export function resolveRequest(value: {
   };
 }
 
+/**
+ * The error of "Suspended until" (review fix 1): a typed date must come after today (the `min`
+ * attribute does not stop typing, and the API refuses a past date after the dialog closed).
+ * `null` when empty (an indefinite suspension) or valid.
+ */
+export function suspendUntilError(value: string, minDate: string): string | null {
+  if (!value) {
+    return null;
+  }
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) && value >= minDate
+    ? null
+    : 'Choose a date after today.';
+}
+
 /** The confirm button names the action (spec 15.4, board A3). */
 export function resolveConfirmLabel(
   decision: ResolveDecision | null,
@@ -149,11 +164,11 @@ export function resolveConfirmLabel(
           <legend class="rd__lead">Decision</legend>
           <div class="rd__cards rd__cards--two">
             <label class="rc" [class.rc--on]="decision() === 'ACTIONED'">
-              <input type="radio" formControlName="decision" value="ACTIONED" />
+              <input type="radio" name="decision" formControlName="decision" value="ACTIONED" />
               <span class="rc__label">Take action</span>
             </label>
             <label class="rc" [class.rc--on]="decision() === 'DISMISSED'">
-              <input type="radio" formControlName="decision" value="DISMISSED" />
+              <input type="radio" name="decision" formControlName="decision" value="DISMISSED" />
               <span class="rc__label">Dismiss: no violation found</span>
             </label>
           </div>
@@ -176,16 +191,22 @@ export function resolveConfirmLabel(
                 >
                   <input
                     type="radio"
+                    name="action"
                     formControlName="action"
                     [value]="choice.value"
                     [attr.disabled]="locked ? '' : null"
-                    [attr.aria-describedby]="'resolve-' + choice.value"
+                    [attr.aria-labelledby]="'resolve-label-' + choice.value"
+                    [attr.aria-describedby]="
+                      (choice.adminOnly ? 'resolve-tag-' + choice.value + ' ' : '') +
+                      'resolve-' +
+                      choice.value
+                    "
                   />
                   <span class="rc__text">
                     <span class="rc__label">
-                      {{ choice.label }}
+                      <span [id]="'resolve-label-' + choice.value">{{ choice.label }}</span>
                       @if (choice.adminOnly) {
-                        <span class="rc__tag">Admins</span>
+                        <span class="rc__tag" [id]="'resolve-tag-' + choice.value">Admins</span>
                       }
                     </span>
                     <span class="rc__desc" [id]="'resolve-' + choice.value">
@@ -213,11 +234,17 @@ export function resolveConfirmLabel(
                 type="date"
                 formControlName="suspendUntil"
                 [min]="minDate"
-                aria-describedby="resolve-until-hint"
+                [attr.aria-invalid]="untilError() ? 'true' : null"
+                [attr.aria-describedby]="
+                  untilError() ? 'resolve-until-error resolve-until-hint' : 'resolve-until-hint'
+                "
               />
               <p class="rd__hint" id="resolve-until-hint">
                 Leave empty for an indefinite suspension.
               </p>
+              @if (untilError(); as message) {
+                <p class="rd__error" id="resolve-until-error" role="alert">{{ message }}</p>
+              }
             </div>
           }
         }
@@ -477,6 +504,7 @@ export class ResolveReportDialogComponent {
   private readonly ref =
     inject<MatDialogRef<ResolveReportDialogComponent, ResolveReportRequest>>(MatDialogRef);
   protected readonly data = inject<ResolveReportDialogData>(MAT_DIALOG_DATA);
+  private readonly document = inject(DOCUMENT);
   protected readonly choices = ACTION_CHOICES;
   protected readonly noteMax = RESOLVE_NOTE_MAX;
   protected readonly minDate = tomorrowIso();
@@ -517,12 +545,25 @@ export class ResolveReportDialogComponent {
   protected readonly confirmLabel = computed(() =>
     resolveConfirmLabel(this.decision(), this.action()),
   );
+  private readonly untilValue = toSignal(this.form.controls.suspendUntil.valueChanges, {
+    initialValue: this.form.controls.suspendUntil.value,
+  });
+  /** Shown once a date is typed (or after a try), only for a suspension. */
+  protected readonly untilError = computed(() =>
+    this.decision() === 'ACTIONED' && this.action() === 'SUSPENDED'
+      ? suspendUntilError(this.untilValue(), this.minDate)
+      : null,
+  );
 
   protected submit(): void {
     this.attempted.set(true);
     this.form.controls.note.setValue(this.form.controls.note.value.trim());
     this.form.markAllAsTouched();
     const request = resolveRequest(this.form.getRawValue());
+    if (this.untilError()) {
+      this.document.getElementById('resolve-until')?.focus();
+      return;
+    }
     if (!request || this.form.invalid) {
       return;
     }

@@ -60,7 +60,7 @@ test.describe('acceptance: collector reporting', () => {
     await expect(staff.getByRole('heading', { level: 1, name: 'Reports' })).toBeVisible();
     await staff
       .getByRole('link', {
-        name: new RegExp(`^Report #\\d+ about @${escapeRegExp(reported.handle)},`),
+        name: new RegExp(`^@${escapeRegExp(reported.handle)}\\b.*Report #\\d+`),
       })
       .click();
     await expect(staff.getByTestId('report-status')).toHaveText('Open');

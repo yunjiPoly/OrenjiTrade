@@ -147,7 +147,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: var(--color-success);
+  color: var(--app-success-text);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
 }
@@ -203,4 +203,40 @@
 .other:focus-visible {
   outline: var(--focus-width) solid var(--color-focus-ring);
   outline-offset: -2px;
+}
+.cell__game {
+  display: none;
+  font-weight: var(--font-weight-semibold);
+}
+// md (review fix 1): the five game columns fit beside the nav at 1024 without a scroll.
+@media (max-width: 1279.98px) {
+  .grid__row {
+    grid-template-columns: 112px repeat(5, minmax(96px, 1fr));
+    gap: 8px;
+  }
+  .cell {
+    padding: 10px;
+  }
+  .cell__posts strong {
+    font-size: 18px;
+  }
+}
+// Below 960: each region's rooms wrap under its name, each cell naming its game.
+@media (max-width: 959.98px) {
+  .grid__row {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+  .grid__row > .grid__region {
+    grid-column: 1 / -1;
+  }
+  .grid__row--head {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .cell__game {
+    display: block;
+  }
 }

@@ -1,5 +1,11 @@
 import type { AdminRating, AdminReference } from '@orenji/api-client';
-import { peopleOf, ratingsParams, ratingsTabOf, showFilterOf } from './ratings-filters';
+import {
+  peopleOf,
+  ratingFollowedLabel,
+  ratingsParams,
+  ratingsTabOf,
+  showFilterOf,
+} from './ratings-filters';
 
 const A = '3f2a4b5c-0000-4000-8000-000000000001';
 const B = '3f2a4b5c-0000-4000-8000-000000000002';
@@ -37,5 +43,16 @@ describe('ratings filters (spec 15.4, A6)', () => {
       subject: { handle: 'lucas.tcg', displayName: 'Lucas' },
     } as unknown as AdminReference;
     expect(peopleOf(people, [reference], 'references').size).toBe(2);
+  });
+});
+
+describe('ratingFollowedLabel (board A6, review fix 1)', () => {
+  it('words what a rating followed as the board does, old kinds marked "(old)"', () => {
+    expect(ratingFollowedLabel('SALE')).toBe('Deal in the chat');
+    expect(ratingFollowedLabel('CONVERSATION_QUALIFIED')).toBe('Deal in the chat');
+    expect(ratingFollowedLabel('TRADE')).toBe('Completed trade (old)');
+    expect(ratingFollowedLabel('OFFER_ACCEPTED')).toBe('Accepted offer (old)');
+    expect(ratingFollowedLabel('SOMETHING_NEW')).toBe('Deal in the chat');
+    expect(ratingFollowedLabel(null)).toBe('');
   });
 });

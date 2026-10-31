@@ -196,7 +196,11 @@ type SectionId = 'reports' | 'ratings' | 'flags' | 'removed' | 'suspensions';
       font-size: var(--font-size-sm);
       font-weight: var(--font-weight-semibold);
     }
+    /* 24 px tall (WCAG 2.5.8; review fix 1): it sits right under its section's toggle. */
     .hs__link {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
       color: var(--color-accent);
       text-decoration: none;
     }

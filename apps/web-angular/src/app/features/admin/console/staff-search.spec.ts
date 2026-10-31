@@ -1,8 +1,10 @@
 import {
+  asksCards,
   orderedResults,
   parseStaffQuery,
   reportNumberLabel,
   staffQueryReady,
+  staffSearchFailed,
 } from './staff-search';
 
 describe('the staff search (spec 15.1)', () => {
@@ -29,5 +31,33 @@ describe('the staff search (spec 15.1)', () => {
     expect(results.map((result) => result.id)).toEqual(['u', 'c', 'r']);
     expect(reportNumberLabel(1047)).toBe('#1047');
     expect(reportNumberLabel(undefined)).toBe('');
+  });
+});
+
+describe('the staff search (review fix 1)', () => {
+  const result = { id: 'u', group: 'collectors' as const, title: 'Maya', line: '@maya', link: [] };
+
+  it('never sends an email or a handle to the public card search', () => {
+    expect(asksCards('collector2@orenjitrade.test')).toBe(false);
+    expect(asksCards('@maya')).toBe(false);
+    expect(asksCards('Dark Magician')).toBe(true);
+  });
+
+  it('reads a failure as an error, not as "nothing matches"', () => {
+    expect(staffSearchFailed([{ results: [], failed: true }])).toBe(true);
+    expect(
+      staffSearchFailed([
+        { results: [], failed: true },
+        { results: [], failed: false },
+      ]),
+    ).toBe(true);
+    // Partial results are shown as they are; nothing failed is "no match".
+    expect(
+      staffSearchFailed([
+        { results: [result], failed: false },
+        { results: [], failed: true },
+      ]),
+    ).toBe(false);
+    expect(staffSearchFailed([{ results: [], failed: false }])).toBe(false);
   });
 });

@@ -39,6 +39,7 @@
         title="The counts could not load"
         [message]="message(error)"
         [requestId]="error.requestId"
+        retryLabel="Try again"
         (retry)="refresh()"
       />
     } @else if (admin() ? needsTiles() : teamTiles(); as tiles) {
@@ -76,7 +77,7 @@
         <!-- Report queue -->
         <section class="cp-card" aria-labelledby="ov-queue">
           <div class="cp-card__head">
-            <h2 class="cp-card__title" id="ov-queue">Report queue</h2>
+            <h2 class="cp-card__title" id="ov-queue" tabindex="-1">Report queue</h2>
             <a class="cp-link" routerLink="/admin/reports">
               All reports <app-admin-icon name="arrowRight" [size]="16" />
             </a>
@@ -90,6 +91,7 @@
                 title="The report queue could not load"
                 [message]="message(error)"
                 [requestId]="error.requestId"
+                retryLabel="Try again"
                 (retry)="loadQueue()"
               />
             </div>
@@ -103,7 +105,11 @@
                     <span class="cp-avatar" aria-hidden="true">{{
                       initials(report.reportedUser.handle)
                     }}</span>
-                    <a class="qrow__text" [routerLink]="['/admin/reports', report.id]">
+                    <a
+                      class="qrow__text"
+                      [routerLink]="['/admin/reports', report.id]"
+                      [attr.data-queue]="report.id"
+                    >
                       <span class="qrow__title">
                         <strong>&#64;{{ report.reportedUser.handle }}</strong>
                         <span class="cp-muted"> · {{ number(report.number) }}</span>
@@ -157,6 +163,7 @@
                 title="The flags could not load"
                 [message]="message(error)"
                 [requestId]="error.requestId"
+                retryLabel="Try again"
                 (retry)="loadFlags()"
               />
             </div>
@@ -209,6 +216,7 @@
                 title="System health could not load"
                 [message]="message(error)"
                 [requestId]="error.requestId"
+                retryLabel="Try again"
                 (retry)="loadHealth()"
               />
             </div>
@@ -260,6 +268,7 @@
                 title="The card image cache could not load"
                 [message]="message(error)"
                 [requestId]="error.requestId"
+                retryLabel="Try again"
                 (retry)="loadCache()"
               />
             } @else if (c.data; as data) {
@@ -307,6 +316,7 @@
                 title="The audit log could not load"
                 [message]="message(error)"
                 [requestId]="error.requestId"
+                retryLabel="Try again"
                 (retry)="loadAudit()"
               />
             </div>
@@ -378,8 +388,12 @@
     <div class="grid grid--even">
       <section class="cp-card" aria-labelledby="ov-mine">
         <div class="cp-card__head">
-          <h2 class="cp-card__title" id="ov-mine">Assigned to you</h2>
-          <a class="cp-link" routerLink="/admin/reports" [queryParams]="{ mine: '1' }">
+          <h2 class="cp-card__title" id="ov-mine" tabindex="-1">Assigned to you</h2>
+          <a
+            class="cp-link"
+            routerLink="/admin/reports"
+            [queryParams]="{ mine: '1', status: 'UNDER_REVIEW' }"
+          >
             All reports <app-admin-icon name="arrowRight" [size]="16" />
           </a>
         </div>
@@ -391,6 +405,7 @@
               title="Your reports could not load"
               [message]="message(error)"
               [requestId]="error.requestId"
+              retryLabel="Try again"
               (retry)="loadMine()"
             />
           </div>
@@ -426,6 +441,7 @@
                     class="cb cb--outline cb--small"
                     [routerLink]="['/admin/reports', report.id]"
                     [attr.aria-label]="'Open report ' + number(report.number)"
+                    [attr.data-mine]="report.id"
                     >Open</a
                   >
                 </li>
@@ -452,6 +468,7 @@
               title="The unassigned reports could not load"
               [message]="message(error)"
               [requestId]="error.requestId"
+              retryLabel="Try again"
               (retry)="loadUnassigned()"
             />
           </div>

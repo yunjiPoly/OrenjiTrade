@@ -28,6 +28,7 @@ const CHANNEL: AdminCommunityChannel = {
   sortOrder: 20,
   postCount24h: 3,
   updatedAt: '2026-09-30T10:00:00Z',
+  cityChannel: false,
 };
 
 function form(overrides: Partial<ChannelFormValue> = {}): ChannelFormValue {
