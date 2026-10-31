@@ -25,6 +25,18 @@
   font-weight: var(--font-weight-semibold);
   outline: none;
 }
+.cm__head {
+  margin-bottom: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+.cm__head .cm__h,
+.cm__head .cm__sum {
+  margin-top: 0;
+  margin-bottom: 0;
+}
 .cm__sum {
   color: var(--color-text-secondary);
   font-family: var(--font-body);

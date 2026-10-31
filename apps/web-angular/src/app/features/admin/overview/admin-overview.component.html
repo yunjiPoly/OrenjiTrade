@@ -286,14 +286,16 @@
                   ></span>
                 }
               </div>
-              <ul class="meter__legend">
-                @for (part of m.parts; track part.game) {
-                  <li>
-                    <span class="meter__swatch" [style.background]="part.color"></span>
-                    {{ part.name }} {{ part.mb.toLocaleString('en-US') }} MB
-                  </li>
-                }
-              </ul>
+              @if (m.parts.length) {
+                <ul class="meter__legend">
+                  @for (part of m.parts; track part.game) {
+                    <li>
+                      <span class="meter__swatch" [style.background]="part.color"></span>
+                      {{ part.name }} {{ part.mb.toLocaleString('en-US') }} MB
+                    </li>
+                  }
+                </ul>
+              }
             } @else {
               <app-skeleton height="56px" />
             }
@@ -333,8 +335,11 @@
                     <span class="arow__text">
                       <span
                         ><strong>{{ actorLabel(entry) }}</strong> ·
-                        {{ auditLabel(entry.action) }}</span
-                      >
+                        {{ auditLabel(entry.action) }}
+                        @if (entry.targetLabel) {
+                          · {{ entry.targetLabel }}
+                        }
+                      </span>
                       <time class="arow__time" [attr.datetime]="entry.occurredAt">{{
                         entry.occurredAt | relativeTime
                       }}</time>

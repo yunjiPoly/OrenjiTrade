@@ -64,7 +64,7 @@ export function flagSubjectOf(value: string | undefined): SubjectFilter {
 /**
  * The Flags tab of Flags and rules (spec 15.4, board A4): the automatic moderation flags, newest
  * first, with the state (Open, Resolved, All) and the Subject in the URL. A flag names the rule
- * that fired; a community post or reply shows its room and text with "Open the post"; a private
+ * that fired; a community post or reply shows its room and text with "Open the room"; a private
  * message's text is never shown here ("Its text is shown only inside a report about this
  * collector."). Resolve asks for an optional note; a flag never bans anyone by itself.
  */
@@ -213,9 +213,9 @@ export function flagSubjectOf(value: string | undefined): SubjectFilter {
                       [routerLink]="['/messages/community', roomSlug]"
                       target="_blank"
                       rel="noopener"
-                      [attr.aria-label]="'Open the post in its room, opens in a new tab'"
+                      [attr.aria-label]="'Open the room, opens in a new tab'"
                     >
-                      Open the post <app-admin-icon name="external" [size]="14" />
+                      Open the room <app-admin-icon name="external" [size]="14" />
                     </a>
                   } @else if (flag.authorId && flag.authorHandle) {
                     <a
@@ -237,7 +237,8 @@ export function flagSubjectOf(value: string | undefined): SubjectFilter {
                         'Resolve the flag: ' +
                         reason(flag.reason) +
                         ', ' +
-                        subject_(flag.subjectType)
+                        subject_(flag.subjectType) +
+                        (flag.authorHandle ? ' by @' + flag.authorHandle : '')
                       "
                       (click)="busy() === flag.id || resolve(flag)"
                     >

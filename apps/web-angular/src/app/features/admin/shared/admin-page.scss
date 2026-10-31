@@ -3,9 +3,11 @@
   display: block;
 }
 
+// The console's page frame (spec 15.2), as `.cp` (the PAYMENTS pages, shown only while
+// protectedPayments is on, keep this older pattern).
 .admin-page {
-  padding: var(--spacing-6) var(--spacing-5) var(--spacing-10);
-  max-width: 1280px;
+  padding: 28px 32px 48px;
+  max-width: 1440px;
 }
 
 .admin-filters {

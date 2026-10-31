@@ -44,9 +44,9 @@ export interface AdminNavGroup {
 }
 
 /**
- * The nav of spec 15.1 (board A1), replacing the flat list of 22. Import limits and Card data and
- * images are pages of stage WH2 and join their groups then. PAYMENTS shows only while the
- * `protectedPayments` flag is on (ADR 0018).
+ * The nav of spec 15.1 (board A1), replacing the flat list of 22, with stage WH2's new pages (Card
+ * data and images, Import limits). PAYMENTS shows only while the `protectedPayments` flag is on
+ * (ADR 0018).
  */
 export const ADMIN_NAV: readonly AdminNavGroup[] = [
   {
@@ -98,6 +98,13 @@ export const ADMIN_NAV: readonly AdminNavGroup[] = [
     label: 'Catalog',
     items: [
       { id: 'cards', label: 'Cards', icon: 'cards', path: 'cards', moderators: false },
+      {
+        id: 'card-data',
+        label: 'Card data and images',
+        icon: 'database',
+        path: 'card-data',
+        moderators: false,
+      },
       { id: 'games', label: 'Games', icon: 'games', path: 'games', moderators: false },
     ],
   },
@@ -110,6 +117,13 @@ export const ADMIN_NAV: readonly AdminNavGroup[] = [
         label: 'Usage limits',
         icon: 'gauge',
         path: 'usage-limits',
+        moderators: false,
+      },
+      {
+        id: 'import-limits',
+        label: 'Import limits',
+        icon: 'download',
+        path: 'import-limits',
         moderators: false,
       },
       {

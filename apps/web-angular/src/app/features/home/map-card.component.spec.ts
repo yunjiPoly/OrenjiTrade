@@ -69,6 +69,13 @@ describe('MapCardComponent (spec 5.3: a static SVG, no Leaflet)', () => {
     expect(element.querySelector('.leaflet-container, img')).toBeNull();
   });
 
+  it('reads the shading Fewer to More as board W26 (decorative)', () => {
+    const legend = element.querySelector('[data-testid="home-map-legend"]')!;
+    expect(legend.getAttribute('aria-hidden')).toBe('true');
+    expect(legend.textContent?.replace(/\s+/g, '')).toBe('FewerMore');
+    expect(legend.querySelectorAll('.mc__step')).toHaveLength(5);
+  });
+
   it('Explore the map opens Search on your province', () => {
     expect(element.querySelector('.mc__explore')?.getAttribute('href')).toBe(
       '/search?tab=binders&state=CA-QC',

@@ -32,8 +32,8 @@
           [attr.data-tab]="option.value"
         >
           {{ option.label }}
-          @if (tabCount(option.value); as count) {
-            <span class="cp-badge">{{ count }}</span>
+          @if (tabCount(option.value) !== null) {
+            <span class="cp-badge">{{ tabCount(option.value) }}</span>
           }
         </button>
       }

@@ -37,10 +37,11 @@
     />
   } @else if (channels()) {
     <section aria-labelledby="rooms-h">
-      <h2 class="cm__h" id="rooms-h" tabindex="-1">
-        Rooms <span class="cm__sum">{{ summary() }} · each room sets its own posting limit</span>
-      </h2>
-      <div class="grid" role="table" aria-labelledby="rooms-h">
+      <div class="cm__head">
+        <h2 class="cm__h" id="rooms-h" tabindex="-1">Rooms</h2>
+        <p class="cm__sum" id="rooms-sum">{{ summary() }} · each room sets its own posting limit</p>
+      </div>
+      <div class="grid" role="table" aria-labelledby="rooms-h" aria-describedby="rooms-sum">
         <div class="grid__row grid__row--head" role="row">
           <span class="grid__region" role="columnheader">Region</span>
           @for (game of games; track game) {

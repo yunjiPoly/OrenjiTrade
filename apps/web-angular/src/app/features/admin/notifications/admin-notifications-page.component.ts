@@ -7,10 +7,8 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
-import { MatSnackBar } from '@angular/material/snack-bar';
 import {
   AdminNotificationsService,
   BroadcastRequest,
@@ -23,9 +21,10 @@ import { ApiError, toApiError } from '../../../core/http/api-error';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
 import { silentErrors } from '../../../core/http/http-context';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
-import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
-import { confirmAdminAction, runAdminAction } from '../shared/admin-actions';
+import { confirmAdminAction } from '../shared/admin-actions';
+import { ToastService } from '../../../core/feedback/toast.service';
+import { RECORDED, runConsoleAction } from '../console/console-actions';
 import { BroadcastFormComponent } from './broadcast-form.component';
 
 const PERIODS = [1, 7, 30] as const;
@@ -45,32 +44,36 @@ const CHANNEL_LABELS: Record<string, string> = {
   selector: 'app-admin-notifications-page',
   imports: [
     DatePipe,
-    MatButtonToggleModule,
     MatIconModule,
     BroadcastFormComponent,
     ErrorStateComponent,
-    PageHeaderComponent,
     SkeletonComponent,
   ],
   template: `
-    <div class="admin-page">
-      <app-page-header
-        title="Notifications"
-        subtitle="What reached collectors in-app, by push and by e-mail (local log providers), and announcements to everyone."
-      >
-        <mat-button-toggle-group
-          actions
-          [value]="days()"
-          aria-label="Period"
-          (change)="setDays($event.value)"
-        >
-          @for (period of periods; track period) {
-            <mat-button-toggle [value]="period">{{
-              period === 1 ? '24 h' : period + ' days'
-            }}</mat-button-toggle>
-          }
-        </mat-button-toggle-group>
-      </app-page-header>
+    <div class="cp">
+      <header class="cp__head">
+        <div class="cp__heading">
+          <p class="cp__eyebrow">System</p>
+          <h1 class="cp__title">Notifications</h1>
+          <p class="cp__sub">
+            What reached collectors in the app, by push and by email, and announcements to everyone.
+          </p>
+        </div>
+        <div class="cp__actions">
+          <div class="cp-seg" role="group" aria-label="Period">
+            @for (period of periods; track period) {
+              <button
+                type="button"
+                class="cp-seg__btn"
+                [attr.aria-pressed]="days() === period"
+                (click)="setDays(period)"
+              >
+                {{ period === 1 ? '24 h' : period + ' days' }}
+              </button>
+            }
+          </div>
+        </div>
+      </header>
 
       @if (error(); as error) {
         <app-error-state
@@ -80,18 +83,27 @@ const CHANNEL_LABELS: Record<string, string> = {
           (retry)="load()"
         />
       } @else if (stats(); as s) {
+        <p class="cp-count">
+          {{ s.from | date: 'MMM d' }} – {{ s.to | date: 'mediumDate' }} ·
+          {{ days() === 1 ? 'the last 24 hours' : 'the last ' + days() + ' days' }}
+        </p>
         <ul class="tiles" aria-label="Notification totals">
           <li class="tile">
             <span class="tile__label">Sent</span>
-            <span class="tile__value">{{ s.total }}</span>
+            <span class="tile__value">{{ s.total.toLocaleString('en-US') }}</span>
+            <span class="tile__hint">Notices created in the period</span>
           </li>
           <li class="tile">
             <span class="tile__label">Unread</span>
-            <span class="tile__value">{{ s.unread }}</span>
+            <span class="tile__value">{{ s.unread.toLocaleString('en-US') }}</span>
+            <span class="tile__hint">{{ unreadLine(s.unread, s.total) }}</span>
           </li>
           <li class="tile" [class.tile--alert]="s.failedLast24h > 0">
             <span class="tile__label">Failed (24 h)</span>
             <span class="tile__value">{{ s.failedLast24h }}</span>
+            <span class="tile__hint">{{
+              s.failedLast24h > 0 ? 'Push or email sends that failed' : 'Every notice was delivered'
+            }}</span>
           </li>
           <li class="tile">
             <span class="tile__label">Push devices</span>
@@ -99,9 +111,6 @@ const CHANNEL_LABELS: Record<string, string> = {
             <span class="tile__hint">{{ s.pushTokens['invalid'] ?? 0 }} invalid</span>
           </li>
         </ul>
-        <p class="admin-muted">
-          {{ s.from | date: 'mediumDate' }} – {{ s.to | date: 'mediumDate' }}
-        </p>
 
         <div class="grid">
           <section class="admin-card" aria-labelledby="notif-types">
@@ -161,11 +170,13 @@ const CHANNEL_LABELS: Record<string, string> = {
       }
 
       <section class="admin-card broadcast" aria-labelledby="notif-broadcast">
-        <h2 id="notif-broadcast">Broadcast an announcement</h2>
+        <div class="broadcast__head">
+          <h2 id="notif-broadcast">Send an announcement</h2>
+          <span class="cp-chip cp-chip--accent">Super admins</span>
+        </div>
         @if (session.isSuperAdmin()) {
           <p class="admin-muted">
-            One notice per reachable account (their notification preferences apply). Try it on staff
-            first.
+            A notice for every collector. Send it to staff first to see how it reads.
           </p>
           <app-broadcast-form [busy]="sending()" (send)="broadcast($event)" />
         } @else {
@@ -177,8 +188,21 @@ const CHANNEL_LABELS: Record<string, string> = {
       </section>
     </div>
   `,
-  styleUrls: ['../shared/admin-page.scss'],
+  styleUrls: [
+    '../shared/admin-page.scss',
+    '../console/console-page.scss',
+    '../console/console-controls.scss',
+  ],
   styles: `
+    .broadcast__head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+    .broadcast__head h2 {
+      margin: 0;
+    }
     .tiles {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -285,7 +309,7 @@ const CHANNEL_LABELS: Record<string, string> = {
 export class AdminNotificationsPageComponent {
   private readonly api = inject(AdminNotificationsService);
   private readonly dialog = inject(MatDialog);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly toasts = inject(ToastService);
   private readonly form = viewChild(BroadcastFormComponent);
   protected readonly session = inject(SessionService);
 
@@ -317,6 +341,15 @@ export class AdminNotificationsPageComponent {
 
   constructor() {
     this.load();
+  }
+
+  /** "16% of them not opened yet" (board A20). */
+  protected unreadLine(unread: number, total: number): string {
+    if (!total) {
+      return 'Nothing sent yet';
+    }
+    const percent = Math.round((unread / total) * 100);
+    return `${percent}% of them not opened yet`;
   }
 
   protected setDays(days: number): void {
@@ -354,29 +387,28 @@ export class AdminNotificationsPageComponent {
       message: `“${request.title}” goes out as a notification to ${
         everyone ? 'every reachable account' : 'moderators and administrators'
       }. It cannot be recalled.`,
-      confirmLabel: 'Send broadcast',
+      confirmLabel: 'Send announcement',
       tone: everyone ? 'danger' : 'default',
     });
     if (!confirmed) {
       return;
     }
     this.sending.set(true);
-    const result = await runAdminAction(
-      this.snackBar,
+    const result = await runConsoleAction(
+      this.toasts,
       this.api.broadcastNotification({ broadcastRequest: request }, 'body', false, {
         context: silentErrors(),
       }),
-      'Broadcast sent.',
+      'Announcement sent.',
     );
     this.sending.set(false);
     if (result) {
-      this.snackBar.open(
-        `Broadcast sent to ${result.recipients} ${result.recipients === 1 ? 'account' : 'accounts'}` +
-          (result.skipped ? ` (${result.skipped} skipped by their preferences).` : '.') +
-          ' The action is in the audit log.',
-        'OK',
-        { duration: 6000 },
-      );
+      this.toasts.show({
+        title:
+          `Announcement sent to ${result.recipients} ${result.recipients === 1 ? 'account' : 'accounts'}` +
+          (result.skipped ? ` (${result.skipped} skipped by their preferences).` : '.'),
+        sub: RECORDED,
+      });
       this.form()?.reset();
       this.load();
     }

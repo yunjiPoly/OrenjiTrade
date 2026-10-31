@@ -1,16 +1,14 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
-import { MatIconModule } from '@angular/material/icon';
 import { AdminAnalyticsService, AnalyticsSummary } from '@orenji/api-client';
 import { ApiError, toApiError } from '../../../core/http/api-error';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
 import { silentErrors } from '../../../core/http/http-context';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
-import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
+import { AdminIconComponent } from '../console/admin-icon.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
-import { dailyTotals, eventTotals } from './analytics-summary';
+import { dailyTotals, derivedTiles, eventTotals } from './analytics-summary';
 
 const PERIODS = [7, 14, 30] as const;
 
@@ -23,30 +21,37 @@ const PERIODS = [7, 14, 30] as const;
   selector: 'app-admin-analytics-page',
   imports: [
     DatePipe,
-    MatButtonToggleModule,
-    MatIconModule,
     EmptyStateComponent,
     ErrorStateComponent,
-    PageHeaderComponent,
+    AdminIconComponent,
     SkeletonComponent,
   ],
   template: `
-    <div class="admin-page">
-      <app-page-header
-        title="Analytics"
-        subtitle="How collectors use OrenjiTrade: searches, views, messages, wishes and reports. Counts only, never personal data or positions."
-      >
-        <mat-button-toggle-group
-          actions
-          [value]="days()"
-          aria-label="Period"
-          (change)="setDays($event.value)"
-        >
-          @for (period of periods; track period) {
-            <mat-button-toggle [value]="period">{{ period }} days</mat-button-toggle>
-          }
-        </mat-button-toggle-group>
-      </app-page-header>
+    <div class="cp">
+      <header class="cp__head">
+        <div class="cp__heading">
+          <p class="cp__eyebrow">System</p>
+          <h1 class="cp__title">Analytics</h1>
+          <p class="cp__sub">
+            How collectors use OrenjiTrade: searches, views, messages, wishes and reports. Counts
+            only: never personal data or places.
+          </p>
+        </div>
+        <div class="cp__actions">
+          <div class="cp-seg" role="group" aria-label="Period">
+            @for (period of periods; track period) {
+              <button
+                type="button"
+                class="cp-seg__btn"
+                [attr.aria-pressed]="days() === period"
+                (click)="setDays(period)"
+              >
+                {{ period }} days
+              </button>
+            }
+          </div>
+        </div>
+      </header>
 
       @if (error(); as error) {
         <app-error-state
@@ -64,10 +69,27 @@ const PERIODS = [7, 14, 30] as const;
             </span>
           </div>
           <p class="admin-muted head__source">
-            <mat-icon aria-hidden="true">database</mat-icon>
-            Source: {{ s.source }} · transport {{ s.transport }}
+            <app-admin-icon name="database" [size]="16" />
+            Source: {{ s.source }} · sent to the {{ s.transport }}
           </p>
         </div>
+        @let tiles = derived();
+        <ul class="tiles" aria-label="Derived counts">
+          <li class="tile">
+            <span class="tile__label">Searches without results</span>
+            <span class="tile__value">{{
+              tiles.noResults.percent === null ? '—' : tiles.noResults.percent + '%'
+            }}</span>
+            <span class="tile__hint">{{ tiles.noResults.line }}</span>
+          </li>
+          <li class="tile">
+            <span class="tile__label">Messages per wish added</span>
+            <span class="tile__value">{{
+              tiles.messagesPerWish.value === null ? '—' : tiles.messagesPerWish.value.toFixed(1)
+            }}</span>
+            <span class="tile__hint">{{ tiles.messagesPerWish.line }}</span>
+          </li>
+        </ul>
 
         @if (s.total === 0) {
           <app-empty-state
@@ -100,6 +122,7 @@ const PERIODS = [7, 14, 30] as const;
 
           <section class="admin-card totals" aria-labelledby="analytics-types">
             <h2 id="analytics-types">By event</h2>
+            <p class="admin-muted">Largest first · {{ s.total.toLocaleString('en-US') }} events</p>
             <ul class="bars">
               @for (event of totals(); track event.type) {
                 <li class="bar">
@@ -112,6 +135,11 @@ const PERIODS = [7, 14, 30] as const;
               }
             </ul>
           </section>
+          <p class="admin-muted analytics__note">
+            This page shows counts per day and kind only. The events behind them never carry text, a
+            name, a handle or an email; their labels are at most a game, a report reason, the region
+            and the state or province.
+          </p>
         }
       } @else {
         <div aria-busy="true">
@@ -122,8 +150,43 @@ const PERIODS = [7, 14, 30] as const;
       }
     </div>
   `,
-  styleUrls: ['../shared/admin-page.scss'],
+  styleUrls: [
+    '../shared/admin-page.scss',
+    '../console/console-page.scss',
+    '../console/console-controls.scss',
+  ],
   styles: `
+    .tiles {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 12px;
+      margin: 0 0 16px;
+      padding: 0;
+      list-style: none;
+    }
+    .tile {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 16px;
+      border: 1px solid var(--color-border);
+      border-radius: 16px;
+      background: var(--color-surface);
+    }
+    .tile__label,
+    .tile__hint {
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-sm);
+    }
+    .tile__value {
+      color: var(--color-ink);
+      font-family: var(--font-display);
+      font-size: 28px;
+      font-weight: var(--font-weight-bold);
+    }
+    .analytics__note {
+      margin-top: 16px;
+    }
     .head {
       display: flex;
       flex-wrap: wrap;
@@ -230,6 +293,7 @@ export class AdminAnalyticsPageComponent {
   protected readonly error = signal<ApiError | null>(null);
   protected readonly totals = computed(() => eventTotals(this.summary()));
   protected readonly dailyCounts = computed(() => dailyTotals(this.summary()));
+  protected readonly derived = computed(() => derivedTiles(this.summary()));
 
   constructor() {
     this.load();

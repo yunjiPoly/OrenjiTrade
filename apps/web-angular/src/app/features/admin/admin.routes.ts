@@ -1,4 +1,5 @@
-import { Routes } from '@angular/router';
+import { inject } from '@angular/core';
+import { Router, Routes } from '@angular/router';
 import { ADMIN_AREA, adminGuard } from '../../core/auth/auth.guards';
 import { FEATURE } from '../../core/feature-flags/feature-flags.service';
 import { featureGuard } from '../../core/feature-flags/feature.guard';
@@ -79,7 +80,7 @@ export const ADMIN_ROUTES: Routes = [
       },
       {
         path: 'wishlist',
-        title: 'Wishlist · Admin',
+        title: 'Wishlist terms · Admin',
         canActivate: [adminGuard],
         data: { [ADMIN_AREA]: 'admin' },
         loadComponent: () =>
@@ -96,13 +97,32 @@ export const ADMIN_ROUTES: Routes = [
           import('./cards/admin-cards-page.component').then((m) => m.AdminCardsPageComponent),
       },
       {
+        // The card editor moved into the Cards page's drawer (spec 15.6, board A11): an old
+        // address opens the list with the card in the drawer.
         path: 'cards/:id',
-        title: 'Card · Admin',
+        redirectTo: ({ params }) =>
+          inject(Router).createUrlTree(['/admin/cards'], { queryParams: { open: params['id'] } }),
+      },
+      {
+        // Card data and images (spec 15.6, board A12; stage WH2): today's sync panel as a page.
+        path: 'card-data',
+        title: 'Card data and images · Admin',
         canActivate: [adminGuard],
         data: { [ADMIN_AREA]: 'admin' },
         loadComponent: () =>
-          import('./cards/admin-card-edit-page.component').then(
-            (m) => m.AdminCardEditPageComponent,
+          import('./card-data/admin-card-data-page.component').then(
+            (m) => m.AdminCardDataPageComponent,
+          ),
+      },
+      {
+        // Import limits (spec 15.7, board A15; stage WH2, new page).
+        path: 'import-limits',
+        title: 'Import limits · Admin',
+        canActivate: [adminGuard],
+        data: { [ADMIN_AREA]: 'admin' },
+        loadComponent: () =>
+          import('./import-limits/admin-import-limits-page.component').then(
+            (m) => m.AdminImportLimitsPageComponent,
           ),
       },
       {
@@ -275,7 +295,7 @@ export const ADMIN_ROUTES: Routes = [
       },
       {
         path: 'auto-delist-rules',
-        title: 'Auto-delist rules · Admin',
+        title: 'Auto-delist · Admin',
         canActivate: [adminGuard],
         data: { [ADMIN_AREA]: 'admin' },
         loadComponent: () =>
@@ -295,7 +315,7 @@ export const ADMIN_ROUTES: Routes = [
       },
       {
         path: 'audit-logs',
-        title: 'Audit logs · Admin',
+        title: 'Audit log · Admin',
         canActivate: [adminGuard],
         data: { [ADMIN_AREA]: 'admin' },
         loadComponent: () =>

@@ -10,31 +10,33 @@ import {
   untracked,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
-import { MatSelectModule } from '@angular/material/select';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatTabsModule } from '@angular/material/tabs';
 import { Router, RouterLink } from '@angular/router';
 import {
   AdminListingsService,
   ListAdminListingsRequestParams,
   ListStaleListingsRequestParams,
 } from '@orenji/api-client';
-import { Observable, Subject, Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
+import {
+  Observable,
+  Subject,
+  Subscription,
+  debounceTime,
+  distinctUntilChanged,
+  firstValueFrom,
+} from 'rxjs';
 import { ApiError, toApiError } from '../../../core/http/api-error';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
 import { silentErrors } from '../../../core/http/http-context';
 import { GamesStore } from '../../../shared/catalog/games.store';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
-import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
-import { askReason, confirmAdminAction, runAdminAction } from '../shared/admin-actions';
+import { ToastService } from '../../../core/feedback/toast.service';
+import { AdminIconComponent } from '../console/admin-icon.component';
+import { runConsoleAction } from '../console/console-actions';
+import { askReason, confirmAdminAction } from '../shared/admin-actions';
 import {
   AdminListingRowsComponent,
   ListingRow,
@@ -77,136 +79,174 @@ function toPage(value: string | undefined): number {
 @Component({
   selector: 'app-admin-listings-page',
   imports: [
+    AdminIconComponent,
     RouterLink,
-    MatButtonModule,
-    MatFormFieldModule,
-    MatIconModule,
-    MatInputModule,
     MatPaginatorModule,
-    MatSelectModule,
-    MatTabsModule,
     AdminListingRowsComponent,
     EmptyStateComponent,
     ErrorStateComponent,
-    PageHeaderComponent,
     SkeletonComponent,
   ],
   template: `
-    <div class="admin-page">
-      <app-page-header
-        title="Listings"
-        subtitle="Public cards collectors can find. Review stale and hidden ones, restore them for their owner, or hide listings that break the rules."
-      />
-      <nav mat-tab-nav-bar [tabPanel]="panel" aria-label="Listing views">
+    <div class="cp">
+      <header class="cp__head">
+        <div class="cp__heading">
+          <p class="cp__eyebrow">Collectors</p>
+          <h1 class="cp__title">Listings</h1>
+          <p class="cp__sub">
+            Public cards collectors can find. Review stale and hidden ones, restore them for their
+            owner, or hide listings that break the rules.
+          </p>
+        </div>
+      </header>
+      <nav class="cp-tabs" aria-label="Listing views">
         <a
-          mat-tab-link
-          [active]="view() === 'review'"
+          class="cp-tab"
+          [attr.aria-current]="view() === 'review' ? 'page' : null"
+          [attr.aria-selected]="view() === 'review'"
           [routerLink]="[]"
           [queryParams]="{ tab: null, state: null, page: null }"
           queryParamsHandling="merge"
-          >Needs review</a
-        >
+          >Needs review
+          @if (counts(); as c) {
+            <span class="cp-badge" [class.cp-badge--hot]="c.STALE + c.HIDDEN > 0">{{
+              c.STALE + c.HIDDEN
+            }}</span>
+          }
+        </a>
         <a
-          mat-tab-link
-          [active]="view() === 'all'"
+          class="cp-tab"
+          [attr.aria-current]="view() === 'all' ? 'page' : null"
+          [attr.aria-selected]="view() === 'all'"
           [routerLink]="[]"
           [queryParams]="{ tab: 'all', state: null, page: null }"
           queryParamsHandling="merge"
           >All listings</a
         >
       </nav>
-      <mat-tab-nav-panel #panel>
-        <div class="admin-filters listings__filters" role="search" aria-label="Filter listings">
-          @if (view() === 'all') {
-            <mat-form-field
-              appearance="outline"
-              class="admin-filters__search"
-              subscriptSizing="dynamic"
-            >
-              <mat-label>Search card or printing code</mat-label>
-              <mat-icon matPrefix aria-hidden="true">search</mat-icon>
-              <input matInput type="search" [value]="query() ?? ''" (input)="onSearch($event)" />
-            </mat-form-field>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Game</mat-label>
-              <mat-select
-                [value]="game() ?? null"
-                (selectionChange)="navigate({ game: $event.value })"
+
+      @if (view() === 'review') {
+        <div class="cp-filters li__review">
+          <div class="cp-seg" role="group" aria-label="Freshness">
+            @for (state of states(); track state) {
+              <button
+                type="button"
+                class="cp-seg__btn"
+                [attr.aria-pressed]="stateFilter() === state"
+                (click)="navigate({ state: state === 'STALE' ? null : state })"
               >
-                <mat-option [value]="null">Any game</mat-option>
-                @for (option of games.games(); track option.slug) {
-                  <mat-option [value]="option.slug">{{ option.name }}</mat-option>
+                {{ stateLabel(state) }}
+                @if (counts(); as c) {
+                  <span class="cp-badge">{{ state === 'HIDDEN' ? c.HIDDEN : c.STALE }}</span>
                 }
-              </mat-select>
-            </mat-form-field>
-          }
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Freshness</mat-label>
-            <mat-select
-              [value]="stateFilter()"
-              (selectionChange)="navigate({ state: $event.value })"
+              </button>
+            }
+          </div>
+          <p class="li__note">
+            <app-admin-icon name="info" [size]="16" />
+            Restore confirms a listing for its owner. Hide makes the card private when it breaks the
+            rules.
+          </p>
+        </div>
+      } @else {
+        <div class="cp-filterbar" role="search" aria-label="Filter listings">
+          <label class="cp-field cp-field--grow">
+            <span class="visually-hidden">Search card or printing code</span>
+            <span class="cp-search">
+              <app-admin-icon name="search" [size]="16" />
+              <input
+                class="cp-input"
+                type="search"
+                placeholder="Search card or printing code"
+                [value]="query() ?? ''"
+                (input)="onSearch($event)"
+              />
+            </span>
+          </label>
+          <label class="cp-field">
+            <span class="cp-field__label">Game</span>
+            <select
+              class="cp-select"
+              (change)="navigate({ game: $any($event.target).value || null })"
             >
-              @if (view() === 'all') {
-                <mat-option [value]="null">Any state</mat-option>
+              <option value="" [selected]="!game()">Any game</option>
+              @for (option of games.games(); track option.slug) {
+                <option [value]="option.slug" [selected]="game() === option.slug">
+                  {{ option.name }}
+                </option>
               }
+            </select>
+          </label>
+          <label class="cp-field">
+            <span class="cp-field__label">Freshness</span>
+            <select
+              class="cp-select"
+              (change)="navigate({ state: $any($event.target).value || null })"
+            >
+              <option value="" [selected]="!stateFilter()">Any state</option>
               @for (state of states(); track state) {
-                <mat-option [value]="state">{{ stateLabel(state) }}</mat-option>
+                <option [value]="state" [selected]="stateFilter() === state">
+                  {{ stateLabel(state) }}
+                </option>
               }
-            </mat-select>
-          </mat-form-field>
+            </select>
+          </label>
           @if (params().ownerId) {
             <button
-              matButton="tonal"
               type="button"
-              class="listings__owner"
+              class="cb cb--outline li__owner"
               (click)="navigate({ ownerId: null })"
             >
-              <mat-icon aria-hidden="true">close</mat-icon>
+              <app-admin-icon name="close" [size]="16" />
               One collector only
             </button>
           }
         </div>
+      }
 
-        @if (error(); as error) {
-          <app-error-state
-            title="Listings could not load"
-            [message]="message(error)"
-            [requestId]="error.requestId"
-            (retry)="reload()"
+      @if (error(); as error) {
+        <app-error-state
+          title="Listings could not load"
+          [message]="message(error)"
+          [requestId]="error.requestId"
+          retryLabel="Try again"
+          (retry)="reload()"
+        />
+      } @else if (loading() && !result()) {
+        <div aria-busy="true">
+          <span class="visually-hidden">Loading listings</span>
+          <app-skeleton variant="list" lines="6" />
+        </div>
+      } @else if (result(); as page) {
+        @if (page.items.length === 0) {
+          <app-empty-state
+            [icon]="view() === 'review' ? 'task_alt' : 'style'"
+            [title]="view() === 'review' ? 'Nothing to review' : 'No listings match'"
+            [description]="
+              view() === 'review'
+                ? 'No public listing is ' +
+                  stateLabel(stateFilter() ?? 'STALE').toLowerCase() +
+                  ' right now.'
+                : 'Try another search or clear the filters.'
+            "
           />
-        } @else if (loading() && !result()) {
-          <div aria-busy="true">
-            <span class="visually-hidden">Loading listings</span>
-            <app-skeleton variant="list" lines="6" />
-          </div>
-        } @else if (result(); as page) {
-          @if (page.items.length === 0) {
-            <app-empty-state
-              [icon]="view() === 'review' ? 'task_alt' : 'style'"
-              [title]="view() === 'review' ? 'Nothing to review' : 'No listings match'"
-              [description]="
-                view() === 'review'
-                  ? 'No public listing is ' +
-                    stateLabel(stateFilter() ?? 'STALE').toLowerCase() +
-                    ' right now.'
-                  : 'Try another search or clear the filters.'
-              "
-            />
-          } @else {
-            <p class="admin-count" aria-live="polite">
-              {{ page.total }} {{ page.total === 1 ? 'listing' : 'listings' }}
-              @if (loading()) {
-                · updating…
-              }
-            </p>
-            <app-admin-listing-rows
-              [class.admin-dim]="loading()"
-              [rows]="page.items"
-              [busy]="busy()"
-              [label]="view() === 'review' ? 'Listings to review' : 'Listings'"
-              (restore)="restore($event)"
-              (hide)="hide($event)"
-            />
+        } @else {
+          <p class="cp-count" aria-live="polite">
+            {{ countLine(page.total) }}
+            @if (loading()) {
+              · updating…
+            }
+          </p>
+          <app-admin-listing-rows
+            [class.ct--dim]="loading()"
+            [rows]="page.items"
+            [busy]="busy()"
+            [label]="view() === 'review' ? 'Listings to review' : 'Listings'"
+            (restore)="restore($event)"
+            (hide)="hide($event)"
+          />
+          <div class="ct-pager">
+            <span>{{ range(page.total, page.items.length) }}</span>
             @if (page.total > pageSize) {
               <mat-paginator
                 [length]="page.total"
@@ -217,18 +257,34 @@ function toPage(value: string | undefined): number {
                 (page)="onPage($event)"
               />
             }
-          }
+          </div>
         }
-      </mat-tab-nav-panel>
+      }
     </div>
   `,
-  styleUrls: ['../shared/admin-page.scss'],
+  styleUrls: [
+    '../console/console-page.scss',
+    '../console/console-controls.scss',
+    '../console/console-table.scss',
+  ],
   styles: `
-    .listings__filters {
-      margin-top: var(--spacing-4);
+    .cp-tab {
+      text-decoration: none;
     }
-    .listings__owner {
-      align-self: center;
+    .li__review {
+      align-items: center;
+      gap: 16px;
+    }
+    .li__note {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0;
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-sm);
+    }
+    .li__owner {
+      align-self: flex-end;
     }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -237,7 +293,7 @@ export class AdminListingsPageComponent {
   private readonly api = inject(AdminListingsService);
   private readonly router = inject(Router);
   private readonly dialog = inject(MatDialog);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly toasts = inject(ToastService);
   protected readonly games = inject(GamesStore);
 
   /** Query parameters (bound by the router). */
@@ -270,6 +326,8 @@ export class AdminListingsPageComponent {
     page: toPage(this.page()),
   }));
 
+  /** The review queue's counts (board A9: "Needs review 41", Stale 35, Hidden 6). */
+  protected readonly counts = signal<Record<'STALE' | 'HIDDEN', number> | null>(null);
   protected readonly result = signal<ListingPage | null>(null);
   protected readonly loading = signal(true);
   protected readonly error = signal<ApiError | null>(null);
@@ -280,6 +338,7 @@ export class AdminListingsPageComponent {
 
   constructor() {
     void this.games.load();
+    void this.loadCounts();
     effect(() => {
       const params = this.params();
       untracked(() => this.load(params));
@@ -306,6 +365,43 @@ export class AdminListingsPageComponent {
       queryParams: { page: event.pageIndex || null },
       queryParamsHandling: 'merge',
     });
+  }
+
+  /** "35 stale listings · not confirmed for 30 days, so out of search until restored · oldest first". */
+  protected countLine(total: number): string {
+    const n = total.toLocaleString('en-US');
+    const noun = total === 1 ? 'listing' : 'listings';
+    if (this.view() === 'review') {
+      return this.stateFilter() === 'HIDDEN'
+        ? `${n} hidden ${noun} · off search and the map until restored · oldest first`
+        : `${n} stale ${noun} · out of search until restored · oldest first`;
+    }
+    return `${n} ${noun}`;
+  }
+
+  protected range(total: number, shown: number): string {
+    if (!total) {
+      return '';
+    }
+    const start = this.params().page * PAGE_SIZE + 1;
+    return `${start}–${start + shown - 1} of ${total.toLocaleString('en-US')}`;
+  }
+
+  private async loadCounts(): Promise<void> {
+    try {
+      const [stale, hidden] = await Promise.all(
+        (['STALE', 'HIDDEN'] as const).map((state) =>
+          firstValueFrom(
+            this.api.listStaleListings({ state, page: 0, size: 1 }, 'body', false, {
+              context: silentErrors(),
+            }),
+          ),
+        ),
+      );
+      this.counts.set({ STALE: stale.totalItems ?? 0, HIDDEN: hidden.totalItems ?? 0 });
+    } catch {
+      this.counts.set(null);
+    }
   }
 
   protected message(error: ApiError): string {
@@ -362,10 +458,11 @@ export class AdminListingsPageComponent {
 
   private async act(row: ListingRow, request: Observable<unknown>, success: string): Promise<void> {
     this.busy.set(row.item.id);
-    const done = await runAdminAction(this.snackBar, request, success);
+    const done = await runConsoleAction(this.toasts, request, success);
     this.busy.set(null);
     if (done) {
       this.reload();
+      void this.loadCounts();
     }
   }
 

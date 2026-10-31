@@ -170,9 +170,14 @@ import { ToastService } from './toast.service';
     :host(.toasts-host--dock) {
       bottom: max(24px, var(--toasts-dock-lift, 96px));
     }
+    /* The admin console: beside its 260 nav, never over the nav's audit line (WH1's U18). */
+    :host(.toasts-host--console) {
+      left: calc(260px + 24px);
+    }
     @media (max-width: 959.98px) {
       :host,
-      :host(.toasts-host--inbox) {
+      :host(.toasts-host--inbox),
+      :host(.toasts-host--console) {
         left: 16px;
         right: 16px;
         width: auto;
@@ -197,6 +202,7 @@ import { ToastService } from './toast.service';
     '[class.toasts-host--inbox]': "layout.area() === 'messages' && !layout.narrow()",
     '[class.toasts-host--chat]': 'layout.inChat()',
     '[class.toasts-host--dock]': 'layout.dockOpen()',
+    '[class.toasts-host--console]': 'layout.console()',
     '[style.--toasts-dock-lift]': "layout.dockOpen() ? layout.dockLift() + 'px' : null",
   },
   changeDetection: ChangeDetectionStrategy.OnPush,

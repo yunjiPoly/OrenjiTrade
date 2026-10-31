@@ -25,6 +25,9 @@ import {
   validateGameSchemaJson,
 } from './game-schema-validation';
 
+/** The API's slug rule: lower-case letters and digits separated by dashes. */
+const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
 /**
  * Edit form of one game: names, publisher, status (HIDDEN removes it everywhere public), display
  * order and its `GameSchema` as JSON with live validation and a preview. The slug never changes.
@@ -42,6 +45,24 @@ import {
   ],
   template: `
     <form class="editor" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      @if (creating()) {
+        <div class="editor__row">
+          <mat-form-field appearance="outline">
+            <mat-label>Slug</mat-label>
+            <input matInput formControlName="slug" maxlength="32" autocomplete="off" />
+            <mat-hint
+              >Lower-case letters and digits with dashes, like lorcana. It never changes.</mat-hint
+            >
+            @if (form.controls.slug.hasError('required')) {
+              <mat-error>A slug is required.</mat-error>
+            } @else if (form.controls.slug.invalid) {
+              <mat-error>Use 2 to 32 lower-case letters and digits separated by dashes.</mat-error>
+            } @else if (serverErrors()['slug']) {
+              <mat-error>{{ serverErrors()['slug'] }}</mat-error>
+            }
+          </mat-form-field>
+        </div>
+      }
       <div class="editor__row">
         <mat-form-field appearance="outline">
           <mat-label>Name</mat-label>
@@ -128,7 +149,7 @@ import {
         </button>
         <button matButton="filled" type="submit" [disabled]="saving()">
           <mat-icon aria-hidden="true">save</mat-icon>
-          {{ saving() ? 'Saving…' : 'Save game' }}
+          {{ saving() ? 'Saving…' : creating() ? 'Create game' : 'Save game' }}
         </button>
       </div>
     </form>
@@ -205,11 +226,14 @@ import {
 export class GameEditorComponent {
   readonly game = input.required<GameResponse>();
   readonly saving = input(false, { transform: booleanAttribute });
+  /** "New game" (`POST /admin/games`, board A13): a slug field and "Create game". */
+  readonly creating = input(false, { transform: booleanAttribute });
   /** Field errors from the API (`VALIDATION_FAILED`), by field path. */
   readonly serverErrors = input<Record<string, string>>({});
   readonly save = output<GameRequest>();
 
   protected readonly form = inject(FormBuilder).nonNullable.group({
+    slug: ['', [Validators.minLength(2), Validators.maxLength(32), Validators.pattern(SLUG)]],
     name: ['', [Validators.required, Validators.maxLength(120)]],
     shortName: ['', [Validators.required, Validators.maxLength(40)]],
     publisher: ['', [Validators.required, Validators.maxLength(120)]],
@@ -256,12 +280,17 @@ export class GameEditorComponent {
 
   protected submit(): void {
     this.form.markAllAsTouched();
+    if (this.creating() && !this.form.controls.slug.value.trim()) {
+      // A new game needs a slug (the other fields' errors show at the same time).
+      this.form.controls.slug.setErrors({ required: true });
+    }
     const { schema } = validateGameSchemaJson(this.form.controls.schema.value);
     if (this.form.invalid || !schema) {
       return;
     }
     const value = this.form.getRawValue();
     this.save.emit({
+      ...(this.creating() ? { slug: value.slug.trim() } : {}),
       name: value.name.trim(),
       shortName: value.shortName.trim(),
       publisher: value.publisher.trim(),
@@ -273,6 +302,7 @@ export class GameEditorComponent {
 
   private fill(game: GameResponse): void {
     this.form.reset({
+      slug: game.slug ?? '',
       name: game.name ?? '',
       shortName: game.shortName ?? '',
       publisher: game.publisher ?? '',

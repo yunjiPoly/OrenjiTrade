@@ -20,7 +20,7 @@ import { StatusChipComponent } from '../shared/status-chip.component';
     StatusChipComponent,
   ],
   template: `
-    <div class="table-wrap">
+    <div class="ct">
       <table mat-table [dataSource]="users()" class="users" aria-label="Accounts">
         <ng-container matColumnDef="user">
           <th mat-header-cell *matHeaderCellDef scope="col">Collector</th>
@@ -45,7 +45,12 @@ import { StatusChipComponent } from '../shared/status-chip.component';
         </ng-container>
         <ng-container matColumnDef="status">
           <th mat-header-cell *matHeaderCellDef scope="col">Status</th>
-          <td mat-cell *matCellDef="let user"><app-status-chip [status]="user.status" /></td>
+          <td mat-cell *matCellDef="let user">
+            <app-status-chip [status]="user.status" />
+            @if (user.status === 'SUSPENDED' && user.suspendedUntil) {
+              <span class="ct__sub">Until {{ user.suspendedUntil | date: 'mediumDate' }}</span>
+            }
+          </td>
         </ng-container>
         <ng-container matColumnDef="roles">
           <th mat-header-cell *matHeaderCellDef scope="col" class="users__opt">Roles</th>
@@ -68,16 +73,10 @@ import { StatusChipComponent } from '../shared/status-chip.component';
       </table>
     </div>
   `,
+  styleUrl: '../console/console-table.scss',
   styles: `
-    .table-wrap {
-      overflow-x: auto;
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-lg);
-      background: var(--color-surface);
-    }
     .users {
-      width: 100%;
-      --mat-table-background-color: transparent;
+      min-width: 760px;
     }
     .users__who {
       display: flex;
@@ -99,13 +98,16 @@ import { StatusChipComponent } from '../shared/status-chip.component';
       font-weight: var(--font-weight-semibold);
     }
     .users__handle {
-      color: var(--color-text-muted);
+      color: var(--color-text-secondary);
       font-size: var(--font-size-sm);
     }
     .users__date {
       white-space: nowrap;
     }
     @media (max-width: 719px) {
+      .users {
+        min-width: 0;
+      }
       .users__opt {
         display: none;
       }

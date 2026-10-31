@@ -1,3 +1,5 @@
+import type { StaffSearchResponse } from '@orenji/api-client';
+
 /** One result of the console's staff search (spec 15.1), grouped Collectors, Cards, Reports. */
 export interface StaffSearchResult {
   id: string;
@@ -6,6 +8,8 @@ export interface StaffSearchResult {
   line: string;
   /** Where Enter or a click goes. */
   link: string[];
+  /** Query parameters of the link (a card opens in the Cards page's drawer). */
+  query?: Record<string, string>;
 }
 
 export const STAFF_SEARCH_GROUPS: readonly { id: StaffSearchResult['group']; label: string }[] = [
@@ -34,15 +38,6 @@ export function staffQueryReady(query: StaffQuery, admin: boolean): boolean {
   return query.number !== null || (admin && query.text.replace(/^#/, '').length >= 2);
 }
 
-/**
- * Whether a text also goes to the card catalog (review fix 1): an email or a handle (anything with
- * an "@") can never be a card name, and the public card search's address would carry it into
- * request logs; it goes to accounts only.
- */
-export function asksCards(text: string): boolean {
-  return !text.includes('@');
-}
-
 /** One group's answer: its results, or that the request failed. */
 export interface StaffGroupAnswer {
   results: StaffSearchResult[];
@@ -69,4 +64,51 @@ export function orderedResults(results: readonly StaffSearchResult[]): StaffSear
 /** "#1047" */
 export function reportNumberLabel(number: number | null | undefined): string {
   return number ? `#${number}` : '';
+}
+
+/** The results of `GET /admin/search` (spec 15.8.6), as the dropdown lists them. */
+export function fromStaffSearch(
+  response: StaffSearchResponse,
+  gameLabel: (slug: string) => string,
+  reasonLabel: (reason: string) => string,
+): StaffSearchResult[] {
+  return [
+    ...response.collectors.map((user): StaffSearchResult => ({
+      id: user.id,
+      group: 'collectors',
+      title: user.displayName || `@${user.handle}`,
+      line: user.email ? `@${user.handle} · ${user.email}` : `@${user.handle}`,
+      link: ['/admin/users', user.id],
+    })),
+    ...response.cards.map((card): StaffSearchResult => ({
+      id: card.printingCode ? `${card.id}-${card.printingCode}` : card.id,
+      group: 'cards',
+      title: card.name,
+      line: card.printingCode
+        ? `${gameLabel(card.game)} · ${card.printingCode}`
+        : gameLabel(card.game),
+      link: ['/admin/cards'],
+      query: { open: card.id },
+    })),
+    ...response.reports.map((report): StaffSearchResult => ({
+      id: report.id,
+      group: 'reports',
+      title: `${reportNumberLabel(report.number)} · @${report.reportedHandle}`,
+      line: reasonLabel(report.reason),
+      link: ['/admin/reports', report.id],
+    })),
+  ];
+}
+
+/**
+ * What the dropdown says when nothing matches: a moderator who typed words learns that
+ * moderators search report numbers only (WH1's U16).
+ */
+export function staffEmptyLine(admin: boolean, query: StaffQuery): string {
+  if (admin) {
+    return 'Nothing matches. Try a handle, an email, a card name, a printing code or a report number.';
+  }
+  return query.number === null
+    ? 'Moderators search report numbers only. Type a number such as #1047.'
+    : 'No report has this number.';
 }

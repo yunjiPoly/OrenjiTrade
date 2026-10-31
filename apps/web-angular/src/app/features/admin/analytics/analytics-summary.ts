@@ -76,3 +76,32 @@ export function dailyTotals(summary: AnalyticsSummary | null): DayTotal[] {
     return { day, count, percent: (count / max) * 100 };
   });
 }
+
+/** Board A22's two derived tiles: searches without results and messages per wish added. */
+export interface DerivedTiles {
+  noResults: { percent: number | null; line: string };
+  messagesPerWish: { value: number | null; line: string };
+}
+
+export function derivedTiles(summary: AnalyticsSummary | null): DerivedTiles {
+  const totals = summary?.totals ?? {};
+  const searches = totals['search_performed'] ?? 0;
+  const empty = totals['search_no_results'] ?? 0;
+  const messages = totals['message_sent'] ?? 0;
+  const wishes = totals['wishlist_item_created'] ?? 0;
+  const n = (value: number) => value.toLocaleString('en-US');
+  return {
+    noResults: searches
+      ? {
+          percent: Math.round((empty / searches) * 100),
+          line: `${n(empty)} of ${n(searches)} searches found nothing`,
+        }
+      : { percent: null, line: 'No search in this period' },
+    messagesPerWish: wishes
+      ? {
+          value: Math.round((messages / wishes) * 10) / 10,
+          line: `${n(messages)} messages sent · ${n(wishes)} wishes added`,
+        }
+      : { value: null, line: 'No wish added in this period' },
+  };
+}

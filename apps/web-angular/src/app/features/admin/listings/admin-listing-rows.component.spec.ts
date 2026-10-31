@@ -49,7 +49,7 @@ describe('AdminListingRowsComponent', () => {
       'http://localhost:8080/api/v1/public/card-images/img-1',
     );
     expect(image?.getAttribute('alt')).toBe('Blue-Eyes White Dragon');
-    expect(element.querySelector('.row__name')?.textContent).toContain('LOB-EN001');
+    expect(element.querySelector('.row__code')?.textContent).toContain('LOB-EN001');
   });
 
   it("falls back to the game's placeholder art without a picture", async () => {

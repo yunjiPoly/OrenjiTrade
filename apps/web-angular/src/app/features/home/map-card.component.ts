@@ -57,6 +57,15 @@ import { MAP_CARD_SIZE, staticMap } from './static-map';
           {{ regionName() }}
         }
       </h2>
+      <p class="mc__legend" aria-hidden="true" data-testid="home-map-legend">
+        <span>Fewer</span>
+        <span class="mc__steps">
+          @for (step of steps; track step) {
+            <span class="mc__step" [attr.data-level]="step"></span>
+          }
+        </span>
+        <span>More</span>
+      </p>
       @if (countsFailed()) {
         <p class="mc__line mc__line--failed" role="alert" data-testid="home-map-card-error">
           Couldn't load the map.
@@ -108,6 +117,42 @@ import { MAP_CARD_SIZE, staticMap } from './static-map';
     }
     .mc__shape[data-level='3'] {
       fill: var(--color-map-step3);
+    }
+    /* Board W26: how the shading reads, Fewer to More (WG's U9; decorative, the counts are the
+       line below). */
+    .mc__legend {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 8px 0 0;
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-xs);
+    }
+    .mc__steps {
+      display: flex;
+      gap: 3px;
+    }
+    .mc__step {
+      width: 22px;
+      height: 8px;
+      border-radius: 4px;
+      background: var(--color-map-step0);
+    }
+    .mc__step[data-level='0'] {
+      box-sizing: border-box;
+      border: 1px solid var(--color-border-strong);
+    }
+    .mc__step[data-level='1'] {
+      background: var(--color-map-step1);
+    }
+    .mc__step[data-level='2'] {
+      background: var(--color-map-step2);
+    }
+    .mc__step[data-level='3'] {
+      background: var(--color-map-step3);
+    }
+    .mc__step[data-level='4'] {
+      background: var(--color-map-step4);
     }
     .mc__shape[data-level='4'] {
       fill: var(--color-map-step4);
@@ -188,6 +233,7 @@ import { MAP_CARD_SIZE, staticMap } from './static-map';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MapCardComponent {
+  protected readonly steps = [0, 1, 2, 3, 4];
   readonly region = input.required<string>();
   readonly regionName = input('');
   readonly gameName = input('');

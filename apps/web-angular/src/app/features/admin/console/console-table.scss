@@ -1,0 +1,93 @@
+// The console's tables (spec 15.2, boards A7 to A23): a card holding a Material table restyled
+// through its system variables (uppercase 12 px headers, 60 px rows, hover tint), and the pager.
+
+.ct {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-surface);
+}
+.ct table {
+  width: 100%;
+  border-collapse: collapse;
+  --mat-table-background-color: transparent;
+  --mat-table-row-item-outline-color: var(--color-border);
+  --mat-table-header-headline-color: var(--color-text-secondary);
+  --mat-table-header-headline-size: 12px;
+  --mat-table-header-headline-weight: 600;
+  --mat-table-header-headline-tracking: 0.06em;
+  --mat-table-header-container-height: 48px;
+  --mat-table-row-item-container-height: 60px;
+  --mat-table-row-item-label-text-size: 14px;
+}
+.ct thead th,
+.ct .mat-mdc-header-cell {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.ct table:not(.mat-mdc-table) th,
+.ct table:not(.mat-mdc-table) td {
+  text-align: left;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+.ct table:not(.mat-mdc-table) tbody tr:last-child td {
+  border-bottom: 0;
+}
+.ct tbody tr:hover,
+.ct .mat-mdc-row:hover {
+  background: var(--color-surface-variant);
+}
+.ct__name {
+  color: var(--color-ink);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+}
+.ct__name:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.ct__sub {
+  display: block;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+.ct__num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ct--dim {
+  opacity: 0.6;
+}
+
+// Pager: "1–20 of 64" and Material's paginator, restyled.
+.ct-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-top: 8px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  --mat-paginator-container-background-color: transparent;
+  --mat-paginator-container-text-color: var(--color-text-secondary);
+}
+.ct-pager .mat-mdc-paginator {
+  margin-left: auto;
+}
+// The range is the pager's own first line ("1–20 of 64", board A7), not the paginator's.
+:host ::ng-deep .ct-pager .mat-mdc-paginator-range-label {
+  display: none;
+}
+.ct-foot {
+  margin: 12px 0 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}

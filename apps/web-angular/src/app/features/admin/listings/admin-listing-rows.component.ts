@@ -1,12 +1,10 @@
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import type { AdminListingItem, ListingOwner } from '@orenji/api-client';
 import { RelativeTimePipe } from '../../../shared/pipes/relative-time.pipe';
 import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
-import { GameChipComponent } from '../../../shared/ui/game-chip/game-chip.component';
+import { GameBadgeComponent } from '../console/game-badge.component';
 import { AdminChipComponent, ChipTone } from '../shared/admin-chip.component';
 
 /** The fields shared by `AdminListing` and `StaleListing`. */
@@ -54,183 +52,165 @@ export function listingStateLabel(state: string): string {
     CurrencyPipe,
     DatePipe,
     RouterLink,
-    MatButtonModule,
-    MatIconModule,
     AdminChipComponent,
     CardImageComponent,
-    GameChipComponent,
+    GameBadgeComponent,
     RelativeTimePipe,
   ],
   template: `
-    <ul class="rows" [attr.aria-label]="label()">
-      @for (row of rows(); track row.item.id) {
-        <li class="row" [attr.data-listing]="row.item.id">
-          <div class="row__card">
-            <app-card-image
-              class="row__thumb"
-              size="sm"
-              data-testid="admin-listing-image"
-              [src]="row.item.imageUrl"
-              [alt]="row.item.cardName"
-              [game]="row.item.game"
-            />
-            <div class="row__info">
-              <p class="row__name">
-                {{ row.item.cardName }}
-                @if (row.item.printingCode) {
-                  <span class="row__code">{{ row.item.printingCode }}</span>
-                }
-              </p>
-              <p class="row__meta">
-                <app-game-chip [slug]="row.item.game" />
-                <span>×{{ row.item.quantity }}</span>
-                @if (row.item.askingPrice !== null && row.item.askingPrice !== undefined) {
-                  <span>{{ row.item.askingPrice | currency: row.item.currency }}</span>
-                }
-                <span>{{ visibility(row.item.visibility) }}</span>
+    <div class="ct">
+      <table class="lt" [attr.aria-label]="label()">
+        <thead>
+          <tr>
+            <th scope="col">Card</th>
+            <th scope="col">Copies and price</th>
+            <th scope="col">Where</th>
+            <th scope="col">Owner</th>
+            <th scope="col">Last confirmed</th>
+            <th scope="col">State</th>
+            <th scope="col"><span class="visually-hidden">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of rows(); track row.item.id) {
+            <tr class="row" [attr.data-listing]="row.item.id">
+              <td>
+                <div class="row__card">
+                  <app-card-image
+                    class="row__thumb"
+                    size="sm"
+                    data-testid="admin-listing-image"
+                    [src]="row.item.imageUrl"
+                    [alt]="row.item.cardName"
+                    [game]="row.item.game"
+                  />
+                  <div class="row__info">
+                    <p class="row__name">{{ row.item.cardName }}</p>
+                    <p class="row__meta">
+                      <app-game-badge [game]="row.item.game" size="sm" />
+                      @if (row.item.printingCode) {
+                        <span class="row__code">{{ row.item.printingCode }}</span>
+                      }
+                    </p>
+                  </div>
+                </div>
+              </td>
+              <td class="ct__num">
+                ×{{ row.item.quantity }}
+                <span class="ct__sub">
+                  @if (row.item.askingPrice !== null && row.item.askingPrice !== undefined) {
+                    {{ row.item.askingPrice | currency: row.item.currency }}
+                  } @else {
+                    No price
+                  }
+                </span>
+              </td>
+              <td>
+                {{ visibility(row.item.visibility) }}
                 @if (row.item.binderName) {
-                  <span>
-                    <mat-icon aria-hidden="true">menu_book</mat-icon>{{ row.item.binderName }}
-                  </span>
+                  <span class="ct__sub">{{ row.item.binderName }}</span>
                 }
-              </p>
-            </div>
-          </div>
-          <div class="row__owner">
-            <a [routerLink]="['/admin/users', row.owner.id]">&#64;{{ row.owner.handle }}</a>
-            <span class="row__when" [title]="row.confirmedAt | date: 'medium'">
-              confirmed {{ row.confirmedAt | relativeTime }}
-            </span>
-            @if (row.warnedAt) {
-              <span class="row__when">warned {{ row.warnedAt | relativeTime }}</span>
-            }
-          </div>
-          <app-admin-chip class="row__state" [tone]="tone(row.state)">{{
-            stateLabel(row.state)
-          }}</app-admin-chip>
-          <div class="row__actions">
-            @if (row.state !== 'ACTIVE') {
-              <button
-                matButton="outlined"
-                type="button"
-                [disabled]="busy() === row.item.id"
-                [attr.aria-label]="'Restore ' + row.item.cardName + ' of @' + row.owner.handle"
-                (click)="restore.emit(row)"
-              >
-                <mat-icon aria-hidden="true">restore</mat-icon>
-                Restore
-              </button>
-            }
-            @if (row.item.visibility !== 'PRIVATE') {
-              <button
-                matButton
-                type="button"
-                class="row__hide"
-                [disabled]="busy() === row.item.id"
-                [attr.aria-label]="'Hide ' + row.item.cardName + ' of @' + row.owner.handle"
-                (click)="hide.emit(row)"
-              >
-                <mat-icon aria-hidden="true">visibility_off</mat-icon>
-                Hide
-              </button>
-            }
-          </div>
-        </li>
-      }
-    </ul>
+              </td>
+              <td>
+                <a class="ct__name row__owner" [routerLink]="['/admin/users', row.owner.id]"
+                  >&#64;{{ row.owner.handle }}</a
+                >
+              </td>
+              <td>
+                <span [title]="row.confirmedAt | date: 'medium'"
+                  >Confirmed {{ row.confirmedAt | relativeTime }}</span
+                >
+                <span class="ct__sub">
+                  @if (row.warnedAt) {
+                    Reminded {{ row.warnedAt | relativeTime }}
+                  } @else {
+                    No reminder yet
+                  }
+                </span>
+              </td>
+              <td>
+                <app-admin-chip class="row__state" [tone]="tone(row.state)">{{
+                  stateLabel(row.state)
+                }}</app-admin-chip>
+              </td>
+              <td class="row__actions">
+                @if (row.state !== 'ACTIVE') {
+                  <button
+                    type="button"
+                    class="cb cb--outline cb--small"
+                    [attr.aria-disabled]="busy() === row.item.id ? 'true' : null"
+                    [attr.aria-label]="'Restore ' + row.item.cardName + ' of @' + row.owner.handle"
+                    (click)="busy() === row.item.id || restore.emit(row)"
+                  >
+                    Restore
+                  </button>
+                }
+                @if (row.item.visibility !== 'PRIVATE') {
+                  <button
+                    type="button"
+                    class="cb cb--quiet cb--small row__hide"
+                    [attr.aria-disabled]="busy() === row.item.id ? 'true' : null"
+                    [attr.aria-label]="'Hide ' + row.item.cardName + ' of @' + row.owner.handle"
+                    (click)="busy() === row.item.id || hide.emit(row)"
+                  >
+                    Hide
+                  </button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
   `,
+  styleUrls: ['../console/console-controls.scss', '../console/console-table.scss'],
   styles: `
     :host {
       display: block;
     }
-    .rows {
-      margin: 0;
-      padding: 0;
-      list-style: none;
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-lg);
-      background: var(--color-surface);
-    }
-    .row {
-      display: grid;
-      grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto auto;
-      align-items: center;
-      gap: var(--spacing-2) var(--spacing-4);
-      padding: var(--spacing-3) var(--spacing-4);
-      border-bottom: 1px solid var(--color-border);
-    }
-    .row:last-child {
-      border-bottom: 0;
-    }
-    .row p {
-      margin: 0;
+    .lt {
+      min-width: 1000px;
     }
     .row__card {
       display: flex;
       align-items: center;
-      gap: var(--spacing-3);
+      gap: 12px;
       min-width: 0;
     }
     .row__thumb {
-      --card-image-width: 44px;
+      flex: none;
+      width: 40px;
     }
     .row__info {
       min-width: 0;
     }
-    .row__name {
-      font-weight: var(--font-weight-semibold);
+    .row__info p {
+      margin: 0;
     }
-    .row__code {
-      margin-left: var(--spacing-1);
-      color: var(--color-text-muted);
-      font-family: var(--font-mono);
-      font-size: var(--font-size-xs);
+    .row__name {
+      color: var(--color-ink);
+      font-weight: var(--font-weight-semibold);
     }
     .row__meta {
       display: flex;
-      flex-wrap: wrap;
       align-items: center;
-      gap: var(--spacing-1) var(--spacing-3);
-      margin-top: 4px !important;
-      color: var(--color-text-muted);
-      font-size: var(--font-size-sm);
+      gap: 8px;
+      margin-top: 2px;
     }
-    .row__meta span {
-      display: inline-flex;
-      align-items: center;
-      gap: 2px;
-    }
-    .row__meta mat-icon {
-      width: 16px;
-      height: 16px;
-      font-size: 16px;
-    }
-    .row__owner {
-      display: flex;
-      flex-direction: column;
-      font-size: var(--font-size-sm);
-    }
-    .row__when {
-      color: var(--color-text-muted);
+    .row__code {
+      color: var(--color-text-secondary);
+      font-family: var(--font-mono);
       font-size: var(--font-size-xs);
     }
+    .row__owner {
+      color: var(--color-accent);
+    }
     .row__actions {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-      gap: var(--spacing-1);
+      white-space: nowrap;
+      text-align: right;
     }
     .row__hide {
-      color: var(--color-danger);
-    }
-    @media (max-width: 839px) {
-      .row {
-        grid-template-columns: minmax(0, 1fr) auto;
-      }
-      .row__actions {
-        grid-column: 1 / -1;
-        justify-content: flex-start;
-      }
+      color: var(--app-danger-text);
     }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
