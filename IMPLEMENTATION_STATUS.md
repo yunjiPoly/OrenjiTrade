@@ -14723,7 +14723,7 @@ each checked still open first):
 | `npm run test:mobile` | **128 suites / 1,782 tests** (one run beside the web E2E failed `chatSafetyTip` "selling" once, element not found; it passed alone 11 / 11 and the full suite again) |
 | `npx expo export` (scratch folders) | iOS 1,975 modules, Android 2,101 modules, web 1,596 modules and 68 static routes |
 | `npm run test:mobile:e2e -- --retries=0` (8090/19006, under the simulator lock) | `--stack-only` (the served export names `http://localhost:8090` and never 8080, by the harness and by hand), `--reuse-running`: **66 passed** (1.1 min), `--stop` |
-| `npm run test:mobile:maestro -- --platform ios` | NATIVE_RESULT |
+| `npm run test:mobile:maestro -- --platform ios` | **not run: the owner's iPhone 18 Pro simulator was not booted.** Xcode's first launch is no longer pending (no `xcodebuild -runFirstLaunch` process; CoreSimulator now 1174.21, it was 1174.9.2), but `xcrun simctl list devices booted` never listed the simulator during the hour of waiting (21:52 to 22:54 EDT, one background wait, then a watch to its end); it was never booted by an agent. Needed: the stage changed `apps/api`, `packages/api-client` and `packages/shared-types` (admin endpoints the phone never calls; the phone's typecheck, unit tests, exports and web E2E are green) |
 | `npm run test:scripts` | **165 / 165** |
 | `npm run audit:gate` | OK (no unreviewed high or critical advisory) |
 
@@ -14743,7 +14743,8 @@ with its board (A1 to A6, A24, rendered from the mockup with a stub of `support.
 
 **What could not be verified**
 
-- NATIVE_UNVERIFIED
+- The native suite on the owner's iPhone 18 Pro (the simulator was not booted from 21:52 to 22:54
+  EDT; see Checks). The phone calls none of the changed endpoints.
 - A screen reader (VoiceOver or NVDA) on the console: not run by the builder (the accessibility
   reviewer's).
 - The Android run could not be verified (no Android SDK on this Mac).
