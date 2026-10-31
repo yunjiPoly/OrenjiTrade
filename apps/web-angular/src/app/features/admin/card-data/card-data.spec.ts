@@ -32,12 +32,14 @@ function status(games: CardImageCacheStatus['games']): CardImageCacheStatus {
 }
 
 describe('card data and images (board A12)', () => {
-  it('names sources and keeps the etiquette line (version first, 5 requests a second)', () => {
+  it('names sources and keeps the etiquette line (version first, each source’s pace)', () => {
     expect(sourceName('ygoprodeck')).toBe('YGOPRODeck');
     expect(sourceName(null)).toBe('No source');
     expect(etiquette('ygoprodeck')).toContain('checks the source’s database version first');
     expect(etiquette('ygoprodeck')).toContain('at most 5 requests a second');
-    expect(etiquette('scryfall')).toContain('daily bulk file');
+    // Review fix 1 (U10): Scryfall's bulk file at most daily, 8 requests a second (application.yml).
+    expect(etiquette('scryfall')).toContain('bulk file at most once a day');
+    expect(etiquette('scryfall')).toContain('at most 8 requests a second');
     expect(etiquette('mock')).toContain('never call a provider');
   });
 
