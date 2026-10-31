@@ -250,7 +250,6 @@ Drop an override once the dependency ships the fix itself.
 
 | Advisory | Package | Expires | Why accepted |
 | --- | --- | --- | --- |
-| GHSA-86w9-cpqp-85rv | node-forge ≤ 1.4.0 (no fix published) | 2026-11-30 | Only via Expo build tooling (`@expo/cli` → `@expo/code-signing-certificates`) for expo-updates code signing, which is not used; not in the API or the web bundle. npm's "fix" would downgrade Expo to SDK 44. |
 | GHSA-vfj7-8cjw-p6xm | braces ≤ 3.0.3 (no fix published) | 2026-11-30 | Only via build/test tooling glob matching (micromatch in Metro, Jest, Angular/Expo toolchains) with developer-written patterns; not in the web bundle or the API. |
 | GHSA-qr28-fpjm-wq7f | decode-uri-component ≤ 0.5.0 (the only fix, 0.5.1, is ESM only) | 2026-11-30 | Added 2026-10-29 (web stage WD's checks, an advisory of that day): only via expo-router 57 → query-string 7.1.3, which `require()`s it (an override to 0.5.1 would break the phone's router; the latest query-string drops it but is ESM only and expo-router pins 7). The phone decoding its own route URLs; not in the web bundle or the API. Trivy reports the same advisory as CVE-2026-118664, excepted in `.trivyignore` with the same expiry (2026-10-30). |
 
@@ -262,7 +261,11 @@ already in the lockfile: delete the affected entries (the package and its nested
 moves the whole tree. Example of the first kind (2026-10-28): `re2js` 2.8.6 → 2.8.8 for
 GHSA-gg6h-894w-4m9c (patched in 2.8.7), in the lockfile only, since `@firebase/firestore` asks for
 `^2.8.3`; it reaches the repo through the phone's `firebase`, and neither app imports Firestore, so
-no bundle carries it. Each override is removed once its dependents move past the fix by
+no bundle carries it. Second example (2026-10-30): `node-forge` 1.4.0 → 1.4.2, in the lockfile
+only, since `@expo/cli` and `@expo/code-signing-certificates` ask for `^1.3.3`, for five high
+advisories published that day (GHSA-7wch-p9px-956x, GHSA-jc66-7q78-782g, GHSA-8hrf-8g6f-7xwp,
+GHSA-hqq3-7jhf-c5jx, GHSA-5x38-2vff-x55p, all ≤ 1.4.0); 1.4.2 also fixes GHSA-86w9-cpqp-85rv, so
+its exception is removed. Each override is removed once its dependents move past the fix by
 themselves:
 
 | Override | Pinned by | Advisory | Remove when |
