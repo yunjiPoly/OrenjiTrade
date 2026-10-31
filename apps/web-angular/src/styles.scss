@@ -215,6 +215,8 @@ html {
   color: var(--color-ink);
   font: inherit;
   font-size: 15px;
+  // The page's tracking, as the other fields (Material's select spaces its letters 0.5 px).
+  letter-spacing: inherit;
   --mat-select-placeholder-text-color: var(--color-text-muted);
 
   .mat-mdc-select-trigger {
