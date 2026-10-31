@@ -256,8 +256,42 @@ Spec sections 15.1 to 15.4 and 15.9, decision 3, boards A1 to A6 and A24. Contra
 - **Ratings** (`ratings/`, A6): tabs Ratings and References, Show (All, Visible, Hidden), "Rated
   collector" and "Rated by" (people seen on the pages read, by @handle), Hide with a reason and
   Restore with a confirmation.
-- The other admin pages (Users, Listings, Binders, Cards, Games, the rules and system pages, the
-  payments pages) keep today's screens inside the new frame until stage WH2.
+- The payments pages (Transactions, Disputes, Payments; only while `protectedPayments` is on) keep
+  their screens inside the console's frame.
+
+## The admin console: collectors, catalog, rules and system (web redesign WH2)
+
+Boards A7 to A23, spec sections 15.5 to 15.7 and 15.9; contract
+`docs/api/contracts/wh2-admin-console.md`. The page pattern of spec 15.2 everywhere: the eyebrow,
+H1 and subtitle, the filter bar (`console-page.scss`), the count line, a card holding the table
+(`console/console-table.scss`, Material tables restyled through their variables, "1–20 of 64" and
+the paginator), skeletons, empty states and errors with "Try again"; every write ends with a toast
+and "Recorded in the audit log." (`runConsoleAction`).
+
+- **Staff search**: administrators ask `GET /admin/search` once (handles, emails, names, card
+  names, printing codes, report numbers); moderators the report queue by number.
+- **Users** (`users/`, A7) and **the account** (A8: the header with the place, Pause listings and
+  Suspend; Moderation with its facts and the five history sections; Recent activity; Public
+  listings, Roles, Account deletion, Consents). **Listings** (`listings/`, A9: Needs review with
+  Stale and Hidden counts, All listings, the table). **Binders** (`binders/`, A10: Kind and Owner
+  filters, the deck core chip).
+- **Cards** (`cards/`, A11): the list with game chips; the card editor in a 520 drawer
+  (`?open=<id>`, previous and next, New card `?open=new`, Add printing); `/admin/cards/:id`
+  redirects to the drawer. **Card data and images** (`card-data/`, A12): games and sources, Run a
+  sync (game, source, mode, images mode and limit, the provider etiquette line), the card image
+  cache (meter by game, counts, Check the cache, Clear a game's images… confirmed, the 5 GB cap
+  line), recent runs with their phase and the Report drawer. **Games** (`games/`, A13: card counts,
+  the amber panel of a game without cards, New game `?game=new`).
+- **Usage limits** (`usage-limits/`, A14, grouped), **Import limits** (`import-limits/`, A15, new),
+  **Wishlist terms** (`wishlist/`, A16, an ordered list with drag and move buttons), **Auto-delist**
+  (`delist/`, A17), **Feature flags** (`feature-flags/`, A18: names, rollout, `mlScanning` locked),
+  **Regions** (`regions/`, A19: search, collapsed lists, a move confirmed). Editors are named
+  ("Changed Oct 14 by Alex Morin", `console/editor-line.ts`), never by id.
+- **Notifications** (`notifications/`, A20, Send an announcement), **System health** (`health/`,
+  A21: every job named and explained, `health/job-labels.ts`; the Storage meter), **Analytics**
+  (`analytics/`, A22: searches without results, messages per wish), **Audit log** (`audit/`, A23:
+  `audit/audit-entries.ts` labels every action the API writes; Who, Target, readable targets, the
+  details as JSON with names and the request id).
 
 ## Run
 
@@ -424,8 +458,9 @@ the Emulator UI (http://localhost:4000/auth).
   no attributes, printings table or market price any more). `GamesStore`
   (`GET /games`) also feeds the profile game picker, so hidden games disappear there.
 - **Admin**: `/admin/games` (list incl. hidden, edit names/status/order and the schema JSON with
-  live validation and a preview), `/admin/cards` (find cards, catalog sync with polling and the
-  latest runs), `/admin/cards/:id` (card fields, schema-driven attributes, printings dialog),
+  live validation and a preview), `/admin/cards` (find cards; since WH2 the card editor is a drawer
+  and the catalog sync lives on `/admin/card-data`), `/admin/cards/:id` (redirects to the drawer:
+  card fields, schema-driven attributes, printings dialog),
   `/admin/feature-flags` (switch with confirmation; SUPER_ADMIN, read-only for ADMIN),
   `/admin/usage-limits` (one row per limit, the same for everyone; inline edit with validation;
   SUPER_ADMIN).

@@ -14992,6 +14992,274 @@ them first):
   1174.21). It is due for WG and WH1 (WH1 changed `apps/api`, `packages/api-client` and
   `packages/shared-types`); the owner boots it.
 
+## Web redesign WH2: The admin console: collectors, catalog, rules and system (2026-10-31)
+
+Stage WH2 of the owner's prompt of 2026-10-28
+([`docs/product/specs/2026-10-28-web-redesign-stages.md`](docs/product/specs/2026-10-28-web-redesign-stages.md),
+"WH2. The admin console: collectors, catalog, rules and system (A7 to A23)"), spec
+[`docs/product/specs/2026-10-20-web-redesign.md`](docs/product/specs/2026-10-20-web-redesign.md)
+sections 15.5 to 15.7, the rest of 15.8 and 15.9, boards A7 to A23. Branch
+`feature/wh2-admin-rules`, made from `origin/main` and stacked on WH1 (`feature/wh1-admin-moderation`,
+PR #103, not merged yet), worktree `OrenjiTrade-web`, walk stack API 8580 / web 4400
+(`orenjitrade_wh2_check`, Redis db 6). Contract:
+[`docs/api/contracts/wh2-admin-console.md`](docs/api/contracts/wh2-admin-console.md). **No
+migration** (the next is still **V136**; V124 and V128 stay unused; an ADR would take 0022 or
+later). Every API change is additive; the phone has no admin screen and is unchanged (it reads
+`GET /inventory/imports/limits`, unchanged, which the new Import limits page edits).
+
+**What a staff member can now do (what to click)** — sign in as `superadmin@orenjitrade.test` (or
+`admin@orenjitrade.test`), avatar menu › **Admin console**:
+
+- **Find anything from the top bar.** Press `/` and type a handle (`@collector2`), an email, a
+  name, a card name, a printing code (`AZR-EN011`) or a report number (`#1001`): one call
+  (`GET /admin/search`), results grouped Collectors, Cards, Reports; Enter opens the first (a card
+  opens in the Cards drawer). A moderator who types a word reads "Moderators search report numbers
+  only."
+- **COLLECTORS › Users** (A7): search, Status, Role, Per page (20, 50, 100), the table (name and
+  @handle, email, status with "Until …" for a suspension, roles, joined, last active), "1–20 of
+  64", no place column. A row opens **the account** (A8): the header (avatar, name, status, @handle,
+  Public profile, email with the verified mark, joined, last active and "Ontario, Canada"), **Pause
+  listings** and **Suspend…** (today's rules for disabled buttons), then **Moderation** (Open
+  reports, Strikes "0 of 3", Open flags, Listings Live/Paused, and the five history sections),
+  **Recent activity** ("Accepted the Terms of Service v3"), and beside them **Public listings**,
+  **Roles**, **Account deletion**, **Consents** (Payment Protection and Refund only while
+  `protectedPayments` is on).
+- **Listings** (A9): Needs review (with its count) and All listings; Stale and Hidden with counts;
+  the table (card, copies and price, where, owner, last confirmed and reminded, state, Restore,
+  Hide). **Binders** (A10): search, Visibility, **Kind** (Binder or Deck core), **Owner**; deck
+  cores carry the violet chip; a public binder links to its page.
+- **CATALOG › Cards** (A11): search, the game chips ("One Piece · no cards yet"), the table; a
+  card's name opens the **520 drawer** (`?open=<id>`; "2 of 14" with previous and next; Esc
+  closes): the card form with counters and "Staff only: collectors never see card text.", the
+  schema attributes with "Show 6 empty fields", the printings with **Add printing** and the
+  staff-only market price. **New card** opens the drawer on an empty card. Old `/admin/cards/:id`
+  addresses open the drawer.
+- **Card data and images** (A12, new page): **Games and sources** (cards, sets, printings, the
+  source, the last sync; "No source yet · collectors see Cards coming soon"); **Run a sync** (Game,
+  Source, Mode, **Images**: Only images in use, All, None, Up to … with its number) and the
+  etiquette line; **Card image cache** (the meter by game, Cached / Not cached / Failed / Missing
+  at the source, per-game rows, **Check the cache**, **Clear a game's images…** confirmed, the 5,120
+  MB cap line); **Recent runs** with the running phase and a **Report** drawer.
+- **Games** (A13): the list in display order with each game's cards ("20 cards" or "Cards coming
+  soon"), the editor with today's fields, the amber panel for a game without cards, **New game**.
+- **RULES › Usage limits** (A14): grouped Browsing, Collection, Wishlist and "Not in the apps", each
+  with "Changed … by {name}", the 00:00 UTC and 60-requests-a-minute line, the lock line for
+  admins, "How a limit reads". **Import limits** (A15, new page): .ydk largest file and most lines,
+  Collectr CSV largest file and most rows, previews kept, "Last changed … by {name}", Discard
+  changes and Save limits, "What collectors read" updating as you type, and the Import clean-up
+  job. **Wishlist terms** (A16): an ordered list (drag, move buttons, remove, **Add a term**),
+  "Sellers read: about 85% of the TCG market price", the preview of a wish row (no amount).
+  **Auto-delist** (A17): today's editor with its live timeline, "Last changed … by {name}", Right
+  now and the freshness job. **Feature flags** (A18): readable names with the key, "Changed … by
+  {name}", the rollout of a flag that is on (Save rollout, confirmed), the ADR 0018 note on
+  `protectedPayments`, `mlScanning` locked "On hold by the owner." with its switch disabled.
+  **Regions** (A19): Find a country, three region cards with their line and counts, subdivision
+  counts ("13 provinces and territories"), long lists collapsed to six with "Show all N countries",
+  moving a country confirms first, region codes never on screen.
+- **SYSTEM › Notifications** (A20): the period, the tiles, by type, delivery channels, **Send an
+  announcement** (radio cards, the preview "How it shows in the app"). **System health** (A21): the
+  banner with "7 of 7 components up · 0 events waiting · 0 job failures in 24 h", components
+  explained, events and queues, **Storage** (the card image meter), every job **named and
+  explained** ("Import clean-up", "Photo clean-up after deletes", "Card image check", "Card image
+  clearing"; offer expiry and payout release only while `protectedPayments` is on, never-run jobs
+  shown). **Analytics** (A22): today's chart and bars plus **Searches without results** (%) and
+  **Messages per wish added**. **Audit log** (A23): Action grouped by area with a label for every
+  action the API writes, **Who** (each staff member, System, Collectors), **Target** ("@handle",
+  "#1047", a setting key), From and To; rows with who (name, "@handle · Super admin"), the label
+  with its code, a readable target ("Report #1047", "@ana.cards", "Yu-Gi-Oh!", "An archived
+  channel") and the details in words; a row expands to the JSON (ids shown as names) and the
+  request id with a copy button.
+
+**WH1's leftovers, fixed first** (the WH1 section's "Left open by the verifier of fix 2", each
+checked still open):
+
+- **R2-1** (minor): the audit log names an archived city channel "An archived channel" and its
+  details read `archived-channel` for `community.post.remove` / `.delete`'s `channel` and
+  `community.channel.update` / `.create`'s `slug` (API, `CommunityAuditLabels`; records unchanged);
+  `GeoPrivacyContractTest.adminConsoleOfStageWh2CarriesNoPlace` inserts the three entries for V041's
+  channel and asserts no "montr" in any audit response (nor in the staff search, the catalog
+  summary, the rule pages, binders or an account).
+- **R2-2**: the Rules tab says "The same pattern is a separate rule for …" under a pattern that is a
+  rule in other places (`twinsLine`, unit test).
+- **U13**: every Reports tab shows its count (Action taken and Dismissed from `size=1` reads, All
+  their sum, zeros shown). **U15**: Suspend's "Admins" tag stays on the label's line. **U16**: a
+  moderator typing a word reads "Moderators search report numbers only. Type a number such as
+  #1047." **U17**: the room view has no deep link to one post, so a flag's link reads **Open the
+  room**; a report about a post now has **Open the room** too (new `ReportDetail.contextRoomSlug`,
+  never a city channel; `AdminConsoleWh2IT`). **U18**: in the console, toasts sit beside the 260
+  nav, never over its audit line.
+- **A12**: the icon-only Back has a tooltip, the staff search carries `aria-keyshortcuts="/"`, a
+  flag's Resolve names the author ("… by @handle"). **A13**: `aria-controls` only while the list is
+  shown, and the Searching, Search failed and nothing-matches lines sit outside the listbox. **A14**:
+  the h2 is "Rooms" and its summary a paragraph tied by `aria-describedby`. **A15**: the Overview's
+  meter draws its legend only when a game has images.
+- **WG's U9**: the Home map card has board W26's Fewer…More legend (decorative, unit test).
+- **U14** (the report header's and panel's layout against board A2, a nit): not changed (left).
+
+**What the stage built (API)** (`2045376b`, `4252e83f`)
+
+- `auth.domain.AccountNames` (SPI: handle, display name, highest staff role; `idOfHandle`),
+  implemented by `users.infra.AccountNamesFromAccounts`; the audit module's `AuditActorResolver`
+  and its handles projection are gone (replaced).
+- `updatedByHandle` / `updatedByName` on `FeatureFlag`, `AdminUsageLimit`,
+  `InventoryImportSettingsResponse`, `WishlistSettingsResponse`, `DelistPolicyResponse`.
+- Audit: `AuditLogEntry.targetLabel`, `AuditActor.displayName` and `.role`; the SPI
+  `audit.domain.AuditTargetLabels` with `ReportAuditLabels`, `ModerationAuditLabels`,
+  `CommunityAuditLabels`, `CatalogAuditLabels`, `GameAuditLabels`, `CountryAuditLabels`,
+  `BinderAuditLabels`, `InventoryAuditLabels`, `UsageLimitAuditLabels`; filters `actorType` and
+  `target`.
+- `GET /admin/search` (`StaffSearchRepository`, `AdminSearchController`), `GET
+  /admin/catalog/games` (`CatalogGameSummary`), `GET /admin/binders?deckCore=` and
+  `AdminBinder.game`, `ReportDetail.contextRoomSlug` (`CommunityService.postRoomSlug`).
+- Tests: `AdminConsoleWh2IT` (6: the five editors named; actor, role and target labels with the
+  `#number`, `@handle` and limit-key searches, `actorType=SYSTEM`, a 400 and a moderator's 403; the
+  archived city channel in the audit log with the stored record unchanged; a post report's room and
+  a city post's none; the staff search by handle, name, number, printing code and card name, a blank
+  query's 400, a moderator's and a collector's 403; the catalog summary and the deck-core filter),
+  `GeoPrivacyContractTest.adminConsoleOfStageWh2CarriesNoPlace`.
+
+**What the stage built (web)**
+
+- Shared console parts: `console/console-table.scss` (Material and native tables restyled through
+  their variables, the pager), `console/console-drawer.scss`, `console/section.ts` (one card's
+  loading and error), `console/editor-line.ts` ("Changed … by {name}", never an id),
+  `console/game-badge.component.ts`, the filter bar in `console-page.scss`, new console icons.
+- Pages: `audit/` (`audit-entries.ts`: every label, groups, who, targets, summaries, the JSON with
+  names), `import-limits/` (new), `card-data/` (new; `clear-images-dialog`; the old
+  `cards/catalog-sync-panel` removed), `users/` (page, table, account page and its two cards),
+  `listings/` (the table), `binders/`, `cards/` (the list and the drawer; the editor embeds in it
+  with New card and Add printing), `games/` (New game, card counts), `usage-limits/` (groups),
+  `wishlist/` (the ordered list, CDK drag), `delist/`, `feature-flags/` (`flag-info.ts`),
+  `regions/`, `notifications/` (the announcement form), `health/` (`job-labels.ts`), `analytics/`
+  (derived tiles). Routes `card-data` and `import-limits`; `cards/:id` redirects to the drawer; the
+  nav lists Card data and images and Import limits.
+
+**What it left hidden or out, and why**
+
+- The PAYMENTS pages (Transactions, Disputes, Payments) keep their WH1 look with the console's page
+  frame only: no board, and they open only while `protectedPayments` is on (off in production).
+- No real provider import: locally and in the E2E the only source is the mock one ("Mock (local
+  fixtures)"); Magic's source line still reads Scryfall's "Unique Artwork" file as `main` has it
+  (decision 5, "Default Cards", comes after WH2 once PR #92 is on `main`).
+- The staff search's endpoint is for administrators; moderators keep the report-number search.
+- U14 (a layout nit of the report panel) is left.
+
+**Spec points changed, and why** (decisions)
+
+1. **The binders' Kind filter is a `deckCore` boolean** (deck cores are binders of kind `DECK`; a
+   "Binder" is every other kind): the API's `kind` is a purpose (sale, trade, collection, …), not
+   the board's Binder or Deck core.
+2. **The Owner filter lists the owners seen on the pages read** (by @handle, never an id), as WH1's
+   Ratings filters do; a row's owner links to the account.
+3. **The audit log's Target search resolves "@handle", "#1047" and a usage limit's key**, else
+   matches the stored target id (feature flag keys, game slugs, country codes are stored as such).
+   Legacy links from an account or a report keep `targetType` and `targetId` ("Only this account's
+   entries. Show every entry").
+4. **Audit labels follow board A23's words** ("Resolved a report", "Changed a handle", "Created a
+   room", "Sent an announcement"); the Overview and an account's Recent activity read them too.
+   Labels of removed features (plans, credits, donations) stay for old rows but are not offered in
+   the filter (ADR 0019); the PAYMENTS group's actions only while `protectedPayments` is on.
+5. **Expanded audit details replace the ids the page knows** (the actor, the target) with names;
+   other ids in the stored JSON stay as stored (they are evidence) — the rows themselves never show
+   one.
+6. **Report runs show no requester**: the board's Recent runs table has no "by" column, and the
+   API's `requestedBy` is an id.
+7. **The "Up to …" images limit is 1 to 1,000,000** (the board's message); the API accepts any
+   positive number.
+8. **The rollout is editable only for a flag that is on** (spec 15.7) and asks to confirm, like the
+   switch; `mlScanning`'s switch is disabled in the UI only (the API still accepts it).
+9. **"Send an announcement"** keeps today's two audiences (staff first, every collector); the board's
+   account counts per audience need a new count and are left out.
+10. **The account page's two moderation cards** are two instances of today's panel (Public listings
+    beside, Moderation in the main column), so the header's Pause listings acts on the same status.
+11. **E2E "the phone's import reads it"** checks `GET /inventory/imports/limits`, the endpoint the
+    phone's import calls, as a collector right after the save (the phone itself is not driven).
+12. **English only** (owner, 2026-10-20): nothing French; a new printing starts in English; the
+    announcement's link hint no longer shows a city room (`/community/montreal-pokemon` → `/wishlist
+    or /messages`).
+
+**Tests**
+
+- API: `AdminConsoleWh2IT` (6 tests), `GeoPrivacyContractTest.adminConsoleOfStageWh2CarriesNoPlace`;
+  the existing `AdminDelistPolicyIT`, `InventoryImportIT`, `FeatureFlagsIT`, `LimitsIT`,
+  `WishlistIT`, `AuditIT`, `AdminCatalogIT`, `ReportFlowIT` unchanged and green.
+- Web unit: `audit-entries.spec` (every action the API writes labelled and grouped once, the seven
+  of today, who, targets never an id, summaries without ids, games named, the JSON with names, Who
+  as filters), `import-limits.spec`, `admin-import-limits-page.component.spec` (the editor named,
+  never an id; a value out of range refused with the field described and focused; only what
+  changed sent; the preview as typed), `card-data.spec` (sources, the etiquette line, the images
+  limit, phases, the meter split by game and empty games left out, per-game sums, durations),
+  `clear-images-dialog.component.spec`, `game-editor.component.spec` (New game: the slug with the
+  other errors, the slug rule), `flag-info.spec`, `limit-rows.spec` (`groupLimits`),
+  `analytics-summary.spec` (`derivedTiles`), `moderation-rules.spec` (`twinsLine`),
+  `staff-search.spec` (the one endpoint's mapping, a moderator's line), `editor-line.spec`,
+  `admin-regions-page.component.spec` (native controls, the move confirmed, no region code,
+  subdivision words), `admin-wishlist-settings-page.component.spec` (add, move, remove, save in
+  order; refusals; sellers' words), `admin-nav.spec` (the WH2 pages in their groups),
+  `map-card.component.spec` (the W26 legend), `admin-listing-rows.component.spec` (the table).
+- E2E: `admin-console-wh2.spec.ts` (new: a super admin's nav with every WH2 page; the staff search
+  by `@handle` to the account and by printing code to the card drawer with `aria-keyshortcuts`;
+  **no UUID or region code** in the visible text of the 18 WH2 pages and the card drawer;
+  `mlScanning` locked; **an import limit edited and read by the phone's import** (`GET
+  /inventory/imports/limits`) with its validation, the editor's name and the audit entry; **one
+  game's images cleared on the E2E database** with the cache checked, the dialog's refusal, the
+  focus back, the audit row (label, code, "Yu-Gi-Oh!", who) and no request to a provider host);
+  `admin-rules.spec.ts` (Games' schema, the mock sync of Riftbound on Card data and images with
+  the images mode and its **Report** drawer, the card drawer, **New card** with its validation and
+  **Add printing**); `admin.spec.ts`, `admin-moderation.spec.ts`, `reporting.spec.ts`,
+  `community.spec.ts`, `acceptance/stale-listings.spec.ts`, `acceptance/reporting.spec.ts` updated
+  for the redesigned pages (the native Action select, the listings table, "Open the room", two
+  Pause listings buttons, the console's toasts).
+
+**Walked** on the walk stack (this branch's jar on API 8580, web 4400, `orenjitrade_wh2_check`,
+Redis db 6; dropped and flushed afterwards) as the seed's super admin, admin and moderator, every
+WH2 page at 1440, 1024 and 390 in dark and light, with the actions done for real at 1440: a mock
+sync of Pokémon with "Up to 25" images and its Report drawer, Check the cache, clearing
+Yu-Gi-Oh!'s images, New game (the slug's error with the others), New card and Add printing, an
+import limit edited and put back, the wishlist terms edited and discarded, a rollout refused out of
+range, a country's move confirmed then cancelled, the audit log's Target search and an expanded
+row, the staff search to an account and to the card drawer. No page error, no console error, no
+sideways scroll at 390 (the Games and sources table scrolls inside its card). BEFORE screenshots
+(96, the pages as WH1 left them, on its head `3a4d2b62`) and AFTER (154) in `.local-dev/wh2-notes/pr-shots/`.
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | clean |
+| `npm run test:api` | **213 classes / 1,331 tests** (`test`; 1,324 before: `AdminConsoleWh2IT` +6, `GeoPrivacyContractTest` +1) and 13 (`catalogTest`), 0 failures, 4 min 31 s |
+| `exportOpenApi` then `generate:api` | committed (the new fields, parameters and the two endpoints); git clean afterwards |
+| `npm run lint`, `format:check -w apps/web-angular` | clean |
+| `npm run test:web` | **233 files / 1,191 tests** (225 / 1,153 before) |
+| `npm run build -w apps/web-angular`, `build:prod` | initial total **772.40 kB** (195.66 kB transferred; budget 900 kB), no warning |
+| `npm run test:e2e -- --retries=0` (8180/4300, under the lock) | **121 passed** (1.4 min), 0 failed, on the final commit (118 before: `admin-console-wh2.spec.ts` +3) |
+| `npm run typecheck`, `lint`, `format:check -w apps/mobile` | clean |
+| `npm run test:mobile` | **128 suites / 1,782 tests** |
+| `npx expo export` (scratch folders) | iOS 1,975 modules, Android 2,101 modules, web 1,596 modules |
+| `npm run test:mobile:e2e -- --retries=0` (8090/19006, under the simulator lock) | `--stack-only` (the served entry bundle names `localhost:8090` twice and 8080 never), `--reuse-running`: **66 passed** (1.1 min), `--stop` |
+| `npm run test:mobile:maestro -- --platform ios` | **not run: the owner's iPhone 18 Pro simulator was not booted** (`Shutdown`; Xcode's first launch is not pending, CoreSimulator 1174.21); a wait of an hour (10:54 to 11:55) never saw it booted and nothing was booted. Due: WH2 changed `apps/api`, `packages/api-client` and `packages/shared-types` (additive). The Android run could not be verified |
+| `npm run test:scripts` | **165 / 165** |
+| `npm run audit:gate` | OK (no unreviewed high or critical advisory) |
+
+**What could not be verified**
+
+- The native suite on the owner's iPhone 18 Pro (not booted), and the Android run (no Android SDK
+  on this Mac).
+- A real provider sync and a real image cache: only the mock source runs locally and in the E2E
+  (agents never call a provider); the cache meter was read with the walk's few cached files.
+- Screen readers: the pages were checked with the accessibility tree, names and focus, not with
+  VoiceOver.
+
+**Owner follow-ups**
+
+1. Merge WH1 (PR #103) first; WH2's pull request is stacked on it (its base becomes `main` after).
+2. Decision 5 (Magic's Scryfall file becomes "Default Cards") after WH2, once PR #92 is on `main`.
+3. Boot the iPhone 18 Pro simulator for the native suite, due for WG, WH1 and WH2.
+4. Left for the owner from earlier stages, unchanged: WH1's R2-3 (archived city channels cannot be
+   renamed in the console: a data decision), the light scrim and text-field borders below 3:1 (WG
+   U9, A13), the "Orenji" logotype at 2.74:1 (exempt), the deletion page's shared rate limit (WG
+   R2-2), the phone's public community photos (WF P4).
+5. If wanted: account counts per audience in "Send an announcement" (a new count in the API,
+   decision 9), and an API lock for `mlScanning` (today the console only disables its switch).
+
 ## NEXT TASK
 
 > **The web resumes (owner, 2026-10-28): stages WA to WH2 of the web redesign**, one at a time
@@ -15120,20 +15388,31 @@ them first):
 > section's "Left open by the verifier of fix 2"). **Next for WH1: its pull request against `main`,
 > merged on green.**
 >
-> **Before WH2: decision 5** (owner, 2026-10-28: Magic's Scryfall file becomes "Default Cards"),
-> which waits for the other session's PR #92 (`fix/scryfall-jsonl-bulk`, open) to reach `main`.
+> **Stage WH2 (the admin console: collectors, catalog, rules and system) is built** on
+> `feature/wh2-admin-rules`, stacked on WH1 (`feature/wh1-admin-moderation`, PR #103, not merged
+> yet) (section "Web redesign WH2: The admin console: collectors, catalog, rules and system
+> (2026-10-31)" above; contract `docs/api/contracts/wh2-admin-console.md`; no migration, the next is
+> still **V136**; every API change additive): WH1's R2-1, R2-2 and nits fixed first (an archived
+> city channel reads "An archived channel" in the audit log; every Reports tab with its count; "Open
+> the room"; toasts beside the nav) and WG's U9 (the map card's legend); Users and the account page
+> (A7, A8), Listings (A9), Binders with Kind and Owner (A10), Cards with the 520 drawer, New card and
+> Add printing (A11), Card data and images (A12, new: sources, the sync form with its images mode,
+> runs with their reports, the card image cache with check and clear), Games with New game (A13),
+> Usage limits grouped (A14), Import limits (A15, new), Wishlist terms as an ordered list (A16),
+> Auto-delist (A17), Feature flags with readable names and `mlScanning` locked (A18), Regions (A19),
+> Notifications with "Send an announcement" (A20), System health with every job named (A21),
+> Analytics with two derived tiles (A22), the Audit log with a label for every action, Who and
+> Target (A23); the staff search's one endpoint (`GET /admin/search`), `updatedBy` names on the five
+> rule pages, `GET /admin/catalog/games`, `?deckCore=`, `ReportDetail.contextRoomSlug`. **Next for
+> WH2:** its reviewers (functional, product and UX as a staff member, privacy), then its pull
+> request against `main` after WH1's (#103) is merged, merged on green.
 >
-> **The exact next stage after WH1's pull request: stage WH2 of the web redesign, the admin
-> console: collectors, catalog, rules and system (boards A7 to A23; spec sections 15.5 to 15.7,
-> 15.8's rest and 15.9)**, from the latest `origin/main`: Users and the account page, Listings,
-> Binders and the Audit log (labels for every audit action, readable targets); Cards with the card
-> drawer, Card data and images (the sync form with its images mode, runs and their reports, the card
-> image cache with check and clear) and Games; Usage limits, Import limits (new page, then in the
-> nav), Wishlist terms, Auto-delist, Feature flags and Regions; Notifications, System health with
-> every job named, and Analytics; the staff search's one endpoint (replacing WH1's composed lists),
-> `updatedBy` names; E2E: edit an import limit and see the phone's import read it, clear one game's
-> images on the E2E database (no provider call); its reviewers (functional, product and UX as a
-> staff member, privacy).
+> **NEXT TASK: none: the web redesign is complete** (stages WA to WH2 are built; WA to WG merged,
+> WH1 and WH2 waiting for their pull requests). What comes next is **the owner's choice**. Already
+> decided and waiting: **decision 5** (owner, 2026-10-28: Magic's Scryfall file becomes "Default
+> Cards"; owner, 2026-10-31: after WH2), which starts **once the other session's PR #92
+> (`fix/scryfall-jsonl-bulk`) is on `main`**; until then Card data and images reads Magic's
+> current source, Scryfall's "Unique Artwork" file.
 
 > **(Done: WE, above.) The exact next stage after WD's pull request was stage WE of the web redesign, Home, profiles,
 > notifications and settings (boards W1, W2 and W23 to W25; spec sections 5, 11, 12 and 13; decisions
