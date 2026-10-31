@@ -7,6 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
+**Last updated:** 2026-10-31 (stage WG merged into `main` as #102, merge commit `f1e81069`; `origin/main` merged into WH1's branch at `16586cfc` (no file changed); the check of WH1's review fix 2 approved it with one older minor (the audit log keeps an archived city channel's slug) and nits, carried into stage WH2; WH2 waits for decision 5 ("Default Cards"), which waits for PR #92; see NEXT TASK).
 **Last updated:** 2026-10-31 (stage WH1 review fix 2, round 2 of 2: an archived city channel's slug, name and description never reach staff, in `GET /admin/community/channels` (R1-1) or a collector's moderation history (R1-2); API only, no type change; see "Review fix 2" in the WH1 section).
 **Last updated:** 2026-10-31 (stage WH1 review fix 1, round 1 of 2: the 39 findings of its four reviewers (shared details appended after typed text hidden from staff, archived city channels never named in the console or a flag, the payments routes closed while `protectedPayments` is off, the resolve dialog's radio groups, focus after every action, light contrast, the Rules tab as board A4); see "Review fix 1" in the WH1 section).
 **Last updated:** 2026-10-30 (stage WH1 of the web redesign, builder: the admin console's own shell (the staff search, the role pill, the grouped nav with open counts, PAYMENTS only while `protectedPayments` is on), the Overview (A1; a moderator's A24), Reports as one split view with the resolve dialog, Flags and rules, the 15 Community rooms with their drawer, Ratings with References; V135 report numbers and the additive API of spec 15.8 (names on ratings and flags, a flagged post's room and text, shipping addresses and e-Transfer emails hidden from staff, `GET /admin/references`); WG's nits first; see the WH1 section and NEXT TASK).
@@ -14962,6 +14963,35 @@ they are.
 | `npm run test:scripts` | **165 / 165** |
 | `npm run audit:gate` | OK (no unreviewed high or critical advisory) |
 
+**Left open by the verifier of fix 2** (round 2 of 2 approved; carried into stage WH2, which fixes
+them first):
+
+- **R2-1 (minor, older than WH1, WH2's page):** the audit log keeps an archived city channel's slug:
+  `community.post.remove`'s `details.channel` (with the author's id) for a post removed in one, and
+  `community.channel.update`'s `details.slug` for a `PATCH` of one. `GET /api/v1/admin/audit-logs`
+  (admins only) returns them and today's `/admin/audit-logs` prints "channel: montreal-yugioh ·
+  authorId: …". The records are evidence and stay as written; WH2's Audit log (and its API
+  response) should name such a channel "An archived channel" (`CityChannels`), never its city.
+- **R2-2 (nit, R1-3):** the Rules tab lacks board A4's "The same pattern is a separate rule for …"
+  line under a pattern that exists in several scopes.
+- **R2-3 (nit, R1-4, by design of review fix 1):** an archived city channel can no longer be renamed
+  or edited in the console (its drawer is read-only, so no city reaches staff). An owner follow-up,
+  not WH2's: renaming the stored channels is a data decision.
+- **Round 1's nits not fixed:** U13 (only the active Reports tab shows a count), U14 (the report's
+  header and panel layout differ slightly from board A2), U15 (Suspend's "Admins" tag wraps onto its
+  own line), U16 (a moderator typing a handle in the staff search reads "No report has this
+  number."), U17 (a post report has no "Open the post", and "Open the post" on a flag opens the room,
+  not the post), U18 (toasts cover the console nav's footer), A12 (the icon-only Back at 1024 has no
+  tooltip, the "/" hint has no `aria-keyshortcuts`, a flag's Resolve buttons do not name the
+  author), A13 (the staff search's `aria-controls` points at nothing while the list is closed, and
+  its listbox holds non-option text), A14 (the Rooms heading and table name carry the whole summary
+  line), A15 (the card image meter renders an empty list when no game has images). F11's `?rule=`
+  was fixed with U6 in fix 1.
+- **Not run:** the native suite on the owner's iPhone 18 Pro: the simulator was not booted during
+  the builder's and both verifiers' waits (Xcode's first launch is no longer pending: CoreSimulator
+  1174.21). It is due for WG and WH1 (WH1 changed `apps/api`, `packages/api-client` and
+  `packages/shared-types`); the owner boots it.
+
 ## NEXT TASK
 
 > **The web resumes (owner, 2026-10-28): stages WA to WH2 of the web redesign**, one at a time
@@ -15066,11 +15096,11 @@ they are.
 > review fix 2 left nothing of WG's own above a nit; its one blocker, the audit gate's five new
 > `node-forge` advisories (on `main` too), is fixed by `node-forge` 1.4.2 (`fc3d6276`), and the nits
 > go into stage WH1, which fixes them first (the WG section's "Left open by the verifier of fix
-> 2"). **Next for WG: its pull request against `main`, merged on green.**
+> 2"). **WG is merged into `main`** (#102, merge commit `f1e81069`, 2026-10-31).
 >
 > **Stage WH1 (the admin console: shell, overview and moderation) is built** on
-> `feature/wh1-admin-moderation`, stacked on WG (`feature/wg-sign-in-guests`, #102; when #102
-> merges, `origin/main` is merged into WH1's branch) (section "Web redesign WH1: The admin console:
+> `feature/wh1-admin-moderation`, made on WG (#102, merged; `origin/main` merged in at
+> `16586cfc`, no file changed) (section "Web redesign WH1: The admin console:
 > shell, overview and moderation (2026-10-30)" above; contract
 > `docs/api/contracts/wh1-admin-console.md`; migration **V135**, the next is **V136**): WG's nits
 > fixed first; the console's own frame with the staff search, the role pill and the grouped nav
@@ -15085,8 +15115,13 @@ they are.
 > review fix 1 approved it with two minors and two nits: **review fix 2, round 2 of 2, is done**
 > (section "Review fix 2" in the WH1 section: an archived city channel's slug, name and description
 > never reach staff, neither in the console's channel list nor in a collector's history; API only,
-> no type change). **Next for WH1: the check of review fix 2**, then its pull request against
-> `main`, merged on green after WG's.
+> no type change). The check of review fix 2 approved it, with one minor older than WH1 (R2-1, the
+> audit log keeps an archived city channel's slug) and nits, carried into stage WH2 (the WH1
+> section's "Left open by the verifier of fix 2"). **Next for WH1: its pull request against `main`,
+> merged on green.**
+>
+> **Before WH2: decision 5** (owner, 2026-10-28: Magic's Scryfall file becomes "Default Cards"),
+> which waits for the other session's PR #92 (`fix/scryfall-jsonl-bulk`, open) to reach `main`.
 >
 > **The exact next stage after WH1's pull request: stage WH2 of the web redesign, the admin
 > console: collectors, catalog, rules and system (boards A7 to A23; spec sections 15.5 to 15.7,
