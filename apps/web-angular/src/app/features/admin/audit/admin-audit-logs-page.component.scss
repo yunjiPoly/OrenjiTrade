@@ -45,6 +45,36 @@
 .au__table th:nth-child(4) {
   width: 200px;
 }
+// md (960 to 1279): the target under the action, four columns that fit the card (review fix 2).
+.au__table--md {
+  min-width: 640px;
+}
+.au__table--md th:nth-child(1) {
+  width: 112px;
+}
+.au__table--md th:nth-child(2) {
+  width: 190px;
+}
+.au__table--md th:nth-child(3) {
+  width: 210px;
+}
+.au__table--md th:nth-child(4) {
+  width: auto;
+}
+// Below 960: one Entry column (who, when, action and target) beside Details.
+.au__table--sm {
+  min-width: 0;
+}
+.au__table--sm th:nth-child(1) {
+  width: 56%;
+}
+.au__table--sm th:nth-child(2) {
+  width: auto;
+}
+.au__stack {
+  display: block;
+  margin-top: 8px;
+}
 .au__when {
   white-space: nowrap;
 }

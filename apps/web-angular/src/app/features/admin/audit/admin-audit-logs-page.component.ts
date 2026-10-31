@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -23,6 +23,7 @@ import {
 } from '@orenji/api-client';
 import { Subscription, catchError, forkJoin, map, of } from 'rxjs';
 import { FEATURE, FeatureFlagsService } from '../../../core/feature-flags/feature-flags.service';
+import { ShellLayout } from '../../../core/layout/shell-layout.service';
 import { ApiError, toApiError } from '../../../core/http/api-error';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
 import { silentErrors } from '../../../core/http/http-context';
@@ -92,6 +93,7 @@ interface StaffOption {
 @Component({
   selector: 'app-admin-audit-logs-page',
   imports: [
+    NgTemplateOutlet,
     DatePipe,
     ReactiveFormsModule,
     RouterLink,
@@ -116,6 +118,19 @@ export class AdminAuditLogsPageComponent {
   private readonly router = inject(Router);
   private readonly fb = inject(NonNullableFormBuilder);
   private readonly flags = inject(FeatureFlagsService);
+  private readonly shell = inject(ShellLayout);
+
+  /**
+   * The table's columns by width (web stage WH2 review fix 2, R1-5): every column at lg; at md the
+   * target sits under the action; below 960 one Entry column (who, when, action, target) beside
+   * Details, so the summary and its toggle never sit outside the window.
+   */
+  protected readonly columns = computed<'lg' | 'md' | 'sm'>(() =>
+    this.shell.narrow() ? 'sm' : this.shell.medium() ? 'md' : 'lg',
+  );
+  protected readonly columnCount = computed(() =>
+    this.columns() === 'lg' ? 5 : this.columns() === 'md' ? 4 : 2,
+  );
 
   readonly action = input<string | undefined>();
   readonly who = input<string | undefined>();

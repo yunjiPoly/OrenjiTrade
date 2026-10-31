@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatDialog } from '@angular/material/dialog';
@@ -9,6 +10,7 @@ import { silentErrors } from '../../../core/http/http-context';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
 import { ToastService } from '../../../core/feedback/toast.service';
+import { ShellLayout } from '../../../core/layout/shell-layout.service';
 import { AdminIconComponent } from '../console/admin-icon.component';
 import { runConsoleAction } from '../console/console-actions';
 import { confirmAdminAction } from '../shared/admin-actions';
@@ -59,7 +61,13 @@ interface Draft {
  */
 @Component({
   selector: 'app-admin-regions-page',
-  imports: [MatSlideToggleModule, AdminIconComponent, ErrorStateComponent, SkeletonComponent],
+  imports: [
+    NgTemplateOutlet,
+    MatSlideToggleModule,
+    AdminIconComponent,
+    ErrorStateComponent,
+    SkeletonComponent,
+  ],
   template: `
     <div class="cp">
       <header class="cp__head">
@@ -115,65 +123,122 @@ interface Draft {
             @if (rows.length === 0) {
               <p class="rg__none">No country of this region matches.</p>
             } @else {
-              <div class="ct ct--actions">
-                <table class="rg__table" [attr.aria-label]="region.name + ' countries'">
-                  <thead>
-                    <tr>
-                      <th scope="col">Country</th>
-                      <th scope="col">Subdivisions</th>
-                      <th scope="col">Region</th>
-                      <th scope="col">Active</th>
-                      <th scope="col"><span class="visually-hidden">Save</span></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @for (country of rows; track country.code) {
-                      @let draft = draftOf(country);
-                      <tr [attr.data-country]="country.code">
-                        <th scope="row">
-                          <span class="rg__name">{{ country.name }}</span>
-                          <span class="ct__sub cp-mono">{{ country.code }}</span>
-                        </th>
-                        <td>{{ subdivisionLabel(country) }}</td>
-                        <td>
-                          <select
-                            class="cp-select"
-                            [attr.aria-label]="'Region of ' + country.name"
-                            (change)="edit(country, { regionCode: $any($event.target).value })"
-                          >
-                            @for (option of list; track option.code) {
-                              <option
-                                [value]="option.code"
-                                [selected]="draft.regionCode === option.code"
-                              >
-                                {{ option.name }}
-                              </option>
-                            }
-                          </select>
-                        </td>
-                        <td>
-                          <mat-slide-toggle
-                            [checked]="draft.active"
-                            (change)="edit(country, { active: $event.checked })"
-                          >
-                            <span class="visually-hidden">{{ country.name }} active</span>
-                          </mat-slide-toggle>
-                        </td>
-                        <td class="rg__save">
-                          <button
-                            type="button"
-                            class="cb cb--primary cb--small"
-                            [disabled]="!dirty(country) || saving() === country.code"
-                            (click)="save(country)"
-                          >
-                            Save
-                          </button>
-                        </td>
+              <ng-template #regionSelect let-country let-draft="draft">
+                <select
+                  class="cp-select"
+                  [attr.aria-label]="'Region of ' + country.name"
+                  (change)="edit(country, { regionCode: $any($event.target).value })"
+                >
+                  @for (option of list; track option.code) {
+                    <option [value]="option.code" [selected]="draft.regionCode === option.code">
+                      {{ option.name }}
+                    </option>
+                  }
+                </select>
+              </ng-template>
+              <ng-template #activeToggle let-country let-draft="draft">
+                <mat-slide-toggle
+                  [checked]="draft.active"
+                  (change)="edit(country, { active: $event.checked })"
+                >
+                  <span class="visually-hidden">{{ country.name }} active</span>
+                </mat-slide-toggle>
+              </ng-template>
+              <ng-template #saveButton let-country>
+                <button
+                  type="button"
+                  class="cb cb--primary cb--small"
+                  [disabled]="!dirty(country) || saving() === country.code"
+                  (click)="save(country)"
+                >
+                  Save
+                </button>
+              </ng-template>
+              @if (narrow()) {
+                <!-- Below 960 each country is a stacked row: no control outside the window
+                     (web stage WH2 review fix 2, R1-5). -->
+                <ul class="cp-rows rg__list" [attr.aria-label]="region.name + ' countries'">
+                  @for (country of rows; track country.code) {
+                    @let draft = draftOf(country);
+                    <li class="rg__item" [attr.data-country]="country.code">
+                      <p class="rg__item-head">
+                        <span class="rg__name">{{ country.name }}</span>
+                        <span class="ct__sub"
+                          ><span class="cp-mono">{{ country.code }}</span> ·
+                          {{ subdivisionLabel(country) }}</span
+                        >
+                      </p>
+                      <div class="rg__item-controls">
+                        <ng-container
+                          *ngTemplateOutlet="
+                            regionSelect;
+                            context: { $implicit: country, draft: draft }
+                          "
+                        />
+                        <span class="rg__active">
+                          <ng-container
+                            *ngTemplateOutlet="
+                              activeToggle;
+                              context: { $implicit: country, draft: draft }
+                            "
+                          />
+                          <span aria-hidden="true">Active</span>
+                        </span>
+                        <ng-container
+                          *ngTemplateOutlet="saveButton; context: { $implicit: country }"
+                        />
+                      </div>
+                    </li>
+                  }
+                </ul>
+              } @else {
+                <div class="ct ct--actions">
+                  <table class="rg__table" [attr.aria-label]="region.name + ' countries'">
+                    <thead>
+                      <tr>
+                        <th scope="col">Country</th>
+                        <th scope="col">Subdivisions</th>
+                        <th scope="col">Region</th>
+                        <th scope="col">Active</th>
+                        <th scope="col"><span class="visually-hidden">Save</span></th>
                       </tr>
-                    }
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      @for (country of rows; track country.code) {
+                        @let draft = draftOf(country);
+                        <tr [attr.data-country]="country.code">
+                          <th scope="row">
+                            <span class="rg__name">{{ country.name }}</span>
+                            <span class="ct__sub cp-mono">{{ country.code }}</span>
+                          </th>
+                          <td>{{ subdivisionLabel(country) }}</td>
+                          <td>
+                            <ng-container
+                              *ngTemplateOutlet="
+                                regionSelect;
+                                context: { $implicit: country, draft: draft }
+                              "
+                            />
+                          </td>
+                          <td>
+                            <ng-container
+                              *ngTemplateOutlet="
+                                activeToggle;
+                                context: { $implicit: country, draft: draft }
+                              "
+                            />
+                          </td>
+                          <td class="rg__save">
+                            <ng-container
+                              *ngTemplateOutlet="saveButton; context: { $implicit: country }"
+                            />
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
               @if (hiddenCount(region) > 0) {
                 <button type="button" class="cp-link rg__more" (click)="expand(region.code)">
                   Show all {{ matching(region).length }} countries
@@ -235,6 +300,31 @@ interface Draft {
     .rg__save {
       text-align: right;
     }
+    .rg__list {
+      margin-top: 8px;
+    }
+    .rg__item {
+      padding: 12px 0;
+    }
+    .rg__item-head {
+      margin: 0 0 8px;
+    }
+    .rg__item-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px 16px;
+    }
+    .rg__item-controls .cp-select {
+      flex: 1 1 180px;
+    }
+    .rg__active {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--color-ink);
+      font-size: var(--font-size-sm);
+    }
     .rg__more {
       margin-top: 10px;
       min-height: 32px;
@@ -250,6 +340,8 @@ export class AdminRegionsPageComponent {
   private readonly api = inject(AdminRegionsService);
   private readonly toasts = inject(ToastService);
   private readonly dialog = inject(MatDialog);
+  /** Below 960 the countries are stacked rows instead of a table (review fix 2, R1-5). */
+  protected readonly narrow = inject(ShellLayout).narrow;
 
   protected readonly regions = signal<PlatformRegion[] | null>(null);
   protected readonly error = signal<ApiError | null>(null);

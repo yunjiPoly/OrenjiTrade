@@ -117,13 +117,24 @@
         }
       </p>
       <div class="ct" [class.ct--dim]="loading()">
-        <table class="au__table" aria-label="Audit entries">
+        <table
+          class="au__table"
+          [class.au__table--md]="columns() === 'md'"
+          [class.au__table--sm]="columns() === 'sm'"
+          aria-label="Audit entries"
+        >
           <thead>
             <tr>
-              <th scope="col">When</th>
-              <th scope="col">Who</th>
-              <th scope="col">Action</th>
-              <th scope="col">Target</th>
+              @if (columns() === 'sm') {
+                <th scope="col">Entry</th>
+              } @else {
+                <th scope="col">When</th>
+                <th scope="col">Who</th>
+                <th scope="col">{{ columns() === 'md' ? 'Action and target' : 'Action' }}</th>
+                @if (columns() === 'lg') {
+                  <th scope="col">Target</th>
+                }
+              }
               <th scope="col">Details</th>
             </tr>
           </thead>
@@ -131,11 +142,30 @@
             @for (entry of page.items; track entry.id) {
               @let who = who$(entry);
               @let link = targetLink(entry);
+              <ng-template #targetCell>
+                @if (link) {
+                  <a
+                    class="au__target"
+                    [routerLink]="link.path"
+                    [queryParams]="link.query ?? null"
+                    >{{ targetName(entry) }}</a
+                  >
+                } @else {
+                  <span class="au__target au__target--plain">{{ targetName(entry) }}</span>
+                }
+                <span class="ct__sub">{{ targetTypeLabel(entry.targetType) }}</span>
+              </ng-template>
+              <ng-template #actionCell>
+                <span class="au__label">{{ auditLabel(entry.action) }}</span>
+                <code class="cp-mono ct__sub">{{ entry.action }}</code>
+              </ng-template>
               <tr [class.au__row--open]="expanded() === entry.id">
-                <td class="au__when">
-                  <span>{{ entry.occurredAt | date: 'MMM d, y' }}</span>
-                  <span class="cp-mono ct__sub">{{ entry.occurredAt | date: 'HH:mm:ss' }}</span>
-                </td>
+                @if (columns() !== 'sm') {
+                  <td class="au__when">
+                    <span>{{ entry.occurredAt | date: 'MMM d, y' }}</span>
+                    <span class="cp-mono ct__sub">{{ entry.occurredAt | date: 'HH:mm:ss' }}</span>
+                  </td>
+                }
                 <td>
                   <span class="au__who">
                     @if (who.system) {
@@ -152,24 +182,34 @@
                       <span class="ct__sub">{{ who.sub }}</span>
                     </span>
                   </span>
-                </td>
-                <td>
-                  <span class="au__label">{{ auditLabel(entry.action) }}</span>
-                  <code class="cp-mono ct__sub">{{ entry.action }}</code>
-                </td>
-                <td>
-                  @if (link) {
-                    <a
-                      class="au__target"
-                      [routerLink]="link.path"
-                      [queryParams]="link.query ?? null"
-                      >{{ targetName(entry) }}</a
-                    >
-                  } @else {
-                    <span class="au__target au__target--plain">{{ targetName(entry) }}</span>
+                  @if (columns() === 'sm') {
+                    <span class="au__stack">
+                      <span class="ct__sub"
+                        >{{ entry.occurredAt | date: 'MMM d, y' }} ·
+                        <span class="cp-mono">{{ entry.occurredAt | date: 'HH:mm:ss' }}</span></span
+                      >
+                      <ng-container *ngTemplateOutlet="actionCell" />
+                    </span>
+                    <span class="au__stack">
+                      <ng-container *ngTemplateOutlet="targetCell" />
+                    </span>
                   }
-                  <span class="ct__sub">{{ targetTypeLabel(entry.targetType) }}</span>
                 </td>
+                @if (columns() !== 'sm') {
+                  <td>
+                    <ng-container *ngTemplateOutlet="actionCell" />
+                    @if (columns() === 'md') {
+                      <span class="au__stack">
+                        <ng-container *ngTemplateOutlet="targetCell" />
+                      </span>
+                    }
+                  </td>
+                }
+                @if (columns() === 'lg') {
+                  <td>
+                    <ng-container *ngTemplateOutlet="targetCell" />
+                  </td>
+                }
                 <td class="au__details">
                   <button
                     type="button"
@@ -195,7 +235,7 @@
               </tr>
               @if (expanded() === entry.id) {
                 <tr class="au__expanded" [id]="'au-' + entry.id">
-                  <td colspan="5">
+                  <td [attr.colspan]="columnCount()">
                     <div class="au__panel">
                       <div class="au__json">
                         <p class="au__k">Details</p>
