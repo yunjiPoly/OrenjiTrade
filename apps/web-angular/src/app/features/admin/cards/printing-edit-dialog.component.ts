@@ -83,14 +83,23 @@ const CURRENCY = /^[A-Z]{3}$/;
             }
           </mat-select>
         </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Language</mat-label>
-          <mat-select formControlName="language">
-            @for (language of data.schema?.languages ?? []; track language) {
-              <mat-option [value]="language">{{ languageName(language) }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
+        @if (data.create) {
+          <!-- English cards only (owner, 2026-10-20): a new printing is English, no choice. -->
+          <mat-form-field appearance="outline">
+            <mat-label>Language</mat-label>
+            <input matInput value="English" readonly data-testid="printing-language-fixed" />
+            <mat-hint>New printings are English.</mat-hint>
+          </mat-form-field>
+        } @else {
+          <mat-form-field appearance="outline">
+            <mat-label>Language</mat-label>
+            <mat-select formControlName="language">
+              @for (language of data.schema?.languages ?? []; track language) {
+                <mat-option [value]="language">{{ languageName(language) }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        }
         <mat-form-field appearance="outline">
           <mat-label>Finish</mat-label>
           <mat-select formControlName="finish">
@@ -185,7 +194,9 @@ export class PrintingEditDialogComponent {
       printingCode: value.printingCode.trim() || undefined,
       rarity: value.rarity || undefined,
       edition: value.edition,
-      language: value.language,
+      // English cards only (owner, 2026-10-20): a new printing is always English; an existing one
+      // keeps its stored language editable.
+      language: this.data.create ? 'en' : value.language,
       finish: value.finish,
       marketPrice: price === '' ? undefined : Number(price),
       marketPriceCurrency: price === '' ? undefined : value.marketPriceCurrency.toUpperCase(),

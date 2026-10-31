@@ -2,6 +2,10 @@
 // through its system variables (uppercase 12 px headers, 60 px rows, hover tint), and the pager.
 
 .ct {
+  // The scroller is the containing block of what is positioned inside the table (a visually hidden
+  // header, a slide toggle's input): nothing escapes it to widen the page (WH2 review fix 1).
+  position: relative;
+  max-width: 100%;
   overflow-x: auto;
   border: 1px solid var(--color-border);
   border-radius: 16px;
@@ -64,6 +68,20 @@
 }
 .ct--dim {
   opacity: 0.6;
+}
+// A table whose last column holds the row's actions keeps them in view while it scrolls sideways
+// (1024 and narrower: Listings, Binders, Card data and images, Cards, Regions).
+@media (max-width: 1279.98px) {
+  .ct--actions table tr > :last-child {
+    position: sticky;
+    right: 0;
+    z-index: 1;
+    background: var(--color-surface);
+    box-shadow: inset 1px 0 0 var(--color-border);
+  }
+  .ct--actions tbody tr:hover > :last-child {
+    background: var(--color-surface-variant);
+  }
 }
 
 // Pager: "1–20 of 64" and Material's paginator, restyled.

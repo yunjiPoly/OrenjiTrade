@@ -58,7 +58,7 @@ export function listingStateLabel(state: string): string {
     RelativeTimePipe,
   ],
   template: `
-    <div class="ct">
+    <div class="ct ct--actions">
       <table class="lt" [attr.aria-label]="label()">
         <thead>
           <tr>

@@ -40,6 +40,7 @@
   } @else if (error(); as error) {
     <app-error-state
       title="This card could not load"
+      retryLabel="Try again"
       [message]="message(error)"
       [requestId]="error.requestId"
       (retry)="load(id())"

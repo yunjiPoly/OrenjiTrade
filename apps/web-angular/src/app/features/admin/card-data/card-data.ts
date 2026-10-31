@@ -38,7 +38,8 @@ export function sourceHint(provider: string): string {
 
 /**
  * The provider etiquette line (CLAUDE.md, ADR 0015 and 0021, spec 15.6): called only when staff
- * run a sync, the version first, the stored snapshot, at most 5 requests a second.
+ * run a sync, the version first, the stored snapshot, the API's pace for the source
+ * (application.yml: YGOPRODeck and TCGdex 5 requests a second, Scryfall 8, under its 10).
  */
 export function etiquette(provider: string): string {
   const name = sourceName(provider);
@@ -48,7 +49,7 @@ export function etiquette(provider: string): string {
     case 'tcgdex':
       return `${name} is called only when someone runs a sync, never on a schedule. The sync checks the source’s version first, reuses the stored snapshot (one download of the card database, not a call per card) and sends at most 5 requests a second.`;
     case 'scryfall':
-      return `${name} is called only when someone runs a sync, never on a schedule. The sync checks the date of the daily bulk file first, reuses the stored snapshot and sends at most 5 requests a second.`;
+      return `${name} is called only when someone runs a sync, never on a schedule. The sync downloads the bulk file at most once a day (it checks the file's date first), reuses the stored snapshot and sends at most 8 requests a second.`;
     case 'mock':
       return 'The local fixtures never call a provider: the run reads the cards bundled with the API.';
     default:

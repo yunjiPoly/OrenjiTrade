@@ -56,6 +56,7 @@ const PERIODS = [7, 14, 30] as const;
       @if (error(); as error) {
         <app-error-state
           title="Analytics could not load"
+          retryLabel="Try again"
           [message]="message(error)"
           [requestId]="error.requestId"
           (retry)="load()"

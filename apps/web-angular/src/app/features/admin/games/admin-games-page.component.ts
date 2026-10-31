@@ -174,6 +174,7 @@ import { GameEditorComponent } from './game-editor.component';
     }
     .games__list-card,
     .games__editor {
+      min-width: 0;
       padding: 20px 22px;
     }
     .games__list-head {
@@ -272,7 +273,8 @@ import { GameEditorComponent } from './game-editor.component';
     }
     @media (max-width: 1279.98px) {
       .games {
-        grid-template-columns: 1fr;
+        // minmax(0, …): the track shrinks to the screen, not to its widest content (review fix 1).
+        grid-template-columns: minmax(0, 1fr);
       }
     }
   `,

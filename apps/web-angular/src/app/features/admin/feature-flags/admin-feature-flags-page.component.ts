@@ -315,7 +315,7 @@ export class AdminFeatureFlagsPageComponent {
       this.dialog
         .open<ConfirmDialogComponent, ConfirmDialogData, boolean>(ConfirmDialogComponent, {
           data: {
-            title: `Roll ${key} out to ${percent}%?`,
+            title: `Roll ${flagInfo(flag).name} out to ${percent}%?`,
             message:
               percent >= 100
                 ? 'Every account and signed-out visitors see it right away. The change is recorded in the audit log.'
@@ -344,7 +344,7 @@ export class AdminFeatureFlagsPageComponent {
         false,
         { context: silentErrors() },
       ),
-      `${key} rolls out to ${percent}%.`,
+      `${flagInfo(flag).name} rolls out to ${percent}%.`,
     );
     this.busyKey.set(null);
     if (updated) {
@@ -389,7 +389,7 @@ export class AdminFeatureFlagsPageComponent {
       this.dialog
         .open<ConfirmDialogComponent, ConfirmDialogData, boolean>(ConfirmDialogComponent, {
           data: {
-            title: `Turn ${enable ? 'on' : 'off'} ${key}?`,
+            title: `Turn ${enable ? 'on' : 'off'} ${flagInfo(flag).name}?`,
             message: enable
               ? 'Collectors get this feature on every device right away. The change is recorded in the audit log.'
               : 'The feature disappears for every collector right away and its API answers “not available”. The change is recorded in the audit log.',
@@ -423,7 +423,7 @@ export class AdminFeatureFlagsPageComponent {
         (list ?? []).map((candidate) => (candidate.key === key ? updated : candidate)),
       );
       this.toasts.show({
-        title: `${key} is now ${updated.enabled ? 'on' : 'off'}.`,
+        title: `${flagInfo(flag).name} is now ${updated.enabled ? 'on' : 'off'}.`,
         sub: RECORDED,
       });
       void this.featureFlags.load();

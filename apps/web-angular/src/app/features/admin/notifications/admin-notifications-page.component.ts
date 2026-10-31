@@ -78,6 +78,7 @@ const CHANNEL_LABELS: Record<string, string> = {
       @if (error(); as error) {
         <app-error-state
           title="Statistics could not load"
+          retryLabel="Try again"
           [message]="message(error)"
           [requestId]="error.requestId"
           (retry)="load()"

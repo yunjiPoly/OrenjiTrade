@@ -115,7 +115,7 @@ interface Draft {
             @if (rows.length === 0) {
               <p class="rg__none">No country of this region matches.</p>
             } @else {
-              <div class="ct">
+              <div class="ct ct--actions">
                 <table class="rg__table" [attr.aria-label]="region.name + ' countries'">
                   <thead>
                     <tr>

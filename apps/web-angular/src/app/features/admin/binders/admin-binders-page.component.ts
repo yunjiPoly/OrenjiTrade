@@ -172,7 +172,7 @@ function toPage(value: string | undefined): number {
               · updating…
             }
           </p>
-          <div class="ct" [class.ct--dim]="loading()">
+          <div class="ct ct--actions" [class.ct--dim]="loading()">
             <table class="bt" aria-label="Binders">
               <thead>
                 <tr>
