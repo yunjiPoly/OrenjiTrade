@@ -123,37 +123,38 @@ test.describe('collector reporting', () => {
       // --- A moderator reviews it in Admin → Reports -----------------------------------------
       const staff = await openSignedIn(browser, moderator);
       await staff.goto('/admin');
-      await expect(staff.getByRole('heading', { level: 1, name: 'Admin dashboard' })).toBeVisible();
+      await expect(staff.getByRole('heading', { level: 1, name: 'Overview' })).toBeVisible();
       await expect(
         staff.getByTestId('dashboard-tiles').locator('[data-tile="reports"]'),
       ).toContainText('Open reports');
       const nav = staff.getByRole('navigation', { name: 'Admin sections' });
       await expect(nav.getByRole('link', { name: 'Users' })).toHaveCount(0);
       await nav.getByRole('link', { name: 'Reports' }).click();
-      await expect(
-        staff.getByRole('heading', { level: 1, name: 'Collector reports' }),
-      ).toBeVisible();
+      // Reports is one split view (web stage WH1, board A2): the list, then the open report.
+      await expect(staff.getByRole('heading', { level: 1, name: 'Reports' })).toBeVisible();
       await staff
-        .getByRole('link', { name: new RegExp(`^Report about ${reported.displayName}`) })
+        .getByRole('link', { name: new RegExp(`^Report #\\d+ about @${reported.handle},`) })
         .click();
 
       await expect(
-        staff.getByRole('heading', { level: 1, name: `Report about ${reported.displayName}` }),
+        staff.getByRole('heading', {
+          level: 2,
+          name: new RegExp(`^Report #\\d+ about ${reported.displayName}$`),
+        }),
       ).toBeVisible();
+      await expect(staff).toHaveURL(/\/admin\/reports\/[0-9a-f-]{36}/);
       await expect(staff.getByTestId('report-status')).toHaveText('Open');
-      await expect(staff.getByTestId('report-details')).toHaveText(details);
+      await expect(staff.getByTestId('report-details')).toContainText(details);
       await expect(staff.getByRole('region', { name: 'Reporter' })).toContainText(
         `@${reporter.handle}`,
       );
       await expect(staff.getByRole('region', { name: 'Reported collector' })).toContainText(
         `@${reported.handle}`,
       );
-      await expect(
-        staff.getByRole('region', { name: `History of @${reported.handle}` }),
-      ).toContainText('Recent reports');
+      await expect(staff.getByRole('region', { name: 'History' })).toContainText('Recent reports');
 
       await staff.getByRole('button', { name: 'Assign to me' }).click();
-      await expect(staff.getByText('The report is assigned to you.')).toBeVisible();
+      await expect(staff.getByText(/^Report #\d+ is assigned to you\.$/)).toBeVisible();
       await expect(staff.getByTestId('report-status')).toHaveText('Under review');
 
       const note = `Asked both collectors for screenshots (E2E ${suffix()}).`;
@@ -162,28 +163,31 @@ test.describe('collector reporting', () => {
       await expect(staff.getByText('Note added.')).toBeVisible();
       await expect(staff.getByRole('list', { name: 'Moderator notes' })).toContainText(note);
 
-      await staff.getByRole('button', { name: 'Resolve', exact: true }).click();
+      await staff.getByRole('button', { name: 'Resolve…' }).click();
+      // The resolve dialog (board A3): radio cards, Suspend and Ban for administrators only.
       const resolve = staff.getByRole('dialog', {
-        name: `Resolve report about @${reported.handle}`,
+        name: new RegExp(`^Resolve report #\\d+ about @${reported.handle}$`),
       });
-      await expect(resolve.getByRole('radio', { name: 'Suspend the account' })).toBeDisabled();
+      await expect(resolve.getByRole('radio', { name: /^Suspend the account/ })).toBeDisabled();
+      await expect(resolve.getByRole('radio', { name: /^Ban the account/ })).toBeDisabled();
+      await expect(resolve.getByText('Administrators only.').first()).toBeVisible();
       await resolve.getByRole('button', { name: 'Resolve report' }).click();
       await expect(resolve.getByText('Choose the action to take.')).toBeVisible();
       await expect(resolve.getByText('A note is required.')).toBeVisible();
-      await resolve.getByRole('radio', { name: 'Send a warning' }).check();
+      await resolve.getByRole('radio', { name: /^Send a warning/ }).check();
       await resolve
-        .getByRole('textbox', { name: 'Resolution note' })
+        .getByRole('textbox', { name: /^Resolution note/ })
         .fill('Repeated spam; warned.');
       await expect(
         resolve.getByRole('checkbox', { name: 'Tell the reporter the report was reviewed' }),
       ).toBeChecked();
-      await resolve.getByRole('button', { name: 'Resolve report' }).click();
-      await expect(
-        staff.getByText('Report resolved. The action is in the audit log.'),
-      ).toBeVisible();
+      // The confirm button names the action.
+      await resolve.getByRole('button', { name: 'Warn and resolve' }).click();
+      await expect(staff.getByText(/^Report #\d+ resolved: warning\.$/)).toBeVisible();
+      await expect(staff.getByText('Recorded in the audit log.').first()).toBeVisible();
       await expect(staff.getByTestId('report-status')).toHaveText('Action taken');
       await expect(staff.getByRole('region', { name: 'Resolution' })).toContainText('Warning');
-      await expect(staff.getByRole('button', { name: 'Resolve', exact: true })).toHaveCount(0);
+      await expect(staff.getByRole('button', { name: 'Resolve…' })).toHaveCount(0);
       const reportUrl = staff.url();
       const reportId = reportUrl.split('/').pop() as string;
       await staff.context().close();
@@ -192,7 +196,10 @@ test.describe('collector reporting', () => {
       const adminPage = await openSignedIn(browser, admin);
       await adminPage.goto(`/admin/reports/${reportId}`);
       await expect(adminPage.getByTestId('report-status')).toHaveText('Action taken');
-      await adminPage.getByRole('link', { name: 'Audit log', exact: true }).click();
+      await adminPage
+        .getByRole('main')
+        .getByRole('link', { name: 'Audit log', exact: true })
+        .click();
       await expect(adminPage).toHaveURL(new RegExp(`/admin/audit-logs\\?.*targetId=${reportId}`));
       const entries = adminPage.getByRole('table', { name: 'Audit entries' });
       await expect(entries.getByText('Resolved a collector report')).toBeVisible();

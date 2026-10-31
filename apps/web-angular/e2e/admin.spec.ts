@@ -40,7 +40,7 @@ test.describe('admin console', () => {
     await openAccountMenu(page);
     await page.getByRole('menuitem', { name: 'Admin console' }).click();
     await expect(page).toHaveURL(/\/admin$/);
-    await expect(page.getByRole('heading', { level: 1, name: 'Admin dashboard' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Overview' })).toBeVisible();
 
     await page
       .getByRole('navigation', { name: 'Admin sections' })

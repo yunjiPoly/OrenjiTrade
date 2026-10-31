@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { DOCUMENT } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -10,454 +10,379 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
-import { MatIconModule } from '@angular/material/icon';
-import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
-import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router, RouterLink } from '@angular/router';
 import {
   AdminRating,
   AdminRatingsService,
-  ListAdminRatingsRequestParams,
+  AdminReference,
   PageResponseAdminRating,
+  PageResponseAdminReference,
 } from '@orenji/api-client';
-import { Observable, Subscription } from 'rxjs';
-import { SessionService } from '../../../core/auth/session.service';
+import { Observable, Subscription, forkJoin } from 'rxjs';
+import { ToastService } from '../../../core/feedback/toast.service';
 import { ApiError, toApiError } from '../../../core/http/api-error';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
 import { silentErrors } from '../../../core/http/http-context';
 import { RelativeTimePipe } from '../../../shared/pipes/relative-time.pipe';
 import { breakdownEntries, interactionKindLabel } from '../../../shared/ratings/rating-labels';
 import { StarRatingComponent } from '../../../shared/ratings/star-rating.component';
-import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
-import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
-import { AdminChipComponent } from '../shared/admin-chip.component';
-import { askReason, confirmAdminAction, runAdminAction } from '../shared/admin-actions';
+import { AdminIconComponent } from '../console/admin-icon.component';
+import { runConsoleAction } from '../console/console-actions';
+import { initialsOf } from '../console/console-labels';
+import { pageRangeLine } from '../reports/report-filters';
+import { askReason, confirmAdminAction } from '../shared/admin-actions';
+import {
+  RatingsTab,
+  ShowFilter,
+  peopleOf,
+  ratingsParams,
+  ratingsTabOf,
+  showFilterOf,
+} from './ratings-filters';
 
 const PAGE_SIZE = 20;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const STATES = [
-  { value: null, label: 'All' },
-  { value: 'OK', label: 'Visible' },
-  { value: 'HIDDEN', label: 'Hidden' },
-] as const;
 
-function toPage(value: string | undefined): number {
-  const parsed = Number.parseInt(value ?? '', 10);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+/** One row of either tab, read the same way. */
+interface Row {
+  id: string;
+  kind: 'rating' | 'reference';
+  author: { handle: string; displayName: string };
+  subject: { handle: string; displayName: string };
+  overall: number | null;
+  line: string;
+  createdAt: string;
+  text: string | null;
+  criteria: { label: string; value: number }[];
+  hidden: boolean;
+  hiddenReason: string | null;
+  hiddenBy: string | null;
+  hiddenAt: string | null;
+}
+
+function ratingRow(entry: AdminRating): Row {
+  return {
+    id: entry.rating.id,
+    kind: 'rating',
+    author: entry.rating.rater,
+    subject: entry.ratee,
+    overall: entry.rating.overall,
+    line: interactionKindLabel(entry.rating.interactionKind),
+    createdAt: entry.rating.createdAt,
+    text: entry.rating.comment ?? null,
+    criteria: breakdownEntries(entry.rating.breakdown),
+    hidden: entry.moderationState === 'HIDDEN',
+    hiddenReason: entry.hiddenReason ?? null,
+    hiddenBy: entry.hiddenByHandle ?? null,
+    hiddenAt: entry.hiddenAt ?? null,
+  };
+}
+
+function referenceRow(entry: AdminReference): Row {
+  return {
+    id: entry.reference.id,
+    kind: 'reference',
+    author: entry.reference.author,
+    subject: entry.subject,
+    overall: null,
+    line: 'Reference',
+    createdAt: entry.reference.createdAt,
+    text: entry.reference.body,
+    criteria: [],
+    hidden: entry.moderationState === 'HIDDEN',
+    hiddenReason: entry.hiddenReason ?? null,
+    hiddenBy: entry.hiddenByHandle ?? null,
+    hiddenAt: entry.hiddenAt ?? null,
+  };
 }
 
 /**
- * `/admin/ratings` (moderators and admins): ratings newest first, filtered by state and by rated
- * collector (`?state=&rateeId=&page=`). Hiding needs a reason and removes the rating from the
- * profile and its summary; restoring shows it again. Both are audited.
+ * `/admin/ratings` (spec 15.4, board A6; moderators and admins): Ratings and References (a new
+ * screen for the existing hide and unhide endpoints), each with the state (All, Visible, Hidden),
+ * "Rated collector" and "Rated by" (the API's `rateeId` and `raterId`; "About" and "Written by" on
+ * references), all in the URL. People read as name and @handle, never an id; criteria show as
+ * stored (old meetup criteria only on old rows). Hide asks for a reason; Restore confirms.
  */
 @Component({
   selector: 'app-admin-ratings-page',
   imports: [
-    DatePipe,
     RouterLink,
-    MatButtonModule,
-    MatIconModule,
-    MatPaginatorModule,
-    AdminChipComponent,
-    AvatarComponent,
+    AdminIconComponent,
     EmptyStateComponent,
     ErrorStateComponent,
-    PageHeaderComponent,
     RelativeTimePipe,
     SkeletonComponent,
     StarRatingComponent,
   ],
-  template: `
-    <div class="admin-page">
-      <app-page-header
-        title="Ratings"
-        subtitle="Ratings collectors leave after trades, accepted offers and real conversations. Hide the ones that break the Community Guidelines."
-      />
-      <div class="admin-filters ratings__filters">
-        <div class="pills" role="group" aria-label="Rating state">
-          @for (option of states; track option.label) {
-            <button
-              type="button"
-              class="pill"
-              [class.pill--on]="params().state === (option.value ?? undefined)"
-              [attr.aria-pressed]="params().state === (option.value ?? undefined)"
-              (click)="navigate({ state: option.value })"
-            >
-              {{ option.label }}
-            </button>
-          }
-        </div>
-        @if (params().rateeId) {
-          <button matButton="tonal" type="button" (click)="navigate({ rateeId: null })">
-            <mat-icon aria-hidden="true">close</mat-icon>
-            One collector only
-          </button>
-        }
-      </div>
-
-      @if (error(); as error) {
-        <app-error-state
-          title="Ratings could not load"
-          [message]="message(error)"
-          [requestId]="error.requestId"
-          (retry)="reload()"
-        />
-      } @else if (loading() && !result()) {
-        <div aria-busy="true">
-          <span class="visually-hidden">Loading ratings</span>
-          <app-skeleton variant="list" lines="6" />
-        </div>
-      } @else if (result(); as page) {
-        @if ((page.items ?? []).length === 0) {
-          <app-empty-state
-            icon="star_outline"
-            title="No ratings match"
-            description="Change the filter to see other ratings."
-          />
-        } @else {
-          <p class="admin-count" aria-live="polite">
-            {{ page.totalItems }} {{ page.totalItems === 1 ? 'rating' : 'ratings' }}
-          </p>
-          <ul class="ratings" aria-label="Ratings" [class.admin-dim]="loading()">
-            @for (entry of page.items ?? []; track entry.rating.id) {
-              @let r = entry.rating;
-              <li
-                class="rating"
-                [class.rating--hidden]="entry.moderationState === 'HIDDEN'"
-                [attr.data-rating]="r.id"
-              >
-                <app-avatar
-                  size="sm"
-                  [src]="r.rater.avatarUrl"
-                  [name]="r.rater.displayName"
-                  [decorative]="true"
-                />
-                <div class="rating__text">
-                  <p class="rating__head">
-                    <app-star-rating [value]="r.overall" size="sm" />
-                    <strong>{{ r.rater.displayName }}</strong>
-                    <span class="admin-muted">&#64;{{ r.rater.handle }}</span>
-                    <span class="admin-muted">rated</span>
-                    <a
-                      [routerLink]="[]"
-                      [queryParams]="{ rateeId: entry.rateeId, page: null }"
-                      queryParamsHandling="merge"
-                    >
-                      collector {{ entry.rateeId.slice(0, 8) }}
-                    </a>
-                    @if (session.isAdmin()) {
-                      <a [routerLink]="['/admin/users', entry.rateeId]" class="admin-muted"
-                        >account</a
-                      >
-                    }
-                    <span class="admin-muted">· {{ kind(r.interactionKind) }}</span>
-                    <span class="admin-muted" [title]="r.createdAt | date: 'medium'">
-                      · {{ r.createdAt | relativeTime }}
-                    </span>
-                  </p>
-                  @if (r.comment) {
-                    <p class="rating__comment">{{ r.comment }}</p>
-                  }
-                  @if (criteria(entry); as list) {
-                    @if (list.length) {
-                      <p class="admin-muted">
-                        @for (item of list; track item.label; let last = $last) {
-                          {{ item.label }} {{ item.value }}/5{{ last ? '' : ' · ' }}
-                        }
-                      </p>
-                    }
-                  }
-                  @if (entry.moderationState === 'HIDDEN') {
-                    <p class="rating__hidden">
-                      <app-admin-chip tone="neutral">Hidden</app-admin-chip>
-                      @if (entry.hiddenReason) {
-                        “{{ entry.hiddenReason }}”
-                      }
-                      @if (entry.hiddenAt) {
-                        · {{ entry.hiddenAt | relativeTime }}
-                      }
-                    </p>
-                  }
-                </div>
-                @if (entry.moderationState === 'HIDDEN') {
-                  <button
-                    matButton="outlined"
-                    type="button"
-                    [disabled]="busy() === r.id"
-                    [attr.aria-label]="'Restore the rating by ' + r.rater.displayName"
-                    (click)="unhide(entry)"
-                  >
-                    <mat-icon aria-hidden="true">visibility</mat-icon>
-                    Restore
-                  </button>
-                } @else {
-                  <button
-                    matButton
-                    type="button"
-                    class="rating__hide"
-                    [disabled]="busy() === r.id"
-                    [attr.aria-label]="'Hide the rating by ' + r.rater.displayName"
-                    (click)="hide(entry)"
-                  >
-                    <mat-icon aria-hidden="true">visibility_off</mat-icon>
-                    Hide
-                  </button>
-                }
-              </li>
-            }
-          </ul>
-          @if ((page.totalItems ?? 0) > pageSize) {
-            <mat-paginator
-              [length]="page.totalItems ?? 0"
-              [pageIndex]="page.page ?? 0"
-              [pageSize]="pageSize"
-              [hidePageSize]="true"
-              aria-label="Rating pages"
-              (page)="onPage($event)"
-            />
-          }
-        }
-      }
-    </div>
-  `,
-  styleUrls: ['../shared/admin-page.scss'],
-  styles: `
-    .ratings__filters {
-      align-items: center;
-    }
-    .pills {
-      display: flex;
-      gap: var(--spacing-1);
-    }
-    .pill {
-      padding: 4px var(--spacing-3);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-pill);
-      background: var(--color-surface);
-      color: var(--color-text-muted);
-      font: inherit;
-      font-size: var(--font-size-sm);
-      font-weight: var(--font-weight-medium);
-      cursor: pointer;
-    }
-    .pill--on {
-      border-color: var(--color-primary);
-      background: var(--color-primary-container);
-      color: var(--color-on-primary-container);
-    }
-    .ratings {
-      margin: 0;
-      padding: 0;
-      list-style: none;
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-lg);
-      background: var(--color-surface);
-    }
-    .rating {
-      display: flex;
-      align-items: flex-start;
-      gap: var(--spacing-3);
-      padding: var(--spacing-3) var(--spacing-4);
-      border-bottom: 1px solid var(--color-border);
-    }
-    .rating:last-child {
-      border-bottom: 0;
-    }
-    .rating--hidden {
-      background: var(--color-surface-variant);
-    }
-    .rating__text {
-      flex: 1 1 auto;
-      min-width: 0;
-    }
-    .rating__text p {
-      margin: 0;
-    }
-    .rating__head {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 4px var(--spacing-2);
-      font-size: var(--font-size-sm);
-    }
-    .rating__comment {
-      margin-top: var(--spacing-1) !important;
-      overflow-wrap: anywhere;
-    }
-    .rating__hidden {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: var(--spacing-2);
-      margin-top: var(--spacing-1) !important;
-      color: var(--color-text-muted);
-      font-size: var(--font-size-sm);
-    }
-    .rating__hide {
-      color: var(--color-danger);
-    }
-    @media (max-width: 599px) {
-      .rating {
-        flex-wrap: wrap;
-      }
-    }
-  `,
+  templateUrl: './admin-ratings-page.component.html',
+  styleUrls: [
+    '../console/console-page.scss',
+    '../console/console-controls.scss',
+    './admin-ratings-page.component.scss',
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AdminRatingsPageComponent {
   private readonly api = inject(AdminRatingsService);
   private readonly router = inject(Router);
   private readonly dialog = inject(MatDialog);
-  private readonly snackBar = inject(MatSnackBar);
-  protected readonly session = inject(SessionService);
+  private readonly toasts = inject(ToastService);
+  private readonly document = inject(DOCUMENT);
 
+  /** Query parameters (withComponentInputBinding). */
+  readonly tab = input<string | undefined>();
   readonly state = input<string | undefined>();
   readonly rateeId = input<string | undefined>();
+  readonly raterId = input<string | undefined>();
   readonly page = input<string | undefined>();
 
-  protected readonly states = STATES;
-  protected readonly pageSize = PAGE_SIZE;
-  protected readonly kind = interactionKindLabel;
-  protected readonly params = computed<ListAdminRatingsRequestParams>(() => ({
-    state:
-      this.state() === 'OK' || this.state() === 'HIDDEN'
-        ? (this.state() as ListAdminRatingsRequestParams['state'])
-        : undefined,
-    rateeId: this.rateeId() && UUID.test(this.rateeId() as string) ? this.rateeId() : undefined,
-    page: toPage(this.page()),
-    size: PAGE_SIZE,
-  }));
-  protected readonly result = signal<PageResponseAdminRating | null>(null);
+  protected readonly current = computed<RatingsTab>(() => ratingsTabOf(this.tab()));
+  protected readonly show = computed<ShowFilter>(() => showFilterOf(this.state()));
+  protected readonly params = computed(() =>
+    ratingsParams(
+      { state: this.state(), rateeId: this.rateeId(), raterId: this.raterId(), page: this.page() },
+      PAGE_SIZE,
+    ),
+  );
+  protected readonly rows = signal<Row[] | null>(null);
+  protected readonly total = signal(0);
   protected readonly loading = signal(true);
   protected readonly error = signal<ApiError | null>(null);
   protected readonly busy = signal<string | null>(null);
+  /** All, Visible and Hidden counts of the tab with the people filters. */
+  protected readonly counts = signal<Record<ShowFilter, number> | null>(null);
+  /** People seen on the pages read so far (the pickers' options), by id. */
+  protected readonly people = signal<Map<string, { handle: string; displayName: string }>>(
+    new Map(),
+  );
+
+  protected readonly tabs: readonly { id: RatingsTab; label: string }[] = [
+    { id: 'ratings', label: 'Ratings' },
+    { id: 'references', label: 'References' },
+  ];
+  protected readonly shows: readonly { id: ShowFilter; label: string }[] = [
+    { id: 'ALL', label: 'All' },
+    { id: 'OK', label: 'Visible' },
+    { id: 'HIDDEN', label: 'Hidden' },
+  ];
+  protected readonly initials = initialsOf;
+  protected readonly pageSize = PAGE_SIZE;
+  protected readonly range = computed(() =>
+    pageRangeLine(this.params().page, PAGE_SIZE, this.total()),
+  );
+  protected readonly lastPage = computed(
+    () => (this.params().page + 1) * PAGE_SIZE >= this.total(),
+  );
+  protected readonly countLine = computed(() => {
+    const counts = this.counts();
+    const noun = this.current() === 'ratings' ? 'rating' : 'reference';
+    const total = this.total();
+    const hidden = counts ? ` · ${counts.HIDDEN} hidden` : '';
+    return `${total} ${total === 1 ? noun : `${noun}s`}${hidden} · newest first`;
+  });
+  protected readonly personOptions = computed(() =>
+    [...this.people().entries()]
+      .map(([id, person]) => ({ id, ...person }))
+      .sort((a, b) => a.handle.localeCompare(b.handle)),
+  );
 
   private subscription: Subscription | null = null;
 
   constructor() {
     effect(() => {
+      const tab = this.current();
       const params = this.params();
-      untracked(() => this.load(params));
+      untracked(() => this.load(tab, params));
     });
     inject(DestroyRef).onDestroy(() => this.subscription?.unsubscribe());
-  }
-
-  protected criteria(entry: AdminRating): { label: string; value: number }[] {
-    return breakdownEntries(entry.rating.breakdown);
-  }
-
-  protected navigate(changes: Record<string, string | null>): void {
-    void this.router.navigate([], {
-      queryParams: { ...changes, page: null },
-      queryParamsHandling: 'merge',
-    });
-  }
-
-  protected onPage(event: PageEvent): void {
-    void this.router.navigate([], {
-      queryParams: { page: event.pageIndex || null },
-      queryParamsHandling: 'merge',
-    });
   }
 
   protected message(error: ApiError): string {
     return friendlyMessage(error);
   }
 
-  protected reload(): void {
-    this.load(this.params());
+  protected setTab(tab: RatingsTab): void {
+    void this.router.navigate([], {
+      queryParams: { tab: tab === 'ratings' ? null : tab, page: null },
+      queryParamsHandling: 'merge',
+    });
   }
 
-  protected async hide(entry: AdminRating): Promise<void> {
+  protected onTabKey(event: KeyboardEvent): void {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+      return;
+    }
+    event.preventDefault();
+    const next: RatingsTab =
+      event.key === 'Home'
+        ? 'ratings'
+        : event.key === 'End'
+          ? 'references'
+          : this.current() === 'ratings'
+            ? 'references'
+            : 'ratings';
+    this.setTab(next);
+    setTimeout(() => this.document.getElementById(`ratings-tab-${next}`)?.focus());
+  }
+
+  protected setShow(show: ShowFilter): void {
+    this.navigate({ state: show === 'ALL' ? null : show });
+  }
+
+  protected setPerson(key: 'rateeId' | 'raterId', event: Event): void {
+    const value = (event.target as HTMLSelectElement).value;
+    this.navigate({ [key]: value || null });
+  }
+
+  protected goPage(delta: number): void {
+    const next = Math.max(0, this.params().page + delta);
+    void this.router.navigate([], {
+      queryParams: { page: next || null },
+      queryParamsHandling: 'merge',
+    });
+  }
+
+  protected reload(): void {
+    this.load(this.current(), this.params());
+  }
+
+  private navigate(changes: Record<string, string | null>): void {
+    void this.router.navigate([], {
+      queryParams: { ...changes, page: null },
+      queryParamsHandling: 'merge',
+    });
+  }
+
+  private list(
+    tab: RatingsTab,
+    params: ReturnType<typeof ratingsParams>,
+    state: 'OK' | 'HIDDEN' | undefined,
+    page: number,
+    size: number,
+  ): Observable<PageResponseAdminRating | PageResponseAdminReference> {
+    const options = { context: silentErrors() };
+    return tab === 'ratings'
+      ? this.api.listAdminRatings(
+          { rateeId: params.rateeId, raterId: params.raterId, state, page, size },
+          'body',
+          false,
+          options,
+        )
+      : this.api.listAdminReferences(
+          { subjectId: params.rateeId, authorId: params.raterId, state, page, size },
+          'body',
+          false,
+          options,
+        );
+  }
+
+  private load(tab: RatingsTab, params: ReturnType<typeof ratingsParams>): void {
+    this.subscription?.unsubscribe();
+    this.loading.set(true);
+    this.error.set(null);
+    this.subscription = forkJoin([
+      this.list(tab, params, params.state, params.page, PAGE_SIZE),
+      this.list(tab, params, undefined, 0, 1),
+      this.list(tab, params, 'OK', 0, 1),
+      this.list(tab, params, 'HIDDEN', 0, 1),
+    ]).subscribe({
+      next: ([page, all, visible, hidden]) => {
+        const rows =
+          tab === 'ratings'
+            ? ((page.items ?? []) as AdminRating[]).map(ratingRow)
+            : ((page.items ?? []) as AdminReference[]).map(referenceRow);
+        this.rows.set(rows);
+        this.total.set(page.totalItems ?? rows.length);
+        this.counts.set({
+          ALL: all.totalItems ?? 0,
+          OK: visible.totalItems ?? 0,
+          HIDDEN: hidden.totalItems ?? 0,
+        });
+        this.people.update((known) => peopleOf(known, page.items ?? [], tab));
+        this.loading.set(false);
+      },
+      error: (error: unknown) => {
+        this.error.set(toApiError(error));
+        this.loading.set(false);
+      },
+    });
+  }
+
+  protected async hide(row: Row): Promise<void> {
+    const rating = row.kind === 'rating';
     const answer = await askReason(this.dialog, {
-      title: `Hide the rating by ${entry.rating.rater.displayName}?`,
-      message:
-        'The rating disappears from the collector’s profile and no longer counts in their ' +
-        'average. You can restore it later.',
-      confirmLabel: 'Hide rating',
+      title: rating
+        ? `Hide the rating by ${row.author.displayName}?`
+        : `Hide the reference by ${row.author.displayName}?`,
+      message: rating
+        ? 'The rating disappears from the collector’s profile and no longer counts in their ' +
+          'average. You can restore it later.'
+        : 'The reference disappears from the collector’s profile. You can restore it later.',
+      confirmLabel: rating ? 'Hide rating' : 'Hide reference',
       tone: 'danger',
     });
     if (!answer) {
       return;
     }
     await this.act(
-      entry,
-      'Rating hidden.',
-      this.api.hideRating(
-        { id: entry.rating.id, hideRatingRequest: { reason: answer.reason } },
-        'body',
-        false,
-        { context: silentErrors() },
-      ),
+      row,
+      rating ? 'Rating hidden.' : 'Reference hidden.',
+      rating
+        ? this.api.hideRating(
+            { id: row.id, hideRatingRequest: { reason: answer.reason } },
+            'body',
+            false,
+            { context: silentErrors() },
+          )
+        : this.api.hideReference(
+            { id: row.id, hideRatingRequest: { reason: answer.reason } },
+            'body',
+            false,
+            { context: silentErrors() },
+          ),
     );
   }
 
-  protected async unhide(entry: AdminRating): Promise<void> {
+  protected async unhide(row: Row): Promise<void> {
+    const rating = row.kind === 'rating';
     const confirmed = await confirmAdminAction(this.dialog, {
-      title: `Restore the rating by ${entry.rating.rater.displayName}?`,
-      message: 'It shows on the collector’s profile again and counts in their average.',
-      confirmLabel: 'Restore rating',
+      title: rating
+        ? `Restore the rating by ${row.author.displayName}?`
+        : `Restore the reference by ${row.author.displayName}?`,
+      message: rating
+        ? 'It shows on the collector’s profile again and counts in their average.'
+        : 'It shows on the collector’s profile again.',
+      confirmLabel: rating ? 'Restore rating' : 'Restore reference',
     });
     if (!confirmed) {
       return;
     }
     await this.act(
-      entry,
-      'Rating restored.',
-      this.api.unhideRating({ id: entry.rating.id }, 'body', false, { context: silentErrors() }),
+      row,
+      rating ? 'Rating restored.' : 'Reference restored.',
+      rating
+        ? this.api.unhideRating({ id: row.id }, 'body', false, { context: silentErrors() })
+        : this.api.unhideReference({ id: row.id }, 'body', false, { context: silentErrors() }),
     );
   }
 
-  private async act(
-    entry: AdminRating,
-    success: string,
-    request: Observable<AdminRating>,
-  ): Promise<void> {
-    this.busy.set(entry.rating.id);
-    const updated = await runAdminAction(
-      this.snackBar,
+  private async act(row: Row, success: string, request: Observable<unknown>): Promise<void> {
+    this.busy.set(row.id);
+    const done = await runConsoleAction(
+      this.toasts,
       request,
       success,
-      'Someone already changed this rating.',
+      row.kind === 'rating'
+        ? 'Someone already changed this rating.'
+        : 'Someone already changed this reference.',
     );
     this.busy.set(null);
-    if (updated) {
-      this.result.update((page) =>
-        page
-          ? {
-              ...page,
-              items: (page.items ?? []).map((item) =>
-                item.rating.id === updated.rating.id ? updated : item,
-              ),
-            }
-          : page,
-      );
-    } else {
-      this.reload();
+    this.reload();
+    if (done) {
+      setTimeout(() => this.document.getElementById(`row-${row.id}`)?.focus());
     }
-  }
-
-  private load(params: ListAdminRatingsRequestParams): void {
-    this.subscription?.unsubscribe();
-    this.loading.set(true);
-    this.error.set(null);
-    this.subscription = this.api
-      .listAdminRatings(params, 'body', false, { context: silentErrors() })
-      .subscribe({
-        next: (result) => {
-          this.result.set(result);
-          this.loading.set(false);
-        },
-        error: (error: unknown) => {
-          this.error.set(toApiError(error));
-          this.loading.set(false);
-        },
-      });
   }
 }

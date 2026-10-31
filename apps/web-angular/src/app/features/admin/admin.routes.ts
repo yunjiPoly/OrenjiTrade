@@ -12,11 +12,12 @@ export const ADMIN_ROUTES: Routes = [
     loadComponent: () => import('./admin-shell.component').then((m) => m.AdminShellComponent),
     children: [
       {
+        // The Overview (spec 15.3, boards A1 and A24).
         path: '',
         pathMatch: 'full',
-        title: 'Admin',
+        title: 'Overview · Admin',
         loadComponent: () =>
-          import('./admin-dashboard.component').then((m) => m.AdminDashboardComponent),
+          import('./overview/admin-overview.component').then((m) => m.AdminOverviewComponent),
       },
       {
         path: 'users',
@@ -110,19 +111,21 @@ export const ADMIN_ROUTES: Routes = [
           ),
       },
       {
-        // Moderators and admins (moderation area).
+        // Moderators and admins: one split view (spec 15.4, board A2); the URL still names the
+        // open report (`/admin/reports/:id`).
         path: 'reports',
         title: 'Reports · Admin',
         loadComponent: () =>
           import('./reports/admin-reports-page.component').then((m) => m.AdminReportsPageComponent),
-      },
-      {
-        path: 'reports/:id',
-        title: 'Report · Admin',
-        loadComponent: () =>
-          import('./reports/admin-report-detail-page.component').then(
-            (m) => m.AdminReportDetailPageComponent,
-          ),
+        children: [
+          { path: '', pathMatch: 'full', children: [] },
+          {
+            path: ':id',
+            title: 'Report · Admin',
+            loadComponent: () =>
+              import('./reports/report-panel.component').then((m) => m.ReportPanelComponent),
+          },
+        ],
       },
       {
         path: 'moderation',

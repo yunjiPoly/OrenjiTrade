@@ -1,5 +1,13 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  output,
+  signal,
+} from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -265,6 +273,8 @@ export class ModerationRulesComponent {
   protected readonly scope = signal<string | null>(null);
   protected readonly kind = signal<string | null>(null);
   protected readonly rules = signal<ModerationRule[] | null>(null);
+  /** The rules as loaded and changed (the Flags and rules page's tab count; web stage WH1). */
+  readonly rulesChange = output<readonly ModerationRule[]>();
   protected readonly error = signal<ApiError | null>(null);
   protected readonly busy = signal<string | null>(null);
   protected readonly visible = computed(() =>
@@ -282,6 +292,12 @@ export class ModerationRulesComponent {
   );
 
   constructor() {
+    effect(() => {
+      const rules = this.rules();
+      if (rules) {
+        this.rulesChange.emit(rules);
+      }
+    });
     this.load();
   }
 

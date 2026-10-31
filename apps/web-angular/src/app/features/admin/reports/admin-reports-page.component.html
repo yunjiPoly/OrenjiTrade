@@ -1,0 +1,196 @@
+<div class="cp rp" [class.rp--one]="onePane()" [class.rp--open]="openId() !== null">
+  <header class="cp__head rp__head">
+    <div class="cp__heading">
+      <p class="cp__eyebrow">Moderation</p>
+      <h1 class="cp__title">Reports</h1>
+      <p class="cp__sub">
+        Reports members filed about other collectors. Read the context and their history, then
+        resolve with a proportionate action.
+      </p>
+    </div>
+    <div class="cp__actions">
+      <button
+        type="button"
+        class="cb cb--outline"
+        [attr.aria-disabled]="loading() ? 'true' : null"
+        (click)="loading() || refresh()"
+      >
+        <app-admin-icon name="refresh" [size]="18" />
+        Refresh
+      </button>
+    </div>
+  </header>
+
+  <div class="rp__filters" role="search" aria-label="Filter reports">
+    <div class="cp-seg" role="group" aria-label="Status">
+      @for (option of tabs; track option.value) {
+        <button
+          type="button"
+          class="cp-seg__btn"
+          [attr.aria-pressed]="tab() === option.value"
+          (click)="setTab(option.value)"
+          [attr.data-tab]="option.value"
+        >
+          {{ option.label }}
+          @if (tabCount(option.value); as count) {
+            <span class="cp-badge">{{ count }}</span>
+          }
+        </button>
+      }
+    </div>
+    <div class="rp__more">
+      <label class="rp__select">
+        <span class="rp__select-label">Reason</span>
+        <select class="cp-select" [value]="params().reason ?? ''" (change)="setReason($event)">
+          <option value="">Any reason</option>
+          @for (option of reasons; track option) {
+            <option [value]="option" [selected]="params().reason === option">
+              {{ reasonLabel(option) }}
+            </option>
+          }
+        </select>
+      </label>
+      <button
+        type="button"
+        class="cb cb--outline"
+        [attr.aria-pressed]="mine() === '1'"
+        [class.rp__on]="mine() === '1'"
+        (click)="toggleMine()"
+      >
+        <app-admin-icon name="profile" [size]="18" />
+        Assigned to me
+      </button>
+      @if (onlyHandle(); as handle) {
+        <button
+          type="button"
+          class="cb cb--outline rp__on"
+          [attr.aria-label]="'Only ' + handle + '. Show every collector'"
+          (click)="clearSubject()"
+        >
+          Only {{ handle }}
+          <app-admin-icon name="close" [size]="16" />
+        </button>
+      }
+    </div>
+  </div>
+
+  <div class="rp__split">
+    <section class="rp__list cp-card" aria-label="Reports" [attr.aria-busy]="loading()">
+      @if (error(); as error) {
+        <div class="rp__state">
+          <app-error-state
+            compact
+            title="Reports could not load"
+            [message]="errorMessage()"
+            [requestId]="error.requestId"
+            (retry)="reload()"
+          />
+        </div>
+      } @else if (loading() && !result()) {
+        <div class="rp__state" aria-busy="true">
+          <span class="visually-hidden">Loading reports</span>
+          <app-skeleton variant="list" lines="5" />
+        </div>
+      } @else {
+        <p class="rp__count" aria-live="polite">
+          {{ countLine() }}
+          @if (loading()) {
+            <span> · updating…</span>
+          }
+        </p>
+        @if (items().length === 0) {
+          <app-empty-state
+            icon="verified_user"
+            title="No reports match"
+            [description]="
+              hasFilters()
+                ? 'Try another reason or tab, or clear the filters.'
+                : tab() === 'OPEN'
+                  ? 'Nothing waits for a moderator.'
+                  : 'No report is in this state.'
+            "
+          >
+            @if (hasFilters()) {
+              <button actions type="button" class="cb cb--outline" (click)="clear()">
+                Clear filters
+              </button>
+            }
+          </app-empty-state>
+        } @else {
+          <ul class="rp__rows" [class.rp__rows--dim]="loading()">
+            @for (report of items(); track report.id) {
+              @let current = openId() === report.id;
+              <li>
+                <a
+                  class="rrow"
+                  [class.rrow--on]="current"
+                  [routerLink]="['/admin/reports', report.id]"
+                  queryParamsHandling="preserve"
+                  [attr.aria-current]="current ? 'true' : null"
+                  [attr.aria-label]="rowLabel(report)"
+                  [attr.data-report]="report.id"
+                >
+                  <span class="cp-avatar" aria-hidden="true">{{
+                    initials(report.reportedUser.handle)
+                  }}</span>
+                  <span class="rrow__text" aria-hidden="true">
+                    <span class="rrow__top">
+                      <strong class="rrow__who">&#64;{{ report.reportedUser.handle }}</strong>
+                      @if (report.openReportsAgainstUser > 1) {
+                        <span class="cp-chip cp-chip--danger"
+                          >{{ report.openReportsAgainstUser }} open</span
+                        >
+                      }
+                      <span class="rrow__time">{{ report.createdAt | relativeTime }}</span>
+                    </span>
+                    <span class="rrow__line">
+                      {{ reasonLabel(report.reason) }} · {{ context(report.contextSource) }}
+                    </span>
+                    <span class="rrow__meta">
+                      <span class="cp-mono">{{ number(report.number) }}</span>
+                      ·
+                      <span [class.rrow__free]="!report.assignee">{{ assigneeLabel(report) }}</span>
+                    </span>
+                  </span>
+                </a>
+              </li>
+            }
+          </ul>
+          <div class="rp__pages">
+            <span>{{ rangeLine() }}</span>
+            <span class="rp__arrows">
+              <button
+                type="button"
+                class="rp__arrow"
+                aria-label="Previous page"
+                [attr.aria-disabled]="(params().page ?? 0) === 0 ? 'true' : null"
+                (click)="(params().page ?? 0) === 0 || goPage(-1)"
+              >
+                <app-admin-icon name="chevronLeft" [size]="18" />
+              </button>
+              <button
+                type="button"
+                class="rp__arrow"
+                aria-label="Next page"
+                [attr.aria-disabled]="lastPage() ? 'true' : null"
+                (click)="lastPage() || goPage(1)"
+              >
+                <app-admin-icon name="chevronRight" [size]="18" />
+              </button>
+            </span>
+          </div>
+        }
+      }
+    </section>
+
+    <div class="rp__panel">
+      <router-outlet />
+      @if (openId() === null) {
+        <div class="cp-card rp__pick">
+          <app-admin-icon name="flag" [size]="28" />
+          <p>Choose a report to read it here.</p>
+        </div>
+      }
+    </div>
+  </div>
+</div>

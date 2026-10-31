@@ -1,4 +1,8 @@
-import { ACTION_CHOICES, resolveRequest } from './resolve-report-dialog.component';
+import {
+  ACTION_CHOICES,
+  resolveConfirmLabel,
+  resolveRequest,
+} from './resolve-report-dialog.component';
 
 describe('resolveRequest', () => {
   const base = { note: '  Checked the conversation.  ', notifyReporter: true, suspendUntil: '' };
@@ -52,5 +56,16 @@ describe('resolveRequest', () => {
       'SUSPENDED',
       'BANNED',
     ]);
+  });
+});
+
+describe('resolveConfirmLabel (spec 15.4, board A3)', () => {
+  it('names the action on the confirm button', () => {
+    expect(resolveConfirmLabel('DISMISSED', 'SUSPENDED')).toBe('Dismiss the report');
+    expect(resolveConfirmLabel('ACTIONED', 'WARNING')).toBe('Warn and resolve');
+    expect(resolveConfirmLabel('ACTIONED', 'LISTINGS_PAUSED')).toBe('Pause listings and resolve');
+    expect(resolveConfirmLabel('ACTIONED', 'SUSPENDED')).toBe('Suspend and resolve');
+    expect(resolveConfirmLabel('ACTIONED', 'BANNED')).toBe('Ban and resolve');
+    expect(resolveConfirmLabel('ACTIONED', null)).toBe('Resolve report');
   });
 });

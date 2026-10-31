@@ -1,0 +1,117 @@
+// The console's chips, buttons and small parts (spec 15.2), beside console-page.scss.
+
+// Chips (spec 15.2: today's tones).
+.cp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-variant);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+.cp-chip--warning {
+  background: color-mix(in srgb, var(--color-warning) 16%, transparent);
+  color: var(--color-warning);
+}
+.cp-chip--info,
+.cp-chip--accent {
+  background: var(--color-accent-tint);
+  color: var(--color-accent);
+}
+.cp-chip--danger {
+  background: color-mix(in srgb, var(--color-danger) 16%, transparent);
+  color: var(--color-danger);
+}
+.cp-chip--success {
+  background: color-mix(in srgb, var(--color-success) 16%, transparent);
+  color: var(--color-success);
+}
+
+// Buttons.
+.cb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--color-ink);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.cb--small {
+  height: 34px;
+  padding: 0 14px;
+}
+.cb--outline {
+  border-color: var(--color-border-strong);
+}
+.cb--outline:hover,
+.cb--quiet:hover {
+  background: var(--color-surface-variant);
+}
+.cb--primary {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+.cb--primary:hover {
+  background: var(--color-primary-hover);
+}
+.cb--danger {
+  background: var(--color-danger-fill);
+  color: #fff;
+}
+.cb--danger-outline {
+  border-color: color-mix(in srgb, var(--color-danger) 55%, transparent);
+  color: var(--color-danger);
+}
+.cb--danger-outline:hover {
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+}
+.cb[aria-disabled='true'],
+.cb:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.cp-muted {
+  color: var(--color-text-secondary);
+}
+.cp-mono {
+  font-family: var(--font-mono);
+}
+
+.cp-avatar {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--color-primary-tint);
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: var(--font-weight-bold);
+}
+
+@media (max-width: 959.98px) {
+  .cp {
+    padding: 20px 16px 40px;
+  }
+  .cp__title {
+    font-size: 24px;
+    line-height: 30px;
+  }
+}

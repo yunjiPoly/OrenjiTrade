@@ -1,0 +1,335 @@
+<div class="cp">
+  <header class="cp__head">
+    <div class="cp__heading">
+      <p class="cp__eyebrow">Moderation</p>
+      <h1 class="cp__title">Community</h1>
+      <p class="cp__sub">
+        One public room per region and game. Set a room’s posting limit here; remove a post from its
+        menu inside the room.
+      </p>
+    </div>
+  </header>
+
+  <p class="cm__info">
+    <app-admin-icon name="info" [size]="18" />
+    <span>
+      Flags raised by the automatic rules are in
+      <a
+        class="cp-link"
+        routerLink="/admin/moderation"
+        [queryParams]="{ subject: 'COMMUNITY_POST' }"
+        >Flags and rules</a
+      >.
+      @if (communityFlags() !== null) {
+        {{ communityFlags() }} open {{ communityFlags() === 1 ? 'flag is' : 'flags are' }} on
+        community posts.
+      }
+    </span>
+  </p>
+
+  @if (error(); as error) {
+    <app-error-state
+      title="The rooms could not load"
+      [message]="message(error)"
+      [requestId]="error.requestId"
+      (retry)="load()"
+    />
+  } @else if (channels()) {
+    <section aria-labelledby="rooms-h">
+      <h2 class="cm__h" id="rooms-h" tabindex="-1">
+        Rooms <span class="cm__sum">{{ summary() }} · each room sets its own posting limit</span>
+      </h2>
+      <div class="grid" role="table" aria-labelledby="rooms-h">
+        <div class="grid__row grid__row--head" role="row">
+          <span class="grid__region" role="columnheader">Region</span>
+          @for (game of games; track game) {
+            <span class="grid__game" role="columnheader">
+              <span class="tile-letter" [attr.data-game]="game" aria-hidden="true">{{
+                letter(game)
+              }}</span>
+              {{ gameLabel(game) }}
+            </span>
+          }
+        </div>
+        @for (row of grid().rows; track row.region) {
+          <div class="grid__row" role="row">
+            <span class="grid__region" role="rowheader">
+              <strong>{{ row.regionName }}</strong>
+              <span class="cp-muted"
+                >{{ row.open }} {{ row.open === 1 ? 'room' : 'rooms' }} open</span
+              >
+            </span>
+            @for (cell of row.cells; track cell.game) {
+              <span role="cell" class="grid__cell">
+                @if (cell.room; as room) {
+                  <button
+                    type="button"
+                    class="cell"
+                    [class.cell--archived]="room.status !== 'ACTIVE'"
+                    [class.cell--on]="open()?.channel?.id === room.id"
+                    [attr.aria-label]="cellLabel(cell)"
+                    [attr.data-room]="room.slug"
+                    (click)="openCell(cell, $event)"
+                  >
+                    <span class="cell__posts"
+                      ><strong>{{ room.postCount24h }}</strong>
+                      {{ room.postCount24h === 1 ? 'post' : 'posts' }} in 24 h</span
+                    >
+                    <span class="cell__rate">{{ rate(room.postRateLimitPerHour) }}</span>
+                    <span class="cell__state" [class.cell__state--off]="room.status !== 'ACTIVE'">
+                      <span class="cell__dot" aria-hidden="true"></span>
+                      {{ stateLabel(room) }}
+                    </span>
+                  </button>
+                } @else {
+                  <span class="cell cell--none">No room yet</span>
+                }
+              </span>
+            }
+          </div>
+        }
+      </div>
+    </section>
+
+    @if (grid().others.length > 0) {
+      <section class="cm__archived" aria-labelledby="archived-h">
+        <h2 class="cm__h">
+          <button
+            type="button"
+            class="cm__toggle"
+            id="archived-h"
+            [attr.aria-expanded]="archivedOpen()"
+            aria-controls="archived-list"
+            (click)="archivedOpen.set(!archivedOpen())"
+          >
+            Archived channels
+            <span class="cp-badge">{{ grid().others.length }}</span>
+            <span class="cm__sum">The channels from before the rooms</span>
+            <app-admin-icon [name]="archivedOpen() ? 'chevronDown' : 'chevronRight'" [size]="18" />
+          </button>
+        </h2>
+        <ul class="cp-card cp-rows cm__list" id="archived-list" [hidden]="!archivedOpen()">
+          @for (channel of grid().others; track channel.id) {
+            <li>
+              <button
+                type="button"
+                class="other"
+                [attr.data-channel]="channel.slug"
+                (click)="openOther(channel, $event)"
+              >
+                <span class="other__name">{{ channel.name }}</span>
+                <span class="cp-chip" [class.cp-chip--success]="channel.status === 'ACTIVE'">{{
+                  stateLabel(channel)
+                }}</span>
+              </button>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+  } @else {
+    <div aria-busy="true">
+      <span class="visually-hidden">Loading the rooms</span>
+      <app-skeleton height="320px" />
+    </div>
+  }
+</div>
+
+@if (open(); as room) {
+  <div class="scrim" (click)="closeDrawer()" aria-hidden="true"></div>
+  <aside
+    class="drawer"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="room-drawer-title"
+    cdkTrapFocus
+    [cdkTrapFocusAutoCapture]="true"
+    data-testid="room-drawer"
+  >
+    <header class="drawer__head">
+      @if (room.game) {
+        <span
+          class="tile-letter tile-letter--big"
+          [attr.data-game]="room.game"
+          aria-hidden="true"
+          >{{ letter(room.game) }}</span
+        >
+      }
+      <div class="drawer__heading">
+        <h2 class="drawer__title" id="room-drawer-title">{{ title() }}</h2>
+        <p class="drawer__sub">
+          {{ room.region ? 'Public room' : 'Channel' }} · {{ room.channel.postCount24h }}
+          {{ room.channel.postCount24h === 1 ? 'post' : 'posts' }} in 24 h
+        </p>
+      </div>
+      <button type="button" class="drawer__close" aria-label="Close" (click)="closeDrawer()">
+        <app-admin-icon name="close" [size]="20" />
+      </button>
+    </header>
+
+    <form class="drawer__body" (submit)="$event.preventDefault(); save()" novalidate>
+      <p class="drawer__state">
+        <span
+          class="cp-chip"
+          [class.cp-chip--success]="room.channel.status === 'ACTIVE'"
+          data-testid="room-state"
+          >{{ stateLabel(room.channel) }}</span
+        >
+        <app-admin-icon name="lock" [size]="14" />
+        <span class="cp-mono" data-raw="slug">{{ room.channel.slug }}</span>
+        <span class="cp-muted">· fixed address</span>
+      </p>
+
+      @let d = draft();
+      @let e = shownErrors();
+      <div class="field">
+        <div class="field__row">
+          <label class="field__label" for="room-name">Room name</label>
+          <span class="field__count" aria-hidden="true">{{ d.name.length }} / {{ nameMax }}</span>
+        </div>
+        <input
+          id="room-name"
+          class="cp-input"
+          [value]="d.name"
+          [attr.maxlength]="nameMax"
+          [attr.aria-invalid]="e.name ? 'true' : null"
+          [attr.aria-describedby]="e.name ? 'room-name-error' : null"
+          (input)="edit('name', $event)"
+        />
+        @if (e.name) {
+          <p class="field__error" id="room-name-error">{{ e.name }}</p>
+        }
+      </div>
+      <div class="field">
+        <div class="field__row">
+          <label class="field__label" for="room-description">Description</label>
+          <span class="field__count" aria-hidden="true"
+            >{{ d.description.length }} / {{ descriptionMax }}</span
+          >
+        </div>
+        <textarea
+          id="room-description"
+          class="cp-input"
+          rows="3"
+          [value]="d.description"
+          [attr.maxlength]="descriptionMax"
+          [attr.aria-invalid]="e.description ? 'true' : null"
+          [attr.aria-describedby]="
+            e.description ? 'room-description-error room-description-hint' : 'room-description-hint'
+          "
+          (input)="edit('description', $event)"
+        ></textarea>
+        <p class="field__hint" id="room-description-hint">
+          Shown under the room’s name on the phone and the web.
+        </p>
+        @if (e.description) {
+          <p class="field__error" id="room-description-error">{{ e.description }}</p>
+        }
+      </div>
+      <div class="field__pair">
+        <div class="field">
+          <label class="field__label" for="room-postRateLimitPerHour"
+            >Posts per member per hour</label
+          >
+          <input
+            id="room-postRateLimitPerHour"
+            class="cp-input"
+            type="number"
+            inputmode="numeric"
+            min="1"
+            max="1000"
+            [value]="d.postRateLimitPerHour"
+            [attr.aria-invalid]="e.postRateLimitPerHour ? 'true' : null"
+            [attr.aria-describedby]="
+              e.postRateLimitPerHour ? 'room-rate-error room-rate-hint' : 'room-rate-hint'
+            "
+            (input)="edit('postRateLimitPerHour', $event)"
+          />
+          <p class="field__hint" id="room-rate-hint">1 to 1,000. The default is 10.</p>
+          @if (e.postRateLimitPerHour) {
+            <p class="field__error" id="room-rate-error">{{ e.postRateLimitPerHour }}</p>
+          }
+        </div>
+        <div class="field">
+          <label class="field__label" for="room-sortOrder">Position in lists</label>
+          <input
+            id="room-sortOrder"
+            class="cp-input"
+            type="number"
+            inputmode="numeric"
+            min="0"
+            max="100000"
+            [value]="d.sortOrder"
+            [attr.aria-invalid]="e.sortOrder ? 'true' : null"
+            [attr.aria-describedby]="
+              e.sortOrder ? 'room-order-error room-order-hint' : 'room-order-hint'
+            "
+            (input)="edit('sortOrder', $event)"
+          />
+          <p class="field__hint" id="room-order-hint">0 to 100,000. Lower comes first.</p>
+          @if (e.sortOrder) {
+            <p class="field__error" id="room-order-error">{{ e.sortOrder }}</p>
+          }
+        </div>
+      </div>
+
+      @if (room.region && room.channel.status === 'ACTIVE') {
+        <div class="drawer__box">
+          <a
+            class="cp-link"
+            [routerLink]="['/messages/community', room.channel.slug]"
+            target="_blank"
+            rel="noopener"
+            aria-label="Open the room, opens in a new tab"
+          >
+            Open the room <app-admin-icon name="external" [size]="14" />
+          </a>
+          <p>
+            To remove a post, open the room and use the post’s menu. Removing is recorded in the
+            audit log.
+          </p>
+        </div>
+      }
+
+      <div class="drawer__archive">
+        @if (room.channel.status === 'ACTIVE') {
+          <p>Archiving hides the room and its posts from members. Nothing is deleted.</p>
+          <button
+            type="button"
+            id="room-archive-toggle"
+            class="cb cb--danger-outline"
+            [attr.aria-disabled]="busy() ? 'true' : null"
+            (click)="toggleArchived()"
+          >
+            <app-admin-icon name="archive" [size]="18" />
+            Archive room
+          </button>
+        } @else {
+          <p>Archived: members do not see it or its posts. Restoring shows them again.</p>
+          <button
+            type="button"
+            id="room-archive-toggle"
+            class="cb cb--outline"
+            [attr.aria-disabled]="busy() ? 'true' : null"
+            (click)="toggleArchived()"
+          >
+            <app-admin-icon name="restore" [size]="18" />
+            Restore room
+          </button>
+        }
+      </div>
+    </form>
+
+    <footer class="drawer__foot">
+      <button type="button" class="cb cb--outline" (click)="closeDrawer()">Cancel</button>
+      <button
+        type="button"
+        class="cb cb--primary"
+        [attr.aria-disabled]="busy() ? 'true' : null"
+        (click)="save()"
+      >
+        Save room
+      </button>
+    </footer>
+  </aside>
+}

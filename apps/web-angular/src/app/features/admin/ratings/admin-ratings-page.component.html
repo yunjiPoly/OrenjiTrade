@@ -1,0 +1,224 @@
+<div class="cp">
+  <header class="cp__head">
+    <div class="cp__heading">
+      <p class="cp__eyebrow">Moderation</p>
+      <h1 class="cp__title">Ratings</h1>
+      <p class="cp__sub">
+        Ratings and references collectors leave after a deal in the chat. Hide the ones that break
+        the Community Guidelines.
+      </p>
+    </div>
+  </header>
+
+  <div class="cp-tabs" role="tablist" aria-label="Ratings and references">
+    @for (option of tabs; track option.id) {
+      <button
+        type="button"
+        role="tab"
+        class="cp-tab"
+        [id]="'ratings-tab-' + option.id"
+        [attr.aria-selected]="current() === option.id"
+        aria-controls="ratings-panel"
+        [attr.tabindex]="current() === option.id ? 0 : -1"
+        (click)="setTab(option.id)"
+        (keydown)="onTabKey($event)"
+      >
+        {{ option.label }}
+        @if (current() === option.id && counts(); as c) {
+          <span class="cp-badge">{{ c.ALL }}</span>
+        }
+      </button>
+    }
+  </div>
+
+  <div id="ratings-panel" role="tabpanel" [attr.aria-labelledby]="'ratings-tab-' + current()">
+    <div class="cp-filters" role="search" aria-label="Filter">
+      <div class="cp-field">
+        <span class="cp-field__label" id="ratings-show">Show</span>
+        <div class="cp-seg" role="group" aria-labelledby="ratings-show">
+          @for (option of shows; track option.id) {
+            <button
+              type="button"
+              class="cp-seg__btn"
+              [attr.aria-pressed]="show() === option.id"
+              (click)="setShow(option.id)"
+            >
+              {{ option.label }}
+              @if (counts(); as c) {
+                <span class="cp-badge">{{ c[option.id] }}</span>
+              }
+            </button>
+          }
+        </div>
+      </div>
+      <label class="cp-field">
+        <span class="cp-field__label">{{
+          current() === 'ratings' ? 'Rated collector' : 'About'
+        }}</span>
+        <select
+          class="cp-select"
+          (change)="setPerson('rateeId', $event)"
+          data-testid="filter-ratee"
+        >
+          <option value="">Anyone</option>
+          @for (person of personOptions(); track person.id) {
+            <option [value]="person.id" [selected]="params().rateeId === person.id">
+              &#64;{{ person.handle }} ({{ person.displayName }})
+            </option>
+          }
+        </select>
+      </label>
+      <label class="cp-field">
+        <span class="cp-field__label">{{
+          current() === 'ratings' ? 'Rated by' : 'Written by'
+        }}</span>
+        <select
+          class="cp-select"
+          (change)="setPerson('raterId', $event)"
+          data-testid="filter-rater"
+        >
+          <option value="">Anyone</option>
+          @for (person of personOptions(); track person.id) {
+            <option [value]="person.id" [selected]="params().raterId === person.id">
+              &#64;{{ person.handle }} ({{ person.displayName }})
+            </option>
+          }
+        </select>
+      </label>
+    </div>
+
+    @if (error(); as error) {
+      <app-error-state
+        [title]="current() === 'ratings' ? 'Ratings could not load' : 'References could not load'"
+        [message]="message(error)"
+        [requestId]="error.requestId"
+        (retry)="reload()"
+      />
+    } @else if (rows(); as list) {
+      <p class="cp-count" aria-live="polite">
+        {{ countLine() }}
+        @if (loading()) {
+          · updating…
+        }
+      </p>
+      @if (list.length === 0) {
+        <app-empty-state
+          icon="star"
+          [title]="current() === 'ratings' ? 'No ratings match' : 'No references match'"
+          description="Collectors rate each other after a deal in the chat. Change the filters to see more."
+        />
+      } @else {
+        <ul class="cp-card cp-rows rt" [class.rt--dim]="loading()">
+          @for (row of list; track row.id) {
+            <li class="rrow" [class.rrow--hidden]="row.hidden" [attr.data-row]="row.id">
+              <span class="cp-avatar" aria-hidden="true">{{
+                initials(row.author.displayName)
+              }}</span>
+              <div class="rrow__body">
+                <p class="rrow__who">
+                  <strong>{{ row.author.displayName }}</strong>
+                  <span class="cp-muted">&#64;{{ row.author.handle }}</span>
+                  <span class="cp-muted">{{
+                    row.kind === 'rating' ? 'rated' : 'wrote about'
+                  }}</span>
+                  <a class="rrow__subject" [routerLink]="['/collectors', row.subject.handle]"
+                    >&#64;{{ row.subject.handle }}</a
+                  >
+                  @if (row.overall !== null) {
+                    <app-star-rating [value]="row.overall" size="sm" />
+                  }
+                </p>
+                <p class="rrow__line">
+                  <app-admin-icon name="messageSquare" [size]="14" />
+                  @if (row.kind === 'rating') {
+                    {{ row.line }} ·
+                  }
+                  <time [attr.datetime]="row.createdAt">{{ row.createdAt | relativeTime }}</time>
+                </p>
+                @if (row.text) {
+                  <p class="rrow__text">“{{ row.text }}”</p>
+                }
+                @if (row.criteria.length) {
+                  <p class="rrow__criteria">
+                    @for (criterion of row.criteria; track criterion.label; let last = $last) {
+                      {{ criterion.label }} {{ criterion.value }}/5{{ last ? '' : ' · ' }}
+                    }
+                  </p>
+                }
+                @if (row.hidden) {
+                  <p class="rrow__hidden">
+                    <span class="cp-chip"><app-admin-icon name="eyeOff" [size]="12" /> Hidden</span>
+                    @if (row.hiddenReason) {
+                      <span class="rrow__reason">“{{ row.hiddenReason }}”</span>
+                    }
+                    <span class="cp-muted">
+                      @if (row.hiddenBy) {
+                        Hidden by &#64;{{ row.hiddenBy }}
+                      }
+                      @if (row.hiddenAt) {
+                        · {{ row.hiddenAt | relativeTime }}
+                      }
+                    </span>
+                  </p>
+                }
+              </div>
+              @if (row.hidden) {
+                <button
+                  type="button"
+                  class="cb cb--outline cb--small"
+                  [id]="'row-' + row.id"
+                  [attr.aria-disabled]="busy() === row.id ? 'true' : null"
+                  [attr.aria-label]="'Restore the ' + row.kind + ' by ' + row.author.displayName"
+                  (click)="busy() === row.id || unhide(row)"
+                >
+                  <app-admin-icon name="restore" [size]="16" />
+                  Restore
+                </button>
+              } @else {
+                <button
+                  type="button"
+                  class="cb cb--quiet cb--small rrow__hide"
+                  [id]="'row-' + row.id"
+                  [attr.aria-disabled]="busy() === row.id ? 'true' : null"
+                  [attr.aria-label]="'Hide the ' + row.kind + ' by ' + row.author.displayName"
+                  (click)="busy() === row.id || hide(row)"
+                >
+                  <app-admin-icon name="eyeOff" [size]="16" />
+                  Hide
+                </button>
+              }
+            </li>
+          }
+        </ul>
+        <div class="rt__pages">
+          <span>{{ range() }}</span>
+          @if (total() > pageSize) {
+            <span class="rt__arrows">
+              <button
+                type="button"
+                class="cb cb--quiet cb--small"
+                [attr.aria-disabled]="params().page === 0 ? 'true' : null"
+                (click)="params().page === 0 || goPage(-1)"
+              >
+                Previous
+              </button>
+              <button
+                type="button"
+                class="cb cb--quiet cb--small"
+                [attr.aria-disabled]="lastPage() ? 'true' : null"
+                (click)="lastPage() || goPage(1)"
+              >
+                Next
+              </button>
+            </span>
+          }
+        </div>
+      }
+    } @else {
+      <div aria-busy="true">
+        <span class="visually-hidden">Loading</span>
+        <app-skeleton variant="list" lines="5" />
+      </div>
+    }
+  </div>
+</div>
