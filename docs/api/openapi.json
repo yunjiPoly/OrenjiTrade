@@ -39957,6 +39957,13 @@
             "format": "int64",
             "description": "The short number staff read (\"#1047\", V135)",
             "example": 1047
+          },
+          "contextRoomSlug": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The room of a reported community post (\"Open the room\", web stage WH2); null for other reports and for an archived channel named after a city"
           }
         },
         "required": [

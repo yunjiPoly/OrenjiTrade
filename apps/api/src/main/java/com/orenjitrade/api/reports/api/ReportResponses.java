@@ -419,7 +419,15 @@ public final class ReportResponses {
                             requiredMode = RequiredMode.REQUIRED,
                             description = "The short number staff read (\"#1047\", V135)",
                             example = "1047")
-                    long number) {
+                    long number,
+            @Schema(
+                            nullable = true,
+                            description =
+                                    "The room of a reported community post (\"Open the room\", web"
+                                            + " stage WH2); null for other reports and for an"
+                                            + " archived channel named after a city")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable String contextRoomSlug) {
 
         static ReportDetailResponse from(ReportDetailView view) {
             ReportRow row = view.report();
@@ -448,7 +456,8 @@ public final class ReportResponses {
                     view.notes().stream().map(NoteResponse::from).toList(),
                     HistoryResponse.from(view.history()),
                     conversation,
-                    row.number());
+                    row.number(),
+                    view.contextRoomSlug());
         }
     }
 }

@@ -361,6 +361,70 @@ class AdminConsoleWh2IT extends AbstractIntegrationTest {
                 .isEqualTo(1);
     }
 
+    /** WH1's U17: a report about a post names its room, never an archived city channel. */
+    @Test
+    void aPostReportNamesItsRoomButNeverACityChannel() {
+        String admin = superAdmin("wh2-post-report", "Post Admin");
+        String author = uniqueUid("wh2-post-author");
+        UUID authorId = provisionCompliant(author);
+        String room =
+                testUsers
+                        .query(
+                                "SELECT id::text AS id FROM community_channel WHERE slug ="
+                                        + " 'americas-north-yugioh'")
+                        .getFirst()
+                        .get("id")
+                        .toString();
+        Map<String, String> reports = new LinkedHashMap<>();
+        for (String channel : List.of(room, CITY_CHANNEL)) {
+            // One open report per reporter and collector: a reporter per post.
+            String reporter = uniqueUid("wh2-post-reporter");
+            provisionCompliant(reporter);
+            UUID post = UUID.randomUUID();
+            testUsers.update(
+                    "INSERT INTO community_post (id, channel_id, author_id, body, body_hash) VALUES"
+                            + " (?, ?::uuid, ?, 'Reported post', encode(sha256(convert_to(?,"
+                            + " 'UTF8')), 'hex'))",
+                    post,
+                    channel,
+                    authorId,
+                    "wh2-report-" + post);
+            JsonNode filed =
+                    callJson(
+                            HttpMethod.POST,
+                            "/api/v1/reports/collectors",
+                            reporter,
+                            Map.of(
+                                    "reportedUserId",
+                                    authorId.toString(),
+                                    "reason",
+                                    "SPAM",
+                                    "details",
+                                    "Spam in the room (WH2 test).",
+                                    "context",
+                                    Map.of("source", "POST", "postId", post.toString())),
+                            201);
+            reports.put(channel, filed.path("id").asString());
+        }
+        JsonNode inRoom =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/admin/reports/" + reports.get(room),
+                        admin,
+                        null,
+                        200);
+        assertThat(inRoom.path("contextRoomSlug").asString()).isEqualTo("americas-north-yugioh");
+        JsonNode inCity =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/admin/reports/" + reports.get(CITY_CHANNEL),
+                        admin,
+                        null,
+                        200);
+        assertThat(inCity.path("contextRoomSlug").isNull()).isTrue();
+        assertThat(inCity.toString().toLowerCase(Locale.ROOT)).doesNotContain("montr");
+    }
+
     @Test
     void staffSearchFindsCollectorsCardsAndReportsForAdminsOnly() {
         String admin = superAdmin("wh2-search", "Search Admin");

@@ -710,6 +710,18 @@ public class CommunityService {
     }
 
     /**
+     * The room of a reported post, for the console's "Open the room" (web stage WH2, WH1's U17):
+     * its slug, never one of an archived channel named after a city (ADR 0017); empty when unknown.
+     */
+    @Transactional(readOnly = true)
+    public Optional<String> postRoomSlug(UUID postId) {
+        return posts.findAny(postId)
+                .flatMap(post -> channels.findById(post.channelId(), timeProvider.now()))
+                .filter(channel -> !CityChannels.isCity(channel.regionLabel(), regions))
+                .map(ChannelRow::slug);
+    }
+
+    /**
      * Posts and replies of an author removed by moderators, newest first (Phase 7 moderator history
      * of a reported collector). A channel named after a city reads {@link
      * CityChannels#ARCHIVED_SLUG}: its own slug would tie the city to the author (ADR 0017; web

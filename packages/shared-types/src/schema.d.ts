@@ -10219,6 +10219,8 @@ export interface components {
              * @example 1047
              */
             number: number;
+            /** @description The room of a reported community post ("Open the room", web stage WH2); null for other reports and for an archived channel named after a city */
+            contextRoomSlug?: string | null;
         };
         ReportedConversation: {
             /** Format: uuid */

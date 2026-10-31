@@ -10,6 +10,7 @@ import com.orenjitrade.api.common.ApiException;
 import com.orenjitrade.api.common.PageResponse;
 import com.orenjitrade.api.common.ProblemFieldError;
 import com.orenjitrade.api.common.TimeProvider;
+import com.orenjitrade.api.community.domain.CommunityService;
 import com.orenjitrade.api.delisting.domain.ListingPauseService;
 import com.orenjitrade.api.delisting.domain.PauseSource;
 import com.orenjitrade.api.messaging.domain.ConversationService;
@@ -76,6 +77,7 @@ public class AdminReportService {
     private final ModerationService moderation;
     private final NotificationService notifications;
     private final AuditService auditService;
+    private final CommunityService community;
     private final TimeProvider timeProvider;
 
     public AdminReportService(
@@ -89,8 +91,10 @@ public class AdminReportService {
             ModerationService moderation,
             NotificationService notifications,
             AuditService auditService,
-            TimeProvider timeProvider) {
+            TimeProvider timeProvider,
+            CommunityService community) {
         this.reports = reports;
+        this.community = community;
         this.history = history;
         this.accounts = accounts;
         this.identityAdmin = identityAdmin;
@@ -175,7 +179,10 @@ public class AdminReportService {
                 notes,
                 history.historyOf(report.reportedUserId()),
                 conversationId,
-                messages);
+                messages,
+                report.context().postId() == null
+                        ? null
+                        : community.postRoomSlug(report.context().postId()).orElse(null));
     }
 
     // ---------------------------------------------------------------------------------------
@@ -506,5 +513,6 @@ public class AdminReportService {
             List<NoteView> notes,
             ModerationHistory history,
             @Nullable UUID conversationId,
-            @Nullable List<ModerationMessage> messages) {}
+            @Nullable List<ModerationMessage> messages,
+            @Nullable String contextRoomSlug) {}
 }
