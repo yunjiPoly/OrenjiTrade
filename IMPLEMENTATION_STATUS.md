@@ -7,6 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
+**Last updated:** 2026-10-31 (stage WH2 review fix 2, round 2 of 2: the console's own fields on Games, Auto-delist, Send an announcement and the card drawer, Usage limits' side column, the binders' count by visibility, Last sent, sync reports cleaned as they are read, key table columns in the window at 1024 and 390; see "Review fix 2" in the WH2 section).
 **Last updated:** 2026-10-31 (stage WH2 review fix 1, round 1 of 2: the audit log names every id, region and room (`AuditLogEntry.detailLabels`), a city channel stays as it is, no sideways scroll at 1024 or 390, sync reports without provider addresses, the staff search's one card per code, Add printing English only; see "Review fix 1" in the WH2 section).
 **Last updated:** 2026-10-31 (stage WG merged into `main` as #102, merge commit `f1e81069`; `origin/main` merged into WH1's branch at `16586cfc` (no file changed); the check of WH1's review fix 2 approved it with one older minor (the audit log keeps an archived city channel's slug) and nits, carried into stage WH2; WH2 waits for decision 5 ("Default Cards"), which waits for PR #92; see NEXT TASK).
 **Last updated:** 2026-10-31 (stage WH1 review fix 2, round 2 of 2: an archived city channel's slug, name and description never reach staff, in `GET /admin/community/channels` (R1-1) or a collector's moderation history (R1-2); API only, no type change; see "Review fix 2" in the WH1 section).
@@ -15348,6 +15349,69 @@ Checks of review fix 1 (retries off):
 | `npm run audit:gate` | OK |
 | Walk (API 8580, web 4400, `orenjitrade_wh2_check`) | the 17 WH2 pages and the account page at 1024 and 390 without sideways scroll; a country moved and back and a room post removed: the Audit log's rows expanded show names only (the request id is the one id); the city channel PATCH answers 400; AFTER screenshots retaken for every WH2 screen at 1440, 1024 and 390, dark and light (no page or console error) |
 
+**Review fix 2** (round 2 of 2, 2026-10-31; the check of review fix 1 left five minor findings,
+R1-1 to R1-5). No migration (the next is still **V136**); no type change in the API (OpenAPI,
+`packages/api-client` and `packages/shared-types` unchanged); the phone is unchanged.
+
+- **The rest of U9, board looks** (R1-1). `console/console-form.scss` (new): the console's fields,
+  the label above a 44 px box with its counter or unit, the help or the error under it, radio cards
+  and check boxes. The Games editor (Status as two radio cards, "Shown on tiles, chips and
+  filters.", board A13), Auto-delist's editor (numbers with "days", "hours", "strikes", board A17),
+  Send an announcement (board A20) and the card drawer (board A11; a list attribute's values as
+  check boxes) leave Material's outlined floating labels; an error shows once the field was touched
+  or a save was tried, with `aria-invalid` and `aria-describedby`. Usage limits puts "How a limit
+  reads" in a sticky side column at lg (board A14). Binders' count line reads "19 binders · 15 public
+  · 1 temporarily public · 3 private" (one `size=1` read per visibility with the other filters, while
+  no visibility is picked; `visibilityBreakdown`). The announcement preview reads its Audience and
+  **Last sent** ("Oct 31 · staff only", or "Never"), from the newest `notification.broadcast` audit
+  entry. *Left, with the reason:* the suspend and printing dialogs keep the app's dialog fields: no
+  board draws them, and WH1's console dialogs (resolve, reason, rule, notes) use the same fields, so
+  changing two would split the console's dialogs. Board A10's "41 publicly listed" is not shown (no
+  such count in the API).
+- **The account page applies `protectedPayments`** (R1-2): `admin-user-detail-page.component.spec`
+  renders the page with the flag off (no Payment Protection or Refund and Dispute consent) and on;
+  the call site mutant (`visibleConsents(…, true)`) now fails it.
+- **The image fill's clean line is tested** (R1-3): the YGOPRODeck stub answers one image with HTTP
+  403, whose failure names the stub's host and path ("YGOPRODeck images 127.0.0.1/images/cards/…
+  answered HTTP 403"); `YgoProDeckImportIT` asserts the report reads "An image of Pendulum Test Sage
+  could not be cached: YGOPRODeck images answered HTTP 403" and carries no host, path or id.
+- **Reports stored before review fix 1 are read clean, and a failed image names its card** (R1-4).
+  `GET /admin/catalog/games` (the newest run), `/sync-runs`, `/sync-runs/{id}` and
+  `/sync-runs/{id}/report` pass the run's error and the report's errors and warnings through
+  `ProviderMessages.clientSafe` as they are read (`safeRun`, `safeReport`); the stored row stays as
+  written. A failed fill's line names the card (the fill's candidates carry the card's name).
+  `YgoProDeckImportIT.aRunStoredBeforeTheCleaningIsReadWithoutProviderAddresses` stores a run with
+  provider hosts, paths and an image id and reads it through the four routes.
+- **Key columns in the window at 1024 and 390** (R1-5). The Audit log lays its table out by width
+  (`ShellLayout`): every column at lg; at md the target under the action (four columns that fit at
+  1024); below 960 one Entry column (who, when, action, target) beside Details; one structure at a
+  time, never hidden copies. The sync runs table pins its Report column below 1280 (`ct--actions`).
+  Regions lists each country as a stacked row below 960 (its Region select, Active switch and Save
+  in view). Measured on the walk stack: the 18 WH2 pages at 1024 and 390 without sideways scroll,
+  and the last header cell of the Audit log, sync runs and Regions inside the window; still beside
+  the window and reached by the table's scroll (data columns, not in the finding): Users' "Last
+  active" at 1024, System health's "Failures (24 h)" at 1024 and 390, the Games schema preview's
+  table at 390.
+
+Checks of review fix 2 (retries off):
+
+| Check | Result |
+| --- | --- |
+| `./gradlew spotlessCheck --rerun-tasks` | clean |
+| `npm run test:api` | **216 classes, 1,349 tests, 0 failures** (1,336 `test` + 13 `catalogTest`; 4 min 35 s) |
+| `exportOpenApi` + `npm run generate:api` | no change; git clean |
+| web `lint`, `format:check` | clean |
+| `npm test -w apps/web-angular`, `npm run test:web` | **239 files, 1,212 tests** each |
+| `npm run build`, `build:prod -w apps/web-angular` | initial **772.40 kB** (195.70 kB transferred), under the 900 kB budget, no warning |
+| `npm run test:e2e -- --retries=0` (8180/4300, under the web E2E lock) | **121 passed** (1.4 min), 0 failed |
+| mobile `typecheck`, `lint`, `format:check`, `npm run test:mobile` | clean; 128 suites, 1,782 tests + 34 node tests |
+| `npx expo export` (scratch folders) | iOS 1,975, Android 2,101, web 1,596 modules |
+| `npm run test:mobile:e2e -- --retries=0` (8090/19006, under the simulator lock) | MOBILE_**121 passed** (1.4 min), 0 failed |
+| `npm run test:mobile:maestro -- --platform ios` | **not run: the owner's iPhone 18 Pro simulator was not booted** (`Shutdown`); a wait from 15:31 to 16:32 never saw it booted, and nothing was booted. Due: the fix changed `apps/api` (no type change; `packages/api-client` and `packages/shared-types` unchanged). The Android run could not be verified |
+| `npm run test:scripts` | 165 / 165 |
+| `npm run audit:gate` | OK |
+| Walk (API 8580, web 4400, `orenjitrade_wh2_check`) | the changed pages at 1440, 1024 and 390, dark and light: the fields and their errors (New game, the card drawer, the announcement), the binders' breakdown, Last sent after a staff announcement on the walk database, a mock sync's run; AFTER screenshots retaken for Binders, the card drawer, New card, Card data and images, Games, New game, Usage limits, Auto-delist, Regions, Notifications and the Audit log (no page or console error) |
+
 ## NEXT TASK
 
 > **The web resumes (owner, 2026-10-28): stages WA to WH2 of the web redesign**, one at a time
@@ -15497,8 +15561,13 @@ Checks of review fix 1 (retries off):
 > through `AuditLogEntry.detailLabels`; a city channel can no longer be given a region; no page
 > scrolls sideways at 1024 or 390; sync reports carry no provider address; one card per printing
 > code in the staff search; Add printing English only; no migration, the next is still **V136**).
-> **Next for WH2:** the check of review fix 1 (round 2 of 2 if needed), then its pull request
-> against `main` after WH1's (#103) is merged, merged on green.
+> The check of review fix 1 left five minors: **review fix 2, round 2 of 2, is done** ("Review fix
+> 2" in the WH2 section: the console's own fields on Games, Auto-delist, Send an announcement and the
+> card drawer; Usage limits' side column; the binders' count by visibility; the announcement's Last
+> sent; sync reports cleaned as they are read and a failed image naming its card; the Audit log,
+> sync runs and Regions with their key columns in the window at 1024 and 390; no migration, no API
+> type change).
+> **Next for WH2:** its pull request against `main` after WH1's (#103) is merged, merged on green.
 >
 > **NEXT TASK: none: the web redesign is complete** (stages WA to WH2 are built; WA to WG merged,
 > WH1 and WH2 waiting for their pull requests). What comes next is **the owner's choice**. Already
