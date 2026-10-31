@@ -14822,8 +14822,9 @@ Contract: [`docs/api/contracts/wh1-admin-console.md`](docs/api/contracts/wh1-adm
   failed and nothing came back (`staffSearchFailed`, unit test).
 - F9, tests for rules that had none: W4, W11, W16 (`canTakeReport`, `admin-overview.spec.ts`),
   J4, J5 (`RatingEligibilityIT`: a second reference by another author, each filter counted) and
-  the V135 backfill (answered: Testcontainers starts on an empty table, so the backfill is only
-  testable by hand; the functional verifier checked it on a throw-away database).
+  the V135 backfill (`ReportNumberMigrationIT`: a scratch database migrated to V134 with four
+  reports, two filed in the same instant, then V135: numbered 1001 to 1004 by filing date then id,
+  the next report 1005).
 - F10, at 1024 two game columns hid behind a scroll: below 1280 the grid's columns narrow (112 +
   5 x 96 min) and below 960 each region's rooms wrap under its name, each cell naming its game.
 - U1, the nav's Overview was never current: it links to `/admin` itself (`admin-console.spec.ts`
@@ -14863,7 +14864,7 @@ Contract: [`docs/api/contracts/wh1-admin-console.md`](docs/api/contracts/wh1-adm
 | Check | Result |
 | --- | --- |
 | `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | clean |
-| `npm run test:api` | **210 classes / 1,319 tests** (`test`; 1,316 before: SharedDetailTest +2, CommunityIT +1) and 13 (`catalogTest`), 0 failures, 4 min 33 s |
+| `npm run test:api` | **210 classes / 1,319 tests** (`test`; 1,316 before: SharedDetailTest +2, CommunityIT +1) and 13 (`catalogTest`), 0 failures, 4 min 33 s; then `ReportNumberMigrationIT` (new, a scratch database of its own) alone: 2 / 2 |
 | `exportOpenApi` then `generate:api` | committed (`FlaggedCommunityContent.roomSlug` and `roomName` nullable, `AdminCommunityChannel.cityChannel`); run again at the end: git clean |
 | `npm run lint`, `format:check -w apps/web-angular` | clean |
 | `npm test -w apps/web-angular`, `npm run test:web` | **225 files / 1,153 tests** (220 / 1,128 at the builder) |
