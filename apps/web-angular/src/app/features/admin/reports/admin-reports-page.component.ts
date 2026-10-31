@@ -189,7 +189,8 @@ export class AdminReportsPageComponent {
   }
 
   protected toggleMine(): void {
-    // The tab on screen stays the tab of the URL (its default changes with the scope).
+    // A tab chosen stays chosen; the default Open becomes All with "mine" (Open could list
+    // nothing: assigning moves a report to Under review).
     this.navigate({ mine: this.mine() === '1' ? null : '1', status: this.explicitStatus() });
   }
 
