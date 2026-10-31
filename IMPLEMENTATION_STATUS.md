@@ -7,6 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
+**Last updated:** 2026-10-31 (stage WH2 review fix 1, round 1 of 2: the audit log names every id, region and room (`AuditLogEntry.detailLabels`), a city channel stays as it is, no sideways scroll at 1024 or 390, sync reports without provider addresses, the staff search's one card per code, Add printing English only; see "Review fix 1" in the WH2 section).
 **Last updated:** 2026-10-31 (stage WG merged into `main` as #102, merge commit `f1e81069`; `origin/main` merged into WH1's branch at `16586cfc` (no file changed); the check of WH1's review fix 2 approved it with one older minor (the audit log keeps an archived city channel's slug) and nits, carried into stage WH2; WH2 waits for decision 5 ("Default Cards"), which waits for PR #92; see NEXT TASK).
 **Last updated:** 2026-10-31 (stage WH1 review fix 2, round 2 of 2: an archived city channel's slug, name and description never reach staff, in `GET /admin/community/channels` (R1-1) or a collector's moderation history (R1-2); API only, no type change; see "Review fix 2" in the WH1 section).
 **Last updated:** 2026-10-31 (stage WH1 review fix 1, round 1 of 2: the 39 findings of its four reviewers (shared details appended after typed text hidden from staff, archived city channels never named in the console or a flag, the payments routes closed while `protectedPayments` is off, the resolve dialog's radio groups, focus after every action, light contrast, the Rules tab as board A4); see "Review fix 1" in the WH1 section).
@@ -15260,6 +15261,93 @@ sideways scroll at 390 (the Games and sources table scrolls inside its card). BE
 5. If wanted: account counts per audience in "Send an announcement" (a new count in the API,
    decision 9), and an API lock for `mlScanning` (today the console only disables its switch).
 
+**Review fix 1** (round 1 of 2, 2026-10-31; the functional, product and UX, and privacy reviewers'
+20 findings, F1 to F5, U1 to U10, P1 to P5; several were the same defect seen twice). No
+migration (the next is still **V136**); every API change additive; the phone is unchanged.
+
+- **The audit log names every id, region and room** (F1 = U2 = P2, blocker; U1 = P1, blocker).
+  `AuditLogEntry.detailLabels` (new, always present): every UUID in `details` has a name, an
+  account's "@handle" (any key: `authorId`, `ownerId`, `rateeId`, `assigneeId`, …), a report's
+  "Report #1047", a flagged post's "A post in …", words for the rest ("A moderator note", "A
+  conversation", "A private message", "A deleted account"); the modules name plain values through
+  the SPI's new `AuditTargetLabels.valueLabels` (a region code "Americas (North)" by
+  `CountryAuditLabels`, a room's slug "Americas (North) · Yu-Gi-Oh!" and `archived-channel` by
+  `CommunityAuditLabels`; rooms of a region and a game read "{region} · {game}" in `targetLabel`
+  too). The Audit log's expanded JSON swaps them (an id nothing names would read "Not shown"), and
+  the summaries read sentences: "Americas (South) → Americas (North)", "“Spam” · In Americas
+  (North) · Yu-Gi-Oh! · 2 flags resolved", "Collector → Moderator", "Was stale", "Largest .ydk file
+  150 kB", "Aging after 14 → 21 days", stored enum values in words (U5). The records stay as
+  written.
+- **A channel named after a city stays as it is** (P3, blocker). `PATCH
+  /admin/community/channels/{id}` on one of V041's city channels refuses a change of its region,
+  name, description, game or order (400), besides the status ACTIVE refused since WH1: two PATCH
+  calls could give it a platform region and restore it to members.
+- **No page scrolls sideways at 1024 or 390** (F2 = U3). The console's table scroller is the
+  containing block of its visually hidden headers and slide toggles (they escaped it and widened
+  the page); below 1280 a table's last column (the row actions) stays pinned while the table
+  scrolls in its card (Listings, Binders, Card data and images, Cards, Regions); Games' column
+  shrinks to the screen and the schema table scrolls in its own box. Measured on the walk stack:
+  the 17 WH2 pages at 1024 and 390, `scrollWidth` equals the window's width on every one.
+- **Sync reports carry no provider address** (P4). An image fill failure reads "An image could not
+  be cached: {provider} answered HTTP 403" (the host, the path and the image's id stay in the
+  server log), and a failed run's error drops the provider's host and path
+  (`ProviderMessages.clientSafe`). The card's name is not in that line (the fill knows only the
+  image's id): reported.
+- **The staff search lists a card once per printing code** (F4): several printings sharing a code
+  were listed twice (duplicate ids and keys); a card found by its code is not listed again by its
+  name.
+- **Words**: Notifications, Analytics and the card drawer say "Try again" (F5 = U8); feature flag
+  dialogs and toasts use the readable name, "Roll Community rooms out to 50%?" (U7); the suspend
+  dialog says they can still sign in and see that their account is suspended (owner decision 1,
+  U6); Scryfall's etiquette line says the bulk file at most once a day and 8 requests a second, the
+  API's pace (U10).
+- **Add printing is English only** (U4): a new printing shows its language as a fixed "English"
+  and sends `en`; a stored printing keeps its language editable. *Spec point changed for owner
+  order 4 (English only, 2026-10-20): board A11's language select is not offered for a new
+  printing.*
+- **Board details** (U9, partly): Auto-delist's sentence under the timeline ("A listing nobody
+  confirms is aging after 14 days, …") with the "Reminder · day 38" marker, and room between its
+  fields' rows; Notifications' By type with its total and each type's share, the preview's
+  audience; Analytics' shares per event and "Show the numbers" (a table of events per day); the
+  account page's moderation lists open, "Reports about them" first (board A8; the report page keeps
+  "Recent reports" open alone). **Not done, reported:** the Material outlined fields of six forms
+  (the Games editor, Auto-delist, Send an announcement, the card drawer, the suspend and printing
+  dialogs) are not moved to the console's field style; Usage limits' "How a limit reads" stays
+  under the list (not in a side column); Binders' count line has no per-visibility breakdown (the
+  API returns no such counts); the announcement preview has no "Last sent" line (no such value).
+- **Tests that would have caught them** (F3, P5): `AdminConsoleWh2IT` (every id and region code
+  in `details` named; the city channel PATCH refused and nothing reaches members or the audit log;
+  a shared printing code listed once; an email never searched among cards; a deleted account never
+  found), `GeoPrivacyContractTest` (one audit row per target type about collectors with a city,
+  rows written by collectors, a post's report in a city channel and in a room, the city PATCH, the
+  member channel list; a city in any label, actor name or detail label fails it),
+  `ProviderMessagesTest`, `YgoProDeckImportIT` (no host, path or id in the report);
+  `audit-entries.spec` (the JSON never shows a UUID; the summaries), the feature flags page spec
+  (the rollout only for a flag that is on and unlocked, its confirm by name and PUT, nothing saved
+  when cancelled or out of range), `visibleConsents`, the import limits' bounds equal the API's,
+  `PrintingEditDialogComponent`, `ReportHistoryComponent`, `freshnessSentence`, `shareWords`; the
+  WH2 E2E moves a country and back and removes a room post, expands their audit rows (no UUID but
+  the request id, no region code) and checks every WH2 page for sideways scroll at 1024 and 390.
+
+Checks of review fix 1 (retries off):
+
+| Check | Result |
+| --- | --- |
+| `./gradlew spotlessCheck --rerun-tasks` | clean |
+| `npm run test:api` | **216 classes, 1,348 tests, 0 failures** (4 min 42 s; `catalogTest` included) |
+| `exportOpenApi` + `npm run generate:api` | `detailLabels` in `docs/api/openapi.json`, `packages/api-client` and `packages/shared-types`, committed; git clean |
+| web `lint`, `format:check` | clean |
+| `npm test -w apps/web-angular` | 236 files, 1,206 tests (one etiquette test updated for Scryfall's pace, then all pass) |
+| `npm run build:prod -w apps/web-angular` | initial **772.40 kB** (195.72 kB transferred), under the 900 kB budget, no warning |
+| `npm run test:e2e -- --retries=0` (8180/4300, under the web E2E lock) | full run 120 of 121 (the older feature flag E2E asserted the flag's key in its dialog: updated to the readable name, U7); then the chromium project in full with that spec: **120 / 120**. The WH2 spec alone: 3 / 3 |
+| mobile `typecheck`, `lint`, `format:check`, `npm run test:mobile` | clean; 128 suites, 1,782 tests + 34 node tests |
+| `npx expo export` (scratch folders) | iOS 1,975, Android 2,101, web 1,596 modules |
+| `npm run test:mobile:e2e -- --retries=0` (8090/19006, under the simulator lock) | `--stack-only` (the served entry names `localhost:8090` twice, 8080 never), `--reuse-running`: **66 passed**, `--stop` |
+| `npm run test:mobile:maestro -- --platform ios` | **not run: the owner's iPhone 18 Pro simulator was not booted** (`Shutdown`); a wait from 13:29 to 14:29 never saw it booted. Due: the fix changed `apps/api`, `packages/api-client` and `packages/shared-types` (additive). The Android run could not be verified |
+| `npm run test:scripts` | 165 / 165 |
+| `npm run audit:gate` | OK |
+| Walk (API 8580, web 4400, `orenjitrade_wh2_check`) | the 17 WH2 pages and the account page at 1024 and 390 without sideways scroll; a country moved and back and a room post removed: the Audit log's rows expanded show names only (the request id is the one id); the city channel PATCH answers 400; AFTER screenshots retaken for every WH2 screen at 1440, 1024 and 390, dark and light (no page or console error) |
+
 ## NEXT TASK
 
 > **The web resumes (owner, 2026-10-28): stages WA to WH2 of the web redesign**, one at a time
@@ -15403,9 +15491,14 @@ sideways scroll at 390 (the Games and sources table scrolls inside its card). BE
 > Notifications with "Send an announcement" (A20), System health with every job named (A21),
 > Analytics with two derived tiles (A22), the Audit log with a label for every action, Who and
 > Target (A23); the staff search's one endpoint (`GET /admin/search`), `updatedBy` names on the five
-> rule pages, `GET /admin/catalog/games`, `?deckCore=`, `ReportDetail.contextRoomSlug`. **Next for
-> WH2:** its reviewers (functional, product and UX as a staff member, privacy), then its pull
-> request against `main` after WH1's (#103) is merged, merged on green.
+> rule pages, `GET /admin/catalog/games`, `?deckCore=`, `ReportDetail.contextRoomSlug`. Its
+> reviewers (functional, product and UX as a staff member, privacy) ran round 1: **review fix 1 is
+> done** ("Review fix 1" in the WH2 section: the audit log names every id, region and room
+> through `AuditLogEntry.detailLabels`; a city channel can no longer be given a region; no page
+> scrolls sideways at 1024 or 390; sync reports carry no provider address; one card per printing
+> code in the staff search; Add printing English only; no migration, the next is still **V136**).
+> **Next for WH2:** the check of review fix 1 (round 2 of 2 if needed), then its pull request
+> against `main` after WH1's (#103) is merged, merged on green.
 >
 > **NEXT TASK: none: the web redesign is complete** (stages WA to WH2 are built; WA to WG merged,
 > WH1 and WH2 waiting for their pull requests). What comes next is **the owner's choice**. Already
