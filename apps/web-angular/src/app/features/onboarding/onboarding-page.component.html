@@ -12,7 +12,7 @@
       <app-error-state [title]="copy.loadError" [message]="error.message" (retry)="load()" />
     } @else {
       @let current = step();
-      <p class="welcome__step" data-testid="welcome-step">
+      <p class="welcome__step" id="welcome-step" data-testid="welcome-step">
         {{ copy.step(stepNumber(), 3) }}
       </p>
       <div class="welcome__bar" aria-hidden="true">
@@ -23,7 +23,12 @@
 
       @switch (current) {
         @case ('profile') {
-          <h1 class="welcome__title" id="welcome-title" tabindex="-1">
+          <h1
+            class="welcome__title"
+            id="welcome-title"
+            tabindex="-1"
+            aria-describedby="welcome-step"
+          >
             {{ copy.profile.title }}
           </h1>
           <p class="welcome__intro">{{ copy.profile.intro }}</p>
@@ -136,7 +141,14 @@
           </form>
         }
         @case ('games') {
-          <h1 class="welcome__title" id="welcome-title" tabindex="-1">{{ copy.games.title }}</h1>
+          <h1
+            class="welcome__title"
+            id="welcome-title"
+            tabindex="-1"
+            aria-describedby="welcome-step"
+          >
+            {{ copy.games.title }}
+          </h1>
           <p class="welcome__intro">{{ copy.games.intro }}</p>
           <div class="welcome__group">
             @if (gameTiles().length > 0) {
@@ -185,7 +197,14 @@
           </div>
         }
         @case ('place') {
-          <h1 class="welcome__title" id="welcome-title" tabindex="-1">{{ copy.place.title }}</h1>
+          <h1
+            class="welcome__title"
+            id="welcome-title"
+            tabindex="-1"
+            aria-describedby="welcome-step"
+          >
+            {{ copy.place.title }}
+          </h1>
           <p class="welcome__intro">{{ copy.place.intro }}</p>
           <div class="welcome__group">
             <app-location-fields

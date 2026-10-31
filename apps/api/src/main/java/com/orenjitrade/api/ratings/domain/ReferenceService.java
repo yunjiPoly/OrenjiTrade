@@ -7,6 +7,7 @@ import com.orenjitrade.api.auth.domain.AuthenticatedUser;
 import com.orenjitrade.api.common.ApiException;
 import com.orenjitrade.api.common.CursorPage;
 import com.orenjitrade.api.common.ErrorCode;
+import com.orenjitrade.api.common.PageResponse;
 import com.orenjitrade.api.common.ProblemFieldError;
 import com.orenjitrade.api.common.TimeCursor;
 import com.orenjitrade.api.common.TimeProvider;
@@ -22,8 +23,10 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
@@ -131,9 +134,45 @@ public class ReferenceService {
         return CursorPage.of(items, new TimeCursor(last.createdAt(), last.id()).encode());
     }
 
+    /**
+     * {@code GET /admin/references} (MODERATOR+, web stage WH1): references newest first, with the
+     * author, the collector it is about and whoever hid it by name.
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<AdminReferenceView> adminList(
+            @Nullable UUID subjectId,
+            @Nullable UUID authorId,
+            @Nullable RatingModerationState state,
+            int page,
+            int size) {
+        ReferenceRepository.Page result =
+                references.adminPage(subjectId, authorId, state, page, size);
+        return PageResponse.of(adminViews(result.rows()), page, size, result.total());
+    }
+
+    private List<AdminReferenceView> adminViews(List<ReferenceRow> rows) {
+        Set<UUID> ids = new LinkedHashSet<>();
+        for (ReferenceRow row : rows) {
+            ids.add(row.authorId());
+            ids.add(row.subjectId());
+            if (row.hiddenBy() != null) {
+                ids.add(row.hiddenBy());
+            }
+        }
+        Map<UUID, MemberCard> cards = members.cards(ids);
+        return rows.stream()
+                .map(
+                        row ->
+                                new AdminReferenceView(
+                                        view(row, cards),
+                                        cards.get(row.subjectId()),
+                                        row.hiddenBy() == null ? null : cards.get(row.hiddenBy())))
+                .toList();
+    }
+
     /** {@code POST /admin/references/{id}/hide} ({@code 409} when already hidden, audited). */
     @Transactional
-    public ReferenceView hide(AuthenticatedUser moderator, UUID id, String reason) {
+    public AdminReferenceView hide(AuthenticatedUser moderator, UUID id, String reason) {
         ReferenceRow row = references.find(id).orElseThrow(() -> ApiException.notFound(NOT_FOUND));
         if (row.moderationState() == RatingModerationState.HIDDEN) {
             throw ApiException.conflict("This reference is already hidden");
@@ -153,12 +192,12 @@ public class ReferenceService {
                 id.toString(),
                 details);
         ReferenceRow updated = references.find(id).orElseThrow();
-        return view(updated, members.cards(List.of(updated.authorId())));
+        return adminViews(List.of(updated)).get(0);
     }
 
     /** {@code POST /admin/references/{id}/unhide} ({@code 409} when not hidden, audited). */
     @Transactional
-    public ReferenceView unhide(AuthenticatedUser moderator, UUID id) {
+    public AdminReferenceView unhide(AuthenticatedUser moderator, UUID id) {
         ReferenceRow row = references.find(id).orElseThrow(() -> ApiException.notFound(NOT_FOUND));
         if (row.moderationState() != RatingModerationState.HIDDEN) {
             throw ApiException.conflict("This reference is not hidden");
@@ -172,7 +211,7 @@ public class ReferenceService {
                 id.toString(),
                 Map.of("subjectId", row.subjectId().toString()));
         ReferenceRow updated = references.find(id).orElseThrow();
-        return view(updated, members.cards(List.of(updated.authorId())));
+        return adminViews(List.of(updated)).get(0);
     }
 
     /** Export section: references written and received. */
@@ -208,4 +247,14 @@ public class ReferenceService {
      * @param author the author's card ({@code null} when unknown)
      */
     public record ReferenceView(ReferenceRow row, @Nullable MemberCard author) {}
+
+    /**
+     * A reference in the moderator console.
+     *
+     * @param reference the reference with its author's card
+     * @param subject the card of the collector it is about ({@code null} when unknown)
+     * @param hiddenBy the card of the staff member who hid it ({@code null} when visible)
+     */
+    public record AdminReferenceView(
+            ReferenceView reference, @Nullable MemberCard subject, @Nullable MemberCard hiddenBy) {}
 }

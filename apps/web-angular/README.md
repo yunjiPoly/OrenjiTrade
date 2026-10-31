@@ -217,6 +217,48 @@ Spec section 14, decision 4, boards W26 and W27; the phone's R12 and R15. Contra
   "I have it", the profile, the wish dialog or Report; the card page and the set page take their
   own Add actions).
 
+## The admin console: shell, overview and moderation (web redesign WH1)
+
+Spec sections 15.1 to 15.4 and 15.9, decision 3, boards A1 to A6 and A24. Contract:
+`docs/api/contracts/wh1-admin-console.md`. A lazy chunk (`features/admin`), staff only.
+
+- **Its own frame** (`data.shell.console`, `AdminShellComponent`): the app's top bar, rail, tab
+  bar and footer step aside. The console's top bar (64): the wordmark and "Admin console" (to the
+  Overview), the staff search (`console/staff-search.component.ts`; `/` and Ctrl/Cmd+K focus it;
+  "Find a collector, card or report" for admins, "Find a report by its number" for moderators;
+  results grouped Collectors, Cards, Reports, arrows and Enter), the role pill ("Super admin",
+  "Admin", "Moderator"), "Back to OrenjiTrade" and the account menu. The grouped nav (260,
+  `console/admin-nav.ts`): Overview; MODERATION (Reports and Flags and rules with their orange open
+  counts, Community, Ratings); COLLECTORS; CATALOG; RULES; SYSTEM; PAYMENTS only while
+  `protectedPayments` is on. Moderators see the Overview and the four MODERATION items. Below 960
+  the nav is a grid of items above the page. The counts come from `AdminCounts` (the dashboard for
+  admins, the report and flag lists for moderators).
+- **The page pattern** (`console/console-page.scss`, `console-controls.scss`): an eyebrow, the H1
+  (28), a subtitle, actions; segmented states, native selects, cards, chips in today's tones; every
+  write ends with a toast "{result}" and "Recorded in the audit log." (`runConsoleAction`).
+- **Overview** (`overview/`, A1 and A24): what needs a person (amber when waiting), the report
+  queue with "Assign to me", open flags, the system card with the card image meter, the last 5
+  staff actions, the collectors' numbers; a moderator's "Waiting for the team", "Assigned to you",
+  "Unassigned" and "What moderators decide". Each card loads and retries on its own.
+- **Reports** (`reports/`, A2 and A3): one split view, `/admin/reports` and `/admin/reports/:id`
+  (the list at 400 with the status tabs, Reason, "Assigned to me" and "Only @handle", all in the
+  URL; the open report beside it: facts, the conversation with "Shipping address shared · hidden
+  from staff", notes, the reported collector, the reporter, the five history sections collapsible).
+  Below 1280 one pane at a time. The resolve dialog: radio cards, Suspend and Ban for admins only,
+  the confirm button naming the action.
+- **Flags and rules** (`moderation/`, A4): tabs Flags (first; state and Subject in the URL; the rule
+  that fired; a community post's room and text with "Open the post"; a private message's text
+  never) and Rules (today's rules component). The Community page has no flags tab any more.
+- **Community** (`community/`, A5): the 15 rooms (3 regions x 5 games) with posts in 24 h, the
+  hourly limit and Open or Archived; the room drawer (name, description, posts per member per
+  hour, position, the slug read-only, "Open the room", Archive or Restore, Save; Esc closes it);
+  "Archived channels". No "New channel".
+- **Ratings** (`ratings/`, A6): tabs Ratings and References, Show (All, Visible, Hidden), "Rated
+  collector" and "Rated by" (people seen on the pages read, by @handle), Hide with a reason and
+  Restore with a confirmation.
+- The other admin pages (Users, Listings, Binders, Cards, Games, the rules and system pages, the
+  payments pages) keep today's screens inside the new frame until stage WH2.
+
 ## Run
 
 ```bash
@@ -349,7 +391,7 @@ Routes: `/auth/sign-in`, `/auth/sign-up` (required legal documents from
 cancel + export), `/auth/unavailable` (web WG), `/onboarding` (the welcome's three steps, web WG),
 `/settings/{profile,
 privacy, notifications, location, account, appearance}` (`/settings/trading-area` redirects), `/collectors/:handle`,
-`/admin` (dashboard), `/admin/users`, `/admin/users/:id`, `/admin/audit-logs`; Phase 2 adds
+`/admin` (the Overview since WH1), `/admin/users`, `/admin/users/:id`, `/admin/audit-logs`; Phase 2 adds
 `/cards`, `/cards/:id`, `/sets/:id`, `/admin/games`, `/admin/cards[/:id]`,
 `/admin/feature-flags`, `/admin/usage-limits`.
 
@@ -672,9 +714,10 @@ document; their shapes live in `core/realtime/realtime-events.ts` with runtime g
   - **Room rules** (`room-rules`): the third pane (320) at 1280 and wider, shown or hidden and
     remembered (`orenjitrade.community.rulesPanel`); a 360 drawer at md and a sheet below 960, Esc
     closes, the focus back on "Room rules".
-- **Admin → Community** (`features/admin/community`, moderators and admins): channels (create,
-  edit, archive/restore with `POST/PATCH /admin/community/channels`) and the automatic moderation
-  flags (`GET /admin/moderation/flags` by state, resolve with an optional note); `?tab=flags`.
+- **Admin → Community** (`features/admin/community`, moderators and admins): since web stage WH1
+  the 15 rooms with their drawer (edit, archive and restore with `PATCH
+/admin/community/channels/{id}`; no "New channel") and "Archived channels"; the automatic
+  moderation flags moved to Flags and rules (`/admin/moderation`).
 
 ## Wishlist, matching and notifications (Phase 6)
 

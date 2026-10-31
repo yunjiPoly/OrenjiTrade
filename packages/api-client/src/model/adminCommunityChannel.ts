@@ -14,17 +14,30 @@
  */
 export interface AdminCommunityChannel { 
     id: string;
+    /**
+     * URL slug; \"archived-channel\" for a channel named after a city (cityChannel): its own slug names the city
+     */
     slug: string;
+    /**
+     * Display name; \"Archived channel\" for a channel named after a city (cityChannel): its own name names the city
+     */
     name: string;
     kind: AdminCommunityChannelKindEnum;
     game?: string | null;
     regionLabel?: string | null;
+    /**
+     * Description; empty for a channel named after a city (cityChannel)
+     */
     description: string;
     status: AdminCommunityChannelStatusEnum;
     postRateLimitPerHour: number;
     sortOrder: number;
     postCount24h: number;
     updatedAt: string;
+    /**
+     * A channel of the old model named after a city: it stays archived, its slug, name and description are not sent and the console names it by its game only
+     */
+    cityChannel: boolean;
 }
 export enum AdminCommunityChannelKindEnum {
     Game = 'GAME',

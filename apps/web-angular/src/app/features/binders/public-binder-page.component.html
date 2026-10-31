@@ -102,6 +102,7 @@
                   type="button"
                   class="core__message"
                   data-testid="binder-message"
+                  [attr.aria-label]="binder.owner.handle ? null : guestMessageLabel(binder.name)"
                   (click)="messageOwner(binder, $event.currentTarget)"
                 >
                   <app-shell-icon name="messages" [size]="20" />
@@ -172,6 +173,7 @@
                   type="button"
                   class="bnd__message"
                   data-testid="binder-message"
+                  [attr.aria-label]="binder.owner.handle ? null : guestMessageLabel(binder.name)"
                   (click)="messageOwner(binder, $event.currentTarget)"
                 >
                   <app-shell-icon name="messages" [size]="18" />

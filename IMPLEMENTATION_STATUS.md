@@ -7,6 +7,10 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
+**Last updated:** 2026-10-31 (stage WG merged into `main` as #102, merge commit `f1e81069`; `origin/main` merged into WH1's branch at `16586cfc` (no file changed); the check of WH1's review fix 2 approved it with one older minor (the audit log keeps an archived city channel's slug) and nits, carried into stage WH2; WH2 waits for decision 5 ("Default Cards"), which waits for PR #92; see NEXT TASK).
+**Last updated:** 2026-10-31 (stage WH1 review fix 2, round 2 of 2: an archived city channel's slug, name and description never reach staff, in `GET /admin/community/channels` (R1-1) or a collector's moderation history (R1-2); API only, no type change; see "Review fix 2" in the WH1 section).
+**Last updated:** 2026-10-31 (stage WH1 review fix 1, round 1 of 2: the 39 findings of its four reviewers (shared details appended after typed text hidden from staff, archived city channels never named in the console or a flag, the payments routes closed while `protectedPayments` is off, the resolve dialog's radio groups, focus after every action, light contrast, the Rules tab as board A4); see "Review fix 1" in the WH1 section).
+**Last updated:** 2026-10-30 (stage WH1 of the web redesign, builder: the admin console's own shell (the staff search, the role pill, the grouped nav with open counts, PAYMENTS only while `protectedPayments` is on), the Overview (A1; a moderator's A24), Reports as one split view with the resolve dialog, Flags and rules, the 15 Community rooms with their drawer, Ratings with References; V135 report numbers and the additive API of spec 15.8 (names on ratings and flags, a flagged post's room and text, shipping addresses and e-Transfer emails hidden from staff, `GET /admin/references`); WG's nits first; see the WH1 section and NEXT TASK).
 **Last updated:** 2026-10-30 (stage WF merged into `main` as #101, merge commit `5998be3e`; `origin/main` merged into WG's branch at `dd64b0e2`; `node-forge` 1.4.2 for five high advisories published that evening, which failed the audit gate on `main` too, and its stale exception dropped (`fc3d6276`); the check of WG's review fix 2 left nothing of WG's own above a nit (one minor, an older API rate limit, for the owner); its nits carried into stage WH1; see NEXT TASK).
 **Last updated:** 2026-10-30 (stage WG review fix 2, round 2 of 2: the welcome's step 3 with the token fields (labels above, 48 px) and the 40x24 switch, Settings › Location unchanged; the deletion page's shared rate limit left to the owner with its cause; web only; see "Review fix 2" in the WG section).
 **Last updated:** 2026-10-30 (stage WG review fix 1: a guest's pending action belongs to its own sign-in only (forgotten on Back out of the sign-in steps, a sign-out, another account, or the ready account on another page), Search keeps its game and binder after signing in, `/settings` on a fresh load, the art panel's height, the welcome's step 3, the guest notices, the sign-in steps' focus and announcements, the WG E2E's Legal locator and the resumes of every action; web only; see "Review fix 1" in the WG section).
@@ -14176,7 +14180,7 @@ still open first)
 - **P4** (phone photos public for a year with the author's id in the path): an owner follow-up,
   not changed here (R11's media rule).
 
-**What the stage built (web)**
+**What the stage built (web)** (`3ac2ea46`)
 
 - **Shell**: `ShellRouteData.bare` (no top bar, rail, tab bar, session banner or footer) for
   `/auth/**` and `/onboarding`; the top bar's "Sign in" with `returnUrl`.
@@ -14527,6 +14531,467 @@ below; the nits are carried into stage WH1, which fixes them first):
   stage), which the owner has to finish. The phone does not import `@orenji/api-client`, the only
   shared package WG changed.
 
+## Web redesign WH1: The admin console: shell, overview and moderation (2026-10-30)
+
+Stage WH1 of the owner's prompt of 2026-10-28
+([`docs/product/specs/2026-10-28-web-redesign-stages.md`](docs/product/specs/2026-10-28-web-redesign-stages.md),
+"WH1. The admin console: shell, overview and moderation (A1 to A6, A24)"), spec
+[`docs/product/specs/2026-10-20-web-redesign.md`](docs/product/specs/2026-10-20-web-redesign.md)
+sections 15.1 to 15.4, 15.8 (its WH1 part) and 15.9, decision 3, boards A1 to A6 and A24. Branch
+`feature/wh1-admin-moderation`, made on WG (`feature/wg-sign-in-guests`, PR #102, not merged yet),
+worktree `OrenjiTrade-web`, walk stack API 8580 / web 4400 (`orenjitrade_wh1_check`, Redis db 6).
+Contract: [`docs/api/contracts/wh1-admin-console.md`](docs/api/contracts/wh1-admin-console.md).
+One migration, **V135** (the next is **V136**; V124 and V128 stay unused; an ADR would take 0022
+or later). Every API change is additive; the phone has no admin screen and is unchanged.
+
+**What a staff member can now do (what to click)**
+
+- **The console's own frame.** Sign in as `admin@orenjitrade.test` (or a moderator), open the
+  avatar's menu › **Admin console** (or the rail's shield). The top bar now reads "OrenjiTrade |
+  Admin console" (the wordmark opens the Overview), with the **staff search** (press `/`; type
+  `#1001` to open report #1001, or, as an admin, a handle, an email or a card name: results
+  grouped Collectors, Cards, Reports; arrows and Enter), the **role pill** ("Super admin",
+  "Admin", "Moderator"), **Back to OrenjiTrade** and the avatar. The nav on the left is grouped
+  (Overview; MODERATION with orange open counts on Reports and Flags and rules; COLLECTORS;
+  CATALOG; RULES; SYSTEM; PAYMENTS only while `protectedPayments` is on) and ends with "Every
+  staff action is recorded in the audit log." A moderator sees five items.
+- **Overview** (`/admin`): "Needs a person" (Open reports counted Open and Under review together
+  with "2 unassigned · 3 under review", Open flags, Listings to review, Failed notifications; amber
+  when waiting; Open disputes and Webhook failures only while `protectedPayments` is on), the
+  **Report queue** with **Assign to me** on unassigned reports, **Open flags**, **System** (status,
+  database, cache, events waiting, the last freshness run, the card image meter "0 of 5,120 MB" by
+  game), **Recent staff actions** and **Collectors**. Sign in as `moderator@orenjitrade.test`:
+  "Waiting for the team" (Open reports, Under review "2 with you · 1 with @…", Open flags),
+  **Assigned to you**, **Unassigned** with Assign to me, and **What moderators decide**.
+- **Reports** (nav › Reports): one split view. The list (tabs Open, Under review, Action taken,
+  Dismissed, All; Reason; Assigned to me; "Only @handle" from a report's "All reports about
+  them"; all in the URL) beside the open report (`/admin/reports/:id`): "Report #1001 about …",
+  what was reported, the conversation (a shipping address or an e-Transfer email reads only
+  "Shipping address shared · hidden from staff"; kinds and states in words), moderator notes, the
+  reported collector with their standing, the reporter ("Never reveal who filed a report…") and
+  the five history sections, collapsible. **Resolve…** opens the dialog: radio cards, Suspend and
+  Ban marked "Admins" (disabled with "Administrators only." for a moderator), "Suspended until
+  (optional)", the required note with its counter, "Tell the reporter…", the other open reports
+  about the collector, and a button naming the action ("Warn and resolve", "Suspend and resolve"
+  in red).
+- **Flags and rules** (nav › Flags and rules): tabs **Flags** (Open, Resolved, All; Subject; each
+  flag with the rule that fired, a community post's room and text with **Open the post**, a
+  private message as "Its text is shown only inside a report about this collector.", **Resolve**)
+  and **Rules** (today's rules: filters, groups, New rule, edit, delete, the lock line for
+  moderators). Community has no flags tab any more.
+- **Community** (nav › Community): the 15 rooms as a grid (3 regions x 5 games: posts in 24 h,
+  "10 an hour per member", Open or Archived). A cell opens the **room drawer** (name, description,
+  posts per member per hour, position, the slug read-only, Open the room, **Archive room** /
+  **Restore room**, Save room; Esc closes it and the focus goes back to the cell); **Archived
+  channels** below. No "New channel".
+- **Ratings** (nav › Ratings): tabs **Ratings** and **References** (new), Show (All, Visible,
+  Hidden, with counts), "Rated collector" and "Rated by" ("About" and "Written by" on references),
+  people as name and @handle, **Hide** (a reason) and **Restore** (a confirmation).
+
+**WG's leftovers, fixed first** (`6fb9e025`; the WG section's "Left open by the verifier of fix 2",
+each checked still open first):
+
+- R2-3: the welcome's step 3 ties "Choose your country." (or "Choose your state or province.") to
+  its field: Material's error state (`aria-invalid`), the error's id in the select's
+  `aria-describedby`, `.app-token-select[aria-invalid='true']` with the danger border
+  (`missingLocationField`, two unit tests).
+- R1-3: a unit test asks from `/auth/sign-up` and `/onboarding` and expects `returnUrl` `/`.
+- R1-4: the auth layout's "Terms, privacy and community guidelines" opens in a new tab on the
+  sign-in steps (the account-state cards keep the same tab).
+- R1-5: `docs/development/local-setup.md`'s age sentence reworded as asked.
+- F6: `card-images.spec.ts` reads the pictures once their count holds still and each picture
+  re-queried on every try (`toPass`).
+- F7: `packages/api-client/tools/generate.mjs` back to `main`'s quotes; `web-omits.mjs` keeps only
+  the `WEB_CLIENT_NOT_NULL` change.
+- F8: the unused `AGE_CONFIRMATION_ERROR` and the unreachable `@if (handle)` branches in
+  `feed-post.component.ts` removed.
+- U9: the top bar's Sign in has its person icon; the sign-up reason line's icon is the circle-i;
+  "Not now" left-aligned; a guest's Settings reads Appearance and Legal under one "App" header.
+  Left: the guest Home map card's Fewer…More legend and the faint light scrim (the shared
+  `--color-overlay` token; a design call).
+- U10: a guest's "Message this collector" on a deck core or a plain binder is named "Message this
+  collector about {name}. Needs an account".
+- A8: the focused welcome heading is described by "Step n of 3" (unit test). A9: the Resend button
+  keeps the name "Resend email" (the countdown `aria-hidden`). A10: the age-only refusal reads
+  "Confirm that you are 18 or older to continue." (unit test). A11: the hidden description spans
+  use `hidden`. A12: Room rules' `aria-controls` only while the pane is open.
+
+**What the stage built (API)** (`6f28bc92`)
+
+- V135 `collector_report.report_number` (from 1001; existing reports numbered by filing date),
+  `number` on `ReportSummary`, `ReportDetail` and `HistoryReport`, `GET /admin/reports?number=`.
+- `ModerationFlag.authorDisplayName`, `resolvedByHandle` and `community` (room and text of a
+  flagged post or reply through the SPI `moderation.domain.FlaggedContentPreviews`, implemented by
+  `community.infra.CommunityFlagPreviews`; a region code only for a platform region's room; never a
+  private message's text).
+- `AdminRating.ratee` and `hiddenByHandle`; `GET /admin/references` (MODERATOR+) with `subject`,
+  `hiddenByHandle` and `hiddenAt`.
+- `ReportedConversationMessage.sharedDetail` (`SharedDetail`: `Ship to:` and `e-Transfer to`
+  messages sent as their kind with an empty body).
+- Tests: `SharedDetailTest` (unit), `ReportFlowIT` (numbers in order, the `number` filter and its
+  400, the hidden address and e-Transfer email, `e-Transfer sent!` kept), `ModerationIT` (names on
+  a message flag, no room or text, the resolver's handle), `CommunityIT` (a flagged post's room,
+  region, game and text), `RatingEligibilityIT` (the ratee and hider by name, "Rated by", the
+  references list with its filters and a moderator's access, 403 for a collector),
+  `GeoPrivacyContractTest` (the references, every flag, a report by number and the channels read
+  as an admin).
+
+**What the stage built (web)**
+
+- `data.shell.console`: the app's frame steps aside for `/admin`; `AdminShellComponent` draws the
+  console's top bar, the grouped nav (`console/admin-nav.ts`) and `main#main-content` ("Skip to
+  content" still lands there). `AdminCounts` (the shell's provider) reads the open counts; the
+  staff search (`console/staff-search*`); the console's own icons (`AdminIconComponent`, in the
+  admin chunk); `console-page.scss` and `console-controls.scss` (the page pattern of spec 15.2);
+  `runConsoleAction` (the toast with "Recorded in the audit log.").
+- Overview (`overview/`), Reports (`reports/admin-reports-page`, `report-panel`, `report-history`,
+  `report-filters`, the redesigned `resolve-report-dialog`; the old detail page removed), Flags and
+  rules (`moderation/admin-moderation-page`, `community/admin-flags` rewritten), Community
+  (`community/admin-community-page` with `community-rooms.ts`; `admin-channels` and
+  `channel-dialog` removed: no "New channel"), Ratings (`ratings/admin-ratings-page` with
+  `ratings-filters.ts`).
+- The other admin pages (WH2's) open inside the new frame unchanged.
+
+**What it left hidden or out, and why**
+
+- Import limits and Card data and images are not in the nav: they are stage WH2's new pages.
+- No "New channel" (spec 15.4: the apps only list the rooms); the endpoint stays on the API.
+- PAYMENTS (Transactions, Disputes, Payments) hidden from the nav while `protectedPayments` is off;
+  since review fix 1 their routes are closed too (`paymentsGuard`: the message, then the Overview);
+  today's pages, restyled in WH2.
+- The staff search's one endpoint, `updatedBy` names, readable audit targets: stage WH2 (spec
+  15.8, the prompt's WH2 list).
+
+**Spec points changed, and why** (decisions)
+
+1. **The staff search composes today's lists** until WH2's endpoint: report numbers for everyone
+   (`listReports number=`), and for admins `GET /admin/users?query=` (handle, email, name) and the
+   catalog's `GET /cards?query=` (card names; printing codes wait for WH2's endpoint). The prompt
+   puts the staff search endpoint in WH2 and the top bar's search in WH1.
+2. **Report numbers start at 1001** (they read alike, as the boards' "#1047"); existing reports are
+   numbered by filing date, as the spec says.
+3. **Shared details are recognised by the chat's templates** ("Ship to:" and "e-Transfer to …",
+   also edited after them): the apps send them as plain text, there is no message kind for them.
+   Over-hiding a message that starts that way is the safe side.
+4. **"posts in 24 h"** instead of the board's "posts today": the API counts the last 24 hours
+   (`postCount24h`); the room cells and the drawer say what the number is.
+5. **Recent staff actions** read "@handle · {action label}" (WH2 adds readable targets such as
+   "report #1047").
+6. **Accounts' "deletion pending"** is the dashboard's total minus active and suspended (the
+   dashboard sends no separate count; the total excludes deleted accounts).
+7. **Below 1280, Reports shows one pane at a time** (the list, or the open report with "All
+   reports"): the boards are 1440 only, and 400 + 260 leaves no room for the report at 1024.
+8. **The Ratings pickers list the people seen on the pages read** (by @handle and name, never an
+   id): moderators cannot search accounts (`/admin/users` is ADMIN only), and the API filters by
+   id. References show no interaction line (a reference is not tied to one).
+9. **The room drawer shows the slug** (spec: "the slug read-only"); the E2E raw-values check reads
+   the nav and the page, not the drawer.
+10. **The Rules tab keeps today's rules component** (filters, groups, dialog, validation, lock line,
+    delete confirmation, as the spec asks) inside the new page; review fix 1 gave its list board
+    A4's look (the dialog stays Material's).
+11. English only (owner, 2026-10-20): nothing French was asked or added.
+
+**Tests**
+
+- Web unit: `console/admin-nav.spec.ts` (moderators' 5 items, the groups, PAYMENTS following the
+  flag, the role pill), `staff-search.spec.ts`, `admin-counts.spec.ts`, `console-labels.spec.ts`
+  (regions and games named, rooms from slugs, message kinds, shared details), `dashboard-tiles`
+  (rewritten: A1, A24, the payments tiles, who holds the reports under review, the meter),
+  `report-filters.spec.ts`, `admin-reports-page.component.spec.ts` (the list marks the open report
+  and follows another row), `resolve-report-dialog.spec.ts` (+ the confirm label),
+  `community-rooms.spec.ts` (the grid, the others, the drawer's validation), `ratings-filters`;
+  WG's: `location-fields` (R2-3), `guest-actions.service` (R1-3), `onboarding-page` (A8),
+  `consent-page` (A10).
+- E2E: `admin-console.spec.ts` (new: each role's nav and pill, PAYMENTS as the flag says, `/` and
+  the staff search opening a report by number, a moderator closed out of an admin page, Back to
+  OrenjiTrade; a moderator **archives and restores a room** with the drawer's validation, the
+  confirmation, Esc and the focus back on the cell; **no UUID or region code** in the visible text
+  of the Overview, Reports (list and a report), Flags (All), Rules, Community, Ratings and
+  References; the list marking the open report as another row opens); `reporting.spec.ts` and `acceptance/reporting.spec.ts` (**resolve a report with a
+  warning** in the split view: Suspend and Ban disabled for a moderator, the required action and
+  note, "Warn and resolve", the toast, the audit log); `community.spec.ts` (the rooms grid, the
+  archived channels, the flag with its room and text in Flags and rules); `admin.spec.ts`,
+  `admin-moderation.spec.ts` (the Overview, Flags and rules' tabs).
+
+**Checks** (retries off, the real numbers)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | clean |
+| `npm run test:api` | **210 classes / 1,316 tests** (`test`) and 13 (`catalogTest`), 0 failures, 4 min 33 s |
+| `exportOpenApi` then `generate:api` | committed with the API (`6f28bc92`); run again at the end: git clean |
+| `npm run lint`, `format:check -w apps/web-angular` | clean |
+| `npm test -w apps/web-angular`, `npm run test:web` | **220 files / 1,128 tests** (WG's last: 211 / 1,080 at its builder) |
+| `npm run build -w apps/web-angular`, `build:prod` | initial total **771.36 kB** (budget 900 kB; WG's last 771.70 kB), no warning (a first build had the console's shared styles and the Community page 277 and 367 bytes over the 6 kB component style budget: split into two files each, in `3ac2ea46`) |
+| `npm run test:e2e -- --retries=0` (8180/4300, under the lock) | **118 passed** (1.3 min), 0 failed, on the final web code. On the way: the first full run failed 5 specs that read the old console (fixed before the commit `3ac2ea46`); a later run caught the Reports list reading the open report too early (its route not activated yet: the page was blank), fixed with a unit test (`admin-reports-page.component.spec.ts`) and the list now follows another row's click |
+| `npm run typecheck`, `lint`, `format:check -w apps/mobile` | clean |
+| `npm run test:mobile` | **128 suites / 1,782 tests** (one run beside the web E2E failed `chatSafetyTip` "selling" once, element not found; it passed alone 11 / 11 and the full suite again) |
+| `npx expo export` (scratch folders) | iOS 1,975 modules, Android 2,101 modules, web 1,596 modules and 68 static routes |
+| `npm run test:mobile:e2e -- --retries=0` (8090/19006, under the simulator lock) | `--stack-only` (the served export names `http://localhost:8090` and never 8080, by the harness and by hand), `--reuse-running`: **66 passed** (1.1 min), `--stop` |
+| `npm run test:mobile:maestro -- --platform ios` | **not run: the owner's iPhone 18 Pro simulator was not booted.** Xcode's first launch is no longer pending (no `xcodebuild -runFirstLaunch` process; CoreSimulator now 1174.21, it was 1174.9.2), but `xcrun simctl list devices booted` never listed the simulator during the hour of waiting (21:52 to 22:54 EDT, one background wait, then a watch to its end); it was never booted by an agent. Needed: the stage changed `apps/api`, `packages/api-client` and `packages/shared-types` (admin endpoints the phone never calls; the phone's typecheck, unit tests, exports and web E2E are green) |
+| `npm run test:scripts` | **165 / 165** |
+| `npm run audit:gate` | OK (no unreviewed high or critical advisory) |
+
+**The walk** (Playwright on the walk stack, at 1440x900, 1024x768 and 390x844, dark and light;
+78 AFTER screenshots in `.local-dev/wh1-notes/pr-shots/after/`, 54 BEFORE in `pr-shots/before/`):
+as `moderator@orenjitrade.test`: the five nav items and the pill, `/` then "#1002" and Enter
+opening the report, the resolve dialog with Suspend disabled, Assign to me from Unassigned ("Report
+#1003 is assigned to you." and "Recorded in the audit log."); as `admin@orenjitrade.test`: report
+#1002 resolved with a warning ("Report #1002 resolved: warning."), report #1003 resolved with a
+suspension until 2026-12-01 ("Suspend and resolve" in red; both reports about throw-away accounts
+of the walk, `wh1-bad-1@example.test` and `wh1-bad-2@example.test`, filed by
+`wh1-rep-1@example.test`, on the local emulator only), the staff search for "collector" (five
+collectors), Flags (All) and Rules, the room drawer of Europe · Riftbound archived then restored
+(the focus stays on the button; Esc closes, the focus back on the cell), a rating hidden ("Hidden
+by @admin") then restored, References. No page error and no console error. Each screen compared
+with its board (A1 to A6, A24, rendered from the mockup with a stub of `support.js`).
+
+**What could not be verified**
+
+- The native suite on the owner's iPhone 18 Pro (the simulator was not booted from 21:52 to 22:54
+  EDT; see Checks). The phone calls none of the changed endpoints.
+- A screen reader (VoiceOver or NVDA) on the console: not run by the builder (the accessibility
+  reviewer's).
+- The Android run could not be verified (no Android SDK on this Mac).
+
+**Owner follow-ups**
+
+- The archived channels from before the rooms keep their stored names, among them V041's
+  "Montréal / Yu-Gi-Oh!"; since review fix 1 the console names them "Archived channel · {game}"
+  and they cannot be restored. Renaming them in the database is the owner's call.
+- WG's leftovers that are design calls: the light scrim (`--color-overlay`, shared with the phone)
+  and the guest Home map card's legend (U9), the text-field border below 3:1 (A13), the "Orenji"
+  logotype at 2.74:1 in light (A14, exempt); the deletion page's shared rate limit (R2-2); phone
+  photos public, cached a year, with the author's id in the path (WF's P4).
+
+### Review fix 1 (2026-10-31)
+
+Round 1 of at most 2: the four reviewers (functional, product and UX as a staff member, privacy,
+accessibility) sent 39 findings on `c75dae78`; each was fixed at its cause with a test that would
+have caught it, or answered. No migration (the next is still **V136**); the API changes are
+additive (two fields new in WH1 made nullable, one new boolean field, one refusal, one wider list).
+Contract: [`docs/api/contracts/wh1-admin-console.md`](docs/api/contracts/wh1-admin-console.md)
+(rows 3, 4, 4b, 4c and the console's requests).
+
+**Privacy (blockers first)**
+
+- F1 / P1, a shipping address or an e-Transfer email the phone adds after typed text reached staff
+  (`SharedDetail` matched only the start of the message; the phone's composer puts the saved
+  detail on a new line after what is typed): a message is now hidden when `ship to:` appears
+  anywhere, `e-Transfer to` starts any line, or an email address or a phone number sits beside the
+  words e-Transfer or Interac; Unicode spaces count (a no-break space). `SharedDetailTest` (the
+  appended forms, the no-break space, edited lines, what keeps its text) and `ReportFlowIT` (two
+  appended messages: neither text, nor the typed words around them, reach staff).
+- F4 / P2 / P3 / U12, the archived "Montréal / …" channels: `CityChannels` (community) names a
+  channel of the old model whose region label is a city. A flag on one of its posts sends no
+  `roomSlug`, `roomName` or `regionCode` (they tied a city to the flagged author); the console's
+  channel list never sends the city label and marks such a channel `cityChannel`; restoring one is
+  refused (400 on `status`: restoring would list a city to members). The console reads it as
+  "Archived channel · Yu-Gi-Oh!" with a read-only drawer (no name, slug, description, Open the
+  room or Restore); a flag on such a post reads "An archived channel · Yu-Gi-Oh!" without "Open
+  the post". `CommunityIT.anArchivedCityChannelIsNeverNamedToStaff`, `community-rooms.spec.ts`,
+  `console-labels.spec.ts` (catches mutation J4 and the raw-code line W11).
+- P4, the contract test's flags read was empty: `GeoPrivacyContractTest` now creates three real
+  flags (a post of collector2 in a room, a post of collector3 in "Montréal / Yu-Gi-Oh!", a private
+  message) and checks the room block, a private message with no community block and no text, and
+  no "montr" in the flags (a city in `authorDisplayName`, mutation M2, now fails the class).
+- P6, an email typed in the staff search went to the public card search: a text with "@" goes to
+  accounts only (`asksCards`, unit test).
+- F3 / U9 / P5, Transactions, Disputes and Payments opened by address while `protectedPayments` was
+  off: the 7 payment routes carry `paymentsGuard` ("Protected payments is not available right
+  now.", then the Overview). `admin.routes.spec.ts` (every payment path guarded, off redirects to
+  `/admin`, on lets in) and `admin-console.spec.ts` (the page by address as the flag's current
+  value says).
+
+**Function**
+
+- F2 / A2, the resolve dialog's radios had no name, so the arrows crossed from Action into
+  Decision and could switch to Dismiss: `name="decision"` and `name="action"`. A8: each action is
+  named by its label alone (`aria-labelledby`), the description, "Admins" and "Administrators
+  only." in `aria-describedby`. U11: a past "Suspended until" is refused in the dialog ("Choose a
+  date after today.", tied to the field, the note kept). `resolve-report-dialog.spec.ts` (a
+  moderator's Suspend and Ban disabled with "Administrators only." (W4), the two groups, the
+  names, the past date) and `reporting.spec.ts` (ArrowDown stays in Action, never reaches Dismiss).
+- F6, "Assigned to me" on the default Open tab was always empty (assigning moves a report to Under
+  review), and a user page's "Reports about them" showed Open only: a list scoped to "mine" or to
+  one collector shows All by default; the Overview's "All reports" opens `?mine=1&status=UNDER_REVIEW`
+  (`report-filters.spec.ts`). F7: the moderator's desk asks Under review and Open by status.
+- F5 / U3, Ratings: "@handle" of the rated collector filters the list again (today's shortcut),
+  and administrators get "Account" beside it (`/admin/users/{id}`, "Account of @handle"). U7: what
+  a rating followed reads as board A6 ("Deal in the chat", "Completed trade (old)", "Accepted offer
+  (old)"; `ratings-filters.spec.ts`), the profile's labels unchanged.
+- F8, a failed staff search read "Nothing matches": "Search failed. Try again." when a request
+  failed and nothing came back (`staffSearchFailed`, unit test).
+- F9, tests for rules that had none: W4, W11, W16 (`canTakeReport`, `admin-overview.spec.ts`),
+  J4, J5 (`RatingEligibilityIT`: a second reference by another author, each filter counted) and
+  the V135 backfill (`ReportNumberMigrationIT`: a scratch database migrated to V134 with four
+  reports, two filed in the same instant, then V135: numbered 1001 to 1004 by filing date then id,
+  the next report 1005).
+- F10, at 1024 two game columns hid behind a scroll: below 1280 the grid's columns narrow (112 +
+  5 x 96 min) and below 960 each region's rooms wrap under its name, each cell naming its game.
+- U1, the nav's Overview was never current: it links to `/admin` itself (`admin-console.spec.ts`
+  checks `aria-current="page"` for both roles).
+- U2, the Rules tab kept Material's look: restyled as board A4 (pill selects "Applies to" and
+  "Kind", the count line "8 rules · 7 on", group cards with their count, one row per rule with its
+  chips, when it changed, edit and delete; an empty scope reads "No rules apply to … yet."); the
+  dialog, validation, lock line and delete confirmation are unchanged (`moderation-rules.spec.ts`).
+  U6: a flag's "Rule …" link tints, scrolls to and focuses that rule (the filters let it show).
+- U4, every console error state says "Try again". U5 / A7, the conversation groups by the local
+  day and the day separators are read (`conversation-days.spec.ts`). U10, "Recent staff actions"
+  keeps staff rows only (`staffActions`, unit test). U8, "open flags" of a reported collector now
+  count the flags on what they wrote (a private message, a post, a reply), as board A2 does
+  (`ModerationHistory.openFlags`; `ReportFlowIT`).
+
+**Accessibility**
+
+- A1, focus fell to the page body: in one pane an opened report focuses its heading (beside the
+  list it is announced: "Report #1002 opened"), "All reports" returns to the row that was open,
+  Assign and Resolve focus the report's heading, the Overview's Assign to me focuses the report on
+  the desk (or its row in the queue), Ratings and References focus the row's new button once the
+  list is read again (or the count line), Clear filters and the "Only @handle" chip focus the count
+  line, a resolved flag hands the focus to the next Resolve (or the count line).
+- A3, light contrast: `--app-warning-text`, `--app-success-text`, `--app-danger-text` and
+  `--app-accent-text` (styles.scss; the tokens in dark) for the console's chips, counts and states;
+  the active nav item in ink, the avatars in on-primary-container, the role pill in
+  on-accent-container, the hot badge and "Assigned to me" in `--app-primary-text`
+  (`console-tones.spec.ts`).
+- A4, below 960 the console's top bar scrolls with the page (three rows tall, it hid focused
+  controls). A5, the history links are 24 px tall. A6, a report row is named by what it shows.
+  A9, the role pill reads "Role: Admin"; titles "Flags and rules · Admin · OrenjiTrade" and
+  "Report #1002 · Admin · OrenjiTrade". A10, the reason dialog's danger button uses the fill red.
+  A11, the rule groups are `h2`; the room drawer is a `div` with `role="dialog"`.
+
+**Checks** (retries off)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | clean |
+| `npm run test:api` | **210 classes / 1,319 tests** (`test`; 1,316 before: SharedDetailTest +2, CommunityIT +1) and 13 (`catalogTest`), 0 failures, 4 min 33 s; then `ReportNumberMigrationIT` (new, a scratch database of its own) alone: 2 / 2 |
+| `exportOpenApi` then `generate:api` | committed (`FlaggedCommunityContent.roomSlug` and `roomName` nullable, `AdminCommunityChannel.cityChannel`); run again at the end: git clean |
+| `npm run lint`, `format:check -w apps/web-angular` | clean |
+| `npm test -w apps/web-angular`, `npm run test:web` | **225 files / 1,153 tests** (220 / 1,128 at the builder) |
+| `npm run build -w apps/web-angular`, `build:prod` | initial total **771.61 kB** (budget 900 kB), no warning |
+| `npm run test:e2e -- --retries=0` (8180/4300, under the lock) | **118 passed** (1.3 min), 0 failed |
+| `npm run typecheck`, `lint`, `format:check -w apps/mobile` | clean |
+| `npm run test:mobile` | **128 suites / 1,782 tests** |
+| `npx expo export` (scratch folders) | iOS 1,975 modules, Android 2,101 modules, web 1,596 modules and 68 static routes |
+| `npm run test:mobile:e2e -- --retries=0` (8090/19006, under the simulator lock) | `--stack-only` (the served export names `localhost:8090` three times and never 8080), `--reuse-running`: 65 passed, 1 failed (`binders.spec.ts` "make a binder a deck core…", the deck core's price not found within 30 s; nothing of WH1); that spec alone 5 / 5, then the full suite again **66 passed**; `--stop` |
+| `npm run test:mobile:maestro -- --platform ios` | **not run: the owner's iPhone 18 Pro simulator was not booted.** Xcode's first launch is not pending (no `xcodebuild -runFirstLaunch` process; CoreSimulator 1174.21); one background wait of an hour (about 23:58 to 00:58 EDT) and the checks after it never listed the simulator as booted; no agent booted it. Needed (the fix changed `apps/api`, `packages/api-client` and `packages/shared-types`: admin endpoints the phone never calls; the phone's typecheck, unit tests, exports and web E2E are green) |
+| `npm run test:scripts` | **165 / 165** |
+| `npm run audit:gate` | OK (no unreviewed high or critical advisory) |
+
+The walk (Playwright on the walk stack, API 8580 / web 4400, `orenjitrade_wh1_check`, Redis db 6,
+dropped and flushed afterwards; the seed's staff and two community flags of the walk database:
+one in a room, one in the archived "Montréal / Yu-Gi-Oh!"): the AFTER screenshots in
+`.local-dev/wh1-notes/pr-shots/after/` refreshed at 1440, 1024 and 390, dark and light (plus
+`community-archived-*` and `city-channel-drawer-*`), with no sideways scroll, no console error and
+no "Montréal" anywhere on screen. Keyboard probe: at 1024 Enter on a row focuses "Report #1001
+about …" and "All reports" returns to that row; the titles read "Report #1001 · Admin ·
+OrenjiTrade" and "Flags and rules · Admin · OrenjiTrade"; four ArrowDown from "Pause their
+listings" as a moderator leave "Take action" and an action checked (names `decision` and
+`action`); the Overview is `aria-current="page"` on `/admin`; Hide and Restore on Ratings end on
+the row's new button; at 390 the top bar is static; an email in the staff search asks
+`/admin/users` and never `/cards`.
+
+**Left for the owner (not this stage)**
+
+- (Fixed by review fix 2 below: the reported collector's history sent "montreal-…" as a removed
+  post's `HistoryRemovedContent.channelSlug`.)
+- WG's leftovers that are design calls, unchanged: the light scrim and the guest Home map card's
+  legend (U9), text-field borders below 3:1 (A13), the "Orenji" logotype at 2.74:1 in light (A14,
+  exempt), the deletion page's shared rate limit (R2-2), phone photos public (WF's P4).
+
+### Review fix 2 (2026-10-31)
+
+Round 2 of 2: the check of review fix 1 (on `4433b1ae`) approved it with two minors and two nits
+left. Both minors are fixed at their cause in the API, in `CityChannels` (no migration, the next
+is still **V136**; no type changes: the OpenAPI and the clients gained descriptions only); the web
+is unchanged.
+
+- R1-1, `GET /admin/community/channels` still sent an archived city channel's `name` ("Montréal /
+  Yu-Gi-Oh!"), `slug` ("montreal-yugioh") and `description` ("… around Montréal …"), against the
+  contract's "no admin list carries a place, a city never": `adminView` now sends `slug`
+  `CityChannels.ARCHIVED_SLUG` ("archived-channel"), `name` `CityChannels.ARCHIVED_NAME`
+  ("Archived channel") and an empty `description` for a channel with `cityChannel: true` (the
+  console already named it "Archived channel · {game}" and ignored the three; a `PATCH` answers
+  the same way).
+- R1-2, a collector's history (`GET /admin/users/{id}/history`, the report detail's history) sent
+  `HistoryRemovedContent.channelSlug` "montreal-…" for a post removed in such a channel, tying the
+  city to its author: `PostRepository.removedOf` now reads the channel's region label and
+  `CommunityService.removedContentOf` sends `CityChannels.staffSlug(…)`, "archived-channel" for a
+  city channel (a room keeps its slug). The field stays a required string, so nothing is retyped;
+  the console's report history already read "An archived channel", and the older users panel
+  (stage WH2's) now reads "Post in archived-channel" instead of the city's slug.
+- Tests that would have caught them: `CityChannelsTest` (unit: `isCity`, `platformRegion`,
+  `staffSlug`); `CommunityIT.anArchivedCityChannelIsNeverNamedToStaff` asserts the neutral slug,
+  name and empty description, no "montr" in the whole list, then removes the city post and a room
+  post and reads the author's history ("archived-channel" and the room's slug, no "montr");
+  `GeoPrivacyContractTest` removes a post of collector6 in V041's channel and fails on "montr" in
+  collector6's history or the console's channel list. Both integration tests fail on `4433b1ae`
+  ("montreal-yugioh").
+- On the walk stack (this branch's jar on API 8580, `orenjitrade_wh1_check`, Redis db 6, dropped and
+  flushed afterwards), as the seed's moderator and admin: the 4 `cityChannel` rows read
+  "archived-channel", "Archived channel" and "" with their game, no "montr" in the list; a post of
+  collector6 removed in V041's channel reads "archived-channel" in collector6's history.
+- Contract: [`docs/api/contracts/wh1-admin-console.md`](docs/api/contracts/wh1-admin-console.md),
+  row 4b. No screen of the stage changed (the city channels' sort order is their own, 10 to 40),
+  so the AFTER screenshots stand.
+
+Not changed, for the owner: the audit trail keeps the old slug where it was written
+(`community.post.remove`'s `details.channel` with the author's id, `community.channel.update`'s
+`details.slug`) for a post removed in, or a `PATCH` of, an archived city channel; the Audit log
+(today's page, redesigned in stage WH2) shows them (audit records are evidence and are not
+rewritten). The nits R1-3 (board A4's "The same pattern is a separate rule for …" line) and R1-4
+(city channels can no longer be renamed in the console, by design of review fix 1) are left as
+they are.
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | clean |
+| New tests on the code before the fix (`4433b1ae`'s `src/main`) | `CommunityIT.anArchivedCityChannelIsNeverNamedToStaff` and `GeoPrivacyContractTest.ratingsReportsAndAdminConsoleResponsesNeverCarryGeography` **fail** (expected "archived-channel", was "montreal-yugioh"); with the fix: `CityChannelsTest` 3 / 3, `CommunityIT` 9 / 9, `GeoPrivacyContractTest` 18 / 18 |
+| `npm run test:api` | **212 classes / 1,324 tests** (`test`; 1,321 before: `CityChannelsTest` +3) and 13 (`catalogTest`), 0 failures, 4 min 48 s |
+| `exportOpenApi` then `generate:api` | committed (descriptions only on `AdminCommunityChannel.slug`, `name`, `description`, `cityChannel` and `HistoryRemovedContent.channelSlug`; no type changed); git clean afterwards |
+| `npm run lint`, `format:check -w apps/web-angular` | clean |
+| `npm test -w apps/web-angular`, `npm run test:web` | **225 files / 1,153 tests** |
+| `npm run build -w apps/web-angular`, `build:prod` | initial total **771.61 kB** (195.01 kB transferred; budget 900 kB), no warning |
+| `npm run test:e2e -- --retries=0` (8180/4300, under the lock) | **118 passed** (1.4 min), 0 failed |
+| `npm run typecheck`, `lint`, `format:check -w apps/mobile` | clean |
+| `npm run test:mobile` | **128 suites / 1,782 tests** |
+| `npx expo export` (scratch folders) | iOS 1,975 modules, Android 2,101 modules, web 767 entry modules (Metro's cache warm) and 68 static routes |
+| `npm run test:mobile:e2e -- --retries=0` (8090/19006, under the simulator lock) | `--stack-only` (the served entry bundle names `localhost:8090` twice and 8080 never), `--reuse-running`: **66 passed** (1.1 min), `--stop` |
+| `npm run test:mobile:maestro -- --platform ios` | **not run: the owner's iPhone 18 Pro simulator was not booted.** This round changed `apps/api`, `packages/api-client` and `packages/shared-types` (descriptions only), so the suite was due; Xcode's first launch is not pending (no `xcodebuild -runFirstLaunch` process; CoreSimulator 1174.21); one background wait of an hour (02:08 to 03:08) never saw it booted, and nothing was booted. The Android run could not be verified |
+| `npm run test:scripts` | **165 / 165** |
+| `npm run audit:gate` | OK (no unreviewed high or critical advisory) |
+
+**Left open by the verifier of fix 2** (round 2 of 2 approved; carried into stage WH2, which fixes
+them first):
+
+- **R2-1 (minor, older than WH1, WH2's page):** the audit log keeps an archived city channel's slug:
+  `community.post.remove`'s `details.channel` (with the author's id) for a post removed in one, and
+  `community.channel.update`'s `details.slug` for a `PATCH` of one. `GET /api/v1/admin/audit-logs`
+  (admins only) returns them and today's `/admin/audit-logs` prints "channel: montreal-yugioh ·
+  authorId: …". The records are evidence and stay as written; WH2's Audit log (and its API
+  response) should name such a channel "An archived channel" (`CityChannels`), never its city.
+- **R2-2 (nit, R1-3):** the Rules tab lacks board A4's "The same pattern is a separate rule for …"
+  line under a pattern that exists in several scopes.
+- **R2-3 (nit, R1-4, by design of review fix 1):** an archived city channel can no longer be renamed
+  or edited in the console (its drawer is read-only, so no city reaches staff). An owner follow-up,
+  not WH2's: renaming the stored channels is a data decision.
+- **Round 1's nits not fixed:** U13 (only the active Reports tab shows a count), U14 (the report's
+  header and panel layout differ slightly from board A2), U15 (Suspend's "Admins" tag wraps onto its
+  own line), U16 (a moderator typing a handle in the staff search reads "No report has this
+  number."), U17 (a post report has no "Open the post", and "Open the post" on a flag opens the room,
+  not the post), U18 (toasts cover the console nav's footer), A12 (the icon-only Back at 1024 has no
+  tooltip, the "/" hint has no `aria-keyshortcuts`, a flag's Resolve buttons do not name the
+  author), A13 (the staff search's `aria-controls` points at nothing while the list is closed, and
+  its listbox holds non-option text), A14 (the Rooms heading and table name carry the whole summary
+  line), A15 (the card image meter renders an empty list when no game has images). F11's `?rule=`
+  was fixed with U6 in fix 1.
+- **Not run:** the native suite on the owner's iPhone 18 Pro: the simulator was not booted during
+  the builder's and both verifiers' waits (Xcode's first launch is no longer pending: CoreSimulator
+  1174.21). It is due for WG and WH1 (WH1 changed `apps/api`, `packages/api-client` and
+  `packages/shared-types`); the owner boots it.
+
 ## NEXT TASK
 
 > **The web resumes (owner, 2026-10-28): stages WA to WH2 of the web redesign**, one at a time
@@ -14631,17 +15096,44 @@ below; the nits are carried into stage WH1, which fixes them first):
 > review fix 2 left nothing of WG's own above a nit; its one blocker, the audit gate's five new
 > `node-forge` advisories (on `main` too), is fixed by `node-forge` 1.4.2 (`fc3d6276`), and the nits
 > go into stage WH1, which fixes them first (the WG section's "Left open by the verifier of fix
-> 2"). **Next for WG: its pull request against `main`, merged on green.**
+> 2"). **WG is merged into `main`** (#102, merge commit `f1e81069`, 2026-10-31).
 >
-> **The exact next stage after WG's pull request: stage WH1 of the web redesign, the admin console:
-> the shell, the overview and moderation (boards A1 to A6 and A24; spec sections 15.1 to 15.4 and
-> 15.8 for its additive API changes; decision 3)**, from the latest `origin/main`: the console's own
-> shell with the grouped nav and open counts, the staff search, the Overview of what needs a person
-> (A1; a moderator's A24), Reports as one split view with resolving (A2, A3), Flags and rules (A4),
-> Community rooms (A5, the 15 R11 rooms, no "New channel") and Ratings and references (A6); the
-> additive API changes it needs (the short report number among them) with their tests; its
-> reviewers: functional, product and UX as a staff member, privacy and accessibility (the prompt's
-> lists for WH1).
+> **Stage WH1 (the admin console: shell, overview and moderation) is built** on
+> `feature/wh1-admin-moderation`, made on WG (#102, merged; `origin/main` merged in at
+> `16586cfc`, no file changed) (section "Web redesign WH1: The admin console:
+> shell, overview and moderation (2026-10-30)" above; contract
+> `docs/api/contracts/wh1-admin-console.md`; migration **V135**, the next is **V136**): WG's nits
+> fixed first; the console's own frame with the staff search, the role pill and the grouped nav
+> with open counts (PAYMENTS only while `protectedPayments` is on; moderators five items); the
+> Overview (A1, A24); Reports as one split view with the resolve dialog (A2, A3); Flags and rules
+> (A4; Community's flags tab gone); the 15 rooms with their drawer (A5; no "New channel"); Ratings
+> with References (A6); the additive API of spec 15.8's WH1 part. Its four reviewers sent 39
+> findings: **review fix 1 is done** (section "Review fix 1" in the WH1 section: shared details
+> appended after typed text hidden, archived city channels never named, the payments routes
+> closed while the flag is off, the resolve dialog's radio groups, focus after every action, light
+> contrast, the Rules tab in board A4's look; no migration, the next is still **V136**). The check of
+> review fix 1 approved it with two minors and two nits: **review fix 2, round 2 of 2, is done**
+> (section "Review fix 2" in the WH1 section: an archived city channel's slug, name and description
+> never reach staff, neither in the console's channel list nor in a collector's history; API only,
+> no type change). The check of review fix 2 approved it, with one minor older than WH1 (R2-1, the
+> audit log keeps an archived city channel's slug) and nits, carried into stage WH2 (the WH1
+> section's "Left open by the verifier of fix 2"). **Next for WH1: its pull request against `main`,
+> merged on green.**
+>
+> **Before WH2: decision 5** (owner, 2026-10-28: Magic's Scryfall file becomes "Default Cards"),
+> which waits for the other session's PR #92 (`fix/scryfall-jsonl-bulk`, open) to reach `main`.
+>
+> **The exact next stage after WH1's pull request: stage WH2 of the web redesign, the admin
+> console: collectors, catalog, rules and system (boards A7 to A23; spec sections 15.5 to 15.7,
+> 15.8's rest and 15.9)**, from the latest `origin/main`: Users and the account page, Listings,
+> Binders and the Audit log (labels for every audit action, readable targets); Cards with the card
+> drawer, Card data and images (the sync form with its images mode, runs and their reports, the card
+> image cache with check and clear) and Games; Usage limits, Import limits (new page, then in the
+> nav), Wishlist terms, Auto-delist, Feature flags and Regions; Notifications, System health with
+> every job named, and Analytics; the staff search's one endpoint (replacing WH1's composed lists),
+> `updatedBy` names; E2E: edit an import limit and see the phone's import read it, clear one game's
+> images on the E2E database (no provider call); its reviewers (functional, product and UX as a
+> staff member, privacy).
 
 > **(Done: WE, above.) The exact next stage after WD's pull request was stage WE of the web redesign, Home, profiles,
 > notifications and settings (boards W1, W2 and W23 to W25; spec sections 5, 11, 12 and 13; decisions

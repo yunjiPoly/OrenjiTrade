@@ -102,6 +102,54 @@ public class ReferenceRepository {
                 .list();
     }
 
+    /**
+     * A page of references for the moderator console (web stage WH1), newest first, filtered by the
+     * collector it is about, its author and its moderation state.
+     */
+    public Page adminPage(
+            @Nullable UUID subjectId,
+            @Nullable UUID authorId,
+            @Nullable RatingModerationState state,
+            int page,
+            int size) {
+        Map<String, Object> params = new LinkedHashMap<>();
+        StringBuilder where = new StringBuilder(" WHERE true");
+        if (subjectId != null) {
+            where.append(" AND subject_id = :subject");
+            params.put("subject", subjectId);
+        }
+        if (authorId != null) {
+            where.append(" AND author_id = :author");
+            params.put("author", authorId);
+        }
+        if (state != null) {
+            where.append(" AND moderation_state = :state");
+            params.put("state", state.name());
+        }
+        long total =
+                jdbc.sql("SELECT count(*) FROM reference" + where)
+                        .params(params)
+                        .query(Long.class)
+                        .single();
+        params.put("limit", size);
+        params.put("offset", (long) page * size);
+        List<ReferenceRow> rows =
+                jdbc.sql(
+                                "SELECT "
+                                        + COLUMNS
+                                        + " FROM reference"
+                                        + where
+                                        + " ORDER BY created_at DESC, id DESC LIMIT :limit OFFSET"
+                                        + " :offset")
+                        .params(params)
+                        .query(ReferenceRepository::map)
+                        .list();
+        return new Page(rows, total);
+    }
+
+    /** One page of references with the total count. */
+    public record Page(List<ReferenceRow> rows, long total) {}
+
     /** Every reference written or received by an account (export), newest first. */
     public List<ReferenceRow> allOf(UUID userId) {
         return jdbc.sql(

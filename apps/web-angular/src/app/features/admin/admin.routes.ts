@@ -1,5 +1,29 @@
 import { Routes } from '@angular/router';
 import { ADMIN_AREA, adminGuard } from '../../core/auth/auth.guards';
+import { FEATURE } from '../../core/feature-flags/feature-flags.service';
+import { featureGuard } from '../../core/feature-flags/feature.guard';
+
+/**
+ * The PAYMENTS group's pages (Transactions, Disputes, Payments) open only while
+ * `protectedPayments` is on (spec 15.1): typed into the address bar while it is off, they say so
+ * and go to the Overview. The nav hides the group too.
+ */
+export const paymentsGuard = featureGuard(
+  FEATURE.protectedPayments,
+  'Protected payments',
+  '/admin',
+);
+
+/** The paths of the PAYMENTS group, guarded by {@link paymentsGuard}. */
+export const PAYMENT_PATHS = [
+  'transactions',
+  'disputes',
+  'disputes/:id',
+  'payments',
+  'payments/webhooks',
+  'payments/settings',
+  'payments/:id',
+] as const;
 
 /**
  * `/admin` console: shell with side navigation. The parent route is guarded by `adminGuard`
@@ -12,11 +36,12 @@ export const ADMIN_ROUTES: Routes = [
     loadComponent: () => import('./admin-shell.component').then((m) => m.AdminShellComponent),
     children: [
       {
+        // The Overview (spec 15.3, boards A1 and A24).
         path: '',
         pathMatch: 'full',
-        title: 'Admin',
+        title: 'Overview · Admin',
         loadComponent: () =>
-          import('./admin-dashboard.component').then((m) => m.AdminDashboardComponent),
+          import('./overview/admin-overview.component').then((m) => m.AdminOverviewComponent),
       },
       {
         path: 'users',
@@ -110,23 +135,25 @@ export const ADMIN_ROUTES: Routes = [
           ),
       },
       {
-        // Moderators and admins (moderation area).
+        // Moderators and admins: one split view (spec 15.4, board A2); the URL still names the
+        // open report (`/admin/reports/:id`).
         path: 'reports',
         title: 'Reports · Admin',
         loadComponent: () =>
           import('./reports/admin-reports-page.component').then((m) => m.AdminReportsPageComponent),
-      },
-      {
-        path: 'reports/:id',
-        title: 'Report · Admin',
-        loadComponent: () =>
-          import('./reports/admin-report-detail-page.component').then(
-            (m) => m.AdminReportDetailPageComponent,
-          ),
+        children: [
+          { path: '', pathMatch: 'full', children: [] },
+          {
+            path: ':id',
+            title: 'Report · Admin',
+            loadComponent: () =>
+              import('./reports/report-panel.component').then((m) => m.ReportPanelComponent),
+          },
+        ],
       },
       {
         path: 'moderation',
-        title: 'Moderation · Admin',
+        title: 'Flags and rules · Admin',
         loadComponent: () =>
           import('./moderation/admin-moderation-page.component').then(
             (m) => m.AdminModerationPageComponent,
@@ -159,7 +186,7 @@ export const ADMIN_ROUTES: Routes = [
       {
         path: 'transactions',
         title: 'Transactions · Admin',
-        canActivate: [adminGuard],
+        canActivate: [adminGuard, paymentsGuard],
         data: { [ADMIN_AREA]: 'admin' },
         loadComponent: () =>
           import('./payments/admin-transactions-page.component').then(
@@ -169,7 +196,7 @@ export const ADMIN_ROUTES: Routes = [
       {
         path: 'disputes',
         title: 'Disputes · Admin',
-        canActivate: [adminGuard],
+        canActivate: [adminGuard, paymentsGuard],
         data: { [ADMIN_AREA]: 'admin' },
         loadComponent: () =>
           import('./disputes/admin-disputes-page.component').then(
@@ -179,7 +206,7 @@ export const ADMIN_ROUTES: Routes = [
       {
         path: 'disputes/:id',
         title: 'Dispute · Admin',
-        canActivate: [adminGuard],
+        canActivate: [adminGuard, paymentsGuard],
         data: { [ADMIN_AREA]: 'admin' },
         loadComponent: () =>
           import('./disputes/admin-dispute-detail-page.component').then(
@@ -189,7 +216,7 @@ export const ADMIN_ROUTES: Routes = [
       {
         path: 'payments',
         title: 'Payments · Admin',
-        canActivate: [adminGuard],
+        canActivate: [adminGuard, paymentsGuard],
         data: { [ADMIN_AREA]: 'admin' },
         loadComponent: () =>
           import('./payments/admin-payments-page.component').then(
@@ -199,7 +226,7 @@ export const ADMIN_ROUTES: Routes = [
       {
         path: 'payments/webhooks',
         title: 'Webhook events · Admin',
-        canActivate: [adminGuard],
+        canActivate: [adminGuard, paymentsGuard],
         data: { [ADMIN_AREA]: 'admin' },
         loadComponent: () =>
           import('./payments/admin-webhooks-page.component').then(
@@ -209,7 +236,7 @@ export const ADMIN_ROUTES: Routes = [
       {
         path: 'payments/settings',
         title: 'Payment rules · Admin',
-        canActivate: [adminGuard],
+        canActivate: [adminGuard, paymentsGuard],
         data: { [ADMIN_AREA]: 'admin' },
         loadComponent: () =>
           import('./payments/admin-payment-settings-page.component').then(
@@ -219,7 +246,7 @@ export const ADMIN_ROUTES: Routes = [
       {
         path: 'payments/:id',
         title: 'Payment · Admin',
-        canActivate: [adminGuard],
+        canActivate: [adminGuard, paymentsGuard],
         data: { [ADMIN_AREA]: 'admin' },
         loadComponent: () =>
           import('./payments/admin-payment-detail-page.component').then(

@@ -29,7 +29,7 @@
         type="button"
         class="room__rules-toggle"
         data-testid="room-rules-toggle"
-        aria-controls="room-rules"
+        [attr.aria-controls]="rulesOpen() ? 'room-rules' : null"
         [attr.aria-pressed]="rulesMode() === 'pane' ? rulesOpen() : null"
         [attr.aria-expanded]="rulesMode() === 'pane' ? null : rulesOpen()"
         [attr.aria-haspopup]="rulesMode() === 'pane' ? null : 'dialog'"

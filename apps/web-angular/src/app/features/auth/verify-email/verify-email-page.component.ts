@@ -71,10 +71,15 @@ const RESEND_COOLDOWN_S = 30;
         <button
           type="button"
           class="btn btn--outline btn--small btn--after"
+          aria-label="Resend email"
           [attr.aria-disabled]="resending() || cooldown() > 0 ? 'true' : null"
           (click)="resending() || cooldown() > 0 || resend()"
         >
-          {{ cooldown() > 0 ? 'Resend in ' + cooldown() + ' s' : 'Resend email' }}
+          <!-- Its name stays "Resend email" while the countdown ticks (WG review A9): the
+               seconds are for the eye only. -->
+          <span aria-hidden="true">{{
+            cooldown() > 0 ? 'Resend in ' + cooldown() + ' s' : 'Resend email'
+          }}</span>
         </button>
         <button type="button" class="link link--center" (click)="continue()">Do this later</button>
       }

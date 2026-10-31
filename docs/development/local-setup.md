@@ -298,8 +298,8 @@ app, no OAuth client needed; see `apps/mobile/README.md`), the Search tab's Coll
 segments, the card holders list with the web's filters, "Looking for" on profiles, Settings →
 Blocked users, owner photos and bulk actions in the inventory, binder reordering, set pages. Stage M8 (2026-10-06, launch readiness on
 mobile) adds the 18+ confirmation (the bilingual checkbox at sign-up and on the consent screen, a
-first onboarding "Age" step for existing accounts, since R12 on the phone and WG on the web Review our
-terms with the age line alone: seed accounts see it once), the French legal
+first onboarding "Age" step for existing accounts; existing accounts confirm their age once on
+Review our terms, with the age line alone (the phone since R12, the web since WG)), the French legal
 pages with an EN / FR switch (French by default on a French device, `npm run sync:legal` copies
 both web files), consents recorded with the language shown, the dismissible "Trade safely"
 notice in conversations and on offers / trades (since stage R1: a shipping-first safety tip at

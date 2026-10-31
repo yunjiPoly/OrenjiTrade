@@ -372,7 +372,7 @@ export class SettingsShellComponent {
   protected readonly member = computed(() => this.auth.isAuthenticated());
   protected readonly groups = computed(() => {
     const member = this.member();
-    return SETTINGS_GROUPS.map((group) => ({
+    const groups = SETTINGS_GROUPS.map((group) => ({
       ...group,
       links: group.links.filter(
         (link) =>
@@ -380,6 +380,9 @@ export class SettingsShellComponent {
           (member || GUEST_SETTINGS.includes(link.path)),
       ),
     })).filter((group) => group.links.length > 0);
+    // A guest reads Appearance and Legal under one "App" header, never "Account" over Legal alone
+    // (WG review U9).
+    return member ? groups : [{ label: 'App', links: groups.flatMap((group) => group.links) }];
   });
   protected readonly email = computed(() => this.auth.user()?.email ?? null);
   /** The line under a nav row: where you ship from, the theme. */

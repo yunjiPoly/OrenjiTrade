@@ -40,6 +40,13 @@ export interface ShellRouteData {
    * the rail").
    */
   bare?: boolean;
+  /**
+   * The admin console (spec 15.1, web stage WH1): its own top bar (the wordmark and "Admin
+   * console", the staff search, the role pill, "Back to OrenjiTrade", the avatar) and its grouped
+   * nav. The app's top bar, rail, tab bar, footer and session banner step aside; the console's
+   * shell draws the banner, the nav and `main#main-content`.
+   */
+  console?: boolean;
 }
 
 export const SHELL_DEFAULTS: Required<ShellRouteData> = {
@@ -50,6 +57,7 @@ export const SHELL_DEFAULTS: Required<ShellRouteData> = {
   hideGlobalSearch: false,
   tabBar: false,
   bare: false,
+  console: false,
 };
 
 /** The shell data of a navigation: every route's `data.shell` from the root down, merged. */
@@ -107,6 +115,8 @@ export class ShellLayout {
   readonly narrow = this.narrowState.asReadonly();
   /** The page stands alone: no top bar, rail, tab bar or footer (the account steps). */
   readonly bare = computed(() => this.dataState().bare);
+  /** The admin console draws its own frame (spec 15.1). */
+  readonly console = computed(() => this.dataState().console);
   /** Below 960 on a tab's own page: the top bar is the phone's per-tab bar (spec 16). */
   readonly tabBar = computed(
     () => this.narrowState() && this.dataState().tabBar && !this.dataState().bare,

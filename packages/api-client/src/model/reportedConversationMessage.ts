@@ -13,9 +13,16 @@ export interface ReportedConversationMessage {
     id: string;
     senderId?: string | null;
     kind: ReportedConversationMessageKindEnum;
+    /**
+     * Empty when sharedDetail is set: staff never read it
+     */
     body: string;
     createdAt: string;
     moderationState: ReportedConversationMessageModerationStateEnum;
+    /**
+     * A shipping address or an e-Transfer email was shared here; its text is hidden from staff
+     */
+    sharedDetail?: ReportedConversationMessageSharedDetailEnum | null;
 }
 export enum ReportedConversationMessageKindEnum {
     Text = 'TEXT',
@@ -29,6 +36,10 @@ export enum ReportedConversationMessageModerationStateEnum {
     Ok = 'OK',
     Flagged = 'FLAGGED',
     Removed = 'REMOVED'
+};
+export enum ReportedConversationMessageSharedDetailEnum {
+    ShippingAddress = 'SHIPPING_ADDRESS',
+    EtransferEmail = 'ETRANSFER_EMAIL'
 };
 
 

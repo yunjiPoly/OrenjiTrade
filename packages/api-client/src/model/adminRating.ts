@@ -7,6 +7,7 @@
  * https://openapi-generator.tech
  * Do not edit the class manually.
  */
+import { RatingAuthor } from './ratingAuthor';
 import { RatingResponse } from './ratingResponse';
 
 
@@ -19,6 +20,14 @@ export interface AdminRating {
     hiddenReason?: string | null;
     hiddenBy?: string | null;
     hiddenAt?: string | null;
+    /**
+     * The rated collector by name (web stage WH1)
+     */
+    ratee: RatingAuthor;
+    /**
+     * The handle of the staff member who hid it
+     */
+    hiddenByHandle?: string | null;
 }
 export enum AdminRatingModerationStateEnum {
     Ok = 'OK',

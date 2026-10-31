@@ -14,6 +14,7 @@ import com.orenjitrade.api.moderation.domain.ModerationService;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -447,6 +448,30 @@ class CommunityIT extends AbstractIntegrationTest {
                             assertThat(row.get("reason")).isEqualTo("BANNED_TERM");
                             assertThat(row.get("rule_id")).isNotNull();
                         });
+        // The console's Flags and rules page reads the room and the text (web stage WH1).
+        JsonNode communityFlag = null;
+        for (JsonNode item :
+                callJson(
+                                HttpMethod.GET,
+                                "/api/v1/admin/moderation/flags?subjectType=COMMUNITY_POST&size=100",
+                                moderator.uid(),
+                                null,
+                                200)
+                        .path("items")) {
+            if (item.path("subjectId").asString().equals(postId)) {
+                communityFlag = item;
+            }
+        }
+        assertThat(communityFlag).as("the post's flag").isNotNull();
+        JsonNode content = communityFlag.path("community");
+        assertThat(content.path("postId").asString()).isEqualTo(postId);
+        assertThat(content.path("roomSlug").asString()).isEqualTo(ROOM);
+        assertThat(content.path("roomName").asString()).isEqualTo("Yu-Gi-Oh!");
+        assertThat(content.path("regionCode").asString()).isEqualTo("americas-north");
+        assertThat(content.path("game").asString()).isEqualTo("yugioh");
+        assertThat(content.path("text").asString()).isEqualTo("Visit fnordpromo for binder deals");
+        assertThat(content.path("removed").asBoolean()).isFalse();
+        assertThat(communityFlag.path("authorDisplayName").asString()).isNotBlank();
         callJson(
                 HttpMethod.POST,
                 "/api/v1/community/posts/" + postId + "/replies",
@@ -650,6 +675,147 @@ class CommunityIT extends AbstractIntegrationTest {
                                 id))
                 .extracting(row -> row.get("action"))
                 .containsExactly("community.channel.create", "community.channel.update");
+    }
+
+    /**
+     * An archived channel of the old model named after a city (V041's "Montréal / Yu-Gi-Oh!") is
+     * never named to staff (spec 15.2, ADR 0017; web stage WH1 review fixes 1 and 2): a flag on one
+     * of its posts carries no room slug, name or region, the console's channel list neither its
+     * city label nor its slug, name or description, the author's history reads "archived-channel"
+     * for a post removed there, and the channel cannot be restored.
+     */
+    @Test
+    void anArchivedCityChannelIsNeverNamedToStaff() {
+        Member author = member("city-author");
+        Member moderator = member("city-mod", Role.MODERATOR);
+        String montreal = "00000000-0000-4000-8e00-000000000001";
+        String postId = UUID.randomUUID().toString();
+        testUsers.update(
+                "INSERT INTO community_post (id, channel_id, author_id, body, body_hash,"
+                        + " moderation_state) VALUES (?::uuid, ?::uuid, ?, ?,"
+                        + " encode(sha256(convert_to(?, 'UTF8')), 'hex'), 'FLAGGED')",
+                postId,
+                montreal,
+                author.id(),
+                "An old post about binder deals",
+                "zq-city-" + postId);
+        testUsers.update(
+                "INSERT INTO moderation_flag (subject_type, subject_id, reason, author_id) VALUES"
+                        + " ('COMMUNITY_POST', ?::uuid, 'BANNED_TERM', ?)",
+                postId,
+                author.id());
+
+        JsonNode flags =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/admin/moderation/flags?subjectType=COMMUNITY_POST&size=100",
+                        moderator.uid(),
+                        null,
+                        200);
+        JsonNode flag = null;
+        for (JsonNode item : flags.path("items")) {
+            if (item.path("subjectId").asString().equals(postId)) {
+                flag = item;
+            }
+        }
+        assertThat(flag).as("the flag on the city channel's post").isNotNull();
+        JsonNode content = flag.path("community");
+        assertThat(content.path("postId").asString()).isEqualTo(postId);
+        assertThat(content.path("roomSlug").isNull()).as("no slug").isTrue();
+        assertThat(content.path("roomName").isNull()).as("no name").isTrue();
+        assertThat(content.path("regionCode").isNull()).as("no region").isTrue();
+        assertThat(content.path("game").asString()).isEqualTo("yugioh");
+        assertThat(content.path("text").asString()).isEqualTo("An old post about binder deals");
+        assertThat(flags.toString().toLowerCase(Locale.ROOT)).doesNotContain("montr");
+
+        JsonNode channels =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/admin/community/channels",
+                        moderator.uid(),
+                        null,
+                        200);
+        boolean seen = false;
+        for (JsonNode channel : channels) {
+            String label =
+                    channel.path("regionLabel").isNull()
+                            ? null
+                            : channel.path("regionLabel").asString();
+            assertThat(label)
+                    .as("%s's region label", channel.path("slug").asString())
+                    .isIn(null, "americas-north", "americas-south", "europe");
+            if (channel.path("id").asString().equals(montreal)) {
+                seen = true;
+                assertThat(channel.path("regionLabel").isNull()).isTrue();
+                assertThat(channel.path("cityChannel").asBoolean()).isTrue();
+                // Review fix 2: its slug, name and description carry the city too.
+                assertThat(channel.path("slug").asString()).isEqualTo("archived-channel");
+                assertThat(channel.path("name").asString()).isEqualTo("Archived channel");
+                assertThat(channel.path("description").asString()).isEmpty();
+                assertThat(channel.path("game").asString()).isEqualTo("yugioh");
+            } else if (channel.path("slug").asString().equals(ROOM)) {
+                assertThat(channel.path("cityChannel").asBoolean()).isFalse();
+                assertThat(channel.path("name").asString()).isNotEqualTo("Archived channel");
+                assertThat(channel.path("description").asString()).isNotEmpty();
+            }
+        }
+        assertThat(seen).as("the archived city channel is listed").isTrue();
+        assertThat(channels.toString().toLowerCase(Locale.ROOT))
+                .as("no city in the console's channel list")
+                .doesNotContain("montr");
+
+        // The author's history: a post removed in the city channel reads "archived-channel", one
+        // removed in a room keeps the room's slug (review fix 2).
+        String roomPost =
+                post(author, ROOM, "A room post about binder deals", 201).path("id").asString();
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/admin/community/posts/" + postId + "/remove",
+                moderator.uid(),
+                Map.of("reason", "Old city channel"),
+                204);
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/admin/community/posts/" + roomPost + "/remove",
+                moderator.uid(),
+                Map.of("reason", "Advertising"),
+                204);
+        Member admin = member("city-admin", Role.ADMIN);
+        JsonNode history =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/admin/users/" + author.id() + "/history",
+                        admin.uid(),
+                        null,
+                        200);
+        Map<String, String> removedSlugs = new LinkedHashMap<>();
+        history.path("recentPostsRemoved")
+                .forEach(
+                        item ->
+                                removedSlugs.put(
+                                        item.path("id").asString(),
+                                        item.path("channelSlug").asString()));
+        assertThat(removedSlugs)
+                .containsEntry(postId, "archived-channel")
+                .containsEntry(roomPost, ROOM);
+        assertThat(history.toString().toLowerCase(Locale.ROOT))
+                .as("no city in the author's history")
+                .doesNotContain("montr");
+
+        JsonNode refused =
+                callJson(
+                        HttpMethod.PATCH,
+                        "/api/v1/admin/community/channels/" + montreal,
+                        moderator.uid(),
+                        Map.of("status", "ACTIVE"),
+                        400);
+        assertThat(refused.toString()).contains("status");
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM community_channel WHERE id = ?::uuid AND"
+                                        + " status = 'ARCHIVED'",
+                                montreal))
+                .isEqualTo(1);
     }
 
     @Test

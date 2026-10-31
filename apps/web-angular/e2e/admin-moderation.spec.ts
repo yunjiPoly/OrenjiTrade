@@ -73,15 +73,21 @@ test.describe('admin console moderation sections', () => {
 
       // --- Dashboard ---------------------------------------------------------------------------
       await page.goto('/admin');
-      await expect(page.getByRole('heading', { level: 1, name: 'Admin dashboard' })).toBeVisible();
+      // The Overview (web stage WH1, board A1): what needs a person, then the collectors.
+      await expect(page.getByRole('heading', { level: 1, name: 'Overview' })).toBeVisible();
       const tiles = page.getByTestId('dashboard-tiles');
-      for (const id of ['reports', 'flags', 'accounts', 'listings', 'stale', 'notifications']) {
+      for (const id of ['reports', 'flags', 'listings', 'notifications']) {
         await expect(tiles.locator(`[data-tile="${id}"]`).getByTestId('tile-value')).toHaveText(
           /^\d+$/,
         );
       }
-      await expect(page.getByRole('list', { name: 'Admin sections' })).toContainText(
-        'Auto-delist rules',
+      for (const id of ['accounts', 'active', 'public', 'paused']) {
+        await expect(page.locator(`[data-tile="${id}"]`).getByTestId('tile-value')).toHaveText(
+          /^\s*[\d,]+\s*$/,
+        );
+      }
+      await expect(page.getByRole('navigation', { name: 'Admin sections' })).toContainText(
+        'Auto-delist',
       );
 
       // --- Listings: review queue, then hide one of the seller's listings ----------------------
@@ -151,8 +157,15 @@ test.describe('admin console moderation sections', () => {
       await sellerPage.context().close();
 
       // --- Moderation rules (read, validate a draft, save nothing) ----------------------------
-      await nav.getByRole('link', { name: 'Moderation' }).click();
-      await expect(page.getByRole('heading', { level: 1, name: 'Moderation' })).toBeVisible();
+      // Flags and rules (board A4): Flags first, then Rules.
+      await nav.getByRole('link', { name: 'Flags and rules' }).click();
+      await expect(page.getByRole('heading', { level: 1, name: 'Flags and rules' })).toBeVisible();
+      await expect(page.getByRole('tab', { name: /^Flags/ })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      );
+      await page.getByRole('tab', { name: /^Rules/ }).click();
+      await expect(page).toHaveURL(/\/admin\/moderation\?tab=rules$/);
       const reportRules = page.getByRole('list', { name: 'Collector reports rules' });
       await expect(reportRules).toContainText('5 per day');
       await expect(reportRules).toContainText('Report threshold');
@@ -166,11 +179,11 @@ test.describe('admin console moderation sections', () => {
       await rule.getByRole('textbox', { name: 'Pattern' }).fill('5/86400');
       await expect(rule.getByText('5 per day')).toBeVisible();
       await rule.getByRole('button', { name: 'Cancel' }).click();
-      await page.getByRole('tab', { name: 'Flags queue' }).click();
-      await expect(page).toHaveURL(/\/admin\/moderation\?tab=flags$/);
+      await page.getByRole('tab', { name: /^Flags/ }).click();
+      await expect(page).toHaveURL(/\/admin\/moderation$/);
 
       // --- Auto-delist rules: inline validation, nothing saved --------------------------------
-      await nav.getByRole('link', { name: 'Auto-delist rules' }).click();
+      await nav.getByRole('link', { name: 'Auto-delist' }).click();
       await expect(page.getByTestId('delist-timeline')).toContainText('Fresh');
       const stale = page.getByRole('spinbutton', { name: 'Stale after' });
       const staleBefore = await stale.inputValue();

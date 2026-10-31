@@ -256,4 +256,13 @@ describe('GuestActions: the sign-in dialog and the pending action (spec 14)', ()
     await asked;
     expect(guest.pending()?.returnUrl).toBe('/cards/c-1?printing=p-1');
   });
+
+  it('asked from a step page, the action comes back to Home, never to the step (WG R1-3)', async () => {
+    for (const step of ['/auth/sign-up?returnUrl=%2Fsets%2Fs-1', '/onboarding']) {
+      await router.navigateByUrl(step);
+      await guest.ask({ kind: 'wish', cardId: 'c-1' });
+      expect(guest.pending()?.returnUrl).toBe('/');
+      expect(router.url).toBe('/auth/sign-in?returnUrl=%2F');
+    }
+  });
 });

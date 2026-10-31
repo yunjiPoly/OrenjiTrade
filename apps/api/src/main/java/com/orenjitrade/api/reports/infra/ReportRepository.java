@@ -31,7 +31,7 @@ public class ReportRepository {
     private static final String COLUMNS =
             "id, reporter_id, reported_user_id, reason, details, context::text AS context, status,"
                     + " created_at, updated_at, assigned_to, assigned_at, resolved_at, resolved_by,"
-                    + " resolution_note, resolution_action";
+                    + " resolution_note, resolution_action, report_number";
 
     private final JdbcClient jdbc;
     private final JsonMapper jsonMapper;
@@ -138,10 +138,15 @@ public class ReportRepository {
             @Nullable ReportReason reason,
             @Nullable UUID reportedUserId,
             @Nullable UUID assignedTo,
+            @Nullable Long number,
             int page,
             int size) {
         Map<String, Object> params = new LinkedHashMap<>();
         StringBuilder where = new StringBuilder(" WHERE true");
+        if (number != null) {
+            where.append(" AND report_number = :number");
+            params.put("number", number);
+        }
         if (status != null) {
             where.append(" AND status = :status");
             params.put("status", status.name());
@@ -366,7 +371,8 @@ public class ReportRepository {
                 instant(rs.getTimestamp("resolved_at")),
                 rs.getObject("resolved_by", UUID.class),
                 rs.getString("resolution_note"),
-                action == null ? null : ResolutionAction.valueOf(action));
+                action == null ? null : ResolutionAction.valueOf(action),
+                rs.getLong("report_number"));
     }
 
     private static @Nullable Instant instant(@Nullable Timestamp timestamp) {

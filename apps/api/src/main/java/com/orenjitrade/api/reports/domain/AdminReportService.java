@@ -113,10 +113,11 @@ public class AdminReportService {
             @Nullable ReportReason reason,
             @Nullable UUID reportedUserId,
             @Nullable UUID assignedTo,
+            @Nullable Long number,
             int page,
             int size) {
         ReportRepository.Page result =
-                reports.adminPage(status, reason, reportedUserId, assignedTo, page, size);
+                reports.adminPage(status, reason, reportedUserId, assignedTo, number, page, size);
         return PageResponse.of(summaries(result.rows()), page, size, result.total());
     }
 
