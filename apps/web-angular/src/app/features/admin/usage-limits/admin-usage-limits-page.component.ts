@@ -81,66 +81,74 @@ const HELP: Readonly<Record<string, string>> = {
         @if (groups.length === 0) {
           <app-empty-state icon="speed" title="No usage limits are configured" />
         } @else {
-          @for (group of groups; track group.id) {
-            <section class="cp-card ul__group" [attr.aria-labelledby]="'ul-' + group.id">
-              <div class="ul__group-head">
-                <h2 class="cp-card__title" [id]="'ul-' + group.id">{{ group.label }}</h2>
-                <span class="cp-muted"
-                  >{{ group.limits.length }}
-                  {{ group.limits.length === 1 ? 'limit' : 'limits' }}</span
-                >
-              </div>
-              <ul class="cp-rows">
-                @for (row of group.limits; track row.id) {
-                  <li class="ul__row" [attr.data-limit]="row.key">
-                    <div class="ul__text">
-                      <p class="ul__name">{{ name(row) }}</p>
-                      <p class="ul__desc">{{ help(row) }}</p>
-                      <p class="ul__meta">
-                        <code class="cp-mono">{{ row.key }}</code>
-                        <span class="cp-chip">{{ row.kind === 'CAP' ? 'Cap' : 'Counter' }}</span>
-                        <span class="cp-chip">{{ windowName(row.window) }}</span>
-                      </p>
-                      @if (group.note) {
-                        <p class="ul__note">{{ group.note }}</p>
-                      }
-                      <p class="ul__changed">{{ changed(row) }}</p>
-                    </div>
-                    <div class="ul__value">
-                      <app-limit-cell
-                        [limit]="row"
-                        [label]="name(row)"
-                        [canEdit]="session.isSuperAdmin()"
-                        [saving]="savingId() === row.id"
-                        (edit)="save($event)"
-                      />
-                    </div>
-                  </li>
-                }
-              </ul>
-            </section>
-          }
-          <section class="cp-card ul__how" aria-labelledby="ul-how">
-            <h2 class="cp-card__title" id="ul-how">How a limit reads</h2>
-            <dl>
-              <div>
-                <dt><span class="cp-chip">Counter</span> <span class="cp-chip">Daily</span></dt>
-                <dd>Counts what a collector does in a day. It starts again at 00:00 UTC.</dd>
-              </div>
-              <div>
-                <dt><span class="cp-chip">Counter</span> <span class="cp-chip">Total</span></dt>
-                <dd>Counts what a collector keeps at once, like binders or wishes.</dd>
-              </div>
-              <div>
-                <dt><span class="cp-chip">Unlimited</span></dt>
-                <dd>Nothing is counted against it.</dd>
-              </div>
-            </dl>
-            <p class="cp-muted">
-              A saved value applies to every collector at once. What they already used today still
-              counts.
-            </p>
-          </section>
+          <div class="ul">
+            <div class="ul__main">
+              @for (group of groups; track group.id) {
+                <section class="cp-card ul__group" [attr.aria-labelledby]="'ul-' + group.id">
+                  <div class="ul__group-head">
+                    <h2 class="cp-card__title" [id]="'ul-' + group.id">{{ group.label }}</h2>
+                    <span class="cp-muted"
+                      >{{ group.limits.length }}
+                      {{ group.limits.length === 1 ? 'limit' : 'limits' }}</span
+                    >
+                  </div>
+                  <ul class="cp-rows">
+                    @for (row of group.limits; track row.id) {
+                      <li class="ul__row" [attr.data-limit]="row.key">
+                        <div class="ul__text">
+                          <p class="ul__name">{{ name(row) }}</p>
+                          <p class="ul__desc">{{ help(row) }}</p>
+                          <p class="ul__meta">
+                            <code class="cp-mono">{{ row.key }}</code>
+                            <span class="cp-chip">{{
+                              row.kind === 'CAP' ? 'Cap' : 'Counter'
+                            }}</span>
+                            <span class="cp-chip">{{ windowName(row.window) }}</span>
+                          </p>
+                          @if (group.note) {
+                            <p class="ul__note">{{ group.note }}</p>
+                          }
+                          <p class="ul__changed">{{ changed(row) }}</p>
+                        </div>
+                        <div class="ul__value">
+                          <app-limit-cell
+                            [limit]="row"
+                            [label]="name(row)"
+                            [canEdit]="session.isSuperAdmin()"
+                            [saving]="savingId() === row.id"
+                            (edit)="save($event)"
+                          />
+                        </div>
+                      </li>
+                    }
+                  </ul>
+                </section>
+              }
+            </div>
+            <aside class="ul__side" aria-label="How a limit reads">
+              <section class="cp-card ul__how" aria-labelledby="ul-how">
+                <h2 class="cp-card__title" id="ul-how">How a limit reads</h2>
+                <dl>
+                  <div>
+                    <dt><span class="cp-chip">Counter</span> <span class="cp-chip">Daily</span></dt>
+                    <dd>Counts what a collector does in a day. It starts again at 00:00 UTC.</dd>
+                  </div>
+                  <div>
+                    <dt><span class="cp-chip">Counter</span> <span class="cp-chip">Total</span></dt>
+                    <dd>Counts what a collector keeps at once, like binders or wishes.</dd>
+                  </div>
+                  <div>
+                    <dt><span class="cp-chip">Unlimited</span></dt>
+                    <dd>Nothing is counted against it.</dd>
+                  </div>
+                </dl>
+              </section>
+              <p class="cp-muted ul__after">
+                A saved value applies to every collector at once. What they already used today still
+                counts.
+              </p>
+            </aside>
+          </div>
         }
       } @else {
         <div aria-busy="true">
@@ -222,6 +230,33 @@ const HELP: Readonly<Record<string, string>> = {
     .ul__value {
       flex: 0 1 280px;
       min-width: 220px;
+    }
+    /* Board A14: "How a limit reads" in a side column at lg, under the list below 1280 (web stage
+       WH2 review fix 2). */
+    .ul {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 300px;
+      gap: 24px;
+      align-items: start;
+    }
+    .ul__main {
+      min-width: 0;
+    }
+    .ul__side {
+      position: sticky;
+      top: 16px;
+    }
+    .ul__after {
+      margin: 12px 4px 0;
+      font-size: var(--font-size-sm);
+    }
+    @media (max-width: 1279.98px) {
+      .ul {
+        grid-template-columns: 1fr;
+      }
+      .ul__side {
+        position: static;
+      }
     }
     .ul__how {
       padding: 18px 20px;

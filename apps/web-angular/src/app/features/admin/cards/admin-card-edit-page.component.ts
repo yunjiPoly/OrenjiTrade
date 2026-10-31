@@ -20,12 +20,8 @@ import {
   Validators,
 } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDialog } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { ToastService } from '../../../core/feedback/toast.service';
 import { RECORDED } from '../console/console-actions';
 import { AdminIconComponent } from '../console/admin-icon.component';
@@ -78,11 +74,7 @@ import {
     ReactiveFormsModule,
     RouterLink,
     MatButtonModule,
-    MatCheckboxModule,
-    MatFormFieldModule,
     MatIconModule,
-    MatInputModule,
-    MatSelectModule,
     AdminIconComponent,
     CardImageComponent,
     EmptyStateComponent,
@@ -91,7 +83,11 @@ import {
     SkeletonComponent,
   ],
   templateUrl: './admin-card-edit-page.component.html',
-  styleUrls: ['../shared/admin-page.scss', './admin-card-edit-page.component.scss'],
+  styleUrls: [
+    '../shared/admin-page.scss',
+    '../console/console-form.scss',
+    './admin-card-edit-page.component.scss',
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AdminCardEditPageComponent {
@@ -184,6 +180,34 @@ export class AdminCardEditPageComponent {
 
   protected message(error: ApiError): string {
     return friendlyMessage(error);
+  }
+
+  /** The name's error once touched or a save was tried, then the API's answer. */
+  protected nameError(): string | null {
+    const name = this.form.controls.name;
+    if (name.touched && name.hasError('required')) {
+      return 'A name is required.';
+    }
+    return this.serverErrors()['name'] ?? null;
+  }
+
+  /** Whether a list attribute holds a value (its check box). */
+  protected listHas(value: MetadataFormValue, option: string): boolean {
+    return Array.isArray(value) && value.includes(option);
+  }
+
+  /** Checks or unchecks one value of a list attribute, in the schema's order. */
+  protected toggleListValue(
+    control: FormControl<MetadataFormValue>,
+    option: string,
+    checked: boolean,
+  ): void {
+    const current = Array.isArray(control.value) ? control.value : [];
+    const next = checked
+      ? [...current.filter((value) => value !== option), option]
+      : current.filter((value) => value !== option);
+    control.setValue(next);
+    control.markAsDirty();
   }
 
   protected fieldError(field: GameMetadataField): string | null {

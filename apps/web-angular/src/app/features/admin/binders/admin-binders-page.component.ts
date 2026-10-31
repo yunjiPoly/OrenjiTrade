@@ -20,7 +20,7 @@ import {
   ListAdminBindersRequestParams,
   PageResponseAdminBinder,
 } from '@orenji/api-client';
-import { Subject, Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
+import { Subject, Subscription, debounceTime, distinctUntilChanged, forkJoin, map } from 'rxjs';
 import { ApiError, toApiError } from '../../../core/http/api-error';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
 import { silentErrors } from '../../../core/http/http-context';
@@ -36,6 +36,7 @@ import { AdminIconComponent } from '../console/admin-icon.component';
 import { runConsoleAction } from '../console/console-actions';
 import { gameName } from '../console/console-labels';
 import { GameBadgeComponent } from '../console/game-badge.component';
+import { visibilityBreakdown } from './binder-counts';
 
 const PAGE_SIZE = 20;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -167,7 +168,11 @@ function toPage(value: string | undefined): number {
         } @else {
           <p class="cp-count" aria-live="polite">
             {{ (page.totalItems ?? 0).toLocaleString('en-US') }}
-            {{ page.totalItems === 1 ? 'binder' : 'binders' }} · recently changed first
+            {{ page.totalItems === 1 ? 'binder' : 'binders' }}
+            @if (breakdown()) {
+              · {{ breakdown() }}
+            }
+            · recently changed first
             @if (loading()) {
               · updating…
             }
@@ -366,18 +371,37 @@ export class AdminBindersPageComponent {
   protected readonly error = signal<ApiError | null>(null);
   protected readonly busy = signal<string | null>(null);
 
+  /** "42 public · 3 temporarily public · 14 private" while no visibility is picked (board A10). */
+  protected readonly breakdown = signal('');
+  /** The filters the breakdown follows: every one but the page and the visibility. */
+  private readonly countParams = computed(
+    () => {
+      const { query, deckCore, ownerId, visibility } = this.params();
+      return { query, deckCore, ownerId, visibility };
+    },
+    { equal: (a, b) => JSON.stringify(a) === JSON.stringify(b) },
+  );
+
   private readonly searches = new Subject<string>();
   private subscription: Subscription | null = null;
+  private counts: Subscription | null = null;
 
   constructor() {
     effect(() => {
       const params = this.params();
       untracked(() => this.load(params));
     });
+    effect(() => {
+      const params = this.countParams();
+      untracked(() => this.loadBreakdown(params));
+    });
     this.searches
       .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed())
       .subscribe((query) => this.navigate({ query: query.trim() || null }));
-    inject(DestroyRef).onDestroy(() => this.subscription?.unsubscribe());
+    inject(DestroyRef).onDestroy(() => {
+      this.subscription?.unsubscribe();
+      this.counts?.unsubscribe();
+    });
   }
 
   protected visibilityLabel(value: string): string {
@@ -433,6 +457,28 @@ export class AdminBindersPageComponent {
 
   protected reload(): void {
     this.load(this.params());
+    this.loadBreakdown(this.countParams());
+  }
+
+  /** One count per visibility (`size=1` reads with the other filters); nothing on a failure. */
+  private loadBreakdown(params: Partial<ListAdminBindersRequestParams>): void {
+    this.counts?.unsubscribe();
+    this.breakdown.set('');
+    if (params.visibility) {
+      return;
+    }
+    this.counts = forkJoin(
+      VISIBILITIES.map((visibility) =>
+        this.api
+          .listAdminBinders({ ...params, visibility, page: 0, size: 1 }, 'body', false, {
+            context: silentErrors(),
+          })
+          .pipe(map((page) => ({ visibility, count: page.totalItems ?? Number.NaN }))),
+      ),
+    ).subscribe({
+      next: (counts) => this.breakdown.set(visibilityBreakdown(counts)),
+      error: () => this.breakdown.set(''),
+    });
   }
 
   protected async unpublish(binder: AdminBinder): Promise<void> {

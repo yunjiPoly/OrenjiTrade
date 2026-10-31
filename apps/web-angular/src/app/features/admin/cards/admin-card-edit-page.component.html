@@ -179,32 +179,59 @@
 </div>
 
 <ng-template #cardFields>
-  <mat-form-field appearance="outline" class="edit__wide">
-    <mat-label>Name</mat-label>
-    <input matInput [formControl]="form.controls.name" maxlength="150" />
-    <mat-hint align="end">{{ form.controls.name.value.length }} / 150</mat-hint>
-    @if (form.controls.name.hasError('required')) {
-      <mat-error>A name is required.</mat-error>
-    } @else if (serverErrors()['name']) {
-      <mat-error>{{ serverErrors()['name'] }}</mat-error>
+  <!-- Board A11: the console's fields, labels above (web stage WH2 review fix 2). -->
+  <div class="cf edit__wide">
+    <div class="cf__top">
+      <label class="cf__label" for="card-name">Name</label>
+      <span class="cf__count" aria-hidden="true">{{ form.controls.name.value.length }} / 150</span>
+    </div>
+    <input
+      id="card-name"
+      class="cf__control"
+      [formControl]="form.controls.name"
+      maxlength="150"
+      [attr.aria-invalid]="!!nameError()"
+      [attr.aria-describedby]="nameError() ? 'card-name-error' : null"
+    />
+    @if (nameError(); as error) {
+      <p class="cf__error" id="card-name-error">{{ error }}</p>
     }
-  </mat-form-field>
-  <mat-form-field appearance="outline">
-    <mat-label>Card type</mat-label>
-    <input matInput [formControl]="form.controls.cardType" maxlength="80" />
-  </mat-form-field>
-  <mat-form-field appearance="outline">
-    <mat-label>Subtype</mat-label>
-    <input matInput [formControl]="form.controls.subtype" maxlength="80" />
-  </mat-form-field>
-  <mat-form-field appearance="outline" class="edit__wide">
-    <mat-label>Card text</mat-label>
-    <textarea matInput [formControl]="form.controls.text" rows="4" maxlength="4000"></textarea>
-    <mat-hint>Staff only: collectors never see card text.</mat-hint>
-    <mat-hint align="end"
-      >{{ form.controls.text.value.length.toLocaleString('en-US') }} / 4,000</mat-hint
-    >
-  </mat-form-field>
+  </div>
+  <div class="cf">
+    <label class="cf__label" for="card-type">Card type</label>
+    <input
+      id="card-type"
+      class="cf__control"
+      [formControl]="form.controls.cardType"
+      maxlength="80"
+    />
+  </div>
+  <div class="cf">
+    <label class="cf__label" for="card-subtype">Subtype</label>
+    <input
+      id="card-subtype"
+      class="cf__control"
+      [formControl]="form.controls.subtype"
+      maxlength="80"
+    />
+  </div>
+  <div class="cf edit__wide">
+    <div class="cf__top">
+      <label class="cf__label" for="card-text">Card text</label>
+      <span class="cf__count" aria-hidden="true"
+        >{{ form.controls.text.value.length.toLocaleString('en-US') }} / 4,000</span
+      >
+    </div>
+    <textarea
+      id="card-text"
+      class="cf__control"
+      [formControl]="form.controls.text"
+      rows="4"
+      maxlength="4000"
+      aria-describedby="card-text-help"
+    ></textarea>
+    <p class="cf__help" id="card-text-help">Staff only: collectors never see card text.</p>
+  </div>
 
   @if (fields().length) {
     <fieldset class="edit__meta edit__wide">
@@ -223,52 +250,81 @@
           @if (metadata.controls[field.key]; as control) {
             @switch (field.type) {
               @case ('boolean') {
-                <mat-checkbox class="edit__check" [formControl]="control">
+                <label class="cf-check edit__check">
+                  <input type="checkbox" [formControl]="$any(control)" />
                   {{ field.label }}
-                </mat-checkbox>
+                </label>
               }
               @case ('string_list') {
-                <mat-form-field appearance="outline">
-                  <mat-label>{{ field.label }}</mat-label>
-                  @if (field.options?.length) {
-                    <mat-select [formControl]="control" multiple>
-                      @for (option of field.options; track option) {
-                        <mat-option [value]="option">{{ option }}</mat-option>
-                      }
-                    </mat-select>
-                  } @else {
+                @if (field.options?.length) {
+                  <fieldset
+                    class="cf-checks edit__list"
+                    [attr.aria-describedby]="fieldError(field) ? 'meta-error-' + field.key : null"
+                  >
+                    <legend>{{ field.label }}</legend>
+                    @for (option of field.options; track option) {
+                      <label class="cf-check">
+                        <input
+                          type="checkbox"
+                          [checked]="listHas(control.value, option)"
+                          (change)="toggleListValue(control, option, $any($event.target).checked)"
+                        />
+                        {{ option }}
+                      </label>
+                    }
+                    @if (fieldError(field); as message) {
+                      <p class="cf__error edit__list-error" [id]="'meta-error-' + field.key">
+                        {{ message }}
+                      </p>
+                    }
+                  </fieldset>
+                } @else {
+                  <div class="cf">
+                    <label class="cf__label" [for]="'meta-' + field.key">{{ field.label }}</label>
                     <input
-                      matInput
-                      [formControl]="control"
+                      class="cf__control"
+                      [id]="'meta-' + field.key"
+                      [formControl]="$any(control)"
                       placeholder="Separate values with commas"
+                      [attr.aria-invalid]="!!fieldError(field)"
+                      [attr.aria-describedby]="fieldError(field) ? 'meta-error-' + field.key : null"
                     />
-                  }
-                  @if (fieldError(field); as message) {
-                    <mat-error>{{ message }}</mat-error>
-                  }
-                </mat-form-field>
+                    @if (fieldError(field); as message) {
+                      <p class="cf__error" [id]="'meta-error-' + field.key">{{ message }}</p>
+                    }
+                  </div>
+                }
               }
               @default {
-                <mat-form-field appearance="outline">
-                  <mat-label>{{ field.label }}</mat-label>
+                <div class="cf">
+                  <label class="cf__label" [for]="'meta-' + field.key">{{ field.label }}</label>
                   @if (field.options?.length) {
-                    <mat-select [formControl]="control">
-                      <mat-option value="">None</mat-option>
+                    <select
+                      class="cf__control"
+                      [id]="'meta-' + field.key"
+                      [formControl]="$any(control)"
+                      [attr.aria-invalid]="!!fieldError(field)"
+                      [attr.aria-describedby]="fieldError(field) ? 'meta-error-' + field.key : null"
+                    >
+                      <option value="">None</option>
                       @for (option of field.options; track option) {
-                        <mat-option [value]="option">{{ option }}</mat-option>
+                        <option [value]="option">{{ option }}</option>
                       }
-                    </mat-select>
+                    </select>
                   } @else {
                     <input
-                      matInput
+                      class="cf__control"
+                      [id]="'meta-' + field.key"
                       [type]="field.type === 'number' ? 'number' : 'text'"
-                      [formControl]="control"
+                      [formControl]="$any(control)"
+                      [attr.aria-invalid]="!!fieldError(field)"
+                      [attr.aria-describedby]="fieldError(field) ? 'meta-error-' + field.key : null"
                     />
                   }
                   @if (fieldError(field); as message) {
-                    <mat-hint class="edit__error">{{ message }}</mat-hint>
+                    <p class="cf__error" [id]="'meta-error-' + field.key">{{ message }}</p>
                   }
-                </mat-form-field>
+                </div>
               }
             }
           }

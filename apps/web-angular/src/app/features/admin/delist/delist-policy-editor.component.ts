@@ -11,9 +11,7 @@ import {
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
 import type { DelistPolicyResponse, UpdateDelistPolicyRequest } from '@orenji/api-client';
 import {
   DELIST_LIMITS,
@@ -82,20 +80,25 @@ const RESPONSIVENESS_FIELDS: readonly FieldInfo[] = [
  */
 @Component({
   selector: 'app-delist-policy-editor',
-  imports: [
-    ReactiveFormsModule,
-    MatButtonModule,
-    MatFormFieldModule,
-    MatIconModule,
-    MatInputModule,
-  ],
+  imports: [ReactiveFormsModule, MatButtonModule, MatIconModule],
+  styleUrls: ['../console/console-form.scss'],
   template: `
     <form [formGroup]="form" (ngSubmit)="submit()" novalidate class="policy">
       <div class="policy__head">
-        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="policy__name">
-          <mat-label>Policy name</mat-label>
-          <input matInput formControlName="name" [attr.maxlength]="limits.nameMax" />
-        </mat-form-field>
+        <div class="cf policy__name">
+          <label class="cf__label" for="policy-name">Policy name</label>
+          <input
+            id="policy-name"
+            class="cf__control"
+            formControlName="name"
+            [attr.maxlength]="limits.nameMax"
+            [attr.aria-invalid]="!!errors()['name']"
+            [attr.aria-describedby]="errors()['name'] ? 'policy-name-error' : null"
+          />
+          @if (errors()['name']; as error) {
+            <p class="cf__error" id="policy-name-error">{{ error }}</p>
+          }
+        </div>
         @if (policy().active) {
           <span class="policy__active"
             ><mat-icon aria-hidden="true">check_circle</mat-icon>Active</span
@@ -131,32 +134,52 @@ const RESPONSIVENESS_FIELDS: readonly FieldInfo[] = [
       }
       <div class="policy__grid">
         @for (field of freshnessFields; track field.key) {
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>{{ field.label }}</mat-label>
-            <input matInput type="number" min="0" step="1" [formControlName]="field.key" />
-            <span matTextSuffix>&nbsp;{{ field.suffix }}</span>
+          <div class="cf">
+            <label class="cf__label" [for]="'policy-' + field.key">{{ field.label }}</label>
+            <span class="cf__box" [class.cf__box--bad]="!!errors()[field.key]">
+              <input
+                type="number"
+                min="0"
+                step="1"
+                [id]="'policy-' + field.key"
+                [formControlName]="field.key"
+                [attr.aria-invalid]="!!errors()[field.key]"
+                [attr.aria-describedby]="'policy-help-' + field.key"
+              />
+              <span class="cf__unit" aria-hidden="true">{{ field.suffix }}</span>
+            </span>
             @if (errors()[field.key]; as error) {
-              <mat-hint class="policy__error">{{ error }}</mat-hint>
+              <p class="cf__error" [id]="'policy-help-' + field.key">{{ error }}</p>
             } @else {
-              <mat-hint>{{ field.hint }}</mat-hint>
+              <p class="cf__help" [id]="'policy-help-' + field.key">{{ field.hint }}</p>
             }
-          </mat-form-field>
+          </div>
         }
       </div>
 
       <h3 class="policy__section">Unanswered conversations</h3>
       <div class="policy__grid">
         @for (field of responsivenessFields; track field.key) {
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>{{ field.label }}</mat-label>
-            <input matInput type="number" min="0" step="1" [formControlName]="field.key" />
-            <span matTextSuffix>&nbsp;{{ field.suffix }}</span>
+          <div class="cf">
+            <label class="cf__label" [for]="'policy-' + field.key">{{ field.label }}</label>
+            <span class="cf__box" [class.cf__box--bad]="!!errors()[field.key]">
+              <input
+                type="number"
+                min="0"
+                step="1"
+                [id]="'policy-' + field.key"
+                [formControlName]="field.key"
+                [attr.aria-invalid]="!!errors()[field.key]"
+                [attr.aria-describedby]="'policy-help-' + field.key"
+              />
+              <span class="cf__unit" aria-hidden="true">{{ field.suffix }}</span>
+            </span>
             @if (errors()[field.key]; as error) {
-              <mat-hint class="policy__error">{{ error }}</mat-hint>
+              <p class="cf__error" [id]="'policy-help-' + field.key">{{ error }}</p>
             } @else {
-              <mat-hint>{{ field.hint }}</mat-hint>
+              <p class="cf__help" [id]="'policy-help-' + field.key">{{ field.hint }}</p>
             }
-          </mat-form-field>
+          </div>
         }
       </div>
 
@@ -180,7 +203,7 @@ const RESPONSIVENESS_FIELDS: readonly FieldInfo[] = [
     .policy__head {
       display: flex;
       flex-wrap: wrap;
-      align-items: center;
+      align-items: flex-end;
       justify-content: space-between;
       gap: var(--spacing-3);
     }
@@ -190,6 +213,7 @@ const RESPONSIVENESS_FIELDS: readonly FieldInfo[] = [
     .policy__active {
       display: inline-flex;
       align-items: center;
+      min-height: 44px;
       gap: 4px;
       color: var(--color-success);
       font-weight: var(--font-weight-semibold);

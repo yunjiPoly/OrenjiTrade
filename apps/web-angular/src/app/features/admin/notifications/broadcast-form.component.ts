@@ -1,3 +1,4 @@
+import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import {
   AbstractControl,
@@ -8,9 +9,13 @@ import {
   Validators,
 } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
 import { BroadcastRequest, BroadcastRequestAudienceEnum } from '@orenji/api-client';
+
+/** The newest announcement, from the audit log (board A20's "Last sent"). */
+export interface LastBroadcast {
+  at: string;
+  audience: 'ALL' | 'STAFF' | null;
+}
 
 export const BROADCAST_TITLE_MAX = 200;
 export const BROADCAST_BODY_MAX = 1000;
@@ -28,59 +33,87 @@ function deepLinkValidator(control: AbstractControl<string>): ValidationErrors |
  */
 @Component({
   selector: 'app-broadcast-form',
-  imports: [ReactiveFormsModule, MatButtonModule, MatFormFieldModule, MatInputModule],
+  imports: [DatePipe, ReactiveFormsModule, MatButtonModule],
+  styleUrls: ['../console/console-form.scss'],
   template: `
     <div class="bc">
       <form [formGroup]="form" (ngSubmit)="submit()" novalidate class="broadcast">
-        <mat-form-field appearance="outline">
-          <mat-label>Title</mat-label>
-          <input matInput formControlName="title" [attr.maxlength]="titleMax" required />
-          <mat-hint>The first line people read.</mat-hint>
-          <mat-hint align="end">{{ form.controls.title.value.length }} / {{ titleMax }}</mat-hint>
-          @if (form.controls.title.hasError('required')) {
-            <mat-error>A title is required.</mat-error>
+        <div class="cf">
+          <div class="cf__top">
+            <label class="cf__label" for="bc-title">Title</label>
+            <span class="cf__count" aria-hidden="true"
+              >{{ form.controls.title.value.length }} / {{ titleMax }}</span
+            >
+          </div>
+          <input
+            id="bc-title"
+            class="cf__control"
+            formControlName="title"
+            [attr.maxlength]="titleMax"
+            required
+            [attr.aria-invalid]="showError('title')"
+            aria-describedby="bc-title-help"
+          />
+          @if (showError('title')) {
+            <p class="cf__error" id="bc-title-help">A title is required.</p>
+          } @else {
+            <p class="cf__help" id="bc-title-help">The first line people read.</p>
           }
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Message</mat-label>
+        </div>
+        <div class="cf">
+          <div class="cf__top">
+            <label class="cf__label" for="bc-body">Message</label>
+            <span class="cf__count" aria-hidden="true"
+              >{{ form.controls.body.value.length.toLocaleString('en-US') }} /
+              {{ bodyMax.toLocaleString('en-US') }}</span
+            >
+          </div>
           <textarea
-            matInput
+            id="bc-body"
+            class="cf__control"
             formControlName="body"
             rows="4"
             [attr.maxlength]="bodyMax"
             required
+            [attr.aria-invalid]="showError('body')"
+            aria-describedby="bc-body-help"
           ></textarea>
-          <mat-hint>Plain text.</mat-hint>
-          <mat-hint align="end"
-            >{{ form.controls.body.value.length.toLocaleString('en-US') }} /
-            {{ bodyMax.toLocaleString('en-US') }}</mat-hint
-          >
-          @if (form.controls.body.hasError('required')) {
-            <mat-error>A message is required.</mat-error>
+          @if (showError('body')) {
+            <p class="cf__error" id="bc-body-help">A message is required.</p>
+          } @else {
+            <p class="cf__help" id="bc-body-help">Plain text.</p>
           }
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Link in the app (optional)</mat-label>
-          <input matInput formControlName="deepLink" placeholder="/messages" />
-          <mat-hint>A path such as /wishlist or /messages.</mat-hint>
-          @if (form.controls.deepLink.hasError('deepLink')) {
-            <mat-error>Use an app path starting with /.</mat-error>
+        </div>
+        <div class="cf">
+          <label class="cf__label" for="bc-link">Link in the app (optional)</label>
+          <input
+            id="bc-link"
+            class="cf__control"
+            formControlName="deepLink"
+            placeholder="/messages"
+            [attr.aria-invalid]="showError('deepLink')"
+            aria-describedby="bc-link-help"
+          />
+          @if (showError('deepLink')) {
+            <p class="cf__error" id="bc-link-help">Use an app path starting with /.</p>
+          } @else {
+            <p class="cf__help" id="bc-link-help">A path such as /wishlist or /messages.</p>
           }
-        </mat-form-field>
-        <fieldset class="bc__audience">
-          <legend class="broadcast__label">Audience</legend>
-          <label class="bc__radio" [class.bc__radio--on]="form.controls.audience.value === 'STAFF'">
+        </div>
+        <fieldset class="cf-choices bc__audience">
+          <legend>Audience</legend>
+          <label class="cf-choice" [class.cf-choice--on]="form.controls.audience.value === 'STAFF'">
             <input type="radio" formControlName="audience" value="STAFF" />
             <span>
               <strong>Staff only (test first)</strong>
-              <span class="bc__line">Moderators and administrators</span>
+              <span class="cf__help">Moderators and administrators</span>
             </span>
           </label>
-          <label class="bc__radio" [class.bc__radio--on]="form.controls.audience.value === 'ALL'">
+          <label class="cf-choice" [class.cf-choice--on]="form.controls.audience.value === 'ALL'">
             <input type="radio" formControlName="audience" value="ALL" />
             <span>
               <strong>Every collector</strong>
-              <span class="bc__line">Every reachable account</span>
+              <span class="cf__help">Every reachable account</span>
             </span>
           </label>
         </fieldset>
@@ -113,14 +146,35 @@ function deepLinkValidator(control: AbstractControl<string>): ValidationErrors |
               Opens <code>{{ form.controls.deepLink.value.trim() }}</code>
             </p>
           }
-          <p class="bc__line">
-            Audience ·
-            {{ form.controls.audience.value === 'ALL' ? 'Every collector' : 'Staff only' }}
-          </p>
         </div>
         <p class="bc__line">
           Announcements appear only in the app's notifications: no push, no email.
         </p>
+        <dl class="bc__facts">
+          <div>
+            <dt>Audience</dt>
+            <dd>{{ form.controls.audience.value === 'ALL' ? 'Every collector' : 'Staff only' }}</dd>
+          </div>
+          <div>
+            <dt>Last sent</dt>
+            <dd>
+              @if (lastSent(); as last) {
+                {{ last.at | date: 'MMM d' }} ·
+                {{
+                  last.audience === 'ALL'
+                    ? 'every collector'
+                    : last.audience === 'STAFF'
+                      ? 'staff only'
+                      : 'audience not recorded'
+                }}
+              } @else if (lastSent() === null) {
+                Never
+              } @else {
+                Not known
+              }
+            </dd>
+          </div>
+        </dl>
       </aside>
     </div>
   `,
@@ -134,7 +188,24 @@ function deepLinkValidator(control: AbstractControl<string>): ValidationErrors |
     .broadcast {
       display: flex;
       flex-direction: column;
-      gap: var(--spacing-1);
+      gap: 16px;
+    }
+    .bc__facts {
+      display: grid;
+      gap: 10px;
+      margin: 14px 0 0;
+    }
+    .bc__facts dt {
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-semibold);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .bc__facts dd {
+      margin: 2px 0 0;
+      color: var(--color-ink);
+      font-size: var(--font-size-sm);
     }
     .broadcast__label {
       margin: 0 0 8px;
@@ -144,33 +215,7 @@ function deepLinkValidator(control: AbstractControl<string>): ValidationErrors |
       font-weight: var(--font-weight-semibold);
     }
     .bc__audience {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 10px;
-      margin: 8px 0 4px;
-      padding: 0;
-      border: 0;
-    }
-    .bc__radio {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      padding: 12px 14px;
-      border: 1px solid var(--color-border-strong);
-      border-radius: 12px;
-      cursor: pointer;
-    }
-    .bc__radio--on {
-      border-color: var(--color-primary);
-      background: var(--color-primary-tint);
-    }
-    .bc__radio input {
-      margin-top: 3px;
-      accent-color: var(--color-primary);
-    }
-    .bc__radio:focus-within {
-      outline: var(--focus-width) solid var(--color-focus-ring);
-      outline-offset: 2px;
+      margin: 4px 0 0;
     }
     .bc__line {
       display: block;
@@ -219,6 +264,11 @@ function deepLinkValidator(control: AbstractControl<string>): ValidationErrors |
 })
 export class BroadcastFormComponent {
   readonly busy = input(false);
+  /**
+   * The newest announcement (board A20's "Last sent"): `null` when none was sent, `undefined`
+   * while unknown (not loaded, or the audit log could not be read).
+   */
+  readonly lastSent = input<LastBroadcast | null | undefined>(undefined);
   readonly send = output<BroadcastRequest>();
 
   protected readonly titleMax = BROADCAST_TITLE_MAX;
@@ -235,6 +285,12 @@ export class BroadcastFormComponent {
     deepLink: new FormControl('', { nonNullable: true, validators: [deepLinkValidator] }),
     audience: new FormControl<'ALL' | 'STAFF'>('STAFF', { nonNullable: true }),
   });
+
+  /** A field's error shows once it was touched or a send was tried (as Material's did). */
+  protected showError(name: 'title' | 'body' | 'deepLink'): boolean {
+    const control = this.form.controls[name];
+    return control.invalid && control.touched;
+  }
 
   /** Clears the composer after a successful send. */
   reset(): void {

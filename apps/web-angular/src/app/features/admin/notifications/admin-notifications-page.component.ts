@@ -10,6 +10,7 @@ import {
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import {
+  AdminAuditService,
   AdminNotificationsService,
   BroadcastRequest,
   NotificationResponse,
@@ -26,7 +27,7 @@ import { confirmAdminAction } from '../shared/admin-actions';
 import { ToastService } from '../../../core/feedback/toast.service';
 import { RECORDED, runConsoleAction } from '../console/console-actions';
 import { shareWords } from '../console/console-labels';
-import { BroadcastFormComponent } from './broadcast-form.component';
+import { BroadcastFormComponent, LastBroadcast } from './broadcast-form.component';
 
 const PERIODS = [1, 7, 30] as const;
 const CHANNEL_LABELS: Record<string, string> = {
@@ -183,10 +184,14 @@ const CHANNEL_LABELS: Record<string, string> = {
           <span class="cp-chip cp-chip--accent">Super admins</span>
         </div>
         @if (session.isSuperAdmin()) {
-          <p class="admin-muted">
+          <p class="admin-muted broadcast__lead">
             A notice for every collector. Send it to staff first to see how it reads.
           </p>
-          <app-broadcast-form [busy]="sending()" (send)="broadcast($event)" />
+          <app-broadcast-form
+            [busy]="sending()"
+            [lastSent]="lastSent()"
+            (send)="broadcast($event)"
+          />
         } @else {
           <p class="admin-muted">
             <mat-icon aria-hidden="true" class="inline-icon">lock</mat-icon>
@@ -202,6 +207,9 @@ const CHANNEL_LABELS: Record<string, string> = {
     '../console/console-controls.scss',
   ],
   styles: `
+    .broadcast__lead {
+      margin: 0 0 18px;
+    }
     .broadcast__head {
       display: flex;
       flex-wrap: wrap;
@@ -323,6 +331,7 @@ const CHANNEL_LABELS: Record<string, string> = {
 })
 export class AdminNotificationsPageComponent {
   private readonly api = inject(AdminNotificationsService);
+  private readonly auditApi = inject(AdminAuditService);
   private readonly dialog = inject(MatDialog);
   private readonly toasts = inject(ToastService);
   private readonly form = viewChild(BroadcastFormComponent);
@@ -333,6 +342,8 @@ export class AdminNotificationsPageComponent {
   protected readonly stats = signal<NotificationStats | null>(null);
   protected readonly error = signal<ApiError | null>(null);
   protected readonly sending = signal(false);
+  /** The newest announcement from the audit log (board A20's "Last sent"). */
+  protected readonly lastSent = signal<LastBroadcast | null | undefined>(undefined);
 
   protected readonly types = computed(() => {
     const byType = this.stats()?.byType ?? {};
@@ -367,6 +378,32 @@ export class AdminNotificationsPageComponent {
 
   constructor() {
     this.load();
+    if (this.session.isSuperAdmin()) {
+      this.loadLastSent();
+    }
+  }
+
+  /** `notification.broadcast`'s newest audit entry: when, and its audience. */
+  private loadLastSent(): void {
+    this.auditApi
+      .listAuditLogs({ action: 'notification.broadcast', page: 0, size: 1 }, 'body', false, {
+        context: silentErrors(),
+      })
+      .subscribe({
+        next: (page) => {
+          const entry = page.items?.[0];
+          const audience = (entry?.details as Record<string, unknown> | undefined)?.['audience'];
+          this.lastSent.set(
+            entry
+              ? {
+                  at: entry.occurredAt,
+                  audience: audience === 'ALL' || audience === 'STAFF' ? audience : null,
+                }
+              : null,
+          );
+        },
+        error: () => this.lastSent.set(undefined),
+      });
   }
 
   /** "16% of them not opened yet" (board A20). */
@@ -437,6 +474,7 @@ export class AdminNotificationsPageComponent {
       });
       this.form()?.reset();
       this.load();
+      this.loadLastSent();
     }
   }
 }
