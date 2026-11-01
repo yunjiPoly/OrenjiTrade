@@ -7,6 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
+**Last updated:** 2026-11-01 (stage WH2 merged into `main` as #104, merge commit `91ad28ef`: the web redesign, stages WA to WH2, is complete; the owner's orders of 2026-11-01: decision 5 is dropped, the Expo SDK 58 upgrade is to be done, three fixes and two design calls approved, the web polish pass, and the open items below recorded; see NEXT TASK).
 **Last updated:** 2026-10-31 (stage WH1 merged into `main` as #103, merge commit `df6329e6`; `origin/main` merged into WH2's branch at `8dc23bc5` (no file changed); the check of WH2's review fix 2 approved it with nits only, left open since WH2 is the last stage; the fix-2 checks table's phone web E2E row corrected to 66 passed; see NEXT TASK).
 **Last updated:** 2026-10-31 (stage WH2 review fix 2, round 2 of 2: the console's own fields on Games, Auto-delist, Send an announcement and the card drawer, Usage limits' side column, the binders' count by visibility, Last sent, sync reports cleaned as they are read, key table columns in the window at 1024 and 390; see "Review fix 2" in the WH2 section).
 **Last updated:** 2026-10-31 (stage WH2 review fix 1, round 1 of 2: the audit log names every id, region and room (`AuditLogEntry.detailLabels`), a city channel stays as it is, no sideways scroll at 1024 or 390, sync reports without provider addresses, the staff search's one card per code, Add printing English only; see "Review fix 1" in the WH2 section).
@@ -15593,12 +15594,44 @@ the web redesign, so they stay open for the owner or a later polish pass):
 > The check of review fix 2 approved it with nits only (the WH2 section's "Left open by the verifier
 > of fix 2"). **Next for WH2: its pull request against `main`, merged on green.**
 >
-> **NEXT TASK: none: the web redesign is complete** (stages WA to WH2 are built; WA to WH1 merged,
-> WH2 waiting for its pull request). What comes next is **the owner's choice**. Already
-> decided and waiting: **decision 5** (owner, 2026-10-28: Magic's Scryfall file becomes "Default
-> Cards"; owner, 2026-10-31: after WH2), which starts **once the other session's PR #92
-> (`fix/scryfall-jsonl-bulk`) is on `main`**; until then Card data and images reads Magic's
-> current source, Scryfall's "Unique Artwork" file.
+> **The web redesign is complete:** stages WA to WH2 are all merged into `main` (#93 to #104; WH2
+> as #104, merge commit `91ad28ef`, 2026-11-01). **WH2 is merged**; its nits go into the web polish
+> pass below.
+>
+> **The owner's orders of 2026-11-01** (data the next work is built from):
+> - **Decision 5 is dropped** ("forget the 4 about magic to scryfalls"): Magic keeps Scryfall's
+>   "Unique Artwork" file. PR #92 (`fix/scryfall-jsonl-bulk`) stays the other session's.
+> - **The Expo SDK 58 upgrade is to be done** ("Expo SDK 58 is necessary to do"): the hold on draft
+>   PR #54 is lifted. #54 (2026-10-07) predates the phone redesign, so the upgrade is redone from
+>   `main`, after the owner fixes below: Expo Go on the owner's simulator holds one SDK at a time,
+>   and those fixes run their native suite on SDK 57 first.
+> - **Approved fixes** (owner fixes of 2026-11-01, `feature/owner-fixes-1101`): only "delete my
+>   account" requests count toward the account-deletion limit (the page's read and Cancel deletion
+>   no longer spend it: WG's R2-2); community photos posted from the phone get a short cache and
+>   links without the poster's account id (WF's P4); the server refuses switching `mlScanning` on
+>   while it is on hold; a darker text-field border so every field reaches 3:1 (WG's A13); a clearly
+>   visible dialog backdrop in light mode (WG's U9).
+> - **The web polish pass** (`feature/web-polish`): WH2's nits (the WH2 section's "Left open by the
+>   verifier of fix 2") and the console's dialogs in the console's field style.
+> - **Skipped by the owner:** per-audience account counts in Send an announcement, renaming the
+>   archived city channels in the console, an API-side lock beyond `mlScanning`.
+>
+> **Open items the owner asked to record (2026-11-01; not to build until the owner asks):**
+> - **Profiles have no languages:** the public profile response has no languages field, so a
+>   profile's About has no Languages row (stage WE).
+> - **The community section is not done** (the owner's words). Known open there: the archived
+>   pre-room city channels can no longer be renamed or edited in the console (WH1's R2-3), and the
+>   web reads a phone's community photos without posting any (WF).
+> - **Game pictures are not fixed** (the owner's words). Card images come only from the capped
+>   card image cache that the owner's real catalog imports fill (`npm run catalog:import`, ADR 0015
+>   and 0021); locally the mock source has none, so cards show their placeholder.
+> - **A lawyer is needed** for the TCGdex MIT notice in the app (decision 5b of 2026-10-28).
+> - **ML card recognition stays on hold** (owner, 2026-09-29): only the on-device text scan is
+>   lifted (ADR 0020, flag `cardTextScan`); `mlScanning` stays off.
+>
+> **NEXT TASK:** (1) the owner fixes of 2026-11-01 and (2) the web polish pass, built side by side,
+> each with its reviewers and its pull request merged on green; then (3) the Expo SDK 58 upgrade
+> from `main`, with the full native suite.
 
 > **(Done: WE, above.) The exact next stage after WD's pull request was stage WE of the web redesign, Home, profiles,
 > notifications and settings (boards W1, W2 and W23 to W25; spec sections 5, 11, 12 and 13; decisions
