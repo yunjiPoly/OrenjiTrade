@@ -418,7 +418,7 @@ export function resolveConfirmLabel(
     }
     .rc__label {
       display: inline-flex;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
       align-items: center;
       gap: 8px;
       color: var(--color-ink);
@@ -426,6 +426,8 @@ export function resolveConfirmLabel(
       font-weight: var(--font-weight-semibold);
     }
     .rc__tag {
+      flex: none;
+      white-space: nowrap;
       padding: 1px 8px;
       border-radius: var(--radius-pill);
       background: var(--color-surface-variant);

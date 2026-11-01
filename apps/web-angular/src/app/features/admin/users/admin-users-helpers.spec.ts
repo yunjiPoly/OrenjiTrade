@@ -1,5 +1,5 @@
 import { exportFileName } from '../../../core/account/account-export.service';
-import { auditActionLabel, summarizeDetails } from '../shared/admin-labels';
+import { auditActionLabel, summarizeDetails, visibleConsents } from '../shared/admin-labels';
 import { roleLockReason } from './roles-editor.component';
 import { endOfDayIso, tomorrowIso } from './suspend-dialog.component';
 
@@ -57,5 +57,25 @@ describe('exportFileName', () => {
     expect(exportFileName(null, new Date('2026-09-29T12:00:00Z'))).toBe(
       'orenjitrade-export-account-2026-09-29.json',
     );
+  });
+});
+
+describe('visibleConsents (spec 15.5, review fix 1)', () => {
+  const consents = [
+    { documentType: 'TERMS' },
+    { documentType: 'PAYMENT_PROTECTION' },
+    { documentType: 'REFUND_DISPUTE' },
+    { documentType: 'PRIVACY' },
+  ];
+
+  it('hides the payment documents while protected payments are off', () => {
+    expect(visibleConsents(consents, false).map((c) => c.documentType)).toEqual([
+      'TERMS',
+      'PRIVACY',
+    ]);
+  });
+
+  it('lists every document while protected payments are on', () => {
+    expect(visibleConsents(consents, true)).toHaveLength(4);
   });
 });

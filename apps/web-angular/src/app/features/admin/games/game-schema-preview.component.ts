@@ -21,34 +21,37 @@ import { editionLabel, finishLabel, languageLabel } from '../../../shared/catalo
           </div>
         }
       </dl>
-      <table class="fields" aria-label="Metadata fields">
-        <thead>
-          <tr>
-            <th scope="col">Key</th>
-            <th scope="col">Label</th>
-            <th scope="col">Type</th>
-            <th scope="col">Filter</th>
-            <th scope="col">Summary</th>
-            <th scope="col">Options</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (field of schema.metadataFields; track field.key) {
+      <!-- The table scrolls inside its own box on a narrow screen (WH2 review fix 1). -->
+      <div class="fields-scroll">
+        <table class="fields" aria-label="Metadata fields">
+          <thead>
             <tr>
-              <td class="mono">{{ field.key }}</td>
-              <td>{{ field.label }}</td>
-              <td class="mono">{{ field.type }}</td>
-              <td>{{ field.filterable ? 'Yes' : 'No' }}</td>
-              <td>{{ schema.summaryFields.includes(field.key) ? 'Yes' : 'No' }}</td>
-              <td class="fields__options">{{ (field.options ?? []).join(', ') || '—' }}</td>
+              <th scope="col">Key</th>
+              <th scope="col">Label</th>
+              <th scope="col">Type</th>
+              <th scope="col">Filter</th>
+              <th scope="col">Summary</th>
+              <th scope="col">Options</th>
             </tr>
-          } @empty {
-            <tr>
-              <td colspan="6" class="muted">No metadata fields.</td>
-            </tr>
-          }
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            @for (field of schema.metadataFields; track field.key) {
+              <tr>
+                <td class="mono">{{ field.key }}</td>
+                <td>{{ field.label }}</td>
+                <td class="mono">{{ field.type }}</td>
+                <td>{{ field.filterable ? 'Yes' : 'No' }}</td>
+                <td>{{ schema.summaryFields.includes(field.key) ? 'Yes' : 'No' }}</td>
+                <td class="fields__options">{{ (field.options ?? []).join(', ') || '—' }}</td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="6" class="muted">No metadata fields.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
     } @else {
       <p class="muted">Fix the schema to see the preview.</p>
     }
@@ -82,6 +85,10 @@ import { editionLabel, finishLabel, languageLabel } from '../../../shared/catalo
       padding: 0 var(--spacing-2);
       border-radius: var(--radius-pill);
       background: var(--color-surface-variant);
+    }
+    .fields-scroll {
+      max-width: 100%;
+      overflow-x: auto;
     }
     .fields {
       width: 100%;

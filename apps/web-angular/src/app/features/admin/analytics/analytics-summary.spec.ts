@@ -1,5 +1,5 @@
 import type { AnalyticsSummary } from '@orenji/api-client';
-import { dailyTotals, eventLabel, eventTotals } from './analytics-summary';
+import { dailyTotals, derivedTiles, eventLabel, eventTotals } from './analytics-summary';
 
 const SUMMARY: AnalyticsSummary = {
   source: 'local-aggregate',
@@ -39,5 +39,32 @@ describe('analytics summary', () => {
     ]);
     expect(dailyTotals(SUMMARY)[2].percent).toBe(100);
     expect(dailyTotals(null)).toEqual([]);
+  });
+});
+
+describe('derivedTiles (board A22)', () => {
+  const summary = (totals: Record<string, number>) =>
+    ({ totals, daily: [], total: 0, from: '2026-10-14', to: '2026-10-20' }) as never;
+
+  it('reads searches without results and messages per wish', () => {
+    const tiles = derivedTiles(
+      summary({
+        search_performed: 2641,
+        search_no_results: 211,
+        message_sent: 974,
+        wishlist_item_created: 162,
+      }),
+    );
+    expect(tiles.noResults).toEqual({ percent: 8, line: '211 of 2,641 searches found nothing' });
+    expect(tiles.messagesPerWish).toEqual({
+      value: 6,
+      line: '974 messages sent · 162 wishes added',
+    });
+  });
+
+  it('says so when nothing was counted', () => {
+    const tiles = derivedTiles(summary({}));
+    expect(tiles.noResults.percent).toBeNull();
+    expect(tiles.messagesPerWish.line).toBe('No wish added in this period');
   });
 });

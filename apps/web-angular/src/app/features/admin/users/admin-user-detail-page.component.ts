@@ -8,16 +8,14 @@ import {
   input,
   signal,
   untracked,
+  viewChild,
 } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
-import { MatIconModule } from '@angular/material/icon';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import {
   AdminUserDetail,
   AdminUsersService,
+  AuditLogEntry,
   SuspendUserRequest,
   UpdateRolesRequestRolesEnum,
 } from '@orenji/api-client';
@@ -36,8 +34,13 @@ import {
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
-import { CONSENT_LABELS, auditActionLabel, summarizeDetails } from '../shared/admin-labels';
+import { CONSENT_LABELS, auditActionLabel, visibleConsents } from '../shared/admin-labels';
 import { StatusChipComponent } from '../shared/status-chip.component';
+import { FEATURE, FeatureFlagsService } from '../../../core/feature-flags/feature-flags.service';
+import { ToastService } from '../../../core/feedback/toast.service';
+import { detailSummary } from '../audit/audit-entries';
+import { AdminIconComponent } from '../console/admin-icon.component';
+import { RECORDED } from '../console/console-actions';
 import { RolesEditorComponent } from './roles-editor.component';
 import { SuspendDialogComponent, SuspendDialogData } from './suspend-dialog.component';
 import { UserModerationPanelComponent } from './user-moderation-panel.component';
@@ -51,9 +54,7 @@ import { UserModerationPanelComponent } from './user-moderation-panel.component'
   imports: [
     DatePipe,
     RouterLink,
-    MatButtonModule,
-    MatIconModule,
-    MatTooltipModule,
+    AdminIconComponent,
     RelativeTimePipe,
     AvatarComponent,
     EmptyStateComponent,
@@ -64,14 +65,22 @@ import { UserModerationPanelComponent } from './user-moderation-panel.component'
     UserModerationPanelComponent,
   ],
   templateUrl: './admin-user-detail-page.component.html',
-  styleUrls: ['../shared/admin-page.scss', './admin-user-detail-page.component.scss'],
+  styleUrls: [
+    '../console/console-page.scss',
+    '../console/console-controls.scss',
+    './admin-user-detail-page.component.scss',
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AdminUserDetailPageComponent {
   private readonly usersApi = inject(AdminUsersService);
   private readonly dialog = inject(MatDialog);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly toasts = inject(ToastService);
+  private readonly flags = inject(FeatureFlagsService);
   protected readonly session = inject(SessionService);
+  protected readonly listingsPanel = viewChild<UserModerationPanelComponent>('listings');
+  protected readonly moderationPanel = viewChild<UserModerationPanelComponent>('moderation');
+  private readonly paymentsOn = this.flags.enabled(FEATURE.protectedPayments);
 
   /** Bound from the `:id` route parameter. */
   readonly id = input.required<string>();
@@ -82,9 +91,12 @@ export class AdminUserDetailPageComponent {
   protected readonly busy = signal<'suspend' | 'unsuspend' | 'roles' | null>(null);
   protected readonly consentLabels = CONSENT_LABELS;
   protected readonly auditActionLabel = auditActionLabel;
-  protected readonly summarizeDetails = summarizeDetails;
 
   protected readonly account = computed(() => this.detail()?.account ?? null);
+  /** The Payment Protection and Refund lines only while `protectedPayments` is on (spec 15.5). */
+  protected readonly consents = computed(() =>
+    visibleConsents(this.detail()?.consents ?? [], this.paymentsOn()),
+  );
   protected readonly roles = computed<Role[]>(() => roleList(this.account()?.roles));
   protected readonly isSelf = computed(() => this.account()?.id === this.session.me()?.id);
   /** Why suspension is not possible for this actor/target, or null. */
@@ -110,6 +122,27 @@ export class AdminUserDetailPageComponent {
       this.id();
       untracked(() => void this.load());
     });
+  }
+
+  /** A recent activity row in words ("Accepted the Community Guidelines v3", board A8). */
+  protected activityLine(entry: AuditLogEntry): string {
+    const details = (entry.details ?? {}) as Record<string, unknown>;
+    if (entry.action === 'consent.accept') {
+      const type = String(details['documentType'] ?? '');
+      if (type === 'AGE_CONFIRMATION') {
+        return 'Confirmed being 18 or older';
+      }
+      const name = CONSENT_LABELS[type] ?? type;
+      return `Accepted the ${name}${details['version'] ? ` v${String(details['version'])}` : ''}`;
+    }
+    const summary = detailSummary(entry);
+    return summary
+      ? `${auditActionLabel(entry.action)} · ${summary}`
+      : auditActionLabel(entry.action);
+  }
+
+  protected actorWord(type: string): string {
+    return type === 'SYSTEM' ? 'System' : type === 'USER' ? 'The collector' : 'Staff';
   }
 
   protected async load(): Promise<void> {
@@ -204,10 +237,15 @@ export class AdminUserDetailPageComponent {
     this.busy.set(kind);
     try {
       await this.call(request());
-      this.snackBar.open(success, 'OK', { duration: 4000 });
+      this.toasts.show({ title: success, sub: RECORDED });
       await this.load();
     } catch (error) {
-      this.snackBar.open(friendlyMessage(error as ApiError), 'OK', { duration: 6000 });
+      const apiError = error as ApiError;
+      this.toasts.show({
+        title: friendlyMessage(apiError),
+        sub: apiError.requestId ? `Request ${apiError.requestId}` : null,
+        tone: 'error',
+      });
     } finally {
       this.busy.set(null);
     }

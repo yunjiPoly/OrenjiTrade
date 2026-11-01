@@ -26,6 +26,24 @@ describe('the console nav (spec 15.1, 15.9)', () => {
     expect(labels('ADMIN', true)).toContain('Audit log');
   });
 
+  it("lists the catalog and rules pages of stage WH2 in the boards' order", () => {
+    const group = (id: string) =>
+      adminNavFor('ADMIN', false)
+        .find((g) => g.id === id)
+        ?.items.map((item) => item.label);
+    expect(group('catalog')).toEqual(['Cards', 'Card data and images', 'Games']);
+    expect(group('rules')).toEqual([
+      'Usage limits',
+      'Import limits',
+      'Wishlist terms',
+      'Auto-delist',
+      'Feature flags',
+      'Regions',
+    ]);
+    expect(group('collectors')).toEqual(['Users', 'Listings', 'Binders']);
+    expect(group('system')).toEqual(['Notifications', 'System health', 'Analytics', 'Audit log']);
+  });
+
   it('counts only the queues that need a person', () => {
     const items = adminNavFor('ADMIN', false).flatMap((group) => group.items);
     expect(items.filter((item) => item.count).map((item) => item.id)).toEqual(['reports', 'flags']);

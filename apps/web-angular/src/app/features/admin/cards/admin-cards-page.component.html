@@ -1,0 +1,225 @@
+<div class="cp">
+  <header class="cp__head">
+    <div class="cp__heading">
+      <p class="cp__eyebrow">Catalog</p>
+      <h1 class="cp__title">Cards</h1>
+      <p class="cp__sub">
+        Find a card to correct its data or printings. Card data is imported from each game’s source
+        in <a class="cp-link" routerLink="/admin/card-data">Card data and images</a>.
+      </p>
+    </div>
+    <div class="cp__actions">
+      <button
+        type="button"
+        class="cb cb--primary"
+        data-card-open="new"
+        (click)="openCard('new', $event)"
+      >
+        <app-admin-icon name="plus" [size]="18" />
+        New card
+      </button>
+    </div>
+  </header>
+
+  <div class="cp-filterbar ca__filters" role="search" aria-label="Find cards">
+    <label class="cp-field cp-field--grow">
+      <span class="visually-hidden">Name, text or printing code</span>
+      <span class="cp-search">
+        <app-admin-icon name="search" [size]="16" />
+        <input
+          class="cp-input"
+          type="search"
+          placeholder="Name, text or printing code"
+          [value]="params().query ?? ''"
+          [attr.maxlength]="maxLength"
+          (input)="onSearch($event)"
+        />
+      </span>
+    </label>
+    <div class="cp-seg ca__games" role="group" aria-label="Game">
+      <button
+        type="button"
+        class="cp-seg__btn"
+        [attr.aria-pressed]="!params().game"
+        (click)="setGame(null)"
+      >
+        All games
+      </button>
+      @for (game of games.games() ?? []; track game.slug) {
+        <button
+          type="button"
+          class="cp-seg__btn"
+          [attr.aria-pressed]="params().game === game.slug"
+          (click)="setGame(game.slug ?? null)"
+        >
+          <app-game-badge [game]="game.slug ?? ''" size="sm" />
+          {{ game.shortName }}
+          @if (!game.hasCards) {
+            <span class="ca__soon">· no cards yet</span>
+          }
+        </button>
+      }
+    </div>
+  </div>
+
+  @if (error(); as error) {
+    <app-error-state
+      title="Cards could not load"
+      [message]="errorMessage()"
+      [requestId]="error.requestId"
+      retryLabel="Try again"
+      (retry)="reload()"
+    />
+  } @else if (loading() && !result()) {
+    <div aria-busy="true">
+      <span class="visually-hidden">Loading cards</span>
+      <app-skeleton variant="list" lines="6" />
+    </div>
+  } @else if (result(); as page) {
+    @if ((page.items ?? []).length === 0) {
+      <app-empty-state
+        icon="search_off"
+        title="No cards match"
+        description="Try another name, a printing code, or another game."
+      />
+    } @else {
+      <p class="cp-count" aria-live="polite">
+        {{ countLine() }} · sorted by name
+        @if (loading()) {
+          · updating…
+        }
+      </p>
+      <div class="ct ct--actions" [class.ct--dim]="loading()">
+        <table class="ca__table" aria-label="Catalog cards">
+          <thead>
+            <tr>
+              <th scope="col"><span class="visually-hidden">Picture</span></th>
+              <th scope="col">Card</th>
+              <th scope="col">Game</th>
+              <th scope="col" class="ca__opt">Type</th>
+              <th scope="col">Printings</th>
+              <th scope="col"><span class="visually-hidden">Public page</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (card of page.items ?? []; track card.id) {
+              <tr [class.ca__row--open]="openId() === card.id">
+                <td class="ca__thumb">
+                  <app-card-image
+                    size="xs"
+                    [src]="card.primaryImageUrl"
+                    [alt]="card.name ?? ''"
+                    [game]="card.game"
+                  />
+                </td>
+                <td>
+                  <button
+                    type="button"
+                    class="ca__name"
+                    [attr.data-card-open]="card.id"
+                    [attr.aria-current]="openId() === card.id ? 'true' : null"
+                    (click)="openCard(card.id ?? '', $event)"
+                  >
+                    {{ card.name }}
+                  </button>
+                  <span class="ct__sub cp-mono">{{ card.slug }}</span>
+                </td>
+                <td>{{ gameLabel(card.game) }}</td>
+                <td class="ca__opt">
+                  {{ card.cardType }}
+                  @if (card.subtype) {
+                    · {{ card.subtype }}
+                  }
+                </td>
+                <td class="ct__num">{{ card.printingCount }}</td>
+                <td>
+                  <a
+                    class="ca__public"
+                    [routerLink]="['/cards', card.id]"
+                    target="_blank"
+                    [attr.aria-label]="'Public page of ' + card.name + ' (opens in a new tab)'"
+                  >
+                    <app-admin-icon name="external" [size]="16" />
+                  </a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <div class="ct-pager">
+        <span>{{ range() }}</span>
+        <label class="ca__size">
+          Rows per page
+          <select class="cp-select" (change)="setSize(+$any($event.target).value)">
+            @for (size of pageSizes; track size) {
+              <option [value]="size" [selected]="params().size === size">{{ size }}</option>
+            }
+          </select>
+        </label>
+        <mat-paginator
+          [length]="page.totalItems ?? 0"
+          [pageIndex]="page.page ?? 0"
+          [pageSize]="page.size ?? 20"
+          [hidePageSize]="true"
+          (page)="onPage($event)"
+          aria-label="Card pages"
+        />
+      </div>
+    }
+  }
+</div>
+
+@if (openId(); as id) {
+  <div class="scrim" (click)="closeDrawer()" aria-hidden="true"></div>
+  <div
+    class="drawer drawer--wide"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="card-drawer-title"
+    cdkTrapFocus
+    [cdkTrapFocusAutoCapture]="true"
+    data-testid="card-drawer"
+  >
+    <header class="drawer__head">
+      <div class="drawer__heading">
+        <h2 class="drawer__title" id="card-drawer-title">
+          {{ id === 'new' ? 'New card' : 'Edit card' }}
+        </h2>
+      </div>
+      @if (position(); as p) {
+        <span class="ca__pos">{{ p.index + 1 }} of {{ p.total }}</span>
+        <button
+          type="button"
+          class="drawer__close"
+          aria-label="Previous card"
+          [attr.aria-disabled]="p.index === 0 ? 'true' : null"
+          (click)="p.index === 0 || step(-1)"
+        >
+          <app-admin-icon name="chevronUp" [size]="20" />
+        </button>
+        <button
+          type="button"
+          class="drawer__close"
+          aria-label="Next card"
+          [attr.aria-disabled]="p.index === p.total - 1 ? 'true' : null"
+          (click)="p.index === p.total - 1 || step(1)"
+        >
+          <app-admin-icon name="chevronDown" [size]="20" />
+        </button>
+      }
+      <button type="button" class="drawer__close" aria-label="Close" (click)="closeDrawer()">
+        <app-admin-icon name="close" [size]="20" />
+      </button>
+    </header>
+    <div class="drawer__body">
+      <app-admin-card-edit-page
+        [id]="id"
+        [embedded]="true"
+        [newGame]="params().game"
+        (created)="openCard($event)"
+        (changed)="reload()"
+      />
+    </div>
+  </div>
+}

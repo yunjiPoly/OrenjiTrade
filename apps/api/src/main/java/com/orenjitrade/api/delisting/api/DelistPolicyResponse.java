@@ -1,6 +1,8 @@
 package com.orenjitrade.api.delisting.api;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.orenjitrade.api.auth.domain.AccountNames;
+import com.orenjitrade.api.auth.domain.AccountNames.AccountName;
 import com.orenjitrade.api.delisting.domain.DelistPolicyView;
 import com.orenjitrade.api.delisting.domain.FreshnessPolicy;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -30,9 +32,16 @@ public record DelistPolicyResponse(
                         description =
                                 "Hours after which a conversation waiting for the owner's answer"
                                         + " counts as unanswered (one strike each)")
-                int unansweredAfterHours) {
+                int unansweredAfterHours,
+        @Schema(nullable = true, description = "The last editor's handle (spec 15.8)")
+                @JsonInclude(JsonInclude.Include.ALWAYS)
+                @Nullable String updatedByHandle,
+        @Schema(nullable = true, description = "The last editor's display name")
+                @JsonInclude(JsonInclude.Include.ALWAYS)
+                @Nullable String updatedByName) {
 
-    static DelistPolicyResponse from(DelistPolicyView view) {
+    static DelistPolicyResponse from(DelistPolicyView view, AccountNames names) {
+        @Nullable AccountName editor = names.nameOf(view.policy().updatedBy()).orElse(null);
         FreshnessPolicy policy = view.policy();
         return new DelistPolicyResponse(
                 policy.id(),
@@ -45,6 +54,8 @@ public record DelistPolicyResponse(
                 policy.maxStrikes(),
                 policy.updatedBy(),
                 policy.updatedAt(),
-                policy.unansweredAfterHours());
+                policy.unansweredAfterHours(),
+                editor == null ? null : editor.handle(),
+                editor == null ? null : editor.displayName());
     }
 }

@@ -4092,6 +4092,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Find a collector, a card or a report (ADMIN)
+         * @description One text, grouped: accounts by handle (with or without "@"), email or display name; cards by printing code ("LOB-EN005") or name; a report by its number ("#1047" or "1047"). A text of one character finds nothing but a report number. At most `limit` per group. No place is ever returned.
+         */
+        get: operations["staffSearch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/reports": {
         parameters: {
             query?: never;
@@ -4520,6 +4540,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/catalog/games": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Each game's catalogue, sources and newest sync (ADMIN, SUPER_ADMIN)
+         * @description Every game in display order (hidden ones too): cards, sets and printings in the catalogue, the sources that serve it (empty for a game without a source yet) and its newest sync run. Counts only.
+         */
+        get: operations["listCatalogGames"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/card-images/status": {
         parameters: {
             query?: never;
@@ -4569,7 +4609,7 @@ export interface paths {
         };
         /**
          * List audit-log entries (ADMIN, SUPER_ADMIN)
-         * @description Newest first. Every filter is optional; `from` is inclusive, `to` exclusive.
+         * @description Newest first. Every filter is optional; `from` is inclusive, `to` exclusive. Each entry names its actor and carries a readable `targetLabel`.
          */
         get: operations["listAuditLogs"];
         put?: never;
@@ -5117,6 +5157,10 @@ export interface components {
             updatedBy?: string | null;
             /** Format: date-time */
             updatedAt?: string | null;
+            /** @description The last editor's handle (spec 15.8) */
+            updatedByHandle?: string | null;
+            /** @description The last editor's display name */
+            updatedByName?: string | null;
         };
         UpdateRolesRequest: {
             /**
@@ -5159,6 +5203,10 @@ export interface components {
             updatedBy?: string;
             /** Format: date-time */
             updatedAt?: string;
+            /** @description The last editor's handle (spec 15.8) */
+            updatedByHandle?: string | null;
+            /** @description The last editor's display name */
+            updatedByName?: string | null;
         };
         /** @description Card set creation or change */
         AdminSetRequest: {
@@ -5453,6 +5501,10 @@ export interface components {
             updatedBy?: string | null;
             /** Format: date-time */
             updatedAt?: string | null;
+            /** @description The last editor's handle (spec 15.8) */
+            updatedByHandle?: string | null;
+            /** @description The last editor's display name */
+            updatedByName?: string | null;
         };
         /** @description Game-specific card attribute */
         GameMetadataField: {
@@ -5536,6 +5588,10 @@ export interface components {
             updatedBy?: string;
             /** Format: date-time */
             updatedAt?: string;
+            /** @description The last editor's handle (admin console) */
+            updatedByHandle?: string | null;
+            /** @description The last editor's display name (admin console) */
+            updatedByName?: string | null;
         };
         /** @description New freshness thresholds (days) */
         UpdateDelistPolicyRequest: {
@@ -5616,6 +5672,10 @@ export interface components {
              * @example 72
              */
             unansweredAfterHours: number;
+            /** @description The last editor's handle (spec 15.8) */
+            updatedByHandle?: string | null;
+            /** @description The last editor's display name */
+            updatedByName?: string | null;
         };
         /** @description Card creation or change */
         AdminCardRequest: {
@@ -8113,6 +8173,10 @@ export interface components {
             handle?: string | null;
             /** @enum {string} */
             type: "USER" | "ADMIN" | "SYSTEM";
+            /** @description Display name of the acting account when it still exists (web stage WH2) */
+            displayName?: string | null;
+            /** @description The acting account's highest staff role today (SUPER_ADMIN, ADMIN, MODERATOR), null for a collector or SYSTEM */
+            role?: string | null;
         };
         /** @description Audit-log entry */
         AuditLogEntry: {
@@ -8126,11 +8190,25 @@ export interface components {
             /** @example USER */
             targetType: string;
             targetId?: string | null;
-            /** @description Structured details; never contains coordinates */
+            /** @description Structured details; never contains coordinates, and an archived channel named after a city reads "archived-channel" (web stage WH2) */
             details: {
                 [key: string]: unknown;
             };
             requestId?: string | null;
+            /**
+             * @description A readable name of the target (web stage WH2, spec 15.8): "@handle", "Report #1047", a card's or a room's name, a setting key; null when it is gone or has no name
+             * @example Report #1047
+             */
+            targetLabel?: string | null;
+            /**
+             * @description Readable names of the values in details, by value (web stage WH2 review fix 1, spec 15.2: never a raw id or region code): an account's id "@handle", a report's "Report #1047", an id nothing names in words ("A moderator note"), a platform region code "Americas (North)", a room's slug its name; every id in details has one
+             * @example {
+             *       "americas-north": "Americas (North)"
+             *     }
+             */
+            detailLabels: {
+                [key: string]: string;
+            };
         };
         /** @description Internal admin note (never shown to parties) */
         DisputeNote: {
@@ -8335,6 +8413,11 @@ export interface components {
             confirmedAt: string;
             /** Format: date-time */
             updatedAt: string;
+            /**
+             * @description The game of the binder's cards (web stage WH2)
+             * @example yugioh
+             */
+            game: string;
         };
         /** @description Any subset of the fields; absent fields are unchanged. printingId (another printing of the same card, or null for any printing), rarity, note and priceTerm may be null to clear them. Changing printingId without rarity clears the stored rarity. */
         UpdateWishlistItemRequest: {
@@ -10038,6 +10121,44 @@ export interface components {
             notificationsPendingDispatch: number;
             jobs: components["schemas"]["JobStatus"][];
         };
+        StaffSearchCard: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @example yugioh */
+            game: string;
+            /** @example LOB-EN005 */
+            printingCode?: string | null;
+        };
+        StaffSearchCollector: {
+            /** Format: uuid */
+            id: string;
+            handle: string;
+            displayName?: string | null;
+            email?: string | null;
+            /** @example ACTIVE */
+            status: string;
+        };
+        StaffSearchReport: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: int64
+             * @example 1047
+             */
+            number: number;
+            /** @example SCAM */
+            reason: string;
+            /** @example OPEN */
+            status: string;
+            reportedHandle: string;
+        };
+        /** @description The admin console's staff search */
+        StaffSearchResponse: {
+            collectors: components["schemas"]["StaffSearchCollector"][];
+            cards: components["schemas"]["StaffSearchCard"][];
+            reports: components["schemas"]["StaffSearchReport"][];
+        };
         /** @description Offset-paginated list */
         PageResponseReportSummary: {
             /** @description Items of the current page */
@@ -10107,6 +10228,8 @@ export interface components {
              * @example 1047
              */
             number: number;
+            /** @description The room of a reported community post ("Open the room", web stage WH2); null for other reports and for an archived channel named after a city */
+            contextRoomSlug?: string | null;
         };
         ReportedConversation: {
             /** Format: uuid */
@@ -10487,6 +10610,22 @@ export interface components {
              * @example 7
              */
             totalPages?: number;
+        };
+        /** @description A game's catalogue and sources (admin) */
+        CatalogGameSummary: {
+            /** @example yugioh */
+            game: string;
+            /**
+             * Format: int64
+             * @example 13942
+             */
+            cards: number;
+            /** Format: int64 */
+            sets: number;
+            /** Format: int64 */
+            printings: number;
+            providers: string[];
+            lastRun?: components["schemas"]["CatalogSyncRun"];
         };
         /** @description Offset-paginated list */
         PageResponseAdminBinder: {
@@ -27427,6 +27566,74 @@ export interface operations {
             };
         };
     };
+    staffSearch: {
+        parameters: {
+            query: {
+                q: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffSearchResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     listReports: {
         parameters: {
             query?: {
@@ -28969,6 +29176,71 @@ export interface operations {
             };
         };
     };
+    listCatalogGames: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogGameSummary"][];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     getCardImageCacheStatus: {
         parameters: {
             query?: never;
@@ -29040,6 +29312,8 @@ export interface operations {
                 query?: string;
                 ownerId?: string;
                 visibility?: "PRIVATE" | "PUBLIC" | "TEMPORARILY_PUBLIC";
+                /** @description true: deck cores only (kind DECK); false: binders only (web stage WH2) */
+                deckCore?: boolean;
                 page?: number;
                 size?: number;
             };
@@ -29120,6 +29394,10 @@ export interface operations {
                 from?: string;
                 /** @description Upper bound of occurredAt (exclusive) */
                 to?: string;
+                /** @description Who acted: ADMIN (staff), USER (a collector on their own account) or SYSTEM */
+                actorType?: "USER" | "ADMIN" | "SYSTEM";
+                /** @description A readable target: "@handle", a report number ("#1047") or a setting key; matches the target it names, else the stored target id */
+                target?: string;
                 page?: number;
                 size?: number;
             };

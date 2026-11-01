@@ -352,7 +352,7 @@ public class CardImageCacheRepository {
     public List<Candidate> candidates(UUID gameId, String provider) {
         return jdbc.sql(
                         """
-                        SELECT i.id, i.cache_status, i.storage_key
+                        SELECT i.id, i.cache_status, i.storage_key, c.name AS card_name
                           FROM card_image i
                           JOIN card c ON c.id = i.card_id
                          WHERE i.game_id = :gameId AND i.provider = :provider
@@ -365,7 +365,8 @@ public class CardImageCacheRepository {
                                 new Candidate(
                                         rs.getObject("id", UUID.class),
                                         rs.getString("cache_status"),
-                                        rs.getString("storage_key")))
+                                        rs.getString("storage_key"),
+                                        rs.getString("card_name")))
                 .list();
     }
 
@@ -552,8 +553,17 @@ public class CardImageCacheRepository {
             @Nullable Instant lastAttemptAt,
             @Nullable String url) {}
 
-    /** A fill candidate. */
-    public record Candidate(UUID id, @Nullable String cacheStatus, @Nullable String storageKey) {}
+    /**
+     * A fill candidate.
+     *
+     * @param cardName the card's name, for a failed fill's line in the report (web stage WH2 review
+     *     fix 2)
+     */
+    public record Candidate(
+            UUID id,
+            @Nullable String cacheStatus,
+            @Nullable String storageKey,
+            @Nullable String cardName) {}
 
     /** Image count by game, provider and status. */
     public record StatusCount(

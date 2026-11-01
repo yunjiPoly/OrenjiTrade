@@ -38,6 +38,7 @@ import {
   ruleActionLabel,
   ruleKindLabel,
   ruleScopeLabel,
+  twinsLine,
 } from './moderation-rule-labels';
 import { RuleDialogComponent, RuleDialogData, RuleDialogResult } from './rule-dialog.component';
 
@@ -162,6 +163,9 @@ export function ruleGroups(
                       <code class="rule__pattern">{{ rule.pattern }}</code>
                       @if (rate(rule); as reading) {
                         <span class="rule__reading">{{ reading }}</span>
+                      }
+                      @if (twins(rule); as line) {
+                        <span class="rule__reading">{{ line }}</span>
                       }
                     </div>
                     <div class="rule__meta">
@@ -359,6 +363,11 @@ export class ModerationRulesComponent {
   readonly focusRule = input<string | undefined>();
 
   protected readonly scopes = RULE_SCOPES;
+
+  /** "The same pattern is a separate rule for …" (board A4). */
+  protected twins(rule: ModerationRule): string | null {
+    return twinsLine(rule, this.rules() ?? []);
+  }
   protected readonly kinds = RULE_KINDS;
   protected readonly scopeLabel = ruleScopeLabel;
   protected readonly kindLabel = ruleKindLabel;

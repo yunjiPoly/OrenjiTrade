@@ -12,7 +12,7 @@ import {
 } from '@angular/core';
 import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { AdminReportsService, PageResponseReportSummary, ReportSummary } from '@orenji/api-client';
-import { Subscription, filter } from 'rxjs';
+import { Subscription, filter, forkJoin } from 'rxjs';
 import { SessionService } from '../../../core/auth/session.service';
 import { ShellLayout } from '../../../core/layout/shell-layout.service';
 import { ApiError, toApiError } from '../../../core/http/api-error';
@@ -156,6 +156,10 @@ export class AdminReportsPageComponent {
       this.sync.version();
       untracked(() => this.load(params));
     });
+    effect(() => {
+      this.sync.version();
+      untracked(() => this.loadDecided());
+    });
     this.readOpenId();
     const navigations = this.router.events
       .pipe(filter((event) => event instanceof NavigationEnd))
@@ -166,15 +170,46 @@ export class AdminReportsPageComponent {
     });
   }
 
+  /** Every status tab's count (WH1's U13): Open and Under review from the shell's counts. */
   protected tabCount(tab: ReportTab): number | null {
     const counts = this.counts.counts();
+    const decided = this.decided();
     if (!counts) {
       return null;
     }
-    if (tab === 'OPEN') {
-      return counts.unassigned;
+    switch (tab) {
+      case 'OPEN':
+        return counts.unassigned;
+      case 'UNDER_REVIEW':
+        return counts.underReview;
+      case 'ACTIONED':
+        return decided?.ACTIONED ?? null;
+      case 'DISMISSED':
+        return decided?.DISMISSED ?? null;
+      default:
+        return decided
+          ? counts.unassigned + counts.underReview + decided.ACTIONED + decided.DISMISSED
+          : null;
     }
-    return tab === 'UNDER_REVIEW' ? counts.underReview : null;
+  }
+
+  /** The decided reports' totals (`size=1` reads), refreshed with the list. */
+  protected readonly decided = signal<{ ACTIONED: number; DISMISSED: number } | null>(null);
+
+  private loadDecided(): void {
+    const options = { context: silentErrors() };
+    forkJoin(
+      (['ACTIONED', 'DISMISSED'] as const).map((status) =>
+        this.api.listReports({ status, size: 1 }, 'body', false, options),
+      ),
+    ).subscribe({
+      next: ([actioned, dismissed]) =>
+        this.decided.set({
+          ACTIONED: actioned.totalItems ?? 0,
+          DISMISSED: dismissed.totalItems ?? 0,
+        }),
+      error: () => this.decided.set(null),
+    });
   }
 
   protected setTab(tab: ReportTab): void {

@@ -16,4 +16,18 @@ public record AuditActor(
         @Schema(description = "Handle of the acting account when it still exists", nullable = true)
                 @JsonInclude(JsonInclude.Include.ALWAYS)
                 @Nullable String handle,
-        @Schema(requiredMode = RequiredMode.REQUIRED) ActorType type) {}
+        @Schema(requiredMode = RequiredMode.REQUIRED) ActorType type,
+        @Schema(
+                        description =
+                                "Display name of the acting account when it still exists (web"
+                                        + " stage WH2)",
+                        nullable = true)
+                @JsonInclude(JsonInclude.Include.ALWAYS)
+                @Nullable String displayName,
+        @Schema(
+                        description =
+                                "The acting account's highest staff role today (SUPER_ADMIN,"
+                                        + " ADMIN, MODERATOR), null for a collector or SYSTEM",
+                        nullable = true)
+                @JsonInclude(JsonInclude.Include.ALWAYS)
+                @Nullable String role) {}

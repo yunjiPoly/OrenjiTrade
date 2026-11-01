@@ -1,0 +1,167 @@
+<div class="cp">
+  <header class="cp__head">
+    <div class="cp__heading">
+      <p class="cp__eyebrow">Rules</p>
+      <h1 class="cp__title">Import limits</h1>
+      <p class="cp__sub">
+        How big a deck file or Collectr CSV a collector can import, and how long a preview waits.
+        The phone and the web read these limits; nothing is hard-coded.
+      </p>
+    </div>
+  </header>
+
+  @let s = settings();
+  @if (s.error && !s.data) {
+    <app-error-state
+      title="The import limits could not load"
+      [message]="message(s.error!)"
+      [requestId]="s.error!.requestId"
+      retryLabel="Try again"
+      (retry)="load()"
+    />
+  } @else if (values(); as v) {
+    <div class="il">
+      <form class="il__main" (submit)="$event.preventDefault(); save()" novalidate>
+        @for (card of cards; track card.id) {
+          <section class="cp-card il__card" [attr.aria-labelledby]="'il-title-' + card.id">
+            <div class="il__head">
+              @if (card.badge) {
+                <span class="il__badge" aria-hidden="true">{{ card.badge }}</span>
+              } @else if (card.icon) {
+                <span class="il__icon" aria-hidden="true"
+                  ><app-admin-icon [name]="card.icon" [size]="18"
+                /></span>
+              }
+              <div>
+                <h2 class="cp-card__title" [id]="'il-title-' + card.id">{{ card.title }}</h2>
+                <p class="il__line">{{ card.sub }}</p>
+              </div>
+            </div>
+            <div class="il__fields">
+              @for (field of card.fields; track field.key) {
+                @let error = tried() ? errors()[field.key] : null;
+                <div class="il__field">
+                  <label class="il__label" [for]="'il-' + field.key">{{ field.label }}</label>
+                  <span class="il__input" [class.il__input--bad]="!!error">
+                    <input
+                      [id]="'il-' + field.key"
+                      inputmode="numeric"
+                      autocomplete="off"
+                      [value]="v[field.key]"
+                      [attr.aria-invalid]="error ? 'true' : null"
+                      [attr.aria-describedby]="'il-help-' + field.key"
+                      (input)="set(field.key, $event)"
+                    />
+                    <span class="il__unit" aria-hidden="true">{{ field.unit }}</span>
+                  </span>
+                  <p class="il__help" [class.il__help--bad]="!!error" [id]="'il-help-' + field.key">
+                    {{ error || allowedLine(field) }}
+                  </p>
+                </div>
+              }
+            </div>
+            @if (card.id === 'previews') {
+              <p class="il__note">
+                <app-admin-icon name="info" [size]="16" />
+                After this, the Import clean-up job deletes the preview and its result; the
+                collector starts again. Inventories are never touched.
+              </p>
+            }
+          </section>
+        }
+        <div class="il__bar">
+          <p class="il__changed">
+            <app-admin-icon name="clock" [size]="16" />
+            {{ changed() }}
+          </p>
+          <button
+            type="button"
+            class="cb cb--outline"
+            [attr.aria-disabled]="!dirty() ? 'true' : null"
+            (click)="dirty() && discard()"
+          >
+            Discard changes
+          </button>
+          <button
+            type="submit"
+            class="cb cb--primary"
+            [attr.aria-disabled]="!dirty() || saving() ? 'true' : null"
+          >
+            {{ saving() ? 'Saving…' : 'Save limits' }}
+          </button>
+        </div>
+      </form>
+
+      <aside class="il__side" aria-label="What collectors see">
+        <section class="cp-card il__card" aria-labelledby="il-read">
+          <h2 class="cp-card__title il__side-title" id="il-read">What collectors read</h2>
+          <p class="il__line">
+            The import screens on the phone and the web, with the values above.
+          </p>
+          @if (preview(); as p) {
+            <div class="il__read">
+              <span class="il__badge il__badge--small" aria-hidden="true">Y</span>
+              <span
+                ><strong>Yu-Gi-Oh! deck (.ydk)</strong
+                ><span class="il__line">{{ p.ydk }}</span></span
+              >
+            </div>
+            <div class="il__read">
+              <span class="il__icon il__icon--small" aria-hidden="true"
+                ><app-admin-icon name="table" [size]="16"
+              /></span>
+              <span
+                ><strong>Collectr CSV</strong><span class="il__line">{{ p.csv }}</span></span
+              >
+            </div>
+            <p class="il__ttl"><app-admin-icon name="clock" [size]="16" /> {{ p.ttl }}</p>
+          }
+        </section>
+        <section class="cp-card il__card" aria-labelledby="il-job">
+          <h2 class="cp-card__title il__side-title" id="il-job">{{ cleanUp.name }}</h2>
+          <p class="il__line">Runs after each listing freshness run, every hour.</p>
+          @let h = health();
+          @if (h.error && !h.data) {
+            <p class="il__line">
+              The job's state could not load.
+              <button type="button" class="cp-link il__retry" (click)="loadHealth()">
+                Try again
+              </button>
+            </p>
+          } @else if (h.data) {
+            @if (job(); as j) {
+              <p class="il__run">
+                Last run {{ j.lastStartedAt | date: 'MMM d, HH:mm' }}
+                <span
+                  class="cp-chip"
+                  [class.cp-chip--success]="j.lastStatus === 'SUCCEEDED'"
+                  [class.cp-chip--danger]="j.lastStatus === 'FAILED'"
+                  [class.cp-chip--info]="j.lastStatus === 'RUNNING'"
+                  >{{
+                    j.lastStatus === 'SUCCEEDED'
+                      ? 'Succeeded'
+                      : j.lastStatus === 'FAILED'
+                        ? 'Failed'
+                        : 'Running'
+                  }}</span
+                >
+              </p>
+            } @else {
+              <p class="il__run">No run yet.</p>
+            }
+          } @else {
+            <app-skeleton variant="list" lines="1" />
+          }
+          <a class="cp-link" routerLink="/admin/system-health"
+            >System health <app-admin-icon name="arrowRight" [size]="16"
+          /></a>
+        </section>
+      </aside>
+    </div>
+  } @else {
+    <div aria-busy="true">
+      <span class="visually-hidden">Loading the import limits</span>
+      <app-skeleton variant="list" lines="5" />
+    </div>
+  }
+</div>

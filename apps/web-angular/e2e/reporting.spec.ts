@@ -210,7 +210,7 @@ test.describe('collector reporting', () => {
         .click();
       await expect(adminPage).toHaveURL(new RegExp(`/admin/audit-logs\\?.*targetId=${reportId}`));
       const entries = adminPage.getByRole('table', { name: 'Audit entries' });
-      await expect(entries.getByText('Resolved a collector report')).toBeVisible();
+      await expect(entries.getByText('Resolved a report')).toBeVisible();
       await expect(entries.getByText('REPORT_RESOLVED', { exact: true })).toBeVisible();
       await expect(entries.getByText('report.assign', { exact: true })).toBeVisible();
       await expect(entries.getByText('report.note', { exact: true })).toBeVisible();

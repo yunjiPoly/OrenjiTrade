@@ -1,6 +1,4 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { MatIconModule } from '@angular/material/icon';
-import { MatSnackBar } from '@angular/material/snack-bar';
 import {
   AdminUsageLimit,
   AdminUsageLimitsService,
@@ -14,10 +12,23 @@ import { silentErrors } from '../../../core/http/http-context';
 import { limitLabel, windowLabel } from '../../../shared/limits/limit-labels';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
-import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
 import { LimitCellComponent, LimitEdit } from './limit-cell.component';
-import { replaceLimit, sortLimits } from './limit-rows';
+import { ToastService } from '../../../core/feedback/toast.service';
+import { AdminIconComponent } from '../console/admin-icon.component';
+import { RECORDED } from '../console/console-actions';
+import { changedLine } from '../console/editor-line';
+import { groupLimits, replaceLimit } from './limit-rows';
+
+/** What each limit counts (board A14). */
+const HELP: Readonly<Record<string, string>> = {
+  'binder.views.per_day': 'Public binders a collector can open in a day.',
+  'binders.max': 'Binders a collector can have at once.',
+  'inventory.items.max': 'Cards a collector can keep in their inventory.',
+  'wishlist.items.max': 'Cards a collector can wish for at once.',
+  'wishlist.alerts.per_day': 'Wishlist match alerts a collector gets in a day.',
+  'offers.per_day': 'Offers a collector can send in a day.',
+};
 
 /**
  * `/admin/usage-limits`: one usage limit per key, the same for every collector (stage F1: no
@@ -27,23 +38,33 @@ import { replaceLimit, sortLimits } from './limit-rows';
 @Component({
   selector: 'app-admin-usage-limits-page',
   imports: [
-    MatIconModule,
+    AdminIconComponent,
     EmptyStateComponent,
     ErrorStateComponent,
-    PageHeaderComponent,
-    SkeletonComponent,
     LimitCellComponent,
+    SkeletonComponent,
   ],
   template: `
-    <div class="admin-page">
-      <app-page-header
-        title="Usage limits"
-        subtitle="What every collector can do. Edits apply live to everyone and are audited."
-      />
+    <div class="cp">
+      <header class="cp__head">
+        <div class="cp__heading">
+          <p class="cp__eyebrow">Rules</p>
+          <h1 class="cp__title">Usage limits</h1>
+          <p class="cp__sub">
+            What every collector can do. The same for everyone; edits apply right away and are
+            audited.
+          </p>
+        </div>
+      </header>
 
+      <p class="ul__info" role="note">
+        <app-admin-icon name="info" [size]="18" />
+        Counters reset at 00:00 UTC. Signed-out visitors are only limited by address: 60 requests a
+        minute.
+      </p>
       @if (!session.isSuperAdmin()) {
-        <p class="limits__note" role="note">
-          <mat-icon aria-hidden="true">lock</mat-icon>
+        <p class="ul__info ul__lock" role="note">
+          <app-admin-icon name="lock" [size]="18" />
           Only super admins can change usage limits. You can review them here.
         </p>
       }
@@ -53,53 +74,80 @@ import { replaceLimit, sortLimits } from './limit-rows';
           title="Usage limits could not load"
           [message]="message(error)"
           [requestId]="error.requestId"
+          retryLabel="Try again"
           (retry)="load()"
         />
-      } @else if (rows(); as rows) {
-        @if (rows.length === 0) {
+      } @else if (groups(); as groups) {
+        @if (groups.length === 0) {
           <app-empty-state icon="speed" title="No usage limits are configured" />
         } @else {
-          <div
-            class="limits__wrap"
-            tabindex="0"
-            role="region"
-            aria-label="Usage limits (scrollable)"
-          >
-            <table class="limits" aria-label="Usage limits">
-              <thead>
-                <tr>
-                  <th scope="col">Limit</th>
-                  <th scope="col">Every collector</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (row of rows; track row.id) {
-                  <tr [attr.data-limit]="row.key">
-                    <th scope="row">
-                      <div class="limits__rowhead">
-                        <span class="limits__description">{{ name(row) }}</span>
-                        <span class="limits__key mono">{{ row.key }}</span>
-                        <span class="limits__tags">
-                          <span class="limits__tag">{{
-                            row.kind === 'CAP' ? 'Cap' : 'Counter'
-                          }}</span>
-                          <span class="limits__tag">{{ windowName(row.window) }}</span>
-                        </span>
-                      </div>
-                    </th>
-                    <td>
-                      <app-limit-cell
-                        [limit]="row"
-                        [label]="name(row)"
-                        [canEdit]="session.isSuperAdmin()"
-                        [saving]="savingId() === row.id"
-                        (edit)="save($event)"
-                      />
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
+          <div class="ul">
+            <div class="ul__main">
+              @for (group of groups; track group.id) {
+                <section class="cp-card ul__group" [attr.aria-labelledby]="'ul-' + group.id">
+                  <div class="ul__group-head">
+                    <h2 class="cp-card__title" [id]="'ul-' + group.id">{{ group.label }}</h2>
+                    <span class="cp-muted"
+                      >{{ group.limits.length }}
+                      {{ group.limits.length === 1 ? 'limit' : 'limits' }}</span
+                    >
+                  </div>
+                  <ul class="cp-rows">
+                    @for (row of group.limits; track row.id) {
+                      <li class="ul__row" [attr.data-limit]="row.key">
+                        <div class="ul__text">
+                          <p class="ul__name">{{ name(row) }}</p>
+                          <p class="ul__desc">{{ help(row) }}</p>
+                          <p class="ul__meta">
+                            <code class="cp-mono">{{ row.key }}</code>
+                            <span class="cp-chip">{{
+                              row.kind === 'CAP' ? 'Cap' : 'Counter'
+                            }}</span>
+                            <span class="cp-chip">{{ windowName(row.window) }}</span>
+                          </p>
+                          @if (group.note) {
+                            <p class="ul__note">{{ group.note }}</p>
+                          }
+                          <p class="ul__changed">{{ changed(row) }}</p>
+                        </div>
+                        <div class="ul__value">
+                          <app-limit-cell
+                            [limit]="row"
+                            [label]="name(row)"
+                            [canEdit]="session.isSuperAdmin()"
+                            [saving]="savingId() === row.id"
+                            (edit)="save($event)"
+                          />
+                        </div>
+                      </li>
+                    }
+                  </ul>
+                </section>
+              }
+            </div>
+            <aside class="ul__side" aria-label="How a limit reads">
+              <section class="cp-card ul__how" aria-labelledby="ul-how">
+                <h2 class="cp-card__title" id="ul-how">How a limit reads</h2>
+                <dl>
+                  <div>
+                    <dt><span class="cp-chip">Counter</span> <span class="cp-chip">Daily</span></dt>
+                    <dd>Counts what a collector does in a day. It starts again at 00:00 UTC.</dd>
+                  </div>
+                  <div>
+                    <dt><span class="cp-chip">Counter</span> <span class="cp-chip">Total</span></dt>
+                    <dd>Counts what a collector keeps at once, like binders or wishes.</dd>
+                  </div>
+                  <div>
+                    <dt><span class="cp-chip">Unlimited</span></dt>
+                    <dd>Nothing is counted against it.</dd>
+                  </div>
+                </dl>
+              </section>
+              <p class="cp-muted ul__after">
+                A saved value applies to every collector at once. What they already used today still
+                counts.
+              </p>
+            </aside>
           </div>
         }
       } @else {
@@ -110,95 +158,151 @@ import { replaceLimit, sortLimits } from './limit-rows';
       }
     </div>
   `,
-  styleUrls: ['../shared/admin-page.scss'],
+  styleUrls: ['../console/console-page.scss', '../console/console-controls.scss'],
   styles: `
-    .limits__note {
+    .ul__info {
       display: flex;
       align-items: center;
-      gap: var(--spacing-2);
-      padding: var(--spacing-3) var(--spacing-4);
-      border-radius: var(--radius-md);
+      gap: 10px;
+      margin: 0 0 16px;
+      padding: 12px 16px;
+      border-radius: 12px;
+      background: var(--color-accent-tint);
+      color: var(--color-ink);
+      font-size: var(--font-size-sm);
+    }
+    .ul__lock {
       background: var(--color-surface-variant);
-      color: var(--color-text-muted);
+      color: var(--color-text-secondary);
     }
-    .limits__wrap {
-      overflow-x: auto;
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-lg);
-      background: var(--color-surface);
+    .ul__group {
+      margin-bottom: 18px;
+      padding: 8px 0 0;
     }
-    .limits {
-      width: 100%;
-      min-width: 640px;
-      border-collapse: collapse;
-    }
-    th,
-    td {
-      padding: var(--spacing-3) var(--spacing-4);
-      border-bottom: 1px solid var(--color-border);
-      text-align: left;
-      vertical-align: middle;
-    }
-    thead th {
-      background: var(--color-surface-variant);
-      color: var(--color-text-muted);
-      font-size: var(--font-size-xs);
-      font-weight: var(--font-weight-semibold);
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-    }
-    tbody tr:last-child th,
-    tbody tr:last-child td {
-      border-bottom: 0;
-    }
-    td {
-      min-width: 180px;
-    }
-    th[scope='row'] {
-      font-weight: var(--font-weight-regular);
-    }
-    .limits__rowhead {
+    .ul__group-head {
       display: flex;
-      flex-direction: column;
-      gap: 2px;
-      font-weight: var(--font-weight-regular);
+      align-items: baseline;
+      justify-content: space-between;
+      padding: 10px 20px;
+      font-size: var(--font-size-sm);
     }
-    .limits__description {
+    .ul__row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px 24px;
+      padding: 14px 20px;
+    }
+    .ul__text {
+      flex: 1 1 360px;
+      min-width: 0;
+    }
+    .ul__text p {
+      margin: 0;
+    }
+    .ul__name {
+      color: var(--color-ink);
       font-weight: var(--font-weight-semibold);
     }
-    .limits__key {
-      color: var(--color-text-muted);
+    .ul__desc,
+    .ul__changed,
+    .ul__note {
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-sm);
+    }
+    .ul__changed {
+      margin-top: 4px !important;
       font-size: var(--font-size-xs);
     }
-    .limits__tags {
+    .ul__note {
+      margin-top: 6px !important;
+      color: var(--app-warning-text);
+    }
+    .ul__meta {
       display: flex;
-      gap: 4px;
-    }
-    .limits__tag {
-      padding: 0 6px;
-      border-radius: var(--radius-pill);
-      background: var(--color-surface-variant);
-      color: var(--color-text-muted);
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px !important;
+      color: var(--color-text-secondary);
       font-size: var(--font-size-xs);
-      text-transform: none;
-      letter-spacing: 0;
+    }
+    .ul__value {
+      flex: 0 1 280px;
+      min-width: 220px;
+    }
+    /* Board A14: "How a limit reads" in a side column at lg, under the list below 1280 (web stage
+       WH2 review fix 2). */
+    .ul {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 300px;
+      gap: 24px;
+      align-items: start;
+    }
+    .ul__main {
+      min-width: 0;
+    }
+    .ul__side {
+      position: sticky;
+      top: 16px;
+    }
+    .ul__after {
+      margin: 12px 4px 0;
+      font-size: var(--font-size-sm);
+    }
+    @media (max-width: 1279.98px) {
+      .ul {
+        grid-template-columns: 1fr;
+      }
+      .ul__side {
+        position: static;
+      }
+    }
+    .ul__how {
+      padding: 18px 20px;
+    }
+    .ul__how dl {
+      display: grid;
+      gap: 10px;
+      margin: 12px 0;
+    }
+    .ul__how div {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px 12px;
+    }
+    .ul__how dd {
+      margin: 0;
+      color: var(--color-ink);
+      font-size: var(--font-size-sm);
     }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AdminUsageLimitsPageComponent {
   private readonly api = inject(AdminUsageLimitsService);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly toasts = inject(ToastService);
   protected readonly session = inject(SessionService);
 
   private readonly limits = signal<AdminUsageLimit[] | null>(null);
   protected readonly error = signal<ApiError | null>(null);
   protected readonly savingId = signal<string | null>(null);
-  protected readonly rows = computed(() => {
+  protected readonly groups = computed(() => {
     const limits = this.limits();
-    return limits ? sortLimits(limits) : null;
+    return limits ? groupLimits(limits) : null;
   });
   protected readonly windowName = windowLabel;
+
+  /** What the limit counts (board A14's line under its name). */
+  protected help(limit: AdminUsageLimit): string {
+    return HELP[limit.key ?? ''] ?? '';
+  }
+
+  /** "Changed Oct 18 by Alex Morin" (spec 15.8: a name, never an id). */
+  protected changed(limit: AdminUsageLimit): string {
+    return changedLine(limit, 'Changed');
+  }
 
   constructor() {
     void this.load();
@@ -250,11 +354,17 @@ export class AdminUsageLimitsPageComponent {
       );
       this.limits.update((limits) => replaceLimit(limits ?? [], updated));
       const value = updated.unlimited ? 'unlimited' : String(updated.maxValue);
-      this.snackBar.open(`${updated.key} is now ${value} for every collector.`, 'OK', {
-        duration: 4000,
+      this.toasts.show({
+        title: `${updated.key} is now ${value} for every collector.`,
+        sub: RECORDED,
       });
     } catch (error) {
-      this.snackBar.open(friendlyMessage(toApiError(error)), 'OK', { duration: 6000 });
+      const apiError = toApiError(error);
+      this.toasts.show({
+        title: friendlyMessage(apiError),
+        sub: apiError.requestId ? `Request ${apiError.requestId}` : null,
+        tone: 'error',
+      });
     } finally {
       this.savingId.set(null);
     }

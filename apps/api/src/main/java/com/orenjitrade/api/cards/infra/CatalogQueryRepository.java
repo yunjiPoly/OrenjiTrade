@@ -1142,4 +1142,29 @@ public class CatalogQueryRepository {
                     setReleaseDate);
         }
     }
+
+    /** Cards, sets and printings per game id (admin console's "Games and sources"). */
+    public Map<UUID, long[]> countsByGame() {
+        Map<UUID, long[]> counts = new java.util.LinkedHashMap<>();
+        jdbc.sql(
+                        """
+                        SELECT g.id,
+                               (SELECT count(*) FROM card c WHERE c.game_id = g.id) AS cards,
+                               (SELECT count(*) FROM card_set s WHERE s.game_id = g.id) AS sets,
+                               (SELECT count(*) FROM card_printing p JOIN card c ON c.id = p.card_id
+                                 WHERE c.game_id = g.id) AS printings
+                          FROM game g
+                        """)
+                .query(
+                        (rs, rowNum) ->
+                                counts.put(
+                                        rs.getObject("id", UUID.class),
+                                        new long[] {
+                                            rs.getLong("cards"),
+                                            rs.getLong("sets"),
+                                            rs.getLong("printings")
+                                        }))
+                .list();
+        return counts;
+    }
 }

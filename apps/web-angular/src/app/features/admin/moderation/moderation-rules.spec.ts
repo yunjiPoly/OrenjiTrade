@@ -1,5 +1,6 @@
 import type { ModerationRule } from '@orenji/api-client';
 import { ruleGroups, rulesCountLine } from './moderation-rules.component';
+import { twinsLine } from './moderation-rule-labels';
 
 const rule = (id: string, scope: string, kind: string, active = true) =>
   ({ id, scope, kind, active, pattern: id, action: 'FLAG' }) as unknown as ModerationRule;
@@ -32,5 +33,24 @@ describe('the Rules tab (board A4, review fix 1)', () => {
       'POST',
     ]);
     expect(ruleGroups(rules, 'TAG', null)).toEqual([{ scope: 'TAG', rules: [] }]);
+  });
+});
+
+describe('twinsLine (WH1’s R2-2, board A4)', () => {
+  it('says when the same pattern is a separate rule in other places', () => {
+    const rules = [
+      { id: 'a', kind: 'BANNED_TERM', pattern: 'scam', scope: 'MESSAGE' },
+      { id: 'b', kind: 'BANNED_TERM', pattern: 'scam', scope: 'PROFILE' },
+      { id: 'c', kind: 'BANNED_TERM', pattern: 'spam', scope: 'POST' },
+      { id: 'd', kind: 'RATE_LIMIT', pattern: 'scam', scope: 'POST' },
+    ];
+    expect(twinsLine(rules[0], rules)).toBe(
+      'The same pattern is a separate rule for profiles and ratings.',
+    );
+    expect(twinsLine(rules[1], rules)).toBe(
+      'The same pattern is a separate rule for private messages.',
+    );
+    expect(twinsLine(rules[2], rules)).toBeNull();
+    expect(twinsLine(rules[3], rules)).toBeNull();
   });
 });

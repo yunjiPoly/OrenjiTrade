@@ -1,5 +1,6 @@
 import {
-  asksCards,
+  fromStaffSearch,
+  staffEmptyLine,
   orderedResults,
   parseStaffQuery,
   reportNumberLabel,
@@ -37,10 +38,41 @@ describe('the staff search (spec 15.1)', () => {
 describe('the staff search (review fix 1)', () => {
   const result = { id: 'u', group: 'collectors' as const, title: 'Maya', line: '@maya', link: [] };
 
-  it('never sends an email or a handle to the public card search', () => {
-    expect(asksCards('collector2@orenjitrade.test')).toBe(false);
-    expect(asksCards('@maya')).toBe(false);
-    expect(asksCards('Dark Magician')).toBe(true);
+  it('maps the one endpoint of stage WH2: a card opens in the drawer, a report by number', () => {
+    const results = fromStaffSearch(
+      {
+        collectors: [
+          {
+            id: 'u1',
+            handle: 'maya_k',
+            displayName: 'Maya Kashani',
+            email: 'maya_k@example.test',
+            status: 'ACTIVE',
+          },
+        ],
+        cards: [{ id: 'c1', name: 'Dark Magician', game: 'yugioh', printingCode: 'LOB-EN005' }],
+        reports: [
+          { id: 'r1', number: 1047, reason: 'SCAM', status: 'OPEN', reportedHandle: 'maya_k' },
+        ],
+      },
+      () => 'Yu-Gi-Oh!',
+      () => 'Scam or fraud',
+    );
+    expect(results.map((r) => [r.group, r.title, r.line])).toEqual([
+      ['collectors', 'Maya Kashani', '@maya_k · maya_k@example.test'],
+      ['cards', 'Dark Magician', 'Yu-Gi-Oh! · LOB-EN005'],
+      ['reports', '#1047 · @maya_k', 'Scam or fraud'],
+    ]);
+    expect(results[1].link).toEqual(['/admin/cards']);
+    expect(results[1].query).toEqual({ open: 'c1' });
+  });
+
+  it('tells a moderator who typed words that moderators search report numbers only', () => {
+    expect(staffEmptyLine(false, parseStaffQuery('maya'))).toBe(
+      'Moderators search report numbers only. Type a number such as #1047.',
+    );
+    expect(staffEmptyLine(false, parseStaffQuery('#1047'))).toBe('No report has this number.');
+    expect(staffEmptyLine(true, parseStaffQuery('maya'))).toContain('printing code');
   });
 
   it('reads a failure as an error, not as "nothing matches"', () => {

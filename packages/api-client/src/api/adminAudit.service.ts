@@ -43,7 +43,7 @@ export class AdminAuditService extends BaseService implements AdminAuditServiceI
 
     /**
      * List audit-log entries (ADMIN, SUPER_ADMIN)
-     * Newest first. Every filter is optional; &#x60;from&#x60; is inclusive, &#x60;to&#x60; exclusive.
+     * Newest first. Every filter is optional; &#x60;from&#x60; is inclusive, &#x60;to&#x60; exclusive. Each entry names its actor and carries a readable &#x60;targetLabel&#x60;.
      * @endpoint get /api/v1/admin/audit-logs
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -60,6 +60,8 @@ export class AdminAuditService extends BaseService implements AdminAuditServiceI
         const action = requestParameters?.action;
         const from = requestParameters?.from;
         const to = requestParameters?.to;
+        const actorType = requestParameters?.actorType;
+        const target = requestParameters?.target;
         const page = requestParameters?.page;
         const size = requestParameters?.size;
 
@@ -114,6 +116,24 @@ export class AdminAuditService extends BaseService implements AdminAuditServiceI
             localVarQueryParameters,
             'to',
             <any>to,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'actorType',
+            <any>actorType,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'target',
+            <any>target,
             QueryParamStyle.Form,
             true,
         );

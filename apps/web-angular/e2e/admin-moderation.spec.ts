@@ -96,7 +96,7 @@ test.describe('admin console moderation sections', () => {
       await expect(page.getByRole('heading', { level: 1, name: 'Listings' })).toBeVisible();
       await expect(
         page
-          .getByRole('list', { name: 'Listings to review' })
+          .getByRole('table', { name: 'Listings to review' })
           .or(page.getByRole('heading', { name: 'Nothing to review' })),
       ).toBeVisible();
 
@@ -106,7 +106,7 @@ test.describe('admin console moderation sections', () => {
       await expect(page.getByTestId('listing-status')).toContainText('Live');
       await page.getByRole('link', { name: 'Their listings' }).click();
       await expect(page).toHaveURL(/\/admin\/listings\?.*ownerId=/);
-      const listings = page.getByRole('list', { name: 'Listings', exact: true });
+      const listings = page.getByRole('table', { name: 'Listings', exact: true });
       await expect(listings.locator('[data-listing]')).toHaveCount(2);
       await page
         .getByRole('button', { name: `Hide Azure-Eyes Sky Dragon of @${seller.handle}` })
@@ -116,16 +116,15 @@ test.describe('admin console moderation sections', () => {
       await expect(hide.getByText('Give a short reason for the audit log.')).toBeVisible();
       await hide.getByRole('textbox', { name: 'Reason' }).fill('Price looks like bait (E2E).');
       await hide.getByRole('button', { name: 'Hide listing' }).click();
-      await expect(
-        page.getByText('Azure-Eyes Sky Dragon is hidden. The action is in the audit log.'),
-      ).toBeVisible();
+      await expect(page.getByText('Azure-Eyes Sky Dragon is hidden.')).toBeVisible();
       await expect(
         page.getByRole('button', { name: `Hide Azure-Eyes Sky Dragon of @${seller.handle}` }),
       ).toHaveCount(0);
 
       // --- Pause and resume the seller's listings ---------------------------------------------
       await page.goto(`/admin/users/${seller.id}`);
-      await page.getByRole('button', { name: 'Pause listings' }).click();
+      // The header's Pause listings (board A8); the Public listings card has the same button.
+      await page.getByRole('button', { name: 'Pause listings' }).first().click();
       const pause = page.getByRole('dialog', { name: `Pause the listings of @${seller.handle}?` });
       await pause.getByRole('textbox', { name: 'Reason' }).fill('Checking reported prices (E2E).');
       await pause.getByRole('button', { name: 'Pause listings' }).click();
@@ -142,7 +141,7 @@ test.describe('admin console moderation sections', () => {
       await expect(banner.getByRole('button', { name: 'Resume listings' })).toHaveCount(0);
       await expect(banner).not.toContainText('Checking reported prices');
 
-      await page.getByRole('button', { name: 'Resume listings' }).click();
+      await page.getByRole('button', { name: 'Resume listings' }).first().click();
       const resume = page.getByRole('dialog', {
         name: `Resume the listings of @${seller.handle}?`,
       });

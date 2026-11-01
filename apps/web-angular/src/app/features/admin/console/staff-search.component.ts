@@ -8,18 +8,20 @@ import {
   signal,
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { AdminReportsService, AdminUsersService, CatalogService } from '@orenji/api-client';
+import { AdminConsoleService, AdminReportsService } from '@orenji/api-client';
 import { Observable, Subscription, catchError, forkJoin, map, of, timer, switchMap } from 'rxjs';
 import { SessionService } from '../../../core/auth/session.service';
 import { silentErrors } from '../../../core/http/http-context';
 import { GLOBAL_SEARCH_ID } from '../../../core/keyboard/keyboard-shortcuts.service';
 import { reportReasonLabel } from '../../../shared/reports/report-labels';
 import { AdminIconComponent } from './admin-icon.component';
+import { gameName } from './console-labels';
 import {
   STAFF_SEARCH_GROUPS,
+  fromStaffSearch,
+  staffEmptyLine,
   StaffGroupAnswer,
   StaffSearchResult,
-  asksCards,
   orderedResults,
   parseStaffQuery,
   reportNumberLabel,
@@ -34,8 +36,8 @@ const DEBOUNCE_MS = 250;
  * (a handle, an email or a name; a card name; a report number), "Find a report by its number" for
  * moderators. `/` focuses it (it carries the top bar's search id). Results drop down grouped
  * Collectors, Cards and Reports; the arrows move, Enter opens the active one or the first, Esc
- * closes. Until stage WH2's one endpoint, it asks the existing lists: accounts, the catalog and
- * the report queue by number.
+ * closes. Administrators ask the one endpoint `GET /admin/search` (stage WH2: handles, emails,
+ * names, card names, printing codes, report numbers); moderators the report queue by number.
  */
 @Component({
   selector: 'app-staff-search',
@@ -53,7 +55,8 @@ const DEBOUNCE_MS = 250;
         [placeholder]="placeholder()"
         aria-autocomplete="list"
         [attr.aria-expanded]="open()"
-        aria-controls="staff-search-list"
+        [attr.aria-controls]="open() && results().length ? 'staff-search-list' : null"
+        aria-keyshortcuts="/"
         [attr.aria-activedescendant]="activeId()"
         [value]="text()"
         (input)="onInput($event)"
@@ -64,16 +67,11 @@ const DEBOUNCE_MS = 250;
       />
       <kbd class="ss__key" aria-hidden="true">/</kbd>
       @if (open()) {
-        <div
-          class="ss__panel"
-          id="staff-search-list"
-          role="listbox"
-          [attr.aria-label]="placeholder()"
-        >
+        <div class="ss__panel">
           @if (searching() && results().length === 0) {
-            <p class="ss__note" role="presentation">Searching…</p>
+            <p class="ss__note">Searching…</p>
           } @else if (failed()) {
-            <p class="ss__note ss__note--error" role="presentation">
+            <p class="ss__note ss__note--error">
               Search failed.
               <button
                 type="button"
@@ -85,30 +83,33 @@ const DEBOUNCE_MS = 250;
               </button>
             </p>
           } @else if (results().length === 0) {
-            <p class="ss__note" role="presentation">{{ emptyLine() }}</p>
+            <p class="ss__note">{{ emptyLine() }}</p>
           } @else {
-            @for (group of groups(); track group.id) {
-              <div class="ss__group" role="group" [attr.aria-labelledby]="'ss-group-' + group.id">
-                <p class="ss__group-label" [id]="'ss-group-' + group.id" role="presentation">
-                  {{ group.label }}
-                </p>
-                @for (result of group.results; track result.id) {
-                  <a
-                    class="ss__option"
-                    role="option"
-                    tabindex="-1"
-                    [id]="'ss-' + result.group + '-' + result.id"
-                    [attr.aria-selected]="activeId() === 'ss-' + result.group + '-' + result.id"
-                    [routerLink]="result.link"
-                    (mousedown)="$event.preventDefault()"
-                    (click)="clear()"
-                  >
-                    <span class="ss__title">{{ result.title }}</span>
-                    <span class="ss__line">{{ result.line }}</span>
-                  </a>
-                }
-              </div>
-            }
+            <div id="staff-search-list" role="listbox" [attr.aria-label]="placeholder()">
+              @for (group of groups(); track group.id) {
+                <div class="ss__group" role="group" [attr.aria-labelledby]="'ss-group-' + group.id">
+                  <p class="ss__group-label" [id]="'ss-group-' + group.id" role="presentation">
+                    {{ group.label }}
+                  </p>
+                  @for (result of group.results; track result.id) {
+                    <a
+                      class="ss__option"
+                      role="option"
+                      tabindex="-1"
+                      [id]="'ss-' + result.group + '-' + result.id"
+                      [attr.aria-selected]="activeId() === 'ss-' + result.group + '-' + result.id"
+                      [routerLink]="result.link"
+                      [queryParams]="result.query ?? null"
+                      (mousedown)="$event.preventDefault()"
+                      (click)="clear()"
+                    >
+                      <span class="ss__title">{{ result.title }}</span>
+                      <span class="ss__line">{{ result.line }}</span>
+                    </a>
+                  }
+                </div>
+              }
+            </div>
           }
         </div>
       }
@@ -244,8 +245,7 @@ export class StaffSearchComponent {
   private readonly router = inject(Router);
   private readonly session = inject(SessionService);
   private readonly reportsApi = inject(AdminReportsService);
-  private readonly usersApi = inject(AdminUsersService);
-  private readonly catalogApi = inject(CatalogService);
+  private readonly consoleApi = inject(AdminConsoleService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   protected readonly inputId = GLOBAL_SEARCH_ID;
@@ -277,9 +277,7 @@ export class StaffSearchComponent {
     return this.open() && result ? `ss-${result.group}-${result.id}` : null;
   });
   protected readonly emptyLine = computed(() =>
-    this.admin()
-      ? 'Nothing matches. Try a handle, an email, a card name or a report number.'
-      : 'No report has this number.',
+    staffEmptyLine(this.admin(), parseStaffQuery(this.text())),
   );
   protected readonly announcement = computed(() => {
     if (!this.open() || this.searching()) {
@@ -350,7 +348,7 @@ export class StaffSearchComponent {
 
   protected go(result: StaffSearchResult): void {
     this.clear();
-    void this.router.navigate(result.link);
+    void this.router.navigate(result.link, { queryParams: result.query });
   }
 
   /** "Try again" after a failed search: the same text once more. */
@@ -389,6 +387,29 @@ export class StaffSearchComponent {
         map((results) => ({ results, failed: false })),
         catchError(() => of({ results: [] as StaffSearchResult[], failed: true })),
       );
+    if (admin) {
+      // One endpoint for administrators (spec 15.8.6).
+      const all = answer(
+        this.consoleApi.staffSearch({ q: query.text, limit: 5 }, 'body', false, options).pipe(
+          map((response) =>
+            fromStaffSearch(
+              response,
+              (slug) => gameName(slug) ?? slug,
+              (reason) => reportReasonLabel(reason),
+            ),
+          ),
+        ),
+      );
+      this.subscription = timer(DEBOUNCE_MS)
+        .pipe(switchMap(() => all))
+        .subscribe((group) => {
+          this.failed.set(staffSearchFailed([group]));
+          this.results.set(orderedResults(group.results));
+          this.activeIndex.set(-1);
+          this.searching.set(false);
+        });
+      return;
+    }
     const reports = query.number
       ? answer(
           this.reportsApi
@@ -406,43 +427,8 @@ export class StaffSearchComponent {
             ),
         )
       : none;
-    const text = query.text.replace(/^#/, '');
-    const collectors =
-      admin && query.number === null
-        ? answer(
-            this.usersApi.listUsers({ query: text, size: 5 }, 'body', false, options).pipe(
-              map((page) =>
-                (page.items ?? []).map((user): StaffSearchResult => ({
-                  id: user.id,
-                  group: 'collectors',
-                  title: user.displayName || `@${user.handle}`,
-                  line: `@${user.handle}`,
-                  link: ['/admin/users', user.id],
-                })),
-              ),
-            ),
-          )
-        : none;
-    const cards =
-      admin && query.number === null && asksCards(text)
-        ? answer(
-            this.catalogApi.searchCards({ query: text, size: 5 }, 'body', false, options).pipe(
-              map((page) =>
-                (page.items ?? [])
-                  .filter((card) => !!card.id)
-                  .map((card): StaffSearchResult => ({
-                    id: card.id as string,
-                    group: 'cards',
-                    title: card.name ?? '',
-                    line: card.cardType ?? '',
-                    link: ['/admin/cards', card.id as string],
-                  })),
-              ),
-            ),
-          )
-        : none;
     this.subscription = timer(DEBOUNCE_MS)
-      .pipe(switchMap(() => forkJoin([collectors, cards, reports])))
+      .pipe(switchMap(() => forkJoin([reports])))
       .subscribe((answers) => {
         this.failed.set(staffSearchFailed(answers));
         this.results.set(orderedResults(answers.flatMap((group) => group.results)));

@@ -26,5 +26,13 @@ export interface InventoryImportSettingsResponse {
     previewTtlMinutes: number;
     updatedBy?: string | null;
     updatedAt?: string | null;
+    /**
+     * The last editor\'s handle (spec 15.8)
+     */
+    updatedByHandle?: string | null;
+    /**
+     * The last editor\'s display name
+     */
+    updatedByName?: string | null;
 }
 

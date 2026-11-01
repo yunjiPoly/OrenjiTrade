@@ -56,7 +56,7 @@ import { StaffSearchComponent } from './console/staff-search.component';
             <span class="visually-hidden">Role: </span>{{ role }}
           </span>
         }
-        <a class="ct__back" routerLink="/" data-testid="admin-back">
+        <a class="ct__back" routerLink="/" data-testid="admin-back" title="Back to OrenjiTrade">
           <app-admin-icon name="arrowLeft" [size]="18" />
           <span class="ct__back-text">Back to OrenjiTrade</span>
         </a>

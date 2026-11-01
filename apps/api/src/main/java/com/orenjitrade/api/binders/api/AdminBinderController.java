@@ -11,6 +11,7 @@ import com.orenjitrade.api.binders.infra.BinderRepository.AdminRow;
 import com.orenjitrade.api.common.PageResponse;
 import com.orenjitrade.api.delisting.domain.FreshnessState;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
@@ -66,9 +67,16 @@ public class AdminBinderController {
             @RequestParam(required = false) @Size(max = 100) @Nullable String query,
             @RequestParam(required = false) @Nullable UUID ownerId,
             @RequestParam(required = false) @Nullable ListingVisibility visibility,
+            @Parameter(
+                            description =
+                                    "true: deck cores only (kind DECK); false: binders only"
+                                            + " (web stage WH2)")
+                    @RequestParam(required = false)
+                    @Nullable Boolean deckCore,
             @RequestParam(defaultValue = "0") @Min(0) @Max(10_000) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
-        PageResponse<AdminRow> result = binders.adminList(query, ownerId, visibility, page, size);
+        PageResponse<AdminRow> result =
+                binders.adminList(query, ownerId, visibility, deckCore, page, size);
         return new PageResponse<>(
                 result.items().stream()
                         .map(row -> AdminBinderResponse.from(row.binder(), row.ownerHandle()))
@@ -124,7 +132,12 @@ public class AdminBinderController {
             @Schema(requiredMode = RequiredMode.REQUIRED) int itemCount,
             @Schema(requiredMode = RequiredMode.REQUIRED) boolean effectivePublic,
             @Schema(requiredMode = RequiredMode.REQUIRED) Instant confirmedAt,
-            @Schema(requiredMode = RequiredMode.REQUIRED) Instant updatedAt) {
+            @Schema(requiredMode = RequiredMode.REQUIRED) Instant updatedAt,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            example = "yugioh",
+                            description = "The game of the binder's cards (web stage WH2)")
+                    String game) {
 
         static AdminBinderResponse from(BinderView binder, @Nullable String ownerHandle) {
             return new AdminBinderResponse(
@@ -139,7 +152,8 @@ public class AdminBinderController {
                     binder.itemCount(),
                     binder.effectivePublic(),
                     binder.confirmedAt(),
-                    binder.updatedAt());
+                    binder.updatedAt(),
+                    binder.game());
         }
     }
 }

@@ -1,0 +1,177 @@
+<div class="cp">
+  <header class="cp__head">
+    <div class="cp__heading">
+      <p class="cp__eyebrow">Rules</p>
+      <h1 class="cp__title">Wishlist terms</h1>
+      <p class="cp__sub">
+        The price terms a wish may show, relative to the TCG market price. Collectors pick at most
+        one per wish; it never filters anything.
+      </p>
+    </div>
+  </header>
+
+  @if (error(); as error) {
+    <app-error-state
+      title="Wishlist settings could not load"
+      [message]="message(error)"
+      [requestId]="error.requestId"
+      retryLabel="Try again"
+      (retry)="load()"
+    />
+  } @else if (settings()) {
+    <div class="wt">
+      <section class="cp-card wt__card" aria-labelledby="wishlist-terms">
+        <div class="wt__head">
+          <h2 class="cp-card__title" id="wishlist-terms">Price terms</h2>
+          <span class="cp-muted"
+            >{{ terms().length }} {{ terms().length === 1 ? 'term' : 'terms' }} · at most
+            {{ maxTerms }}</span
+          >
+        </div>
+        <p class="wt__line" id="wt-order">
+          Order is the order collectors see. Drag a term, or use its move buttons.
+        </p>
+        <ol
+          class="wt__list"
+          cdkDropList
+          aria-describedby="wt-order"
+          data-testid="admin-price-terms"
+          (cdkDropListDropped)="drop($event)"
+        >
+          @for (term of terms(); track term; let i = $index; let first = $first; let last = $last) {
+            <li class="wt__item" cdkDrag [cdkDragData]="term">
+              <span class="wt__grip" cdkDragHandle aria-hidden="true"
+                ><app-admin-icon name="grip" [size]="18"
+              /></span>
+              <span class="wt__num" aria-hidden="true">{{ i + 1 }}</span>
+              <span class="wt__text">
+                <span class="cp-chip cp-chip--accent wt__term">{{ term }}</span>
+                <span class="wt__reads">Sellers read: {{ sellersRead(term) }}</span>
+              </span>
+              <span class="wt__actions">
+                <button
+                  type="button"
+                  class="cb cb--quiet cb--small wt__icon"
+                  [id]="'wt-up-' + i"
+                  [attr.aria-label]="'Move ' + term + ' up'"
+                  [attr.aria-disabled]="first ? 'true' : null"
+                  (click)="first || move(i, -1)"
+                >
+                  <app-admin-icon name="arrowUp" [size]="16" />
+                </button>
+                <button
+                  type="button"
+                  class="cb cb--quiet cb--small wt__icon"
+                  [id]="'wt-down-' + i"
+                  [attr.aria-label]="'Move ' + term + ' down'"
+                  [attr.aria-disabled]="last ? 'true' : null"
+                  (click)="last || move(i, 1)"
+                >
+                  <app-admin-icon name="arrowDown" [size]="16" />
+                </button>
+                <button
+                  type="button"
+                  class="cb cb--quiet cb--small wt__icon wt__remove"
+                  [id]="'wt-remove-' + i"
+                  [attr.aria-label]="'Remove ' + term"
+                  (click)="remove(i)"
+                >
+                  <app-admin-icon name="close" [size]="16" />
+                </button>
+              </span>
+            </li>
+          }
+        </ol>
+        @if (problem(); as problem) {
+          <p class="wt__problem" role="alert">{{ problem }}</p>
+        }
+
+        <form class="wt__add" (submit)="$event.preventDefault(); add()" novalidate>
+          <label class="cp-field wt__add-field">
+            <span class="cp-field__label">Add a term</span>
+            <input
+              id="wt-add"
+              class="cp-input"
+              placeholder="90% TCG"
+              autocomplete="off"
+              [value]="draft()"
+              [attr.aria-invalid]="addError() ? 'true' : null"
+              aria-describedby="wt-add-help"
+              (input)="onDraft($event)"
+            />
+          </label>
+          <button type="submit" class="cb cb--outline">
+            <app-admin-icon name="plus" [size]="16" />
+            Add
+          </button>
+        </form>
+        <p class="wt__help" id="wt-add-help" [class.wt__help--bad]="!!addError()">
+          {{
+            addError() ||
+              'A percent from 1 to 200, then “% TCG”, with an optional “+” for “or more”.'
+          }}
+        </p>
+        <p class="wt__line">
+          Wishes that chose a removed term keep it until their owner edits them.
+        </p>
+
+        <div class="wt__bar">
+          <p class="wt__changed">
+            <app-admin-icon name="clock" [size]="16" />
+            {{ editor() }}
+          </p>
+          <button
+            type="button"
+            class="cb cb--outline"
+            [attr.aria-disabled]="saving() || !changed() ? 'true' : null"
+            (click)="saving() || !changed() || reset()"
+          >
+            Discard changes
+          </button>
+          <button
+            type="button"
+            class="cb cb--primary"
+            [disabled]="saving() || !!problem() || !changed()"
+            (click)="save()"
+          >
+            {{ saving() ? 'Saving…' : 'Save terms' }}
+          </button>
+        </div>
+        <p class="visually-hidden" aria-live="polite">{{ announcement() }}</p>
+      </section>
+
+      <aside class="cp-card wt__card wt__preview" aria-labelledby="wt-preview">
+        <h2 class="cp-card__title" id="wt-preview">How a wish shows it</h2>
+        <p class="wt__line">On a public wishlist, with the terms above.</p>
+        <div class="wt__wish">
+          <p class="wt__wish-name">A card on a wishlist</p>
+          <p class="wt__wish-line">
+            Near Mint only
+            @if (previewTerm(); as term) {
+              · {{ term }}
+            }
+          </p>
+          <p class="wt__wish-note">Note: “English only, please.”</p>
+        </div>
+        <p class="wt__label">Price (optional, at most one)</p>
+        <ul class="wt__chips" aria-label="Terms a collector picks from">
+          @for (term of terms(); track term) {
+            <li class="cp-chip" [class.cp-chip--accent]="term === previewTerm()">{{ term }}</li>
+          }
+        </ul>
+        <p class="wt__line">
+          Compared with the TCG market price. Sellers see it; it never hides a listing.
+        </p>
+        <p class="wt__note">
+          <app-admin-icon name="info" [size]="16" />
+          No amount is ever shown next to a term: collectors never see market prices.
+        </p>
+      </aside>
+    </div>
+  } @else {
+    <div aria-busy="true">
+      <span class="visually-hidden">Loading the wishlist settings</span>
+      <app-skeleton variant="list" lines="4" />
+    </div>
+  }
+</div>

@@ -1,30 +1,54 @@
-<div class="admin-page">
-  <app-page-header title="Users" subtitle="Search accounts, review their status and act on them." />
+<div class="cp">
+  <header class="cp__head">
+    <div class="cp__heading">
+      <p class="cp__eyebrow">Collectors</p>
+      <h1 class="cp__title">Users</h1>
+      <p class="cp__sub">Search accounts, review their status and act on them.</p>
+    </div>
+  </header>
 
-  <div class="admin-filters" role="search" aria-label="Filter accounts">
-    <mat-form-field appearance="outline" class="admin-filters__search" subscriptSizing="dynamic">
-      <mat-label>Search handle, name or email</mat-label>
-      <mat-icon matPrefix aria-hidden="true">search</mat-icon>
-      <input matInput type="search" [value]="params().query ?? ''" (input)="onSearch($event)" />
-    </mat-form-field>
-    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-      <mat-label>Status</mat-label>
-      <mat-select [value]="params().status ?? null" (selectionChange)="setStatus($event.value)">
-        <mat-option [value]="null">Any status</mat-option>
+  <div class="cp-filterbar" role="search" aria-label="Filter accounts">
+    <label class="cp-field cp-field--grow">
+      <span class="visually-hidden">Search handle, name or email</span>
+      <span class="cp-search">
+        <app-admin-icon name="search" [size]="16" />
+        <input
+          class="cp-input"
+          type="search"
+          placeholder="Search handle, name or email"
+          [value]="params().query ?? ''"
+          (input)="onSearch($event)"
+        />
+      </span>
+    </label>
+    <label class="cp-field">
+      <span class="cp-field__label">Status</span>
+      <select class="cp-select" (change)="setStatus($any($event.target).value || null)">
+        <option value="" [selected]="!params().status">Any status</option>
         @for (status of statuses; track status) {
-          <mat-option [value]="status">{{ statusLabels[status] }}</mat-option>
+          <option [value]="status" [selected]="params().status === status">
+            {{ statusLabels[status] }}
+          </option>
         }
-      </mat-select>
-    </mat-form-field>
-    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-      <mat-label>Role</mat-label>
-      <mat-select [value]="params().role ?? null" (selectionChange)="setRole($event.value)">
-        <mat-option [value]="null">Any role</mat-option>
+      </select>
+    </label>
+    <label class="cp-field">
+      <span class="cp-field__label">Role</span>
+      <select class="cp-select" (change)="setRole($any($event.target).value || null)">
+        <option value="" [selected]="!params().role">Any role</option>
         @for (role of roles; track role) {
-          <mat-option [value]="role">{{ roleLabels[role] }}</mat-option>
+          <option [value]="role" [selected]="params().role === role">{{ roleLabels[role] }}</option>
         }
-      </mat-select>
-    </mat-form-field>
+      </select>
+    </label>
+    <label class="cp-field">
+      <span class="cp-field__label">Per page</span>
+      <select class="cp-select" (change)="setSize(+$any($event.target).value)">
+        @for (size of pageSizes; track size) {
+          <option [value]="size" [selected]="params().size === size">{{ size }}</option>
+        }
+      </select>
+    </label>
   </div>
 
   @if (error(); as error) {
@@ -32,6 +56,7 @@
       title="Accounts could not load"
       [message]="errorMessage()"
       [requestId]="error.requestId"
+      retryLabel="Try again"
       (retry)="reload()"
     />
   } @else if (loading() && !result()) {
@@ -49,27 +74,32 @@
         "
       >
         @if (hasFilters()) {
-          <button actions type="button" class="admin-link" (click)="clearFilters()">
+          <button actions type="button" class="cb cb--outline" (click)="clearFilters()">
             Clear filters
           </button>
         }
       </app-empty-state>
     } @else {
-      <p class="admin-count" aria-live="polite">
-        {{ page.totalItems }} {{ page.totalItems === 1 ? 'account' : 'accounts' }}
+      <p class="cp-count" aria-live="polite">
+        {{ (page.totalItems ?? 0).toLocaleString('en-US') }}
+        {{ page.totalItems === 1 ? 'account' : 'accounts' }}
         @if (loading()) {
           · updating…
         }
       </p>
-      <app-admin-users-table [users]="page.items ?? []" [class.admin-dim]="loading()" />
-      <mat-paginator
-        [length]="page.totalItems ?? 0"
-        [pageIndex]="page.page ?? 0"
-        [pageSize]="page.size ?? 20"
-        [pageSizeOptions]="pageSizes"
-        (page)="onPage($event)"
-        aria-label="Accounts pages"
-      />
+      <app-admin-users-table [users]="page.items ?? []" [class.ct--dim]="loading()" />
+      <div class="ct-pager">
+        <span>{{ range() }}</span>
+        <mat-paginator
+          [length]="page.totalItems ?? 0"
+          [pageIndex]="page.page ?? 0"
+          [pageSize]="page.size ?? 20"
+          [hidePageSize]="true"
+          (page)="onPage($event)"
+          aria-label="Accounts pages"
+        />
+      </div>
+      <p class="ct-foot">Open an account to suspend it, pause its listings or change its roles.</p>
     }
   }
 </div>

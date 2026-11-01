@@ -1,0 +1,82 @@
+// The console's drawers (board A5's room drawer, A11's card drawer, A12's sync report): a
+// scrim, a 480 px panel on the right with a header, a scrolling body and a footer.
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: var(--color-overlay);
+}
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 51;
+  display: flex;
+  flex-direction: column;
+  width: min(480px, 100vw);
+  border-left: 1px solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: var(--elevation-sheet);
+}
+.drawer__head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--color-border);
+}
+.drawer__heading {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.drawer__title {
+  margin: 0;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: var(--font-weight-semibold);
+}
+.drawer__sub {
+  margin: 2px 0 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+.drawer__close {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+.drawer__close:hover {
+  background: var(--color-surface-variant);
+}
+.drawer__close:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+}
+.drawer__body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 18px;
+  overflow-y: auto;
+  padding: 18px 20px;
+}
+.drawer__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--color-border);
+}
+.drawer--wide {
+  width: min(560px, 100vw);
+}

@@ -120,6 +120,16 @@
                   <a class="cp-link" [routerLink]="['/binders', r.context.binderId]"
                     >Open the binder</a
                   >
+                } @else if (r.contextRoomSlug) {
+                  ·
+                  <a
+                    class="cp-link"
+                    [routerLink]="['/messages/community', r.contextRoomSlug]"
+                    target="_blank"
+                    rel="noopener"
+                    aria-label="Open the room, opens in a new tab"
+                    >Open the room</a
+                  >
                 }
               </dd>
             </div>

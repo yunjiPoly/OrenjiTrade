@@ -180,6 +180,7 @@ model/cardScanPrinting.ts
 model/cardScanRead.ts
 model/cardSuggestion.ts
 model/cardSummary.ts
+model/catalogGameSummary.ts
 model/catalogImportReport.ts
 model/catalogSyncRequest.ts
 model/catalogSyncRun.ts
@@ -426,6 +427,10 @@ model/setSummary.ts
 model/sharedItem.ts
 model/shipTradeRequest.ts
 model/shipmentSummary.ts
+model/staffSearchCard.ts
+model/staffSearchCollector.ts
+model/staffSearchReport.ts
+model/staffSearchResponse.ts
 model/staleListing.ts
 model/startConversationRequest.ts
 model/subdivisionBinderCount.ts

@@ -1,0 +1,204 @@
+// The console's form fields (spec 15.2; boards A13, A15, A17 and A20): the label above, a 44 px
+// box, the help or the error under it, radio cards for a choice (web stage WH2 review fix 2: the
+// forms that kept Material's outlined floating labels). Import limits keeps its own copy (il__*).
+
+.cf {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.cf__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.cf__label {
+  color: var(--color-ink);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+.cf__count {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.cf__control {
+  box-sizing: border-box;
+  width: 100%;
+  height: 44px;
+  min-width: 0;
+  padding: 0 14px;
+  border: 1px solid var(--color-border-input);
+  border-radius: 12px;
+  background: var(--color-background);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 15px;
+}
+select.cf__control {
+  padding-right: 32px;
+}
+textarea.cf__control {
+  height: auto;
+  min-height: 96px;
+  padding: 10px 14px;
+  line-height: 22px;
+  resize: vertical;
+}
+.cf__control:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-offset);
+}
+.cf__control[aria-invalid='true'] {
+  border-color: var(--color-danger);
+}
+.cf__control:disabled {
+  opacity: 0.6;
+}
+.cf__fixed {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  color: var(--color-ink);
+  font-size: 15px;
+}
+.cf__help,
+.cf__error {
+  margin: 0;
+  font-size: var(--font-size-xs);
+}
+.cf__help {
+  color: var(--color-text-secondary);
+}
+.cf__error {
+  color: var(--app-danger-text);
+  font-weight: var(--font-weight-semibold);
+}
+
+// A row of fields that wraps on narrow windows.
+.cf-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px 20px;
+}
+
+// Radio cards (boards A13 and A20).
+.cf-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.cf-choices > legend {
+  margin: 0 0 8px;
+  padding: 0;
+  color: var(--color-ink);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+.cf-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 12px;
+  cursor: pointer;
+}
+.cf-choice--on {
+  border-color: var(--color-primary);
+  background: var(--color-primary-tint);
+}
+.cf-choice input {
+  margin-top: 3px;
+  accent-color: var(--color-primary);
+}
+.cf-choice:focus-within {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+.cf-choice strong {
+  display: block;
+  color: var(--color-ink);
+  font-size: var(--font-size-sm);
+}
+.cf-choice .cf__help {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--font-size-sm);
+}
+
+// Check boxes for a list of values (the card drawer's list attributes).
+.cf-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.cf-checks > legend {
+  margin: 0 0 6px;
+  padding: 0;
+  color: var(--color-ink);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+.cf-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  color: var(--color-ink);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+.cf-check input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--color-primary);
+}
+
+// A number with its unit in one box ("14 days", board A17), as Import limits draws it.
+.cf__box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border-input);
+  border-radius: 12px;
+  background: var(--color-background);
+}
+.cf__box:focus-within {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-offset);
+}
+.cf__box--bad {
+  border-color: var(--color-danger);
+}
+.cf__box input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 15px;
+}
+.cf__unit {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}

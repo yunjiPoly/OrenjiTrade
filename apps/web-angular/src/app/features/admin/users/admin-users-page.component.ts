@@ -9,11 +9,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
-import { MatSelectModule } from '@angular/material/select';
 import { Router } from '@angular/router';
 import {
   AdminUsersService,
@@ -28,9 +24,9 @@ import { friendlyMessage } from '../../../core/http/api-error-messages';
 import { silentErrors } from '../../../core/http/http-context';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
-import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
 import { ACCOUNT_STATUSES, AccountStatus, STATUS_LABELS } from '../shared/admin-labels';
+import { AdminIconComponent } from '../console/admin-icon.component';
 import { AdminUsersTableComponent } from './admin-users-table.component';
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100];
@@ -47,19 +43,19 @@ function toInt(value: string | undefined, fallback: number): number {
 @Component({
   selector: 'app-admin-users-page',
   imports: [
-    MatFormFieldModule,
-    MatIconModule,
-    MatInputModule,
     MatPaginatorModule,
-    MatSelectModule,
+    AdminIconComponent,
     AdminUsersTableComponent,
     EmptyStateComponent,
     ErrorStateComponent,
-    PageHeaderComponent,
     SkeletonComponent,
   ],
   templateUrl: './admin-users-page.component.html',
-  styleUrl: '../shared/admin-page.scss',
+  styleUrls: [
+    '../console/console-page.scss',
+    '../console/console-controls.scss',
+    '../console/console-table.scss',
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AdminUsersPageComponent {
@@ -97,6 +93,17 @@ export class AdminUsersPageComponent {
     page: toInt(this.page(), 0),
     size: PAGE_SIZE_OPTIONS.includes(toInt(this.size(), 20)) ? toInt(this.size(), 20) : 20,
   }));
+  /** "1–20 of 64" (board A7). */
+  protected readonly range = computed(() => {
+    const page = this.result();
+    const total = page?.totalItems ?? 0;
+    if (!page || !total) {
+      return '';
+    }
+    const start = (page.page ?? 0) * (page.size ?? 20) + 1;
+    const end = Math.min(total, start + (page.items ?? []).length - 1);
+    return `${start}–${end} of ${total.toLocaleString('en-US')}`;
+  });
   protected readonly hasFilters = computed(() => {
     const p = this.params();
     return !!(p.query || p.status || p.role);
@@ -133,10 +140,11 @@ export class AdminUsersPageComponent {
   }
 
   protected onPage(event: PageEvent): void {
-    this.navigate({
-      page: event.pageIndex || null,
-      size: event.pageSize === 20 ? null : event.pageSize,
-    });
+    this.navigate({ page: event.pageIndex || null });
+  }
+
+  protected setSize(size: number): void {
+    this.navigate({ size: size === 20 ? null : size, page: null });
   }
 
   protected clearFilters(): void {

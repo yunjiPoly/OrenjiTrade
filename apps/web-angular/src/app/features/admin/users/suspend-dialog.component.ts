@@ -39,8 +39,9 @@ export function endOfDayIso(date: string): string {
     <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
       <mat-dialog-content>
         <p class="suspend__text">
-          The collector is signed out, hidden from the map and search, and cannot use OrenjiTrade
-          until the suspension ends or is lifted. This action is recorded in the audit log.
+          They can still sign in, but see that their account is suspended, with its end date. They
+          are hidden from the map and search and can’t post, message or trade until it ends or is
+          lifted. This action is recorded in the audit log.
         </p>
         <mat-form-field appearance="outline" class="suspend__field">
           <mat-label>Reason</mat-label>

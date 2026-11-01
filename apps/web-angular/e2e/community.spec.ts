@@ -428,7 +428,7 @@ test.describe('community rooms', () => {
       await expect(flag).toContainText('Banned term');
       await expect(flag).toContainText('Community post');
       await expect(flag).toContainText('Great fnordpromo bundle here');
-      await expect(flag.getByRole('link', { name: /^Open the post/ })).toHaveAttribute(
+      await expect(flag.getByRole('link', { name: /^Open the room/ })).toHaveAttribute(
         'href',
         `/messages/community/${ROOM}`,
       );

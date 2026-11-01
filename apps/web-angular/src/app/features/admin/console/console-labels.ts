@@ -106,3 +106,12 @@ export function flagRoomLine(flag: Pick<ModerationFlag, 'community'>): string | 
     .filter((part): part is string => !!part)
     .join(' · ');
 }
+
+/** A count's share of a total as boards A20 and A22 print it ("46%", "<1%"). */
+export function shareWords(count: number, total: number): string {
+  if (total <= 0 || count <= 0) {
+    return '0%';
+  }
+  const percent = (count / total) * 100;
+  return percent < 1 ? '<1%' : `${Math.round(percent)}%`;
+}

@@ -33,10 +33,6 @@ public interface UserAccountRepository
     @EntityGraph(attributePaths = "roles")
     Optional<UserAccount> findWithRolesByHandleIgnoreCase(String handle);
 
-    /** Cheap projection for audit actors. */
-    @Query("select u.id as id, u.handle as handle from UserAccount u where u.id in :ids")
-    List<HandleProjection> findHandlesByIdIn(@Param("ids") Collection<UUID> ids);
-
     /**
      * Sets {@code last_active_at}, except for a deleted account and an account whose suspension is
      * in force ({@code suspended} is {@link AccountStatus#SUSPENDED}).
@@ -69,10 +65,4 @@ public interface UserAccountRepository
             @Param("staffOnly") boolean staffOnly,
             @Param("limit") int limit,
             @Param("offset") long offset);
-
-    interface HandleProjection {
-        UUID getId();
-
-        String getHandle();
-    }
 }

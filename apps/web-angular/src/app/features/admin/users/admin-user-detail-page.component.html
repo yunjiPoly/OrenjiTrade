@@ -1,11 +1,11 @@
-<div class="admin-page">
-  <a class="detail__back" routerLink="/admin/users">
-    <mat-icon aria-hidden="true">arrow_back</mat-icon>
+<div class="cp ac">
+  <a class="cp-link ac__back" routerLink="/admin/users">
+    <app-admin-icon name="arrowLeft" [size]="16" />
     All users
   </a>
 
   @if (loading() && !detail()) {
-    <div class="detail__skeleton" aria-busy="true">
+    <div class="ac__skeleton" aria-busy="true">
       <span class="visually-hidden">Loading the account</span>
       <app-skeleton variant="list" lines="1" />
       <app-skeleton height="160px" />
@@ -22,73 +22,103 @@
         title="The account could not load"
         [message]="error.message"
         [requestId]="error.requestId"
+        retryLabel="Try again"
         (retry)="load()"
       />
     }
   } @else if (detail(); as d) {
     @let a = d.account;
-    <header class="detail__header admin-card">
+    <header class="cp-card ac__head">
       <app-avatar
         size="lg"
         [src]="a.avatarUrl"
         [name]="a.displayName || a.handle"
         [decorative]="true"
       />
-      <div class="detail__identity">
-        <h1 class="detail__name">{{ a.displayName || a.handle }}</h1>
-        <p class="detail__handle">
-          <a [routerLink]="['/collectors', a.handle]">&#64;{{ a.handle }}</a>
-          · {{ a.email || 'no email' }}
-          @if (a.emailVerified) {
-            <mat-icon
-              class="detail__verified"
-              aria-label="Email verified"
-              matTooltip="Email verified"
-            >
-              verified
-            </mat-icon>
+      <div class="ac__identity">
+        <div class="ac__title-row">
+          <h1 class="cp__title ac__name">{{ a.displayName || a.handle }}</h1>
+          <app-status-chip [status]="a.status" data-testid="admin-user-status" />
+        </div>
+        <p class="ac__line">
+          <span>&#64;{{ a.handle }}</span>
+          <a class="cp-link" [routerLink]="['/collectors', a.handle]" target="_blank"
+            >Public profile <app-admin-icon name="external" [size]="14" /><span
+              class="visually-hidden"
+              >(opens in a new tab)</span
+            ></a
+          >
+          <span class="ac__email">
+            <app-admin-icon name="mail" [size]="16" />
+            {{ a.email || 'No email' }}
+            @if (a.emailVerified) {
+              <span
+                class="ac__verified"
+                role="img"
+                aria-label="Email verified"
+                title="Email verified"
+                ><app-admin-icon name="checkCircle" [size]="16"
+              /></span>
+            }
+          </span>
+        </p>
+        <p class="ac__meta">
+          Joined {{ a.createdAt | date: 'mediumDate' }} · Active
+          {{ a.lastActiveAt ? (a.lastActiveAt | relativeTime) : 'never' }}
+          @if (d.locationLabel) {
+            · {{ d.locationLabel }}
           }
         </p>
-        <div class="detail__meta">
-          <app-status-chip [status]="a.status" data-testid="admin-user-status" />
-          <span>Joined {{ a.createdAt | date: 'mediumDate' }}</span>
-          <span>Active {{ a.lastActiveAt ? (a.lastActiveAt | relativeTime) : 'never' }}</span>
-          @if (d.locationLabel) {
-            <span><mat-icon aria-hidden="true">location_on</mat-icon>{{ d.locationLabel }}</span>
-          }
-        </div>
       </div>
-      <div class="detail__actions">
+      <div class="ac__actions">
+        @if (listingsPanel()?.status(); as s) {
+          <button
+            type="button"
+            class="cb cb--outline"
+            [attr.aria-disabled]="listingsPanel()?.busy() ? 'true' : null"
+            (click)="
+              listingsPanel()?.busy() ||
+                (s.paused ? listingsPanel()?.resume() : listingsPanel()?.pause())
+            "
+          >
+            <app-admin-icon [name]="s.paused ? 'restore' : 'pause'" [size]="18" />
+            {{ s.paused ? 'Resume listings' : 'Pause listings' }}
+          </button>
+        }
         @if (a.status === 'SUSPENDED') {
           <button
-            matButton="filled"
             type="button"
-            [disabled]="busy() !== null"
-            (click)="unsuspend()"
+            class="cb cb--primary"
+            [attr.aria-disabled]="busy() !== null ? 'true' : null"
+            (click)="busy() === null && unsuspend()"
           >
-            <mat-icon aria-hidden="true">lock_open</mat-icon>
+            <app-admin-icon name="lock" [size]="18" />
             Unsuspend
           </button>
         } @else {
           <button
-            matButton="outlined"
             type="button"
-            class="detail__danger"
-            [disabled]="busy() !== null || suspendBlockedReason() !== null"
-            [disabledInteractive]="suspendBlockedReason() !== null"
-            [matTooltip]="suspendBlockedReason() ?? ''"
-            (click)="suspend()"
+            class="cb cb--danger-outline"
+            [attr.aria-disabled]="
+              busy() !== null || suspendBlockedReason() !== null ? 'true' : null
+            "
+            [attr.aria-describedby]="suspendBlockedReason() ? 'ac-suspend-why' : null"
+            [title]="suspendBlockedReason() ?? ''"
+            (click)="busy() === null && suspendBlockedReason() === null && suspend()"
           >
-            <mat-icon aria-hidden="true">block</mat-icon>
-            Suspend
+            <app-admin-icon name="ban" [size]="18" />
+            Suspend…
           </button>
+          @if (suspendBlockedReason(); as why) {
+            <span class="visually-hidden" id="ac-suspend-why">{{ why }}</span>
+          }
         }
       </div>
     </header>
 
     @if (a.status === 'SUSPENDED') {
-      <div class="detail__banner" role="status">
-        <mat-icon aria-hidden="true">block</mat-icon>
+      <div class="ac__banner" role="status">
+        <app-admin-icon name="ban" [size]="18" />
         <p>
           Suspended
           @if (a.suspendedUntil) {
@@ -103,87 +133,108 @@
       </div>
     }
 
-    <div class="detail__grid">
-      <section class="admin-card" aria-labelledby="detail-roles">
-        <h2 id="detail-roles">Roles</h2>
-        <app-roles-editor
-          [roles]="roles()"
-          [actorIsSuperAdmin]="session.isSuperAdmin()"
-          [isSelf]="isSelf()"
-          [busy]="busy() === 'roles'"
-          (save)="saveRoles($event)"
+    <div class="ac__grid">
+      <div class="ac__main">
+        <app-user-moderation-panel
+          #moderation
+          part="moderation"
+          [userId]="a.id"
+          [handle]="a.handle"
+          (changed)="listingsPanel()?.load()"
         />
-      </section>
 
-      <app-user-moderation-panel [userId]="a.id" [handle]="a.handle" />
+        <section class="cp-card ac__card" aria-labelledby="detail-audit">
+          <div class="ac__card-head">
+            <h2 class="cp-card__title" id="detail-audit">Recent activity</h2>
+            <a
+              class="cp-link"
+              routerLink="/admin/audit-logs"
+              [queryParams]="{ targetType: 'USER', targetId: a.id }"
+              >Full audit log <app-admin-icon name="arrowRight" [size]="16"
+            /></a>
+          </div>
+          @if (d.recentAuditEntries.length === 0) {
+            <p class="ac__muted">No audit entries for this account yet.</p>
+          } @else {
+            <ol class="cp-rows ac__timeline">
+              @for (entry of d.recentAuditEntries; track entry.id) {
+                <li>
+                  <span class="ac__icon" aria-hidden="true"
+                    ><app-admin-icon name="fileText" [size]="16"
+                  /></span>
+                  <span>
+                    <strong>{{ activityLine(entry) }}</strong>
+                    <span class="ac__muted ac__small"
+                      >{{
+                        entry.actor.handle ? '@' + entry.actor.handle : actorWord(entry.actor.type)
+                      }}
+                      · {{ entry.occurredAt | date: 'MMM d, y, HH:mm' }}</span
+                    >
+                  </span>
+                </li>
+              }
+            </ol>
+          }
+        </section>
+      </div>
 
-      <section class="admin-card" aria-labelledby="detail-deletion">
-        <h2 id="detail-deletion">Account deletion</h2>
-        @if (d.deletionRequest; as request) {
-          <p>
-            Requested {{ request.requestedAt | date: 'medium' }} · status
-            <strong>{{ request.status }}</strong>
-          </p>
-          <p class="admin-muted">Scheduled for {{ request.scheduledFor | date: 'medium' }}.</p>
-        } @else {
-          <p class="admin-muted">No deletion request.</p>
-        }
-        @if (d.deletedAt) {
-          <p class="admin-muted">Deleted {{ d.deletedAt | date: 'medium' }}.</p>
-        }
-      </section>
+      <div class="ac__side">
+        <app-user-moderation-panel
+          #listings
+          part="listings"
+          [userId]="a.id"
+          [handle]="a.handle"
+          (changed)="moderationPanel()?.load()"
+        />
 
-      <section class="admin-card" aria-labelledby="detail-consents">
-        <h2 id="detail-consents">Consents</h2>
-        @if (d.consents.length === 0) {
-          <p class="admin-muted">No consent recorded.</p>
-        } @else {
-          <ul class="detail__list">
-            @for (consent of d.consents; track consent.documentType + consent.version) {
-              <li>
-                <span>{{ consentLabels[consent.documentType] || consent.documentType }}</span>
-                <span class="admin-muted">
-                  v{{ consent.version }} · {{ consent.acceptedAt | date: 'mediumDate' }}
-                </span>
-              </li>
-            }
-          </ul>
-        }
-      </section>
+        <section class="cp-card ac__card" aria-labelledby="detail-roles">
+          <h2 class="cp-card__title ac__card-title" id="detail-roles">Roles</h2>
+          <app-roles-editor
+            [roles]="roles()"
+            [actorIsSuperAdmin]="session.isSuperAdmin()"
+            [isSelf]="isSelf()"
+            [busy]="busy() === 'roles'"
+            (save)="saveRoles($event)"
+          />
+        </section>
 
-      <section class="admin-card detail__audit" aria-labelledby="detail-audit">
-        <div class="detail__audit-head">
-          <h2 id="detail-audit">Recent activity</h2>
-          <a
-            matButton
-            routerLink="/admin/audit-logs"
-            [queryParams]="{ targetType: 'USER', targetId: a.id }"
-          >
-            Full audit log
-          </a>
-        </div>
-        @if (d.recentAuditEntries.length === 0) {
-          <p class="admin-muted">No audit entries for this account yet.</p>
-        } @else {
-          <ol class="detail__timeline">
-            @for (entry of d.recentAuditEntries; track entry.id) {
-              <li>
-                <span class="detail__when">{{ entry.occurredAt | date: 'medium' }}</span>
-                <span>
-                  <strong>{{ auditActionLabel(entry.action) }}</strong>
-                  by
-                  {{
-                    entry.actor.handle ? '@' + entry.actor.handle : entry.actor.type.toLowerCase()
-                  }}
-                </span>
-                @if (summarizeDetails(entry.details); as summary) {
-                  <span class="admin-muted">{{ summary }}</span>
-                }
-              </li>
-            }
-          </ol>
-        }
-      </section>
+        <section class="cp-card ac__card" aria-labelledby="detail-deletion">
+          <h2 class="cp-card__title ac__card-title" id="detail-deletion">Account deletion</h2>
+          @if (d.deletionRequest; as request) {
+            <p class="ac__text">
+              Requested {{ request.requestedAt | date: 'medium' }} · status
+              <strong>{{ request.status }}</strong>
+            </p>
+            <p class="ac__muted">Scheduled for {{ request.scheduledFor | date: 'medium' }}.</p>
+          } @else {
+            <p class="ac__muted">No deletion request.</p>
+          }
+          @if (d.deletedAt) {
+            <p class="ac__muted">Deleted {{ d.deletedAt | date: 'medium' }}.</p>
+          }
+        </section>
+
+        <section class="cp-card ac__card" aria-labelledby="detail-consents">
+          <h2 class="cp-card__title ac__card-title" id="detail-consents">Consents</h2>
+          @if (consents().length === 0) {
+            <p class="ac__muted">No consent recorded.</p>
+          } @else {
+            <ul class="cp-rows ac__consents">
+              @for (consent of consents(); track consent.documentType + consent.version) {
+                <li>
+                  <span>{{ consentLabels[consent.documentType] || consent.documentType }}</span>
+                  <span class="ac__muted">
+                    @if (consent.documentType !== 'AGE_CONFIRMATION') {
+                      v{{ consent.version }} ·
+                    }
+                    {{ consent.acceptedAt | date: 'mediumDate' }}
+                  </span>
+                </li>
+              }
+            </ul>
+          }
+        </section>
+      </div>
     </div>
   }
 </div>

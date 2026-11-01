@@ -253,3 +253,38 @@ textarea.cp-input {
 .cp-link:hover {
   text-decoration: underline;
 }
+
+// The filter bar of spec 15.2 (boards A7 to A23): one card holding the filters in a wrapping row,
+// labels above the fields.
+.cp-filterbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px 16px;
+  margin-bottom: 18px;
+  padding: 16px 20px 18px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-surface);
+}
+.cp-field--grow {
+  flex: 1 1 280px;
+}
+.cp-field--grow .cp-input {
+  width: 100%;
+}
+.cp-search {
+  position: relative;
+  display: flex;
+}
+.cp-search > app-admin-icon {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  color: var(--color-text-secondary);
+  pointer-events: none;
+}
+.cp-search > .cp-input {
+  width: 100%;
+  padding-left: 38px;
+}
