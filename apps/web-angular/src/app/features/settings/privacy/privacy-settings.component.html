@@ -141,3 +141,47 @@
     </mat-radio-group>
   </app-section-card>
 }
+
+<!-- Kept in this browser only, so it never waits for the server (the top bar's recent searches). -->
+<app-section-card heading="Search" headingId="privacy-search">
+  <ul class="section-list">
+    <li class="section-row">
+      <div class="section-row__text">
+        <span class="section-row__label" id="privacy-remember-searches">Remember my searches</span>
+        <span class="section-row__help" id="privacy-remember-searches-help">
+          Kept in this browser only. Turning it off clears them.
+        </span>
+      </div>
+      <mat-slide-toggle
+        [checked]="recent.remembering()"
+        (change)="recent.setRemembering($event.checked)"
+        data-testid="privacy-remember-searches"
+        aria-labelledby="privacy-remember-searches"
+        aria-describedby="privacy-remember-searches-help"
+      />
+    </li>
+    <li class="section-row">
+      <div class="section-row__text">
+        <span class="section-row__label">Your recent searches</span>
+        <span class="section-row__help" role="status">
+          {{
+            recent.list().length === 0
+              ? 'Nothing kept in this browser.'
+              : recent.list().length === 1
+                ? '1 search kept in this browser.'
+                : recent.list().length + ' searches kept in this browser.'
+          }}
+        </span>
+      </div>
+      <button
+        type="button"
+        class="privacy__clear"
+        data-testid="privacy-clear-searches"
+        [disabled]="recent.list().length === 0"
+        (click)="recent.clear()"
+      >
+        Clear my searches
+      </button>
+    </li>
+  </ul>
+</app-section-card>

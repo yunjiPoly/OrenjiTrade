@@ -1,6 +1,7 @@
 package com.orenjitrade.api.binders.domain;
 
 import com.orenjitrade.api.delisting.domain.FreshnessState;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -25,6 +26,15 @@ import org.jspecify.annotations.Nullable;
  * @param lastOwnerActivityAt last owner activity on the binder or its items
  * @param effectivePublic whether the binder is public right now (rules of {@link
  *     PublicVisibilityRules})
+ * @param sellsAsCore "Sell as a deck core": offered as one bundle (stage R3)
+ * @param askingPriceText the deck core's asking price as typed, {@code null} without one
+ * @param askingPrice the amount of a plain-amount price text, in {@code currency}
+ * @param currency ISO 4217 currency of {@code askingPrice}
+ * @param soldAt when the deck core was sold (a sold binder is never public), {@code null} if not
+ * @param gameId the one game whose cards the binder holds (stage G)
+ * @param game that game's slug
+ * @param gameFollowsCards made without a game (the paused web): while it holds no card, the first
+ *     card filed in it sets its game
  */
 public record BinderView(
         UUID id,
@@ -42,4 +52,51 @@ public record BinderView(
         Instant createdAt,
         Instant updatedAt,
         Instant lastOwnerActivityAt,
-        boolean effectivePublic) {}
+        boolean effectivePublic,
+        boolean sellsAsCore,
+        @Nullable String askingPriceText,
+        @Nullable BigDecimal askingPrice,
+        String currency,
+        @Nullable Instant soldAt,
+        UUID gameId,
+        String game,
+        boolean gameFollowsCards) {
+
+    /**
+     * Whether the binder shows in public lists (a collector's binders, search, the map) without
+     * holding a public card: a deck core needs no cards (spec 2026-10-14, section 7). The caller
+     * has checked {@link #effectivePublic()}, which leaves sold binders out.
+     */
+    public boolean listedWithoutCards() {
+        return sellsAsCore && soldAt == null;
+    }
+
+    /** The same binder holding the cards of another game ({@link #gameFollowsCards}). */
+    public BinderView withGame(UUID otherGameId, String otherGame) {
+        return new BinderView(
+                id,
+                ownerId,
+                name,
+                description,
+                kind,
+                visibility,
+                publicUntil,
+                sortOrder,
+                coverPrintingId,
+                itemCount,
+                freshnessState,
+                confirmedAt,
+                createdAt,
+                updatedAt,
+                lastOwnerActivityAt,
+                effectivePublic,
+                sellsAsCore,
+                askingPriceText,
+                askingPrice,
+                currency,
+                soldAt,
+                otherGameId,
+                otherGame,
+                gameFollowsCards);
+    }
+}

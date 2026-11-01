@@ -62,6 +62,7 @@ export class AdminBindersService extends BaseService implements AdminBindersServ
         const query = requestParameters?.query;
         const ownerId = requestParameters?.ownerId;
         const visibility = requestParameters?.visibility;
+        const deckCore = requestParameters?.deckCore;
         const page = requestParameters?.page;
         const size = requestParameters?.size;
 
@@ -89,6 +90,15 @@ export class AdminBindersService extends BaseService implements AdminBindersServ
             localVarQueryParameters,
             'visibility',
             <any>visibility,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'deckCore',
+            <any>deckCore,
             QueryParamStyle.Form,
             true,
         );

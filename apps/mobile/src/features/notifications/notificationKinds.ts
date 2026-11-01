@@ -1,62 +1,12 @@
 import type { NotificationResponse } from '@/src/api/types';
-import type { IconName } from '@/src/components/ui/EmptyState';
 import { ANY_PRINTING_PARAM } from '@/src/lib/catalog';
 
 /**
- * Display vocabulary of the notification centre (Phase 6 contract, mirror of the web's
- * `core/notifications/notification-kinds.ts`): an icon, a tone and a short category label per
- * notification type, the in-app page a notification opens, and the card it shows. Unknown types
- * (added by a newer server) still render with a neutral look.
+ * Links of notifications (Phase 6 contract, mirror of the web's
+ * `core/notifications/notification-kinds.ts`): the web path a notification names, the app screen
+ * of a web path, and the card a notification shows. What each kind looks like, says and opens on
+ * the phone since stage R9 is in `notificationRows.ts`.
  */
-export type NotificationTone = 'match' | 'message' | 'offer' | 'trade' | 'warning' | 'system';
-
-export interface NotificationKind {
-  icon: IconName;
-  tone: NotificationTone;
-  /** Short category shown above the title ("Wishlist alert"). */
-  label: string;
-}
-
-const KINDS: Record<string, NotificationKind> = {
-  WISHLIST_ALERT: { icon: 'heart', tone: 'match', label: 'Wishlist alert' },
-  MESSAGE: { icon: 'message-text', tone: 'message', label: 'Message' },
-  OFFER_RECEIVED: { icon: 'tag', tone: 'offer', label: 'Offer' },
-  OFFER_ACCEPTED: { icon: 'handshake', tone: 'offer', label: 'Offer accepted' },
-  OFFER_COUNTERED: { icon: 'swap-horizontal', tone: 'offer', label: 'Counter-offer' },
-  OFFER_DECLINED: { icon: 'minus-circle', tone: 'offer', label: 'Offer declined' },
-  OFFER_CANCELLED: { icon: 'undo', tone: 'offer', label: 'Offer withdrawn' },
-  OFFER_EXPIRED: { icon: 'timer-off-outline', tone: 'offer', label: 'Offer expired' },
-  BINDER_EXPIRING: { icon: 'timer-sand', tone: 'warning', label: 'Binder' },
-  BINDER_STALE_WARNING: { icon: 'timer-sand-complete', tone: 'warning', label: 'Binder reminder' },
-  BINDER_HIDDEN: { icon: 'eye-off', tone: 'warning', label: 'Listings hidden' },
-  RATING_RECEIVED: { icon: 'star', tone: 'trade', label: 'Rating' },
-  TRADE_UPDATE: { icon: 'swap-horizontal-bold', tone: 'trade', label: 'Trade' },
-  SHIPMENT_STATUS: { icon: 'truck-outline', tone: 'trade', label: 'Shipment' },
-  PAYMENT_UPDATE: { icon: 'cash', tone: 'trade', label: 'Payment' },
-  DISPUTE_UPDATE: { icon: 'gavel', tone: 'warning', label: 'Dispute' },
-  REPORT_DECISION: { icon: 'gavel', tone: 'system', label: 'Report decision' },
-  SYSTEM: { icon: 'bullhorn-outline', tone: 'system', label: 'OrenjiTrade' },
-};
-
-const FALLBACK: NotificationKind = { icon: 'bell', tone: 'system', label: 'Notification' };
-
-/** Icon, tone and label of a notification (the plan-limit notice gets the premium icon). */
-export function notificationKind(
-  notification: Pick<NotificationResponse, 'type' | 'data'>
-): NotificationKind {
-  const kind = KINDS[notification.type] ?? FALLBACK;
-  if (notification.type === 'SYSTEM') {
-    switch (notification.data?.['kind']) {
-      case 'LIMIT_REACHED':
-        return { icon: 'crown-outline', tone: 'system', label: 'Plan limit' };
-      case 'LISTINGS_PAUSED':
-        return { icon: 'pause-circle-outline', tone: 'warning', label: 'Listings paused' };
-      case 'MODERATION_WARNING':
-        return { icon: 'flag-outline', tone: 'warning', label: 'Moderation' };
-    }
-  }
-  return kind;
-}
 
 /** Characters allowed in an in-app path (with its query string); nothing else is followed. */
 const APP_PATH = /^\/(?!\/)[\w\-/?=&.%~]*$/;
@@ -91,12 +41,13 @@ export function notificationLink(
       const card = idOf(data, 'cardId');
       const printing = idOf(data, 'printingId');
       if (!card) {
-        return '/wishlist';
+        return '/search?segment=wishlist';
       }
       // Without a printing, "any" is said explicitly: the screen never picks one itself.
       return `/cards/${card}?printing=${printing ?? ANY_PRINTING_PARAM}`;
     }
-    case 'MESSAGE': {
+    case 'MESSAGE':
+    case 'SALE_RECORDED': {
       const conversation = idOf(data, 'conversationId');
       return conversation ? `/messages/${conversation}` : '/messages';
     }
@@ -131,16 +82,11 @@ export function notificationLink(
       return '/settings/reports';
     case 'SYSTEM':
       switch (data?.['kind']) {
-        case 'LIMIT_REACHED': {
-          // The API carries `upgradeUrl` / `deepLink: /premium` only while the premiumPlans flag
-          // is on (`deepLink` handled above); without it the notice is only about held-back
-          // alerts.
-          const upgrade = safeAppPath(data?.['upgradeUrl']);
-          if (upgrade) {
-            return upgrade;
-          }
-          return data?.['notificationType'] === 'WISHLIST_ALERT' ? '/wishlist' : '/notifications';
-        }
+        case 'LIMIT_REACHED':
+          // Held-back alerts; nothing to buy (stage F1). An old notice's `upgradeUrl` is ignored.
+          return data?.['notificationType'] === 'WISHLIST_ALERT'
+            ? '/search?segment=wishlist'
+            : '/notifications';
         case 'LISTINGS_PAUSED':
           return '/inventory';
         case 'MODERATION_WARNING':
@@ -153,10 +99,27 @@ export function notificationLink(
   }
 }
 
-/** Where a notification leads in the app, or why it cannot yet (a screen of a later stage). */
-export type NotificationTarget = { kind: 'route'; href: string } | { kind: 'later'; note: string };
+/**
+ * Where a notification leads in the app, or a note saying why it opens nothing (a setting that is
+ * on the website only, or an offer or trade: they left the phone, ADR 0018).
+ */
+export type NotificationTarget = { kind: 'route'; href: string } | { kind: 'note'; note: string };
 
 const SETTINGS_LATER = 'This setting is on orenjitrade.com only for now.';
+
+/** Said by an old link to Premium, credits or donations (removed by stage F1, 2026-10-14). */
+export const FREE_FOR_ALL_NOTE =
+  'OrenjiTrade is free for every collector now: there is no Premium, credits or donations.';
+
+/**
+ * What an old offer, trade, payment or dispute notification says when tapped: those screens left
+ * the phone and the notification names no collector, so it opens nothing (ADR 0018).
+ */
+export const DEALS_IN_CHAT_NOTE =
+  'Offers and trades are no longer in the app. Deals happen in the chat, in Messages.';
+
+/** Settings pages that left the phone with offers and protected payments (ADR 0018). */
+const REMOVED_SETTINGS = new Set(['offers', 'payouts']);
 
 /** Settings pages of the app, by their web path segment (`/settings/<segment>`). */
 const SETTINGS_PAGES: Record<string, string> = {
@@ -168,8 +131,6 @@ const SETTINGS_PAGES: Record<string, string> = {
   account: 'account',
   appearance: 'appearance',
   reports: 'reports',
-  offers: 'offers',
-  payouts: 'payouts',
   blocked: 'blocked',
 };
 
@@ -181,9 +142,10 @@ function route(href: string): NotificationTarget {
  * The mobile screen of a web path (the API's deep links are web paths): the wishlist,
  * conversations, community channels, binders (`/inventory?binder=`), cards (with the
  * `?printing=<id>`, `?printing=any` or `?rarity=` of a wishlist alert), collector profiles
- * (`?tab=ratings` scrolls to the ratings), offers, trades, disputes, Premium, credits, support,
- * legal pages and settings (My reports, offer settings, payouts) map to their app screens; the
- * web-only settings explain where to go instead. Ids are validated again.
+ * (`?tab=ratings` scrolls to the ratings), legal pages and settings (My reports) map to their app
+ * screens; the web-only settings explain where to go instead, offers, trades, disputes, offer
+ * settings and payouts say that deals happen in the chat (ADR 0018), and an old link to Premium,
+ * credits or "Support OrenjiTrade" says that the app is free (ADR 0019). Ids are validated again.
  */
 export function mobileTarget(webPath: string): NotificationTarget {
   const [pathname = '', query = ''] = webPath.split('?');
@@ -192,8 +154,9 @@ export function mobileTarget(webPath: string): NotificationTarget {
   const id = rawId && ID.test(rawId) ? rawId : null;
   switch (root) {
     case 'wishlist':
-      // The matches screen of one wish is gone (stage S2): old links open the list.
-      return route('/wishlist');
+      // The matches screen of one wish is gone (stage S2): old links open the list, which is
+      // Search › Wishlist since stage R5.
+      return route('/search?segment=wishlist');
     case 'messages':
       return route(id ? `/messages/${id}` : '/messages');
     case 'community':
@@ -222,22 +185,39 @@ export function mobileTarget(webPath: string): NotificationTarget {
       return route(id ? `/sets/${id}` : '/search');
     case 'collectors':
       return route(
-        id ? `/collectors/${id}${params.get('tab') === 'ratings' ? '?tab=ratings' : ''}` : '/'
+        id ? `/collectors/${id}${params.get('tab') === 'ratings' ? '?tab=ratings' : ''}` : '/search'
       );
-    case 'map':
-      return route('/');
+    case 'map': {
+      // The Map tab is Search's default view since stage R5 (the web's `/map?region=&subdivision=`).
+      const region = params.get('region');
+      const subdivision = params.get('subdivision');
+      const query = [
+        region && /^[a-z]+(-[a-z]+)*$/.test(region) ? `region=${region}` : null,
+        subdivision && /^[A-Z]{2}(-[A-Z0-9]{1,3})?$/.test(subdivision)
+          ? `subdivision=${subdivision}`
+          : null,
+      ].filter(Boolean);
+      return route(query.length > 0 ? `/search?${query.join('&')}` : '/search');
+    }
     case 'search': {
-      // The web's holders view (`/search?card=|printing=`) is the app's holders list.
+      // The web's holders view (`/search?card=|printing=`) is the app's card page, Who has this
+      // card, since stage R5 (a printing is looked up by `/holders` first to find its card).
       const printing = params.get('printing');
       const card = params.get('card');
+      if (card && ID.test(card)) {
+        return route(
+          printing && ID.test(printing) ? `/cards/${card}?printing=${printing}` : `/cards/${card}`
+        );
+      }
       if (printing && ID.test(printing)) {
         return route(`/holders?printing=${printing}`);
       }
-      if (card && ID.test(card)) {
-        return route(`/holders?card=${card}`);
+      // Search's segments (stage R5); collectors show under the cards while a card is typed.
+      const segment = params.get('segment');
+      if (segment === 'binders' || segment === 'wishlist') {
+        return route(`/search?segment=${segment}`);
       }
-      const tab = params.get('tab');
-      return route(tab === 'collectors' || tab === 'binders' ? `/search?tab=${tab}` : '/search');
+      return route(params.get('tab') === 'binders' ? '/search?segment=binders' : '/search');
     }
     case 'notifications':
       return route('/notifications');
@@ -247,38 +227,23 @@ export function mobileTarget(webPath: string): NotificationTarget {
       if (!rawId) {
         return route('/settings');
       }
+      if (REMOVED_SETTINGS.has(rawId)) {
+        return { kind: 'note', note: DEALS_IN_CHAT_NOTE };
+      }
       const page = SETTINGS_PAGES[rawId];
-      return page ? route(`/settings/${page}`) : { kind: 'later', note: SETTINGS_LATER };
+      return page ? route(`/settings/${page}`) : { kind: 'note', note: SETTINGS_LATER };
     }
     case 'offers':
-      return route(id ? `/offers/${id}` : '/offers');
     case 'trades':
-      return route(id ? `/trades/${id}` : '/trades');
     case 'disputes':
-      return route(id ? `/disputes/${id}` : '/trades');
-    case 'premium': {
-      const checkout = params.get('checkout');
-      return route(checkout === 'success' ? '/premium?checkout=success' : '/premium');
-    }
+      return { kind: 'note', note: DEALS_IN_CHAT_NOTE };
+    case 'premium':
     case 'credits':
-      return route('/credits');
     case 'support':
-      return route('/support');
+      return { kind: 'note', note: FREE_FOR_ALL_NOTE };
     default:
       return route('/notifications');
   }
-}
-
-/** The mobile target of a notification. */
-export function notificationTarget(
-  notification: Pick<NotificationResponse, 'type' | 'data'>
-): NotificationTarget {
-  return mobileTarget(notificationLink(notification));
-}
-
-/** True while the notification has not been read. */
-export function isUnread(notification: Pick<NotificationResponse, 'readAt'>): boolean {
-  return !notification.readAt;
 }
 
 /** A card carried by a notification's payload (wishlist alerts, offers). */
@@ -306,44 +271,4 @@ export function notificationCard(
     return null;
   }
   return { imageUrl, name: textOf(data, 'cardName') ?? '', game: textOf(data, 'game') };
-}
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-function startOfDay(time: number): number {
-  const date = new Date(time);
-  date.setHours(0, 0, 0, 0);
-  return date.getTime();
-}
-
-export interface FeedSection {
-  title: string;
-  data: NotificationResponse[];
-}
-
-/** Newest-first notifications in day sections ("Today", "Yesterday", "Earlier this week", "Older"). */
-export function groupByDay(
-  items: readonly NotificationResponse[],
-  now: number = Date.now()
-): FeedSection[] {
-  const today = startOfDay(now);
-  const labels = ['Today', 'Yesterday', 'Earlier this week', 'Older'];
-  const groups: NotificationResponse[][] = [[], [], [], []];
-  for (const item of items) {
-    const created = Date.parse(item.createdAt);
-    let index = 3;
-    if (Number.isFinite(created)) {
-      if (created >= today) {
-        index = 0;
-      } else if (created >= today - DAY_MS) {
-        index = 1;
-      } else if (created >= today - 6 * DAY_MS) {
-        index = 2;
-      }
-    }
-    groups[index]?.push(item);
-  }
-  return groups
-    .map((data, index) => ({ title: labels[index] ?? 'Older', data }))
-    .filter((section) => section.data.length > 0);
 }

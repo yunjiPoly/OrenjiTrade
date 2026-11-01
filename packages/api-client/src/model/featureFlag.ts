@@ -19,5 +19,13 @@ export interface FeatureFlag {
     description?: string;
     updatedBy?: string;
     updatedAt?: string;
+    /**
+     * The last editor\'s handle (admin console)
+     */
+    updatedByHandle?: string | null;
+    /**
+     * The last editor\'s display name (admin console)
+     */
+    updatedByName?: string | null;
 }
 

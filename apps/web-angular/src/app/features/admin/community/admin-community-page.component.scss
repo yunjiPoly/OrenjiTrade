@@ -1,0 +1,254 @@
+.cm__info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 20px;
+  padding: 12px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-size: var(--font-size-sm);
+}
+.cm__info app-admin-icon {
+  color: var(--color-accent);
+}
+.cm__h {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 12px;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: var(--font-weight-semibold);
+  outline: none;
+}
+.cm__head {
+  margin-bottom: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+.cm__head .cm__h,
+.cm__head .cm__sum {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+.cm__sum {
+  color: var(--color-text-secondary);
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-regular);
+}
+.grid {
+  display: flex;
+  flex-direction: column;
+  overflow-x: auto;
+}
+.grid__row {
+  display: grid;
+  grid-template-columns: 170px repeat(5, minmax(150px, 1fr));
+  gap: 10px;
+  align-items: stretch;
+  padding: 10px 0;
+  border-top: 1px solid var(--color-border);
+}
+.grid__row--head {
+  padding-top: 0;
+  border-top: 0;
+}
+.grid__region {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  color: var(--color-ink);
+  font-size: var(--font-size-sm);
+}
+.grid__row--head .grid__region {
+  color: var(--color-text-secondary);
+}
+.grid__game {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-ink);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+.tile-letter {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--color-surface-variant);
+  color: var(--color-ink);
+  font-size: 12px;
+  font-weight: var(--font-weight-bold);
+}
+.tile-letter--big {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  font-size: 20px;
+}
+@each $game in yugioh, pokemon, mtg, onepiece, riftbound {
+  .tile-letter[data-game='#{$game}'] {
+    background: var(--game-tile-#{$game}-background);
+    color: var(--game-tile-#{$game}-foreground);
+  }
+}
+.grid__cell {
+  display: flex;
+}
+.cell {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-height: 92px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.cell:hover {
+  border-color: var(--color-border-strong);
+}
+.cell:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+.cell--on {
+  border-color: var(--color-primary);
+  background: var(--color-primary-tint);
+}
+.cell--archived {
+  background: var(--color-background);
+}
+.cell--none {
+  justify-content: center;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  cursor: default;
+}
+.cell__posts {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+.cell__posts strong {
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 20px;
+}
+.cell__rate {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+.cell__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--app-success-text);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+.cell__state--off {
+  color: var(--color-text-secondary);
+}
+.cell__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.cm__archived {
+  margin-top: 28px;
+}
+.cm__toggle {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.cm__toggle:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: 4px;
+}
+.cm__list > li:first-child {
+  border-top: 0;
+}
+.other {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  border: 0;
+  background: none;
+  color: var(--color-ink);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.other:hover {
+  background: var(--color-surface-variant);
+}
+.other:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: -2px;
+}
+.cell__game {
+  display: none;
+  font-weight: var(--font-weight-semibold);
+}
+// md (review fix 1): the five game columns fit beside the nav at 1024 without a scroll.
+@media (max-width: 1279.98px) {
+  .grid__row {
+    grid-template-columns: 112px repeat(5, minmax(96px, 1fr));
+    gap: 8px;
+  }
+  .cell {
+    padding: 10px;
+  }
+  .cell__posts strong {
+    font-size: 18px;
+  }
+}
+// Below 960: each region's rooms wrap under its name, each cell naming its game.
+@media (max-width: 959.98px) {
+  .grid__row {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+  .grid__row > .grid__region {
+    grid-column: 1 / -1;
+  }
+  .grid__row--head {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .cell__game {
+    display: block;
+  }
+}

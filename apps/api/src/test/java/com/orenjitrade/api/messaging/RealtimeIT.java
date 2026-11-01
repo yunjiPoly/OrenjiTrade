@@ -5,7 +5,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
 import com.orenjitrade.api.auth.domain.AccountStatus;
+import com.orenjitrade.api.auth.domain.Role;
 import com.orenjitrade.api.auth.infra.StaticIdentityTokenVerifier;
+import com.orenjitrade.api.cards.domain.CatalogImportService;
+import com.orenjitrade.api.inventory.InventoryTestSupport;
 import com.orenjitrade.api.messaging.MessagingTestSupport.Member;
 import java.lang.reflect.Type;
 import java.time.Duration;
@@ -51,6 +54,8 @@ class RealtimeIT extends AbstractMessagingIT {
     @LocalServerPort private int port;
 
     @Autowired private SimpUserRegistry userRegistry;
+
+    @Autowired private CatalogImportService importService;
 
     private WebSocketStompClient stompClient;
     private final List<StompSession> sessions = new ArrayList<>();
@@ -158,6 +163,51 @@ class RealtimeIT extends AbstractMessagingIT {
         assertThat(queuesB.typing()).isEmpty();
     }
 
+    /**
+     * Stage R4, review fix 1 (F1): a pin of the chat's card by either collector reaches both on
+     * {@code /user/queue/conversations}, so the seller's pinned bar and its Mark as sold follow a
+     * card the buyer pinned without writing.
+     */
+    @Test
+    void aPinnedCardReachesBothCollectorsAsAConversationChange() throws Exception {
+        InventoryTestSupport.ensureCatalog(importService);
+        Member seller = member("rt-pin-seller");
+        Member buyer = member("rt-pin-buyer");
+        String conversationId = start(buyer, seller, 201);
+        Map<String, Object> card =
+                InventoryTestSupport.item(InventoryTestSupport.printing(testUsers, "ygo-p001a"));
+        String itemId =
+                callJson(HttpMethod.POST, "/api/v1/inventory/items", seller.uid(), card, 201)
+                        .path("id")
+                        .asString();
+
+        StompSession sessionB = connectWithQueryToken(buyer.uid()).session();
+        Queues queuesB = subscribeAll(sessionB);
+        awaitSubscribed(buyer.id(), "/user/queue/conversations");
+
+        // The seller pins their own card without a message (POST /conversations with a subject).
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/conversations",
+                seller.uid(),
+                Map.of("recipientId", buyer.id().toString(), "subjectItemId", itemId),
+                200);
+        JsonNode changed = queuesB.conversations().poll(10, TimeUnit.SECONDS);
+        assertThat(changed).as("the buyer is told what the chat is about changed").isNotNull();
+        assertThat(changed.path("conversationId").asString()).isEqualTo(conversationId);
+        // Nothing else rides on it: the client reads the conversation again.
+        assertThat(changed.properties()).hasSize(1);
+
+        // Sharing the card in a message pins it again: the change comes with the message.
+        send(seller, conversationId, Map.of("kind", "CARD_LINK", "inventoryItemId", itemId));
+        assertThat(queuesB.conversations().poll(10, TimeUnit.SECONDS)).isNotNull();
+        assertThat(queuesB.messages().poll(10, TimeUnit.SECONDS)).isNotNull();
+        // A plain message changes nothing about the subject.
+        sendText(seller, conversationId, "Still available");
+        assertThat(queuesB.messages().poll(10, TimeUnit.SECONDS)).isNotNull();
+        assertThat(queuesB.conversations().poll(500, TimeUnit.MILLISECONDS)).isNull();
+    }
+
     @Test
     void subscriptionsToSomebodyElsesQueuesAreRejected() throws Exception {
         Member a = member("rt-owner");
@@ -171,22 +221,31 @@ class RealtimeIT extends AbstractMessagingIT {
                         "/queue/messages",
                         "/topic/messages",
                         "/user/queue/secrets");
+        // A refusal ends the session. Its ERROR frame can be lost when the server closes the socket
+        // while another frame is still being written (Spring's send buffer drops what is left), so
+        // the wording is checked when it arrives and pinned in StompSecurityInterceptorTest.
         for (String destination : forbidden) {
             Connection connection = connectWithQueryToken(spy.uid());
             Queues sink = new Queues();
             connection.session().subscribe(destination, sink.handler(sink.messages()));
             await().atMost(Duration.ofSeconds(10))
                     .alias("subscription to " + destination + " is refused")
-                    .until(() -> !connection.errors().isEmpty());
-            assertThat(connection.errors().get(0)).contains("Subscriptions are limited");
-            await().atMost(Duration.ofSeconds(10)).until(() -> !connection.session().isConnected());
+                    .until(() -> !connection.session().isConnected());
+            if (!connection.errors().isEmpty()) {
+                assertThat(connection.errors().get(0)).contains("Subscriptions are limited");
+            }
+            assertThat(sink.messages()).isEmpty();
         }
 
         // Clients may not publish to broker or user destinations either.
         Connection sender = connectWithQueryToken(spy.uid());
         sender.session().send("/user/" + b.id() + "/queue/messages", Map.of("body", "forged"));
-        await().atMost(Duration.ofSeconds(10)).until(() -> !sender.errors().isEmpty());
-        assertThat(sender.errors().get(0)).contains("not allowed");
+        await().atMost(Duration.ofSeconds(10))
+                .alias("a send to a user destination is refused")
+                .until(() -> !sender.session().isConnected());
+        if (!sender.errors().isEmpty()) {
+            assertThat(sender.errors().get(0)).contains("not allowed");
+        }
 
         // B still receives genuine messages only.
         StompSession sessionB = connectWithQueryToken(b.uid()).session();
@@ -217,6 +276,108 @@ class RealtimeIT extends AbstractMessagingIT {
             testUsers.setStatus(suspended.id(), AccountStatus.ACTIVE, null);
         }
         assertThat(userRegistry.getUser(suspended.id().toString())).isNull();
+    }
+
+    @Test
+    void anAccountSuspendedByAnAdminKeepsItsLoginButGetsNoSession() throws Exception {
+        // Owner decision of 2026-10-28: a suspension leaves the Firebase login on, so the token
+        // stays valid; the realtime connection still refuses the account, by its own state.
+        Member suspended = member("rt-admin-susp");
+        String admin = uniqueUid("rt-admin");
+        provisionWithRoles(admin, Role.ADMIN);
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/admin/users/" + suspended.id() + "/suspend",
+                admin,
+                Map.of(
+                        "reason",
+                        "Realtime test",
+                        "until",
+                        java.time.Instant.now().plusSeconds(3600).toString()),
+                204);
+        assertThatThrownBy(() -> connectWithQueryToken(suspended.uid()))
+                .isInstanceOf(ExecutionException.class);
+        assertThatThrownBy(() -> connectWithConnectHeader("Bearer " + token(suspended.uid())))
+                .isInstanceOf(ExecutionException.class);
+        assertThat(userRegistry.getUser(suspended.id().toString())).isNull();
+
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/admin/users/" + suspended.id() + "/unsuspend",
+                admin,
+                null,
+                204);
+        Connection back = connectWithQueryToken(suspended.uid());
+        assertThat(back.session().isConnected()).isTrue();
+    }
+
+    /**
+     * Owner decision of 2026-10-28, review fix 1 (P3, F3): a session opened before the suspension
+     * is closed by it, so nothing the suspended collector sends on it reaches anyone (typing) and
+     * it subscribes to nothing more; a ban and a deletion request close the session the same way.
+     */
+    @Test
+    void aSessionOpenedBeforeTheSuspensionIsClosedByIt() throws Exception {
+        Member suspended = member("rt-open-susp");
+        Member partner = member("rt-open-partner");
+        String conversationId = start(suspended, partner, 201);
+        String admin = uniqueUid("rt-open-admin");
+        provisionWithRoles(admin, Role.ADMIN);
+
+        Connection before = connectWithQueryToken(suspended.uid());
+        subscribeAll(before.session());
+        awaitSubscribed(suspended.id(), "/user/queue/typing");
+        StompSession partnerSession = connectWithQueryToken(partner.uid()).session();
+        Queues partnerQueues = subscribeAll(partnerSession);
+        awaitSubscribed(partner.id(), "/user/queue/typing");
+        before.session().send("/app/typing", Map.of("conversationId", conversationId));
+        assertThat(partnerQueues.typing().poll(10, TimeUnit.SECONDS))
+                .as("typing reaches the partner before the suspension")
+                .isNotNull();
+
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/admin/users/" + suspended.id() + "/suspend",
+                admin,
+                Map.of(
+                        "reason",
+                        "Realtime test",
+                        "until",
+                        java.time.Instant.now().plusSeconds(3600).toString()),
+                204);
+        await().atMost(Duration.ofSeconds(10))
+                .alias("the suspension closes the session opened before it")
+                .until(() -> !before.session().isConnected());
+        assertThat(userRegistry.getUser(suspended.id().toString())).isNull();
+        try {
+            before.session().send("/app/typing", Map.of("conversationId", conversationId));
+        } catch (RuntimeException closed) {
+            // the client already knows the session is closed
+        }
+        assertThat(partnerQueues.typing().poll(1, TimeUnit.SECONDS))
+                .as("no typing from the suspended collector after the suspension")
+                .isNull();
+        assertThat(partnerSession.isConnected()).as("the partner's session stays").isTrue();
+
+        // A ban (a report decision's or an admin's) and a deletion request close it the same way.
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/admin/users/" + suspended.id() + "/unsuspend",
+                admin,
+                null,
+                204);
+        Connection again = connectWithQueryToken(suspended.uid());
+        subscribeAll(again.session());
+        awaitSubscribed(suspended.id(), "/user/queue/typing");
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/me/deletion-requests",
+                suspended.uid(),
+                Map.of("reason", "Leaving"),
+                201);
+        await().atMost(Duration.ofSeconds(10))
+                .alias("a deletion request closes the session")
+                .until(() -> !again.session().isConnected());
     }
 
     // ---------------------------------------------------------------------------------------
@@ -269,6 +430,7 @@ class RealtimeIT extends AbstractMessagingIT {
         session.subscribe("/user/queue/receipts", queues.handler(queues.receipts()));
         session.subscribe("/user/queue/typing", queues.handler(queues.typing()));
         session.subscribe("/user/queue/presence", queues.handler(queues.presence()));
+        session.subscribe("/user/queue/conversations", queues.handler(queues.conversations()));
         return queues;
     }
 
@@ -314,10 +476,12 @@ class RealtimeIT extends AbstractMessagingIT {
             BlockingQueue<JsonNode> messages,
             BlockingQueue<JsonNode> receipts,
             BlockingQueue<JsonNode> typing,
-            BlockingQueue<JsonNode> presence) {
+            BlockingQueue<JsonNode> presence,
+            BlockingQueue<JsonNode> conversations) {
 
         Queues() {
             this(
+                    new LinkedBlockingQueue<>(),
                     new LinkedBlockingQueue<>(),
                     new LinkedBlockingQueue<>(),
                     new LinkedBlockingQueue<>(),

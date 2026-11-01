@@ -1,14 +1,16 @@
 package com.orenjitrade.api.users.domain;
 
-import java.text.Normalizer;
-import java.util.Locale;
+import java.util.random.RandomGenerator;
 import java.util.regex.Pattern;
-import org.jspecify.annotations.Nullable;
 
 /**
- * Derives the initial handle of a freshly provisioned account from the email local part: lower
- * case, accents stripped, anything outside {@code [a-z0-9_]} replaced by {@code _}, 3 to 24
- * characters. Collisions are resolved by the caller with {@link #withSuffix(String, int)}.
+ * The first handle of a freshly provisioned account: {@code collector_} and six random characters
+ * (for example {@code collector_k7mq2x}). It is never derived from the e-mail address or any other
+ * identity claim, so a public handle reveals no part of the address and the handle check cannot
+ * tell whether an address has an account (stage R12, review fix 2). The collector picks their own
+ * handle in the welcome ("Who are you?") or under Edit profile. The random part uses consonants and
+ * digits without look-alikes (no vowels, so it never spells a word; no {@code 0}, {@code 1}, {@code
+ * i}, {@code l}, {@code o} or {@code y}). Collisions are resolved by the caller, which draws again.
  */
 public final class HandleGenerator {
 
@@ -16,56 +18,22 @@ public final class HandleGenerator {
     public static final int MAX_LENGTH = 24;
     public static final Pattern VALID = Pattern.compile("^[a-z0-9_]{3,24}$");
 
-    static final String FALLBACK = "collector";
-
-    private static final Pattern INVALID_CHARS = Pattern.compile("[^a-z0-9_]+");
-    private static final Pattern REPEATED_UNDERSCORES = Pattern.compile("_{2,}");
-    private static final Pattern DIACRITICS = Pattern.compile("\\p{M}+");
+    static final String PREFIX = "collector_";
+    static final int RANDOM_LENGTH = 6;
+    static final String ALPHABET = "bcdfghjkmnpqrstvwxz23456789";
 
     private HandleGenerator() {}
 
-    /** The sanitised base handle for an email (or {@code collector} when there is none). */
-    public static String baseFrom(@Nullable String email) {
-        String local = email == null ? "" : email;
-        int at = local.indexOf('@');
-        if (at >= 0) {
-            local = local.substring(0, at);
+    /** A random first handle: {@link #PREFIX} and {@link #RANDOM_LENGTH} random characters. */
+    public static String random(RandomGenerator random) {
+        StringBuilder handle = new StringBuilder(PREFIX.length() + RANDOM_LENGTH).append(PREFIX);
+        for (int i = 0; i < RANDOM_LENGTH; i++) {
+            handle.append(ALPHABET.charAt(random.nextInt(ALPHABET.length())));
         }
-        String normalised = Normalizer.normalize(local, Normalizer.Form.NFD);
-        normalised = DIACRITICS.matcher(normalised).replaceAll("");
-        String sanitised = normalised.toLowerCase(Locale.ROOT);
-        sanitised = INVALID_CHARS.matcher(sanitised).replaceAll("_");
-        sanitised = REPEATED_UNDERSCORES.matcher(sanitised).replaceAll("_");
-        sanitised = trimUnderscores(sanitised);
-        if (sanitised.length() < MIN_LENGTH) {
-            sanitised = sanitised.isEmpty() ? FALLBACK : FALLBACK + "_" + sanitised;
-        }
-        if (sanitised.length() > MAX_LENGTH) {
-            sanitised = trimUnderscores(sanitised.substring(0, MAX_LENGTH));
-        }
-        return sanitised;
-    }
-
-    /** {@code base} followed by {@code _<n>}, truncated so the result stays within 24 chars. */
-    public static String withSuffix(String base, int n) {
-        String suffix = "_" + n;
-        int keep = Math.min(base.length(), MAX_LENGTH - suffix.length());
-        return trimUnderscores(base.substring(0, keep)) + suffix;
+        return handle.toString();
     }
 
     public static boolean isValid(String handle) {
         return VALID.matcher(handle).matches();
-    }
-
-    private static String trimUnderscores(String value) {
-        int start = 0;
-        int end = value.length();
-        while (start < end && value.charAt(start) == '_') {
-            start++;
-        }
-        while (end > start && value.charAt(end - 1) == '_') {
-            end--;
-        }
-        return value.substring(start, end);
     }
 }

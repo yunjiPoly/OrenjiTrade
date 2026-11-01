@@ -57,13 +57,12 @@ public class UserAccountSeedContributor implements SeedContributor {
             jdbc.sql(
                             """
                             INSERT INTO user_account (id, provider_uid, email, email_verified, handle,
-                                display_name, status, plan_code, created_at, updated_at, last_active_at)
+                                display_name, status, created_at, updated_at, last_active_at)
                             VALUES (:id, :providerUid, :email, true, :handle, :displayName, 'ACTIVE',
-                                :planCode, :now, :now, :now)
+                                :now, :now, :now)
                             ON CONFLICT (id) DO UPDATE SET
                                 email = EXCLUDED.email,
                                 display_name = EXCLUDED.display_name,
-                                plan_code = EXCLUDED.plan_code,
                                 updated_at = EXCLUDED.updated_at
                             """)
                     .param("id", account.id())
@@ -71,7 +70,6 @@ public class UserAccountSeedContributor implements SeedContributor {
                     .param("email", account.email())
                     .param("handle", account.handle())
                     .param("displayName", account.displayName())
-                    .param("planCode", account.planCode())
                     .param("now", now)
                     .update();
             for (Role role : account.roles()) {

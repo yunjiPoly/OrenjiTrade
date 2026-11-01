@@ -80,7 +80,9 @@ location). `GET/PUT/DELETE /api/v1/me/location`:
 
 - Search, card holders, binder search, suggestions, the wishlist alerts, ads and the map are
   scoped to **one platform region**: the request's `region` parameter, else the signed-in
-  collector's home region, else the default (`americas-north`). Clients always send it.
+  collector's home region, else the default (`americas-north`). Clients always send it: the
+  region their region switcher shows (web since S1, mobile since stage M9 of 2026-10-12), which
+  starts on the collector's home region.
 - Results rank by freshness, then rating, then handle (no distance sort; the holders sort is
   `FRESHNESS` or `PRICE`).
 - The wishlist matcher matches a new public listing with wishes of collectors **in the same
@@ -106,9 +108,14 @@ files, `apps/web-angular/public/boundaries/<region>.json`, fetched lazily for th
 states shaded by binder count, with an accessible list of every state beside it (keyboard and
 screen-reader alternative to the map). Google Maps, its key, Map ID and adapter, the OpenStreetMap
 tiles and the `MapAdapter` abstraction are removed; the CSP no longer allows any map or tile host.
-The mobile Map tab shows a placeholder until it gets the same map (follow-up; `react-native-maps`
-stays installed so the native build does not change). The mobile location step and settings use
-pickers fed by `GET /regions`; `expo-location` and its permission strings are removed.
+The mobile Map tab draws the same map since stage M9 (2026-10-12): the same boundaries, projected
+at build time into drawing units (`apps/mobile/assets/boundaries/<region>.json`, made from the web
+files by `npm run sync:boundaries`, so the app holds no degrees) and drawn on the device with
+`react-native-svg`, with the same shading, the same accessible list of every state and the same
+two endpoints; no tile, no map provider, no request for geography, no device location.
+`react-native-maps`, `react-native-webview` and the app's `leaflet` dependency are removed. The
+mobile location step and settings use pickers fed by `GET /regions`; `expo-location` and its
+permission strings are removed.
 
 ### Boundary data
 
@@ -164,7 +171,10 @@ pickers fed by `GET /regions`; `expo-location` and its permission strings are re
   after V108 (by design; collectors declare a location again). No production database exists yet.
 - The boundary assets are static files of the web build: no runtime network call to any map
   service, no key, no quota; updating them is an explicit, reviewed rebuild.
-- Mobile follow-ups (map, region switcher) are tracked in `IMPLEMENTATION_STATUS.md`.
+- The mobile follow-ups of S1 (the map, the region switcher) were closed by mobile stage M9
+  (2026-10-12). The phone redesign approved on 2026-10-14
+  (`docs/product/specs/2026-10-14-phone-redesign.md`, not built yet) keeps this decision: places
+  stay states and provinces outside the owner's own profile, with no coordinates and no geocoding.
 
 ## Alternatives considered
 
@@ -176,3 +186,10 @@ pickers fed by `GET /regions`; `expo-location` and its permission strings are re
   user did not choose; rejected (the user picks from the list).
 - **TopoJSON assets**: smaller, but needs a client decoder dependency; plain GeoJSON with 2
   decimals is small enough once gzipped.
+
+## Amendment 2026-10-14 (stage F1, ADR 0019)
+
+The ads, Premium plans and credits this ADR adapted (ad targeting kinds, the plan perks and the
+credit products of the "Community, analytics, ads, plans" section) were removed with the paid
+features: there is no ad targeting and no plan any more; usage limits are the same for every
+collector. Nothing about places changes.

@@ -1,0 +1,429 @@
+// Inventory's table (web redesign spec 9.4). The columns follow the width of the table itself
+// (container queries): full at lg (inner 1064), Binder and Updated dropped at md (inner 904), and
+// the phone's row with the drawer open (inner 624).
+:host {
+  display: block;
+  container-type: inline-size;
+  container-name: invtable;
+}
+
+.tbl {
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface);
+}
+
+.tbl__row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 40px 56px minmax(240px, 1fr) 168px 148px 104px 136px 80px 40px;
+  align-items: center;
+  min-height: 72px;
+  border-top: 1px solid var(--color-border);
+  outline: none;
+  cursor: pointer;
+}
+
+// The head's rowgroup sticks under the toolbar against the whole table (U4; its row alone sat in
+// a wrapper of its own height, with no room to stick).
+.tbl__head {
+  position: sticky;
+  top: calc(64px + var(--inv-toolbar-h, 56px));
+  z-index: 3;
+}
+
+.tbl__row--head {
+  min-height: 40px;
+  border-top: 0;
+  border-radius: 14px 14px 0 0;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-tag);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: default;
+}
+
+.tbl__body .tbl__row:hover,
+.tbl__row--active:focus-within {
+  background: var(--color-surface-variant);
+}
+
+.tbl__body .tbl__row:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: -2px;
+}
+
+.tbl__row--selected {
+  background: var(--color-primary-tint-subtle);
+  box-shadow: inset 3px 0 0 var(--app-primary-text);
+}
+
+.tbl__row--current {
+  background: var(--color-surface-variant);
+  box-shadow: inset 3px 0 0 var(--app-primary-text);
+}
+
+.tbl__row--new {
+  background: var(--color-primary-tint);
+  transition: background 1.5s var(--motion-easing-standard);
+}
+
+.c {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: 0 8px;
+}
+
+.c-sel {
+  justify-content: center;
+  padding: 0;
+}
+
+.cb {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.c-art {
+  position: relative;
+  padding: 6px 0;
+}
+
+.art {
+  --card-image-width: 42px;
+  --card-image-radius: 4px;
+  --card-image-shadow: 0 2px 6px -2px rgb(0 0 0 / 0.45);
+  cursor: grab;
+}
+
+.art__preview {
+  position: absolute;
+  top: 50%;
+  left: 52px;
+  z-index: 12;
+  display: block;
+  width: 160px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  --card-image-width: 160px;
+  --card-image-radius: 8px;
+  --card-image-shadow: 0 18px 40px -12px rgb(0 0 0 / 0.7);
+}
+
+.c-card {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.name {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--color-ink);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.line2 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-meta);
+  white-space: nowrap;
+}
+
+.code {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-meta);
+}
+
+.rarity {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tag-inline {
+  display: none;
+}
+
+.cellbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  min-height: 36px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-ink);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.cellbtn:hover,
+.more:hover {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+}
+
+.cb:focus-visible,
+.cellbtn:focus-visible,
+.more:focus-visible,
+.stepper button:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: 1px;
+}
+
+.cellbtn__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cellbtn.muted {
+  color: var(--color-text-muted);
+}
+
+.chev,
+.pen {
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
+  color: var(--color-text-muted);
+  opacity: 0;
+}
+
+.tbl__row:hover .chev,
+.tbl__row:hover .pen,
+.cellbtn:focus-visible .chev,
+.cellbtn:focus-visible .pen {
+  opacity: 1;
+}
+
+.c-copies {
+  position: relative;
+  font-variant-numeric: tabular-nums;
+}
+
+.qty {
+  padding-left: 8px;
+  color: var(--color-ink);
+  font-size: var(--font-size-sm);
+}
+
+.stepper {
+  display: none;
+  align-items: center;
+  gap: 2px;
+  height: 34px;
+  padding: 0 2px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 999px;
+  background: var(--color-surface);
+}
+
+// The stepper shows on hover and while the row holds the focus (A3: Tab then reaches − and +).
+.tbl__row:hover .stepper,
+.tbl__row:focus-within .stepper {
+  display: inline-flex;
+}
+
+.tbl__row:hover .qty,
+.tbl__row:focus-within .qty {
+  display: none;
+}
+
+.stepper button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.stepper button[aria-disabled='true'] {
+  color: var(--color-text-faint);
+  cursor: default;
+}
+
+.stepper button mat-icon {
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
+}
+
+.stepper__n {
+  min-width: 22px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-align: center;
+}
+
+.c-price {
+  position: relative;
+  justify-content: flex-end;
+}
+
+.cellbtn--price {
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.cellbtn--price.muted {
+  font-weight: var(--font-weight-medium);
+}
+
+// The body's cells only: the header's "Updated" keeps the label style of the others.
+.tbl__body .c-upd {
+  gap: 6px;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-meta);
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-status-aging);
+}
+
+.dot--stale {
+  background: var(--color-status-stale);
+}
+
+.saved {
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
+  color: var(--color-accent);
+}
+
+.more {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.danger {
+  color: var(--color-danger);
+}
+
+.tbl__placeholder {
+  min-height: 72px;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface-variant);
+  opacity: 0.6;
+}
+
+// md (inner 904): Binder and Updated drop.
+@container invtable (max-width: 1000px) {
+  .tbl__row {
+    grid-template-columns: 40px 56px minmax(200px, 1fr) 148px 104px 136px 40px;
+  }
+
+  .c-binder,
+  .c-upd {
+    display: none;
+  }
+}
+
+// The drawer open (inner 624): the phone's row (spec 9.4).
+@container invtable (max-width: 720px) {
+  .tbl__row {
+    grid-template-columns: 40px 56px minmax(0, 1fr) 136px 72px 40px;
+  }
+
+  .c-vis,
+  .c-binder,
+  .c-upd {
+    display: none;
+  }
+
+  .c-price {
+    order: 4;
+  }
+
+  .c-copies {
+    order: 5;
+  }
+
+  .c-menu {
+    order: 6;
+  }
+
+  .tag-inline {
+    display: inline-flex;
+  }
+
+  .tbl__row:hover .stepper,
+  .tbl__row:focus-within .stepper {
+    display: none;
+  }
+
+  .tbl__row:hover .qty,
+  .tbl__row:focus-within .qty {
+    display: inline;
+  }
+
+  .rarity {
+    display: none;
+  }
+}
+
+// Below 480 (a phone-sized window, spec 16): art, card, price, menu.
+@container invtable (max-width: 480px) {
+  .tbl__row {
+    grid-template-columns: 32px 50px minmax(0, 1fr) 84px 36px;
+  }
+
+  .name {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    white-space: normal;
+  }
+
+  .c-copies {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tbl__row--current {
+    background: var(--color-surface-variant);
+    box-shadow: inset 3px 0 0 var(--app-primary-text);
+  }
+
+  .tbl__row--new {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .tbl__row--selected {
+    outline: 2px solid Highlight;
+  }
+}

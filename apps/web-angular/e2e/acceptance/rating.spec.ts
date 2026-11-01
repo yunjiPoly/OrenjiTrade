@@ -26,10 +26,10 @@ test.describe('acceptance: rating', () => {
     // Before any interaction: no rating action.
     await signIn(page, rater);
     await page.goto(`/collectors/${ratee.handle}`);
-    const section = page.getByRole('region', { name: 'Ratings & references' });
+    const section = page.getByRole('region', { name: 'All ratings and references' });
     await expect(section).toContainText('No ratings yet');
     await expect(section.getByTestId('rating-hint')).toContainText(
-      `You can rate ${ratee.displayName} after a completed trade`,
+      `You can rate ${ratee.displayName} after a deal with them`,
     );
     await expect(section.getByRole('button', { name: 'Rate this collector' })).toHaveCount(0);
 
@@ -45,7 +45,7 @@ test.describe('acceptance: rating', () => {
       page.getByRole('dialog', { name: `Rate ${ratee.displayName}` }),
     );
     await expect(dialog).toContainText('Conversation');
-    await dialog.getByRole('button', { name: 'Submit rating' }).click();
+    await dialog.getByRole('button', { name: 'Publish rating' }).click();
     await expect(dialog.getByText('Choose an overall score from 1 to 5 stars.')).toBeVisible();
     await dialog
       .getByRole('radiogroup', { name: 'Overall' })
@@ -53,7 +53,7 @@ test.describe('acceptance: rating', () => {
       .click();
     const comment = `Friendly and on time (${suffix()}).`;
     await dialog.getByRole('textbox', { name: 'Comment (optional)' }).fill(comment);
-    await dialog.getByRole('button', { name: 'Submit rating' }).click();
+    await dialog.getByRole('button', { name: 'Publish rating' }).click();
     await expect(
       page.getByText(`Thanks! Your rating of ${ratee.displayName} is published.`),
     ).toBeVisible();
@@ -68,7 +68,7 @@ test.describe('acceptance: rating', () => {
     // An unrelated collector sees the rating but cannot rate.
     const other = await actors.open(stranger);
     await other.goto(`/collectors/${ratee.handle}`);
-    const theirs = other.getByRole('region', { name: 'Ratings & references' });
+    const theirs = other.getByRole('region', { name: 'All ratings and references' });
     await expect(theirs.getByTestId('rating-average')).toHaveText('5.0');
     await expect(theirs.getByRole('button', { name: 'Rate this collector' })).toHaveCount(0);
     const refused = await api.call<{ errorCode: string }>('POST', '/api/v1/ratings', {

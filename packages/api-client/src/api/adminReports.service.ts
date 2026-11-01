@@ -335,7 +335,7 @@ export class AdminReportsService extends BaseService implements AdminReportsServ
 
     /**
      * List collector reports (MODERATOR+)
-     * Newest first; every filter optional.
+     * Newest first; every filter optional. &#x60;number&#x60; finds one report by its short number (\&quot;#1047\&quot; is 1047; V135, web stage WH1).
      * @endpoint get /api/v1/admin/reports
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -350,6 +350,7 @@ export class AdminReportsService extends BaseService implements AdminReportsServ
         const reason = requestParameters?.reason;
         const reportedUserId = requestParameters?.reportedUserId;
         const assignedTo = requestParameters?.assignedTo;
+        const number = requestParameters?.number;
         const page = requestParameters?.page;
         const size = requestParameters?.size;
 
@@ -386,6 +387,15 @@ export class AdminReportsService extends BaseService implements AdminReportsServ
             localVarQueryParameters,
             'assignedTo',
             <any>assignedTo,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'number',
+            <any>number,
             QueryParamStyle.Form,
             true,
         );
@@ -456,7 +466,7 @@ export class AdminReportsService extends BaseService implements AdminReportsServ
 
     /**
      * Decide a report (MODERATOR+; suspensions and bans ADMIN+)
-     * ACTIONED with an action (WARNING: a notice to the collector; LISTINGS_PAUSED: their public listings are paused; SUSPENDED: suspension with the note as reason and an optional suspendUntil; BANNED: suspension without end plus the ban mark) or DISMISSED (action NONE). SUSPENDED and BANNED need ADMIN (403 for moderators); an administrator\&#39;s account needs a SUPER_ADMIN. Audited (&#x60;REPORT_RESOLVED&#x60; with the action; &#x60;user.suspend&#x60; / &#x60;user.ban&#x60; on the account). With notifyReporter the reporter gets a REPORT_DECISION notification without specifics. 409 for decided reports.
+     * ACTIONED with an action (WARNING: a notice to the collector; LISTINGS_PAUSED: their public listings are paused; SUSPENDED: suspension with the note as reason and an optional suspendUntil, the login left on; BANNED: suspension without end plus the ban mark, the identity-provider user disabled) or DISMISSED (action NONE). SUSPENDED and BANNED need ADMIN (403 for moderators); an administrator\&#39;s account needs a SUPER_ADMIN. Audited (&#x60;REPORT_RESOLVED&#x60; with the action; &#x60;user.suspend&#x60; / &#x60;user.ban&#x60; on the account). With notifyReporter the reporter gets a REPORT_DECISION notification without specifics. 409 for decided reports.
      * @endpoint post /api/v1/admin/reports/{id}/resolve
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.

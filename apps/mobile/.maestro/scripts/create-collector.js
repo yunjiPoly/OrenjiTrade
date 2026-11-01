@@ -9,7 +9,11 @@
 // end (never @orenjitrade.test seeds, never the web suite's @example.test accounts).
 //
 // Inputs (env): API_URL, AUTH_EMULATOR_URL, RUN_ID, PREFIX (optional), DISPLAY_NAME (optional),
-// CONFIRM_AGE (optional, 'false' skips the 18+ confirmation).
+// CONFIRM_AGE (optional, 'false' skips the 18+ confirmation), PLACE (optional, a declared country
+// and state or province as 'CA:CA-QC', never a city), DISCOVERABLE (optional, 'true' turns on
+// "Show me on the map": the collector's public binders and cards can be found; stage R3) and GAMES
+// (optional, the profile's game slugs as 'yugioh,pokemon'; 'pokemon' by default). The first of
+// them that has cards is the game Home and Search browse (stage G).
 // Outputs: output.collector.{email, password, handle, displayName}.
 
 var api = typeof API_URL !== 'undefined' ? API_URL : 'http://localhost:8090';
@@ -19,6 +23,7 @@ var runId = typeof RUN_ID !== 'undefined' ? RUN_ID : 'rmanual0';
 var prefix = typeof PREFIX !== 'undefined' ? PREFIX : 'collector';
 var displayName = typeof DISPLAY_NAME !== 'undefined' ? DISPLAY_NAME : 'Maestro Collector';
 var confirmAge = typeof CONFIRM_AGE === 'undefined' || CONFIRM_AGE !== 'false';
+var games = typeof GAMES !== 'undefined' && GAMES ? GAMES.split(',') : ['pokemon'];
 
 if (/:8080\/?$/.test(api)) {
   throw new Error(
@@ -64,7 +69,7 @@ for (var i = 0; i < me.requiredConsents.length; i++) {
 }
 
 // The 18+ confirmation (launch readiness), like the app's sign-up; CONFIRM_AGE=false creates an
-// account from before the rule, which the app sends to the onboarding age step.
+// account from before the rule, which the app sends to the age line of Review our terms.
 if (confirmAge) {
   var documents = check(
     http.get(api + '/api/v1/public/legal/documents', { headers: auth }),
@@ -93,11 +98,41 @@ check(
       handle: handle,
       displayName: displayName,
       bio: 'Maestro bio.',
-      games: ['pokemon'],
+      games: games,
       languages: ['en'],
     }),
   }),
   'PUT /me/profile'
 );
+
+if (typeof PLACE !== 'undefined' && PLACE) {
+  var parts = PLACE.split(':');
+  check(
+    http.put(api + '/api/v1/me/location', {
+      headers: auth,
+      body: JSON.stringify({
+        countryCode: parts[0],
+        subdivisionCode: parts[1],
+        city: null,
+        showCity: false,
+      }),
+    }),
+    'PUT /me/location'
+  );
+}
+if (typeof DISCOVERABLE !== 'undefined' && DISCOVERABLE === 'true') {
+  var settings = check(
+    http.get(api + '/api/v1/me/settings/privacy', { headers: auth }),
+    'GET /me/settings/privacy'
+  );
+  settings.discoverable = true;
+  check(
+    http.put(api + '/api/v1/me/settings/privacy', {
+      headers: auth,
+      body: JSON.stringify(settings),
+    }),
+    'PUT /me/settings/privacy'
+  );
+}
 
 output.collector = { email: email, password: password, handle: handle, displayName: displayName };

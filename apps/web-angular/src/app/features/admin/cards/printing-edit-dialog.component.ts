@@ -17,6 +17,8 @@ export interface PrintingEditDialogData {
   detail: PrintingDetail;
   schema: GameSchema | null;
   sets: SetSummary[];
+  /** "Add printing" (board A11) instead of editing one. */
+  create?: boolean;
 }
 
 const CURRENCY = /^[A-Z]{3}$/;
@@ -33,7 +35,13 @@ const CURRENCY = /^[A-Z]{3}$/;
     MatSelectModule,
   ],
   template: `
-    <h2 mat-dialog-title>Edit printing {{ data.detail.printing?.printingCode }}</h2>
+    <h2 mat-dialog-title>
+      @if (data.create) {
+        Add printing
+      } @else {
+        Edit printing {{ data.detail.printing?.printingCode }}
+      }
+    </h2>
     <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
       <mat-dialog-content class="printing-form">
         <mat-form-field appearance="outline" class="printing-form__wide">
@@ -75,14 +83,23 @@ const CURRENCY = /^[A-Z]{3}$/;
             }
           </mat-select>
         </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Language</mat-label>
-          <mat-select formControlName="language">
-            @for (language of data.schema?.languages ?? []; track language) {
-              <mat-option [value]="language">{{ languageName(language) }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
+        @if (data.create) {
+          <!-- English cards only (owner, 2026-10-20): a new printing is English, no choice. -->
+          <mat-form-field appearance="outline">
+            <mat-label>Language</mat-label>
+            <input matInput value="English" readonly data-testid="printing-language-fixed" />
+            <mat-hint>New printings are English.</mat-hint>
+          </mat-form-field>
+        } @else {
+          <mat-form-field appearance="outline">
+            <mat-label>Language</mat-label>
+            <mat-select formControlName="language">
+              @for (language of data.schema?.languages ?? []; track language) {
+                <mat-option [value]="language">{{ languageName(language) }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        }
         <mat-form-field appearance="outline">
           <mat-label>Finish</mat-label>
           <mat-select formControlName="finish">
@@ -109,7 +126,9 @@ const CURRENCY = /^[A-Z]{3}$/;
       </mat-dialog-content>
       <mat-dialog-actions align="end">
         <button matButton type="button" mat-dialog-close>Cancel</button>
-        <button matButton="filled" type="submit">Save printing</button>
+        <button matButton="filled" type="submit">
+          {{ data.create ? 'Add printing' : 'Save printing' }}
+        </button>
       </mat-dialog-actions>
     </form>
   `,
@@ -146,9 +165,10 @@ export class PrintingEditDialogComponent {
     ],
     printingCode: [this.printing.printingCode ?? '', Validators.maxLength(40)],
     rarity: [this.printing.rarity ?? ''],
-    edition: [this.printing.edition ?? '', Validators.required],
-    language: [this.printing.language ?? '', Validators.required],
-    finish: [this.printing.finish ?? '', Validators.required],
+    edition: [this.printing.edition ?? (this.data.create ? 'UNLIMITED' : ''), Validators.required],
+    // English cards only (owner, 2026-10-20): a new printing starts in English.
+    language: [this.printing.language ?? (this.data.create ? 'en' : ''), Validators.required],
+    finish: [this.printing.finish ?? (this.data.create ? 'NORMAL' : ''), Validators.required],
     marketPrice: [
       this.printing.marketPrice?.amount === undefined
         ? ''
@@ -174,7 +194,9 @@ export class PrintingEditDialogComponent {
       printingCode: value.printingCode.trim() || undefined,
       rarity: value.rarity || undefined,
       edition: value.edition,
-      language: value.language,
+      // English cards only (owner, 2026-10-20): a new printing is always English; an existing one
+      // keeps its stored language editable.
+      language: this.data.create ? 'en' : value.language,
       finish: value.finish,
       marketPrice: price === '' ? undefined : Number(price),
       marketPriceCurrency: price === '' ? undefined : value.marketPriceCurrency.toUpperCase(),

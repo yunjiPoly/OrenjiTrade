@@ -110,7 +110,18 @@ class CardHoldersIT extends AbstractSearchIT {
         assertThat(byFreshness.path("totalItems").asLong()).isEqualTo(3);
         JsonNode nearRow = byFreshness.path("items").get(1);
         JsonNode holder = nearRow.path("collector");
-        assertThat(holder.path("handle").asString()).isEqualTo(near.handle());
+        // Signed out: who the holder is stays hidden (stage R15); a member reads the handle.
+        assertThat(holder.path("handle").isNull()).isTrue();
+        String member = uniqueUid("hold-member");
+        provisionCompliant(member);
+        assertThat(
+                        holders(member, "printingId=" + printingId)
+                                .path("items")
+                                .get(1)
+                                .path("collector")
+                                .path("handle")
+                                .asString())
+                .isEqualTo(near.handle());
         assertThat(holder.path("place").path("subdivisionCode").asString()).isEqualTo("CA-QC");
         assertThat(holder.path("place").path("label").asString()).isEqualTo("Quebec, Canada");
         assertThat(holder.path("place").path("regionCode").asString()).isEqualTo("americas-north");
@@ -234,7 +245,9 @@ class CardHoldersIT extends AbstractSearchIT {
                 .containsExactlyInAnyOrder(nearItem, frenchItem, middleItem, agingItem);
         assertThat(itemIds(holders(null, "cardId=" + cardId + "&language=fr")))
                 .containsExactly(frenchItem);
-        assertThat(handles(holders(null, "cardId=" + cardId + "&language=fr")))
+        String member = uniqueUid("hold-member-fr");
+        provisionCompliant(member);
+        assertThat(handles(holders(member, "cardId=" + cardId + "&language=fr")))
                 .containsExactly(french.handle());
     }
 
@@ -247,6 +260,79 @@ class CardHoldersIT extends AbstractSearchIT {
         assertThat(handles(holders(middle.uid(), "cardId=" + cardId)))
                 .doesNotContain(middle.handle())
                 .contains(aging.handle());
+    }
+
+    /**
+     * A block, in either direction, takes the collector's listings out of the page AND out of the
+     * count. The collector blocked first holds the first row of the default sort: while the count
+     * was taken before the blocked rows were dropped, the first page of one came back empty under
+     * "3 listings".
+     */
+    @Test
+    void collectorsInABlockRelationWithTheViewerAreNeitherListedNorCounted() {
+        String viewer = uniqueUid("hold-viewer");
+        UUID viewerId = provisionCompliant(viewer);
+        String byPrinting = "printingId=" + printingId;
+
+        JsonNode before = holders(viewer, byPrinting);
+        assertThat(itemIds(before)).containsExactly(middleItem, nearItem, agingItem);
+        assertThat(before.path("totalItems").asLong()).isEqualTo(3);
+
+        // The viewer blocks a holder: one row and one of the count leave together.
+        callJson(HttpMethod.POST, "/api/v1/users/" + middle.id() + "/block", viewer, null, 200);
+        JsonNode blocking = holders(viewer, byPrinting);
+        assertThat(itemIds(blocking)).containsExactly(nearItem, agingItem);
+        assertThat(blocking.path("totalItems").asLong()).isEqualTo(2);
+        assertThat(handles(blocking)).doesNotContain(middle.handle());
+
+        // Pages of one: each page is full, the count and the page count say two, then nothing.
+        JsonNode first = holders(viewer, byPrinting + "&size=1&page=0");
+        assertThat(itemIds(first)).containsExactly(nearItem);
+        assertThat(first.path("totalItems").asLong()).isEqualTo(2);
+        assertThat(first.path("totalPages").asInt()).isEqualTo(2);
+        JsonNode second = holders(viewer, byPrinting + "&size=1&page=1");
+        assertThat(itemIds(second)).containsExactly(agingItem);
+        assertThat(second.path("totalItems").asLong()).isEqualTo(2);
+        JsonNode third = holders(viewer, byPrinting + "&size=1&page=2");
+        assertThat(itemIds(third)).isEmpty();
+        assertThat(third.path("totalItems").asLong()).isEqualTo(2);
+        // The other sort pages the same two rows.
+        assertThat(itemIds(holders(viewer, byPrinting + "&sort=price&size=1&page=1")))
+                .containsExactly(agingItem);
+        // A filter that only the blocked collector and one other pass counts the other alone.
+        JsonNode trades = holders(viewer, byPrinting + "&availability=TRADE");
+        assertThat(itemIds(trades)).containsExactly(agingItem);
+        assertThat(trades.path("totalItems").asLong()).isEqualTo(1);
+
+        // The other direction: a holder who blocked the viewer.
+        callJson(HttpMethod.POST, "/api/v1/users/" + viewerId + "/block", aging.uid(), null, 200);
+        JsonNode blocked = holders(viewer, byPrinting);
+        assertThat(itemIds(blocked)).containsExactly(nearItem);
+        assertThat(blocked.path("totalItems").asLong()).isEqualTo(1);
+        assertThat(blocked.path("totalPages").asInt()).isEqualTo(1);
+        JsonNode onlyPage = holders(viewer, byPrinting + "&size=1&page=0");
+        assertThat(itemIds(onlyPage)).containsExactly(nearItem);
+        assertThat(onlyPage.path("totalPages").asInt()).isEqualTo(1);
+        // By card: the holder of the other printing, who is in no block, stays.
+        JsonNode byCard = holders(viewer, "cardId=" + cardId);
+        assertThat(itemIds(byCard)).containsExactlyInAnyOrder(nearItem, frenchItem);
+        assertThat(byCard.path("totalItems").asLong()).isEqualTo(2);
+        // The collector who blocked the viewer loses nobody else from their own list.
+        assertThat(itemIds(holders(aging.uid(), byPrinting))).containsExactly(middleItem, nearItem);
+
+        // A block is between two collectors: everyone else reads the three listings.
+        assertThat(holders(null, byPrinting).path("totalItems").asLong()).isEqualTo(3);
+        String other = uniqueUid("hold-other");
+        provisionCompliant(other);
+        JsonNode others = holders(other, byPrinting);
+        assertThat(itemIds(others)).containsExactly(middleItem, nearItem, agingItem);
+        assertThat(others.path("totalItems").asLong()).isEqualTo(3);
+
+        // Unblocking brings the row and the count back.
+        callJson(HttpMethod.DELETE, "/api/v1/users/" + middle.id() + "/block", viewer, null, 204);
+        JsonNode unblocked = holders(viewer, byPrinting);
+        assertThat(itemIds(unblocked)).containsExactly(middleItem, nearItem);
+        assertThat(unblocked.path("totalItems").asLong()).isEqualTo(2);
     }
 
     @Test

@@ -15,13 +15,14 @@
 export interface BulkSkipped { 
     itemId: string;
     /**
-     * NOT_FOUND (unknown, deleted or not the caller\'s item) or UNCHANGED (already in the requested state)
+     * NOT_FOUND (unknown, deleted or not the caller\'s item), UNCHANGED (already in the requested state) or BINDER_GAME_MISMATCH (MOVE_TO_BINDER: a card of another game than the binder, stage G)
      */
     reason: BulkSkippedReasonEnum;
 }
 export enum BulkSkippedReasonEnum {
     NotFound = 'NOT_FOUND',
-    Unchanged = 'UNCHANGED'
+    Unchanged = 'UNCHANGED',
+    BinderGameMismatch = 'BINDER_GAME_MISMATCH'
 };
 
 

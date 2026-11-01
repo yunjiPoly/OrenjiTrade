@@ -1,8 +1,9 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { PrintingSummary } from '@/src/api/types';
 import { CardImage } from '@/src/components/ui/CardImage';
+import { Text } from '@/src/components/ui/Text';
 import {
   formatMarketPrice,
   printingCode,

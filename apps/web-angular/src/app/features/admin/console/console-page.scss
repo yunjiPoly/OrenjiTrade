@@ -1,0 +1,290 @@
+// The admin console's page pattern (spec 15.2, boards A1 to A24; web stage WH1): the header (an
+// eyebrow with the group name, H1 in Sora 28, a one-line subtitle, actions on the right), filters
+// in one wrapping row (segmented tabs, selects, search fields), a count line, then cards holding
+// the lists. Shared by the console's pages through `styleUrls` (each lazy chunk carries its copy).
+
+:host {
+  display: block;
+}
+
+.cp {
+  padding: 28px 32px 48px;
+  max-width: 1440px;
+}
+
+.cp__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 24px;
+  margin-bottom: 24px;
+}
+.cp__heading {
+  flex: 1 1 420px;
+  min-width: 0;
+}
+.cp__eyebrow {
+  margin: 0 0 4px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.cp__title {
+  margin: 0;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: var(--font-weight-bold);
+  line-height: 36px;
+  letter-spacing: -0.4px;
+  outline: none;
+}
+.cp__sub {
+  margin: 6px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 15px;
+  line-height: 22px;
+}
+.cp__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.cp__updated {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.cp__section-title {
+  margin: 28px 0 12px;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: var(--font-weight-semibold);
+}
+
+// Underline tabs (Flags | Rules, Ratings | References).
+.cp-tabs {
+  display: flex;
+  gap: 24px;
+  margin: 0 0 20px;
+  border-bottom: 1px solid var(--color-border);
+}
+.cp-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 15px;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+.cp-tab[aria-selected='true'] {
+  border-bottom-color: var(--color-primary);
+  color: var(--color-ink);
+}
+.cp-tab:focus-visible,
+.cp-seg__btn:focus-visible,
+.cb:focus-visible,
+.cp-link:focus-visible,
+.cp-select:focus-visible,
+.cp-input:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-offset);
+}
+.cp-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-variant);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+}
+.cp-badge--hot {
+  background: var(--color-primary-tint);
+  color: var(--app-primary-text);
+}
+
+// Segmented control (states).
+.cp-seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+}
+.cp-seg__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+.cp-seg__btn[aria-pressed='true'] {
+  background: var(--color-ink);
+  color: var(--color-background);
+}
+.cp-seg__btn[aria-pressed='true'] .cp-badge {
+  background: color-mix(in srgb, var(--color-background) 20%, transparent);
+  color: inherit;
+}
+
+// Filters row.
+.cp-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.cp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.cp-field__label {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+}
+.cp-select,
+.cp-input {
+  box-sizing: border-box;
+  height: 40px;
+  min-width: 0;
+  padding: 0 12px;
+  border: 1px solid var(--color-border-input);
+  border-radius: 12px;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: var(--font-size-sm);
+}
+.cp-select {
+  padding-right: 32px;
+}
+textarea.cp-input {
+  height: auto;
+  min-height: 88px;
+  padding: 10px 12px;
+  line-height: 20px;
+  resize: vertical;
+}
+.cp-input[aria-invalid='true'],
+.cp-select[aria-invalid='true'] {
+  border-color: var(--color-danger);
+}
+.cp-count {
+  margin: 0 0 8px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+// Cards and rows.
+.cp-card {
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-surface);
+}
+.cp-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px 6px;
+}
+.cp-card__title {
+  margin: 0;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: var(--font-weight-semibold);
+}
+.cp-card__sub {
+  margin: 0;
+  padding: 0 20px 10px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+.cp-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cp-rows > li {
+  border-top: 1px solid var(--color-border);
+}
+
+.cp-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: var(--radius-sm);
+  color: var(--color-accent);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.cp-link:hover {
+  text-decoration: underline;
+}
+
+// The filter bar of spec 15.2 (boards A7 to A23): one card holding the filters in a wrapping row,
+// labels above the fields.
+.cp-filterbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px 16px;
+  margin-bottom: 18px;
+  padding: 16px 20px 18px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-surface);
+}
+.cp-field--grow {
+  flex: 1 1 280px;
+}
+.cp-field--grow .cp-input {
+  width: 100%;
+}
+.cp-search {
+  position: relative;
+  display: flex;
+}
+.cp-search > app-admin-icon {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  color: var(--color-text-secondary);
+  pointer-events: none;
+}
+.cp-search > .cp-input {
+  width: 100%;
+  padding-left: 38px;
+}

@@ -12,7 +12,11 @@ import {
 import { Subject, of, throwError } from 'rxjs';
 import { ApiError } from '../../../core/http/api-error';
 import { parseInventoryParams } from './inventory-params';
-import { InventoryStore } from './inventory.store';
+import { InventoryStore, RESTORE_MAX_WAITS } from './inventory.store';
+
+function problem(status: number, body: Record<string, unknown>): HttpErrorResponse {
+  return new HttpErrorResponse({ status, error: { status, message: 'x', ...body } });
+}
 
 function item(id: string, overrides: Partial<InventoryItemResponse> = {}): InventoryItemResponse {
   return {
@@ -140,6 +144,129 @@ describe('InventoryStore', () => {
     await store.setQuantity(store.items()[0], 3);
     expect(store.items()[0].quantity).toBe(3);
     expect(store.busyItems().size).toBe(0);
+  });
+
+  it('saves an inline edit with confirm: true, only the changed field (spec 9.4, M8)', async () => {
+    store.loadItems(parseInventoryParams({}));
+    await store.setPrice(store.items()[0], '$12.50');
+    expect(inventory['updateInventoryItem']).toHaveBeenLastCalledWith(
+      { id: 'a', updateInventoryItemRequest: { askingPriceText: '$12.50', confirm: true } },
+      'body',
+      false,
+      expect.anything(),
+    );
+    await store.setVisibility(store.items()[0], 'PUBLIC');
+    expect(inventory['updateInventoryItem']).toHaveBeenLastCalledWith(
+      { id: 'a', updateInventoryItemRequest: { visibility: 'PUBLIC', confirm: true } },
+      'body',
+      false,
+      expect.anything(),
+    );
+  });
+
+  it('moves a temporarily public card to a binder with its stored visibility (F4)', async () => {
+    const until = new Date(Date.now() + 2 * 86_400_000).toISOString();
+    const card = item('t', {
+      visibility: 'TEMPORARILY_PUBLIC' as InventoryItemResponse['visibility'],
+      publicUntil: until,
+    });
+    await store.setBinder(card, 'b2');
+    expect(inventory['updateInventoryItem']).toHaveBeenLastCalledWith(
+      {
+        id: 't',
+        updateInventoryItemRequest: {
+          binderId: 'b2',
+          visibility: 'TEMPORARILY_PUBLIC',
+          confirm: true,
+        },
+      },
+      'body',
+      false,
+      expect.anything(),
+    );
+  });
+
+  describe('Undo of a delete (F1: one restore per card, paced against the per-minute limit)', () => {
+    let sleeps: number[];
+    const sleep = (ms: number) => {
+      sleeps.push(ms);
+      return Promise.resolve();
+    };
+
+    beforeEach(() => {
+      sleeps = [];
+    });
+
+    it('waits out a 429 in the middle and restores every card', async () => {
+      let calls = 0;
+      inventory['restoreInventoryItem'] = vi.fn(({ id }: { id: string }) => {
+        calls++;
+        return calls === 3
+          ? throwError(() => problem(429, { errorCode: 'RATE_LIMITED', retryAfterSeconds: 7 }))
+          : of(item(id));
+      });
+      const waits: number[] = [];
+      const outcome = await store.restoreItems(['1', '2', '3', '4', '5', '6'], {
+        sleep,
+        onWait: (seconds) => waits.push(seconds),
+      });
+      expect(outcome.restored.sort()).toEqual(['1', '2', '3', '4', '5', '6']);
+      expect(outcome.gone).toEqual([]);
+      expect(outcome.waiting).toEqual([]);
+      expect(sleeps).toEqual([7000]);
+      expect(waits).toEqual([7]);
+      expect(inventory['restoreInventoryItem']).toHaveBeenCalledTimes(7);
+    });
+
+    it('sends at most four restores at once', async () => {
+      let open = 0;
+      let most = 0;
+      inventory['restoreInventoryItem'] = vi.fn(({ id }: { id: string }) => {
+        const answer = new Subject<InventoryItemResponse>();
+        open++;
+        most = Math.max(most, open);
+        setTimeout(() => {
+          open--;
+          answer.next(item(id));
+          answer.complete();
+        });
+        return answer;
+      });
+      const outcome = await store.restoreItems(['1', '2', '3', '4', '5', '6', '7', '8', '9']);
+      expect(outcome.restored.length).toBe(9);
+      expect(most).toBe(4);
+    });
+
+    it("hands back the cards still waiting after the last pause, with the server's delay", async () => {
+      inventory['restoreInventoryItem'] = vi.fn(({ id }: { id: string }) =>
+        id === '1'
+          ? of(item(id))
+          : throwError(() => problem(429, { errorCode: 'RATE_LIMITED', retryAfterSeconds: 40 })),
+      );
+      const outcome = await store.restoreItems(['1', '2', '3'], { sleep });
+      expect(outcome.restored).toEqual(['1']);
+      expect(outcome.waiting.sort()).toEqual(['2', '3']);
+      expect(outcome.retryAfterSeconds).toBe(40);
+      expect(sleeps.length).toBe(RESTORE_MAX_WAITS);
+    });
+
+    it('says which cards are past the 10 minutes and which may still come back', async () => {
+      inventory['restoreInventoryItem'] = vi.fn(({ id }: { id: string }) =>
+        id === 'old'
+          ? throwError(() => problem(409, { errorCode: 'RESTORE_WINDOW_CLOSED' }))
+          : id === 'offline'
+            ? throwError(() => new HttpErrorResponse({ status: 0 }))
+            : of(item(id)),
+      );
+      const outcome = await store.restoreItems(['ok', 'old', 'offline'], { sleep });
+      expect(outcome).toEqual({
+        restored: ['ok'],
+        gone: ['old'],
+        waiting: ['offline'],
+        retryAfterSeconds: null,
+      });
+      expect(sleeps).toEqual([]);
+    });
   });
 
   it('confirms every stale and hidden item through one bulk call', async () => {

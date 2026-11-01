@@ -74,7 +74,6 @@ public class MeController {
                 account.lastActiveAt(),
                 onboardingService.statusOf(account.id()),
                 consentService.requiredConsents(account.id()),
-                account.planCode(),
                 regions == null ? null : regions.homeRegionOf(account.id()));
     }
 

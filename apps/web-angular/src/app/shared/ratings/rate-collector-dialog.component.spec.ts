@@ -120,4 +120,29 @@ describe('RateCollectorDialogComponent', () => {
     expect(element.querySelector('[data-testid="rating-error"]')?.textContent).toContain('14 days');
     expect(close).not.toHaveBeenCalled();
   });
+
+  it('never asks "Meetup reliability", and keeps an old meetup score on edit (ADR 0018)', async () => {
+    const old = {
+      ...RATING,
+      breakdown: { communication: 5, meetupReliability: 2 },
+    } as unknown as RatingResponse;
+    await create({ collector: { id: 'u-2', displayName: 'Tess' }, rating: old });
+    expect(element.textContent).not.toMatch(/meetup/i);
+    star('Overall', 5).click();
+    await submit();
+    expect(updateRating).toHaveBeenCalledWith(
+      {
+        id: 'rt-1',
+        updateRatingRequest: {
+          overall: 5,
+          communication: 5,
+          meetupReliability: 2,
+          comment: 'Nice trade',
+        },
+      },
+      'body',
+      false,
+      expect.anything(),
+    );
+  });
 });

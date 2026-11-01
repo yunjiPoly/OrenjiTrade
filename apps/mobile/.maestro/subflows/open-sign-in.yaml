@@ -1,0 +1,20 @@
+# Since stage R15 the app opens on Home as a guest (signed out), not on Sign in: opens Sign in
+# with the person button that takes the bell's place, and waits for it. Nothing happens when Sign
+# in is already on screen.
+appId: ${APP_ID}
+---
+- runFlow:
+    when:
+      notVisible:
+        id: 'screen-sign-in'
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: 'person-button-home'
+          timeout: 60000
+      - tapOn:
+          id: 'person-button-home'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-sign-in'
+    timeout: 60000

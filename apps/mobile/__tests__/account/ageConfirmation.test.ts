@@ -10,7 +10,6 @@ import { friendlyError } from '@/src/api/errorMessages';
 import {
   AGE_CONFIRMATION_LABEL_EN,
   AGE_CONFIRMATION_TYPE,
-  ageConfirmationAccessibleLabel,
   ageConfirmationOf,
   ageConsentFor,
   isAgeConfirmation,
@@ -35,17 +34,41 @@ describe('the 18+ rule (launch readiness)', () => {
     expect(needsOnboarding(meFixture({ onboarding: ONBOARDED }))).toBe(false);
     expect(needsAgeConfirmation(meFixture({ onboarding: ONBOARDED }))).toBe(false);
     expect(needsAgeConfirmation(undefined)).toBe(false);
-    // The gate: an unconfirmed account lands on onboarding, like an unfinished profile.
-    expect(gateFor('ready', true)).toBe('onboarding');
   });
 
-  it('names the checkbox in both languages on iOS, where a control is read as one element', () => {
-    expect(ageConfirmationAccessibleLabel('ios')).toBe(
-      'I confirm I am 18 years of age or older. Je confirme avoir 18 ans ou plus'
-    );
-    // Android and the web keep the name they had.
-    expect(ageConfirmationAccessibleLabel('android')).toBe(AGE_CONFIRMATION_LABEL_EN);
-    expect(ageConfirmationAccessibleLabel('web')).toBe(AGE_CONFIRMATION_LABEL_EN);
+  it('routes an account without the confirmation to Review our terms (stage R12), not the welcome', () => {
+    const derive = (onboarding: object, requiredConsents: object[] = []) =>
+      deriveAccountStatus({
+        sessionStatus: 'authenticated',
+        me: meFixture({
+          onboarding: { ...ONBOARDED, ...onboarding },
+          requiredConsents: requiredConsents as never,
+        }),
+        error: null,
+        isPending: false,
+        signal: null,
+      });
+    // An existing collector with no document due: Review our terms, with the age line alone.
+    const ageOnly = derive({ ageConfirmed: false });
+    expect(ageOnly.status).toBe('consent-required');
+    expect(ageOnly.requiredConsents).toEqual([]);
+    expect(gateFor(ageOnly.status, false)).toBe('consent');
+    // A Google sign-up: the documents and the age on the same screen, then the welcome.
+    const google = derive({ profileComplete: false, interestsSet: false, ageConfirmed: false }, [
+      { documentType: 'TERMS', version: '2026-09-01' },
+    ]);
+    expect(google.status).toBe('consent-required');
+    expect(google.requiredConsents).toEqual([{ documentType: 'TERMS', version: '2026-09-01' }]);
+    // Confirmed: ready, and the welcome for an unfinished profile.
+    expect(derive({ ageConfirmed: true }).status).toBe('ready');
+    expect(derive({ profileComplete: false, ageConfirmed: true }).status).toBe('ready');
+    expect(gateFor('ready', true)).toBe('onboarding');
+    // An older API without the flag: never asked.
+    expect(derive({}).status).toBe('ready');
+  });
+
+  it('names the checkbox in English only (owner, 2026-10-20)', () => {
+    expect(AGE_CONFIRMATION_LABEL_EN).toBe('I confirm I am 18 years of age or older');
   });
 
   it('finds the published attestation and keeps it out of the readable documents', () => {
@@ -71,7 +94,7 @@ describe('the 18+ rule (launch readiness)', () => {
     expect(friendlyError(error)).toEqual({
       title: 'Age confirmation required',
       message:
-        'Please confirm that you are 18 years of age or older to be shown on the map, message, post or make offers. We will take you to the confirmation.',
+        'Please confirm that you are 18 years of age or older to be shown on the map, message or post. We will take you to the confirmation.',
     });
     expect(signalFromError(error, 7)).toEqual({ kind: 'age-confirmation-required', at: 7 });
     // The signal itself is not an account state: `/me` (reloaded) decides through its flag.
@@ -86,16 +109,16 @@ describe('the 18+ rule (launch readiness)', () => {
     ).toBe('ready');
   });
 
-  it('keeps the plan-limit wording neutral (no Premium pitch in the generic message)', () => {
+  it('keeps the limit wording plain (no plan, no Premium pitch in the generic message)', () => {
     const limit = ApiError.fromProblem(429, {
       status: 429,
       errorCode: 'LIMIT_REACHED',
       message: 'Limit reached',
     });
     expect(friendlyError(limit)).toEqual({
-      title: 'Plan limit reached',
-      message: 'You reached a limit of your plan. It resets soon.',
+      title: 'Limit reached',
+      message: 'You reached a usage limit for this action.',
     });
-    expect(friendlyError(limit).message).not.toMatch(/Premium/);
+    expect(friendlyError(limit).message).not.toMatch(/Premium|plan/);
   });
 });

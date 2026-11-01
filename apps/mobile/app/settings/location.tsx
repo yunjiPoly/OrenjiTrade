@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { messageOf } from '@/src/api/errorMessages';
 import {
@@ -11,14 +11,13 @@ import {
   useSavePrivacy,
 } from '@/src/api/hooks/location';
 import type { MyLocationResponse, PrivacySettings } from '@/src/api/types';
-import { Button } from '@/src/components/ui/Button';
-import { ConfirmDialog } from '@/src/components/ui/ConfirmDialog';
-import { FormMessage, SwitchRow } from '@/src/components/ui/FormControls';
-import { SectionCard } from '@/src/components/ui/Layout';
-import { QueryState } from '@/src/components/ui/QueryState';
-import { Screen } from '@/src/components/ui/Screen';
+import { ConfirmSheet } from '@/src/components/ui/ConfirmSheet';
+import { ErrorState } from '@/src/components/ui/ErrorState';
+import { FormMessage } from '@/src/components/ui/FormControls';
+import { PillButton } from '@/src/components/ui/PillButton';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
+import { Text } from '@/src/components/ui/Text';
 import { LocationFields } from '@/src/features/location/LocationFields';
 import {
   draftFromLocation,
@@ -27,37 +26,59 @@ import {
   missingField,
   type LocationDraft,
 } from '@/src/features/location/locationDraft';
-import { spacing, textStyle, useTheme } from '@/src/theme';
+import { mapStatus } from '@/src/features/settings/mapStatus';
+import { LOCATION_COPY as COPY } from '@/src/features/settings/settingsCopy';
+import { SettingsGroup, SettingsSwitch } from '@/src/features/settings/SettingsList';
+import { SettingsPage } from '@/src/features/settings/SettingsPage';
+import { fontWeight, PINNED_MAX_FONT_SCALE, radius, spacing, useTheme } from '@/src/theme';
 
 /**
- * Settings → Location and discoverability (ADR 0017, the web's `/settings/location` plus the
- * "Show me on the map" privacy switch): the self-declared country, state or province and optional
- * city, what others see, removal, and the map opt-in (which needs a location).
+ * What "Show me on the map" says under it: where collectors see you, or why they do not (no place
+ * yet, the switch off, or a PRIVATE profile, which leaves the map whatever the switch says).
+ */
+function mapLine(location: MyLocationResponse, privacy: PrivacySettings): string {
+  const place = location.location?.label;
+  switch (mapStatus(!!place, privacy)) {
+    case 'no-place':
+      return COPY.noPlace;
+    case 'private':
+      return COPY.privateHidden;
+    case 'hidden':
+      return COPY.hidden;
+    default:
+      return COPY.seenIn(place ?? '');
+  }
+}
+
+/**
+ * Settings › Location (stage R13, mockup v50 screen 49; ADR 0017): "Show me on the map" first
+ * (saved at once, as before; it needs a saved place), then the region, the country and the state
+ * or province side by side, the optional city and "Show my city on my profile", the box on how
+ * OrenjiTrade protects where you live, "Remove my location" (asked in a sheet) and "Save
+ * location" at the bottom. No map, no GPS, no geocoding.
  */
 export default function LocationSettingsScreen() {
   const location = useMyLocation();
   const privacy = usePrivacySettings();
-  const query = {
-    data:
-      location.data && privacy.data
-        ? { location: location.data, privacy: privacy.data }
-        : undefined,
-    error: location.error ?? privacy.error,
-    isPending: location.isPending || privacy.isPending,
-    isFetching: location.isFetching || privacy.isFetching,
-    refetch: () => Promise.all([location.refetch(), privacy.refetch()]),
-  };
+  if (location.data && privacy.data) {
+    return <LocationForm location={location.data} privacy={privacy.data} />;
+  }
+  const error = location.error ?? privacy.error;
   return (
-    <Screen scroll safeBottom testID="screen-settings-location">
-      <QueryState
-        query={query}
-        errorTitle="We could not load your location"
-        loading={<SkeletonList rows={4} rowHeight={56} />}
-        testID="settings-location"
-      >
-        {(data) => <LocationForm location={data.location} privacy={data.privacy} />}
-      </QueryState>
-    </Screen>
+    <SettingsPage title={COPY.title} testID="screen-settings-location">
+      {error ? (
+        <ErrorState
+          error={error}
+          title={COPY.loadError}
+          onRetry={() => void Promise.all([location.refetch(), privacy.refetch()])}
+          testID="settings-location-error"
+        />
+      ) : (
+        <View accessibilityLabel={COPY.loading} aria-busy>
+          <SkeletonList rows={5} rowHeight={56} testID="settings-location-loading" />
+        </View>
+      )}
+    </SettingsPage>
   );
 }
 
@@ -81,6 +102,7 @@ function LocationForm({
   const draft = edited ?? draftFromLocation(location);
   const dirty = isLocationDirty(draft, location);
   const saved = location.location ?? null;
+  const busy = save.isPending || remove.isPending;
 
   const saveLocation = async () => {
     setSubmitted(true);
@@ -92,9 +114,7 @@ function LocationForm({
       const answer = await save.mutateAsync(locationInput(draft));
       setEdited(null);
       setSubmitted(false);
-      snackbar.show(
-        `Location saved${answer.location?.label ? ` · ${answer.location.label}` : ''}.`
-      );
+      snackbar.show(COPY.saved(answer.location?.label), { icon: 'success' });
     } catch (caught) {
       setError(messageOf(caught));
     }
@@ -106,7 +126,7 @@ function LocationForm({
       await remove.mutateAsync();
       setEdited(null);
       setConfirmRemove(false);
-      snackbar.show('Your location was removed.');
+      snackbar.show(COPY.removed, { icon: 'success' });
     } catch (caught) {
       setConfirmRemove(false);
       setError(messageOf(caught));
@@ -117,109 +137,104 @@ function LocationForm({
     setError(null);
     try {
       await savePrivacy.mutateAsync({ ...privacy, discoverable });
-      snackbar.show(discoverable ? 'You now appear on the map.' : 'You are hidden from the map.');
+      snackbar.show(discoverable ? COPY.nowOnMap : COPY.nowHidden, { icon: 'success' });
     } catch (caught) {
       setError(messageOf(caught));
     }
   };
 
   return (
-    <View style={styles.root}>
-      <SectionCard
-        title="Location"
-        description="Your country and state or province decide your region and where your binders appear. Others never see more than your state or province (and your city on your profile, if you choose)."
-      >
-        {saved ? (
-          <Text testID="location-label" style={[textStyle('md'), { color: palette.ink }]}>
-            {saved.label} · {saved.regionName}
-          </Text>
-        ) : (
-          <Text testID="location-none" style={[textStyle('sm'), { color: palette.textMuted }]}>
-            You have not said where you are yet, so you do not appear on the map.
-          </Text>
-        )}
-        <LocationFields
-          value={draft}
-          onChange={setEdited}
-          showErrors={submitted}
-          disabled={save.isPending || remove.isPending}
-        />
-        {error ? <FormMessage testID="location-error">{error}</FormMessage> : null}
-        <Button
-          label="Save location"
+    <SettingsPage
+      title={COPY.title}
+      testID="screen-settings-location"
+      footer={
+        <PillButton
+          label={COPY.save}
           loading={save.isPending}
+          loadingLabel={COPY.saving}
           disabled={!dirty || remove.isPending}
           onPress={() => void saveLocation()}
+          maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
           testID="location-save"
         />
-        {saved ? (
-          <Button
-            label="Remove location"
-            variant="ghost"
-            icon="map-marker-off-outline"
-            disabled={save.isPending || remove.isPending}
-            onPress={() => setConfirmRemove(true)}
-            testID="location-remove"
-          />
-        ) : null}
-      </SectionCard>
-
-      <SectionCard title="Discoverability" description="Off by default. Change it anytime.">
-        <SwitchRow
-          label="Show me on the map"
-          help="Collectors of your region see your state or province and can open your public binders. When off, you are hidden from the map and from searches. Needs a location."
+      }
+    >
+      <SettingsGroup>
+        <SettingsSwitch
+          label={COPY.onMap}
+          help={mapLine(location, privacy)}
+          helpTestID="location-visibility"
           value={privacy.discoverable}
           onChange={(value) => void setDiscoverable(value)}
-          disabled={savePrivacy.isPending}
+          disabled={savePrivacy.isPending || (!saved && !privacy.discoverable)}
           testID="location-discoverable"
         />
-        <View style={[styles.callout, { backgroundColor: palette.surfaceVariant }]}>
-          <MaterialCommunityIcons
-            name={privacy.discoverable ? 'eye-outline' : 'eye-off-outline'}
-            size={20}
-            color={palette.textMuted}
-          />
-          <Text
-            testID="location-visibility"
-            style={[textStyle('sm'), styles.grow, { color: palette.ink }]}
-          >
-            {!saved
-              ? 'You have not chosen a location yet, so you never appear on the map.'
-              : !privacy.discoverable
-                ? `You are hidden from the map. Turn on “Show me on the map” to appear in ${saved.label}.`
-                : `Collectors see you in ${saved.label}.`}
-          </Text>
-        </View>
-      </SectionCard>
+      </SettingsGroup>
 
-      <SectionCard title="How OrenjiTrade protects where you live">
-        {[
-          'You choose your country and state or province; never an address, and the app never uses GPS.',
-          'The map counts binders per state or province: no pin, no point, no distance.',
-          'Your city is optional and shown only on your profile, if you want.',
-        ].map((line) => (
-          <Text key={line} style={[textStyle('sm'), { color: palette.textMuted }]}>
-            • {line}
-          </Text>
+      <LocationFields
+        value={draft}
+        onChange={setEdited}
+        showErrors={submitted}
+        disabled={busy}
+        cityHint={COPY.cityHint}
+      />
+      {error ? <FormMessage testID="location-error">{error}</FormMessage> : null}
+
+      <View
+        accessible
+        accessibilityLabel={`${COPY.protectTitle}. ${COPY.protectLines.join(' ')}`}
+        style={[styles.protect, { borderColor: palette.borderStrong }]}
+        testID="location-protect"
+      >
+        <Text style={[styles.protectTitle, { color: palette.ink }]}>{COPY.protectTitle}</Text>
+        {COPY.protectLines.map((line) => (
+          <View key={line} style={styles.protectLine}>
+            <MaterialCommunityIcons name="check" size={16} color={palette.accent} />
+            <Text style={[styles.protectText, { color: palette.settings.rowIcon }]}>{line}</Text>
+          </View>
         ))}
-      </SectionCard>
+      </View>
 
-      <ConfirmDialog
+      {saved ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={COPY.remove}
+          disabled={busy}
+          onPress={() => setConfirmRemove(true)}
+          testID="location-remove"
+          style={({ pressed }) => [styles.remove, pressed && styles.pressed]}
+        >
+          <Text style={[styles.removeText, { color: palette.danger }]}>{COPY.remove}</Text>
+        </Pressable>
+      ) : null}
+
+      <ConfirmSheet
         visible={confirmRemove}
-        title="Remove your location?"
-        message="You will disappear from the map and from searches in your region until you choose a location again."
-        confirmLabel="Remove location"
-        tone="danger"
+        title={COPY.removeTitle}
+        message={COPY.removeBody}
+        confirmLabel={COPY.removeConfirm}
+        cancelLabel={COPY.removeKeep}
         busy={remove.isPending}
         onConfirm={() => void removeLocation()}
         onCancel={() => setConfirmRemove(false)}
+        testID="location-remove-sheet"
       />
-    </View>
+    </SettingsPage>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { gap: spacing[4] },
-  callout: { flexDirection: 'row', gap: spacing[2], padding: spacing[3], borderRadius: 10 },
-  grow: { flex: 1 },
+  protect: {
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderRadius: radius.lg,
+    padding: 14,
+    gap: spacing[2],
+  },
+  protectTitle: { fontSize: 14, lineHeight: 19, fontWeight: fontWeight.semibold },
+  protectLine: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing[2] },
+  protectText: { flex: 1, fontSize: 13, lineHeight: 19 },
+  remove: { alignSelf: 'center', minHeight: 44, justifyContent: 'center', paddingHorizontal: 12 },
+  removeText: { fontSize: 14, lineHeight: 19, fontWeight: fontWeight.semibold },
+  pressed: { opacity: 0.7 },
 });

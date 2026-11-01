@@ -1,0 +1,102 @@
+# Rating after a real conversation (Phase 7; stage R1 of the phone redesign): Ben (fresh,
+# fictional, driven from the host through the isolated API, scripts/messaging.js) and Ada (the app
+# user) each sent three messages, so Ada may rate Ben. She opens the conversation menu, "Rate":
+# the form asks Overall, Communication, Card condition and Shipping, never "Meetup reliability"
+# (ADR 0018: collectors don't meet, deals ship by mail). The API holds her rating without a meetup
+# score.
+appId: ${APP_ID}
+name: Rate a collector after a conversation
+tags:
+  - ratings
+  - redesign-r1
+---
+- runScript:
+    file: scripts/messaging.js
+    env:
+      ACTION: setup
+- runScript:
+    file: scripts/messaging.js
+    env:
+      ACTION: qualify
+      EMAIL: ${output.ben.email}
+      PASSWORD: ${output.ben.password}
+      ADA_EMAIL: ${output.ada.email}
+      ADA_PASSWORD: ${output.ada.password}
+      CONVERSATION: ${output.conversation.id}
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.ada.email}
+      PASSWORD: ${output.ada.password}
+- extendedWaitUntil:
+    visible:
+      id: 'tab-messages'
+    timeout: 60000
+- tapOn:
+    id: 'tab-messages'
+- extendedWaitUntil:
+    visible:
+      id: 'conversation-row-${output.ben.handle}'
+    timeout: 60000
+- tapOn:
+    id: 'conversation-row-${output.ben.handle}'
+- extendedWaitUntil:
+    visible:
+      id: 'conversation-profile'
+    timeout: 60000
+- extendedWaitUntil:
+    visible: 'Thanks for buying!'
+    timeout: 60000
+
+# The conversation menu offers "Rate" once the conversation qualifies.
+- tapOn:
+    id: 'conversation-menu'
+- extendedWaitUntil:
+    visible:
+      id: 'conversation-rate'
+    timeout: 30000
+- tapOn:
+    id: 'conversation-rate'
+- extendedWaitUntil:
+    visible:
+      id: 'rate-overall-5'
+    timeout: 60000
+- assertVisible: 'Communication'
+- assertVisible: 'Card condition'
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'rate-shipping-4'
+- assertVisible: 'Shipping'
+- assertNotVisible: 'Meetup reliability'
+- assertNotVisible: 'On time at the agreed place'
+- takeScreenshot: rate-form
+- tapOn:
+    id: 'rate-shipping-4'
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'rate-overall-5'
+- tapOn:
+    id: 'rate-overall-5'
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'rate-submit'
+- tapOn:
+    id: 'rate-submit'
+
+# Back in the conversation; the API holds the rating, without a meetup score.
+- extendedWaitUntil:
+    visible:
+      id: 'conversation-profile'
+    timeout: 60000
+- runScript:
+    file: scripts/messaging.js
+    env:
+      ACTION: expect-rating
+      EMAIL: ${output.ada.email}
+      PASSWORD: ${output.ada.password}
+      HANDLE: ${output.ben.handle}
+      EXPECT_OVERALL: '5'

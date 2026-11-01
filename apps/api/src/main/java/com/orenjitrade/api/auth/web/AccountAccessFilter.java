@@ -16,8 +16,13 @@ import java.util.List;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.AuthorityUtils;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.util.matcher.OrRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
@@ -37,16 +42,23 @@ import org.springframework.web.filter.OncePerRequestFilter;
  *
  * Public routes ({@code /api/v1/public/**}, {@code /api/v1/meta}, probes, docs, and the read-only
  * catalog GET routes) never need an identity and are therefore not blocked even when a token is
- * attached.
+ * attached. An account refused above reads them as a signed-out visitor (a guest: places, never
+ * who; the guests' rate limits): its token is dropped for the request, so a suspension that leaves
+ * the login on (owner decision of 2026-10-28) never lets the account read members-only details.
  */
 public class AccountAccessFilter extends OncePerRequestFilter {
 
     static final String DELETION_PENDING_MESSAGE = "deletion pending";
 
+    /** Key of the guest authentication that replaces a refused account on public routes. */
+    private static final String GUEST_KEY = AccountAccessFilter.class.getName();
+
     private final RequestMatcher publicRoutes;
     private final RequestMatcher deletionRequestedAllowed;
     private final ProblemDetailFactory problems;
     private final TimeProvider timeProvider;
+    private final SecurityContextRepository contextRepository =
+            new RequestAttributeSecurityContextRepository();
 
     public AccountAccessFilter(
             List<String> publicPatterns, ProblemDetailFactory problems, TimeProvider timeProvider) {
@@ -85,13 +97,19 @@ public class AccountAccessFilter extends OncePerRequestFilter {
             HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (!(authentication instanceof UserAuthentication userAuthentication)
-                || publicRoutes.matches(request)) {
+        if (!(authentication instanceof UserAuthentication userAuthentication)) {
             chain.doFilter(request, response);
             return;
         }
         AuthenticatedUser user = userAuthentication.user();
         Instant now = timeProvider.now();
+        if (publicRoutes.matches(request)) {
+            if (isRefusedAt(user, now)) {
+                browseAsGuest(request, response);
+            }
+            chain.doFilter(request, response);
+            return;
+        }
         if (user.isSuspendedAt(now)) {
             ProblemDetail detail = problem(request, "This account is suspended");
             if (user.suspendedUntil() != null) {
@@ -112,6 +130,33 @@ public class AccountAccessFilter extends OncePerRequestFilter {
                     problems.write(response, problem(request, "This account has been deleted"));
             default -> chain.doFilter(request, response);
         }
+    }
+
+    /**
+     * Whether the account is refused on member routes: a suspension in force, a deletion pending
+     * (outside its own few routes) or a deleted account.
+     */
+    static boolean isRefusedAt(AuthenticatedUser user, Instant now) {
+        return user.isSuspendedAt(now)
+                || switch (user.status()) {
+                    case DELETION_REQUESTED, DELETED -> true;
+                    default -> false;
+                };
+    }
+
+    /**
+     * Replaces the refused account with a guest for this request (the same anonymous authentication
+     * a request without a token gets), also for an error dispatch of the request.
+     */
+    private void browseAsGuest(HttpServletRequest request, HttpServletResponse response) {
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(
+                new AnonymousAuthenticationToken(
+                        GUEST_KEY,
+                        "anonymousUser",
+                        AuthorityUtils.createAuthorityList("ROLE_ANONYMOUS")));
+        SecurityContextHolder.setContext(context);
+        contextRepository.saveContext(context, request, response);
     }
 
     private ProblemDetail problem(HttpServletRequest request, String message) {

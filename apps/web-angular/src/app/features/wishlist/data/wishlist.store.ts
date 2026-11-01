@@ -1,6 +1,6 @@
 import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { PlansService, WishlistItemResponse, WishlistService } from '@orenji/api-client';
+import { LimitsService, WishlistItemResponse, WishlistService } from '@orenji/api-client';
 import { Subscription, firstValueFrom } from 'rxjs';
 import { ApiError, toApiError } from '../../../core/http/api-error';
 import { silentErrors } from '../../../core/http/http-context';
@@ -10,11 +10,10 @@ import { WISH_ITEMS_LIMIT_KEY } from '../../../shared/wishlist/wishlist-form';
 
 export type WishlistStatus = 'loading' | 'ready' | 'error';
 
-/** The plan's `wishlist.items.max` for the usage meter (`limit: null` = unlimited). */
+/** `wishlist.items.max` for the usage meter (`limit: null` = unlimited; the same for everyone). */
 export interface WishUsage {
   used: number;
   limit: number | null;
-  planName: string | null;
 }
 
 /**
@@ -26,7 +25,7 @@ export type AlertReadiness = 'unknown' | 'ready' | 'no-location';
 
 /**
  * The caller's wishlist (`GET /wishlist`, newest first) with its actions: add/replace after the
- * dialog, remove (`DELETE /wishlist/{id}`), the plan usage (`GET /me/plan`, `wishlist.items.max`),
+ * dialog, remove (`DELETE /wishlist/{id}`), the usage (`GET /me/limits`, `wishlist.items.max`),
  * the location behind the alerts and the "Let others see what you want" switch (privacy setting
  * `wishlistVisible`, saved through the shared {@link MyLocationStore}). Every realtime
  * reconnection quietly re-reads the list.
@@ -36,7 +35,7 @@ export type AlertReadiness = 'unknown' | 'ready' | 'no-location';
 @Injectable()
 export class WishlistStore {
   private readonly api = inject(WishlistService);
-  private readonly plansApi = inject(PlansService);
+  private readonly limitsApi = inject(LimitsService);
   private readonly myLocation = inject(MyLocationStore);
   private readonly realtime = inject(RealtimeService);
   private readonly destroyRef = inject(DestroyRef);
@@ -171,27 +170,20 @@ export class WishlistStore {
 
   /** The location (alert readiness) and the privacy settings (wishlist visibility). */
   async loadSettings(): Promise<void> {
-    if (await this.myLocation.load()) {
+    // Known already (Search's viewer place reads it at the same time): read once (WE review F8).
+    if (await this.myLocation.ensureLoaded()) {
       this.settingsLoaded.set(true);
     }
   }
 
-  /** The plan usage of `wishlist.items.max`; `null` when unknown. */
+  /** The usage of `wishlist.items.max` (`GET /me/limits`); `null` when unknown. */
   async loadUsage(): Promise<void> {
     try {
-      const plan = await firstValueFrom(
-        this.plansApi.getMyPlan('body', false, { context: silentErrors() }),
+      const limits = await firstValueFrom(
+        this.limitsApi.getMyLimits('body', false, { context: silentErrors() }),
       );
-      const status = plan.limits?.find((entry) => entry.key === WISH_ITEMS_LIMIT_KEY);
-      this.usageState.set(
-        status
-          ? {
-              used: status.used ?? 0,
-              limit: status.limit ?? null,
-              planName: plan.plan?.name ?? null,
-            }
-          : null,
-      );
+      const status = limits.limits?.find((entry) => entry.key === WISH_ITEMS_LIMIT_KEY);
+      this.usageState.set(status ? { used: status.used ?? 0, limit: status.limit ?? null } : null);
     } catch {
       // The meter is optional.
     }

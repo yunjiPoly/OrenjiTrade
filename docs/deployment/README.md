@@ -24,8 +24,8 @@ this document is applied by CI: an operator runs `terraform apply` by hand, neve
 
 **Which environments to create.** Year one runs **prod only** (about US$131–142/month at list
 prices, table below). `dev` is optional (≈ US$30/month idle at the Montreal rates of ADR 0016:
-`db-f1-micro` 8.47 + 10 GB SSD 1.87, the load balancer's flat charge 18.25, six billed
-scheduler jobs 0.60, scale-to-zero Cloud Run ≈ 0–1) and `staging` is created on demand and destroyed afterwards
+`db-f1-micro` 8.47 + 10 GB SSD 1.87, the load balancer's flat charge 18.25, four billed
+scheduler jobs 0.40, scale-to-zero Cloud Run ≈ 0–1) and `staging` is created on demand and destroyed afterwards
 (section 12). Without a dev project the images are built into the **prod** registry: point the
 repository-level GitHub variables at prod in step 3.
 
@@ -127,12 +127,12 @@ with the Private Service Access peering and the `/24` Direct VPC egress subnet (
 Cloud NAT), Cloud SQL `db-g1-small` ZONAL (Enterprise edition, private IP, 10 GB SSD, 7 backups,
 PITR, deletion protection), the media bucket, Pub/Sub topics + DLQs + the BigQuery subscription,
 the BigQuery dataset, Secret Manager secrets with generated versions (`db-password`,
-`service-token`, `analytics-actor-salt`, `ads-token-secret`,
+`service-token`, `analytics-actor-salt`,
 `consent-ip-salt`) and empty containers for the Stripe secrets, the `api` Cloud Run service (one
 always-on instance running the placeholder image **plus the Valkey sidecar**, pulled through the
 Artifact Registry Docker Hub remote repository), the `web` service (scale-to-zero), the global
 HTTPS load balancer with Cloud Armor and a Certificate Manager certificate in state
-`AUTHORIZING`, the ten Cloud Scheduler jobs, uptime checks and alert policies. No ML service.
+`AUTHORIZING`, the seven Cloud Scheduler jobs, uptime checks and alert policies. No ML service.
 
 Cloud Run services start with `us-docker.pkg.dev/cloudrun/container/hello`, which answers 200
 on every path, so the placeholder revisions pass their probes and the apply completes; Terraform
@@ -195,16 +195,15 @@ the TCP probe vs. loopback question documented on `redis_sidecar_bind_address` (
 ## 8. Populate operator-managed secrets (when payments are switched on)
 
 ```bash
-terraform output secrets_to_populate     # stripe-secret-key, stripe-webhook-secret, stripe-billing-webhook-secret [, firebase-service-account]
+terraform output secrets_to_populate     # stripe-secret-key, stripe-webhook-secret [, firebase-service-account]
 
 printf '%s' "$STRIPE_SECRET_KEY"     | gcloud secrets versions add stripe-secret-key     --data-file=- --project "$PROJECT_ID"
 printf '%s' "$STRIPE_WEBHOOK_SECRET" | gcloud secrets versions add stripe-webhook-secret --data-file=- --project "$PROJECT_ID"
 ```
 
 Use Stripe **restricted keys** (Connect + PaymentIntents + Transfers only). Only after the
-versions exist set `stripe_secrets_enabled = true` (and, for subscriptions,
-`billing_provider = "stripe"`, `stripe_price_premium`, a `stripe-billing-webhook-secret` version)
-in `terraform.tfvars` and re-apply; the API then starts with `PAYMENT_PROVIDER=stripe` (still
+versions exist set `stripe_secrets_enabled = true` in `terraform.tfvars` and re-apply (there are
+no subscriptions to configure since stage F1, ADR 0019); the API then starts with `PAYMENT_PROVIDER=stripe` (still
 behind the `protectedPayments` feature flag, ADR 0011). `firebase-service-account` is optional:
 Cloud Run uses the Application Default Credentials of `api-run`, which already holds
 `firebaseauth.admin`.
@@ -267,7 +266,7 @@ curl -fsS https://api.orenjitrade.com/actuator/health/readiness        # {"statu
 curl -fsS https://api.orenjitrade.com/api/v1/meta | jq                  # environment "production"
 curl -fsSI https://www.orenjitrade.com/ | grep -iE "^(HTTP|cf-cache-status|strict-transport)"
 curl -fsS https://www.orenjitrade.com/config.json | jq                  # apiBaseUrl, wsBaseUrl wss://api..., firebase.apiKey set
-gcloud scheduler jobs list --location "$REGION" --project "$PROJECT_ID"  # 9 jobs
+gcloud scheduler jobs list --location "$REGION" --project "$PROJECT_ID"  # 7 jobs
 gcloud scheduler jobs run orenjitrade-${ENV}-freshness --location "$REGION" --project "$PROJECT_ID"
 gcloud logging read 'resource.type="cloud_run_revision" httpRequest.requestUrl:"/internal/jobs/" ' --limit 5 --project "$PROJECT_ID"   # 200, not 401
 gcloud logging read 'resource.type="cloud_run_revision" severity>=ERROR' --limit 20 --project "$PROJECT_ID"
@@ -317,7 +316,7 @@ month. New accounts get US$300 of credit for 90 days.
 | Cloud Storage | media + card images ≤ 5 GB, ≈ 1 M reads | ≈ 1 |
 | Artifact Registry | ≈ 10 versions × 2 images + the cached sidecar image | ≈ 0.3 |
 | Secret Manager | 6 generated + up to 3 Stripe versions | ≈ 0.2 |
-| Cloud Scheduler | 9 jobs (3 free) | 0.60 |
+| Cloud Scheduler | 7 jobs (3 free; 9 before stage F1) | 0.40 |
 | Pub/Sub + BigQuery analytics | < 10 GiB/month | ≈ 0–0.5 |
 | Certificate Manager, Direct VPC egress, LB addresses, Logging < 50 GiB, Monitoring, uptime checks, Firebase Auth < 50k MAU, Cloudflare Free | | 0 |
 | **Total** | | **≈ 131–142** (≈ 125 at minimal traffic) |

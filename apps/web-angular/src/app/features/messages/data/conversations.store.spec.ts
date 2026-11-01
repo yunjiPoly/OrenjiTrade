@@ -65,6 +65,7 @@ describe('ConversationsStore', () => {
     receipts$: Subject<ReadReceiptNotice>;
     presence$: Subject<PresenceNotice>;
     resync$: Subject<void>;
+    conversations$: Subject<{ conversationId: string }>;
   };
   let pages: ConversationSummary[][];
 
@@ -89,6 +90,7 @@ describe('ConversationsStore', () => {
       receipts$: new Subject(),
       presence$: new Subject(),
       resync$: new Subject(),
+      conversations$: new Subject(),
     };
     TestBed.configureTestingModule({
       providers: [

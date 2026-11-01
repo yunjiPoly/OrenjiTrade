@@ -28,6 +28,10 @@ export interface AdminBinder {
     effectivePublic: boolean;
     confirmedAt: string;
     updatedAt: string;
+    /**
+     * The game of the binder\'s cards (web stage WH2)
+     */
+    game: string;
 }
 export enum AdminBinderKindEnum {
     Collection = 'COLLECTION',

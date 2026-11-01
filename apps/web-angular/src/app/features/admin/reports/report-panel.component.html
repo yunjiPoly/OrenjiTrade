@@ -1,0 +1,329 @@
+@if (onePane()) {
+  <a class="cp-link pn__back" routerLink="/admin/reports" queryParamsHandling="preserve">
+    <app-admin-icon name="arrowLeft" [size]="16" />
+    All reports
+  </a>
+}
+@if (loading() && !report()) {
+  <div class="cp-card pn pn--state" aria-busy="true">
+    <span class="visually-hidden">Loading the report</span>
+    <app-skeleton height="96px" />
+    <app-skeleton variant="list" lines="5" />
+  </div>
+} @else if (error(); as error) {
+  <div class="cp-card pn pn--state">
+    @if (error.status === 404) {
+      <app-empty-state
+        icon="search_off"
+        title="Report not found"
+        description="It may have been removed with the reporter's account."
+      >
+        <a actions class="cb cb--outline" routerLink="/admin/reports">Back to reports</a>
+      </app-empty-state>
+    } @else {
+      <app-error-state
+        title="The report could not load"
+        [message]="errorMessage()"
+        [requestId]="error.requestId"
+        retryLabel="Try again"
+        (retry)="load()"
+      />
+    }
+  </div>
+} @else if (report(); as r) {
+  @let u = r.reportedUser;
+  <article class="cp-card pn" aria-labelledby="report-title" data-testid="report-panel">
+    <header class="pn__head">
+      <div class="pn__heading">
+        <p class="pn__eyebrow">{{ reasonLabel(r.reason) }} · {{ context(r.context.source) }}</p>
+        <h2 class="pn__title" id="report-title" tabindex="-1">
+          Report {{ number(r.number) }} about {{ u.displayName }}
+        </h2>
+        <p class="pn__meta">
+          <strong>&#64;{{ u.handle }}</strong>
+          <span [class]="statusChip(r.status)" data-testid="report-status">{{
+            statusLabel(r.status)
+          }}</span>
+          @if (r.resolutionAction && r.resolutionAction !== 'NONE') {
+            <span [class]="actionChip(r.resolutionAction)">{{
+              actionLabel(r.resolutionAction)
+            }}</span>
+          }
+          <span class="cp-muted">
+            Filed
+            <time [attr.datetime]="r.createdAt" [title]="r.createdAt | date: 'medium'">{{
+              r.createdAt | relativeTime
+            }}</time>
+            @if (r.assignee) {
+              · assigned to &#64;{{ r.assignee.handle }}
+            } @else if (open()) {
+              · unassigned
+            }
+          </span>
+        </p>
+      </div>
+      <div class="pn__actions">
+        @if (session.isAdmin()) {
+          <a
+            class="cp-link"
+            routerLink="/admin/audit-logs"
+            [queryParams]="{ targetType: 'REPORT', targetId: r.id }"
+          >
+            <app-admin-icon name="history" [size]="16" />
+            Audit log
+          </a>
+        }
+        @if (open()) {
+          @if (!assignedToMe()) {
+            <button
+              type="button"
+              class="cb cb--outline"
+              [attr.aria-disabled]="busy() !== null ? 'true' : null"
+              (click)="busy() !== null || assignToMe()"
+            >
+              Assign to me
+            </button>
+          }
+          <button
+            type="button"
+            class="cb cb--primary"
+            [attr.aria-disabled]="busy() !== null || aboutMe() ? 'true' : null"
+            [attr.aria-describedby]="aboutMe() ? 'report-about-me' : null"
+            (click)="busy() !== null || aboutMe() || resolve()"
+          >
+            Resolve…
+          </button>
+          @if (aboutMe()) {
+            <p class="pn__note" id="report-about-me">
+              Another moderator decides reports about you.
+            </p>
+          }
+        }
+      </div>
+    </header>
+
+    <div class="pn__grid">
+      <div class="pn__main">
+        <section class="pn__section" aria-labelledby="report-what">
+          <h3 class="pn__h" id="report-what">What was reported</h3>
+          <dl class="facts">
+            <div>
+              <dt>Reason</dt>
+              <dd>{{ reasonLabel(r.reason) }}</dd>
+            </div>
+            <div>
+              <dt>Where</dt>
+              <dd>
+                {{ where(r) }}
+                @if (r.context.binderId) {
+                  ·
+                  <a class="cp-link" [routerLink]="['/binders', r.context.binderId]"
+                    >Open the binder</a
+                  >
+                } @else if (r.contextRoomSlug) {
+                  ·
+                  <a
+                    class="cp-link"
+                    [routerLink]="['/messages/community', r.contextRoomSlug]"
+                    target="_blank"
+                    rel="noopener"
+                    aria-label="Open the room, opens in a new tab"
+                    >Open the room</a
+                  >
+                }
+              </dd>
+            </div>
+            <div>
+              <dt>Details</dt>
+              <dd>
+                @if (r.details) {
+                  <blockquote class="pn__quote" data-testid="report-details">
+                    “{{ r.details }}”
+                  </blockquote>
+                } @else {
+                  <span class="cp-muted">The reporter did not add details.</span>
+                }
+              </dd>
+            </div>
+          </dl>
+        </section>
+
+        @if (r.conversation; as conversation) {
+          <section class="pn__section" aria-labelledby="report-conversation">
+            <h3 class="pn__h" id="report-conversation">Conversation</h3>
+            <p class="pn__lead">
+              The latest {{ conversation.messages.length }}
+              {{ conversation.messages.length === 1 ? 'message' : 'messages' }} of the conversation
+              the report came from. Opening it is recorded in the audit log.
+            </p>
+            @if (conversation.messages.length === 0) {
+              <p class="cp-muted">No messages.</p>
+            } @else {
+              <ol class="chat" aria-label="Messages">
+                @for (day of days(); track day.day) {
+                  <li class="chat__day">
+                    <span>{{ day.day + 'T12:00:00' | date: 'MMM d' }}</span>
+                  </li>
+                  @for (message of day.messages; track message.id) {
+                    @let who = sender(message);
+                    <li
+                      class="msg"
+                      [class.msg--reported]="who.role === 'reported'"
+                      [class.msg--mine]="who.role === 'reporter'"
+                    >
+                      <p class="msg__meta">
+                        <strong>{{ who.handle }}</strong>
+                        @if (who.role === 'reported') {
+                          · <span class="msg__role">reported</span>
+                        } @else if (who.role === 'reporter') {
+                          · <span>reporter</span>
+                        }
+                        ·
+                        <time [attr.datetime]="message.createdAt">{{
+                          message.createdAt | date: 'HH:mm'
+                        }}</time>
+                        @if (message.moderationState !== 'OK') {
+                          <span class="cp-chip cp-chip--warning">{{
+                            stateLabel(message.moderationState)
+                          }}</span>
+                        }
+                      </p>
+                      @if (sharedLine(message.sharedDetail); as line) {
+                        <p class="msg__hidden" data-testid="shared-detail">
+                          <app-admin-icon name="lock" [size]="14" />
+                          {{ line }}
+                        </p>
+                      } @else {
+                        <div class="msg__bubble">
+                          @if (message.kind !== 'TEXT') {
+                            <span class="msg__kind">{{ kindLabel(message.kind) }}</span>
+                          }
+                          @if (message.body) {
+                            <span class="msg__body">{{ message.body }}</span>
+                          }
+                        </div>
+                      }
+                    </li>
+                  }
+                }
+              </ol>
+            }
+          </section>
+        }
+
+        @if (!open()) {
+          <section class="pn__section" aria-labelledby="report-resolution">
+            <h3 class="pn__h" id="report-resolution">Resolution</h3>
+            <p class="pn__resolution">
+              <strong>{{ statusLabel(r.status) }}</strong>
+              @if (r.resolutionAction) {
+                · {{ actionLabel(r.resolutionAction) }}
+              }
+              @if (r.resolvedAt) {
+                · {{ r.resolvedAt | date: 'medium' }}
+              }
+            </p>
+            @if (r.resolutionNote) {
+              <blockquote class="pn__quote">{{ r.resolutionNote }}</blockquote>
+            }
+          </section>
+        }
+
+        <section class="pn__section" aria-labelledby="report-notes">
+          <h3 class="pn__h" id="report-notes">Moderator notes</h3>
+          <app-moderator-notes
+            [notes]="r.moderatorNotes"
+            [busy]="busy() === 'note'"
+            (add)="addNote($event)"
+          />
+        </section>
+      </div>
+
+      <aside class="pn__side" aria-label="People and history">
+        <section class="side" aria-labelledby="report-reported">
+          <h3 class="side__eyebrow" id="report-reported">Reported collector</h3>
+          <div class="who">
+            <app-avatar [src]="u.avatarUrl" [name]="u.displayName" [decorative]="true" />
+            <div>
+              <p class="who__name">{{ u.displayName }}</p>
+              <p class="who__handle">&#64;{{ u.handle }}</p>
+            </div>
+          </div>
+          <p class="who__status">
+            <span
+              class="cp-chip"
+              [class.cp-chip--success]="u.status === 'ACTIVE'"
+              [class.cp-chip--danger]="u.status === 'SUSPENDED'"
+              [class.cp-chip--warning]="u.status === 'DELETION_REQUESTED'"
+              >{{ accountStatus(u.status) }}</span
+            >
+            @if (u.bannedAt) {
+              <span class="cp-chip cp-chip--danger">Banned</span>
+            }
+            <span class="cp-muted">Member since {{ u.memberSince | date: 'MMM y' }}</span>
+          </p>
+          @if (u.suspendedUntil) {
+            <p class="cp-muted who__until">
+              Suspended until {{ u.suspendedUntil | date: 'medium' }}
+            </p>
+          }
+          <ul class="stats" aria-label="Standing">
+            <li [class.stats--hot]="r.history.openReports > 0">
+              <strong>{{ r.history.openReports }}</strong>
+              <span>open {{ r.history.openReports === 1 ? 'report' : 'reports' }}</span>
+            </li>
+            <li>
+              <strong>{{ r.history.listingStatus.strikes }}</strong>
+              <span>{{ r.history.listingStatus.strikes === 1 ? 'strike' : 'strikes' }}</span>
+            </li>
+            <li [class.stats--hot]="r.history.openFlags.length > 0">
+              <strong>{{ r.history.openFlags.length }}</strong>
+              <span>open {{ r.history.openFlags.length === 1 ? 'flag' : 'flags' }}</span>
+            </li>
+            <li [class.stats--live]="!r.history.listingStatus.paused">
+              <strong>{{ r.history.listingStatus.paused ? 'Paused' : 'Live' }}</strong>
+              <span>listings</span>
+            </li>
+          </ul>
+          <p class="side__links">
+            <a class="cp-link" [routerLink]="['/collectors', u.handle]">Public profile</a>
+            @if (session.isAdmin()) {
+              <a class="cp-link" [routerLink]="['/admin/users', u.id]">Account</a>
+            }
+            <a
+              class="cp-link"
+              routerLink="/admin/reports"
+              [queryParams]="{ reportedUserId: u.id, status: 'ALL' }"
+              >All reports about them</a
+            >
+          </p>
+        </section>
+
+        <section class="side" aria-labelledby="report-reporter">
+          <h3 class="side__eyebrow" id="report-reporter">Reporter</h3>
+          <div class="who">
+            <app-avatar
+              size="sm"
+              [src]="r.reporter.avatarUrl"
+              [name]="r.reporter.displayName"
+              [decorative]="true"
+            />
+            <div>
+              <p class="who__name">&#64;{{ r.reporter.handle }}</p>
+              <p class="who__handle">{{ r.reporter.displayName }}</p>
+            </div>
+          </div>
+          <p class="side__secret">
+            <app-admin-icon name="eyeOff" [size]="16" />
+            Never reveal who filed a report. The reporter only learns whether action was taken.
+          </p>
+        </section>
+
+        <section class="side side--last" aria-labelledby="report-history">
+          <h3 class="side__eyebrow" id="report-history">History</h3>
+          <app-report-history [history]="r.history" [currentId]="r.id" />
+        </section>
+      </aside>
+    </div>
+  </article>
+}

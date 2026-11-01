@@ -1,6 +1,7 @@
 package com.orenjitrade.api.inventory.domain;
 
 import com.orenjitrade.api.binders.domain.BinderService;
+import com.orenjitrade.api.binders.domain.ListingScope;
 import com.orenjitrade.api.binders.events.BinderFreshnessWarning;
 import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.delisting.domain.DelistPolicyService;
@@ -24,10 +25,21 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * The freshness job's work (Phase 3 contract "Jobs"), in one transaction:
+ * The freshness job's work (Phase 3 contract "Jobs"), in one transaction. The job writes binders
+ * and items of every collector next to the collectors' own writes and takes no lock in front of
+ * them: every statement below skips the rows another transaction holds ({@code SKIP LOCKED}), so
+ * the job never waits for a row it has to write; a binder or item that is being written at that
+ * moment is aged, warned, hidden or unlisted by the next run. Skipping does not cover the one other
+ * lock the job takes on these tables: a second update of an item in one run re-runs the foreign key
+ * check of its binder (a key-share lock). The job does not wait there either: writes lock binders
+ * without their key; the delete of a binder, which takes the full row lock, holds the live items of
+ * the binder by then; and an item deleted earlier, which keeps its binder, is written at most once
+ * per run (the job clears a listed flag left on it and leaves its expired temporary publication
+ * alone). So the job is never part of a lock cycle. The binder half of each step runs before the
+ * first item is written (nothing a binder step decides depends on the items):
  *
  * <ol>
- *   <li>expired temporary publications (items and binders) become PRIVATE;
+ *   <li>expired temporary publications (binders, and items that are not deleted) become PRIVATE;
  *   <li>freshness states of binders and items are re-derived from {@code confirmed_at} and the
  *       active {@code delist_policy} (AGED / STALED / HIDDEN / RESTORED freshness events; {@code
  *       BinderFreshnessChanged});
@@ -75,7 +87,11 @@ public class FreshnessService {
         FreshnessPolicy policy = policies.active();
         Instant now = timeProvider.now();
 
+        // Binders first, to the end: expiry and freshness, effective visibility, warnings.
         BinderService.FreshnessRun binderRun = binders.runFreshness(policy, now);
+        binders.reconcileListing(new ListingScope.All());
+        Map<UUID, BinderService.Warning> binderWarnings = binders.warn(policy, now);
+
         int expiredItems = items.normaliseExpired(now);
         List<StateChange> changes = items.recomputeFreshness(policy, now);
         int aged = 0;
@@ -105,7 +121,7 @@ public class FreshnessService {
         }
         freshnessEvents.record(entries);
 
-        ListingReconciler.Counts counts = reconciler.all();
+        ListingReconciler.Counts counts = reconciler.allItems();
         for (Map.Entry<WarningKey, Integer> group : hiddenListings.entrySet()) {
             events.publishEvent(
                     new InventoryListingsHidden(
@@ -115,7 +131,6 @@ public class FreshnessService {
                             now));
         }
 
-        Map<UUID, BinderService.Warning> binderWarnings = binders.warn(policy, now);
         List<Warned> itemWarnings = items.warn(policy, now);
         List<FreshnessEventLog.Entry> warned = new ArrayList<>();
         Map<WarningKey, WarningGroup> groups = new LinkedHashMap<>();

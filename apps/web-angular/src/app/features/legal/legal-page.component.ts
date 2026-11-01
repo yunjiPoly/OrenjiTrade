@@ -48,7 +48,7 @@ export class LegalPageComponent {
     () => this.document()?.effectiveDate ?? this.texts.effectiveDatePlaceholder(),
   );
   protected readonly otherDocuments = computed(() =>
-    this.texts.documentList().filter((doc) => doc.key !== this.key()),
+    this.texts.visibleDocuments().filter((doc) => doc.key !== this.key()),
   );
 
   constructor() {

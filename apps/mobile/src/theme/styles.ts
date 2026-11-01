@@ -1,15 +1,18 @@
-import { Platform, type TextStyle, type ViewStyle } from 'react-native';
+import { type TextStyle, type ViewStyle } from 'react-native';
 
+import { FONT_FAMILIES } from './fonts';
 import { tokens } from './tokens';
 
 /**
- * Font families. Sora/Inter are not bundled yet (Phase 1 loads them with `expo-font`); until
- * then the system font is used so iOS never throws "Unrecognized font family".
+ * Font families (spec 2026-10-14, section 3): Sora for screen titles and big numbers, Inter for
+ * everything else, JetBrains Mono for card codes and tracking numbers. Styles name a family and a
+ * weight; the app's `Text` and `TextInput` (src/components/ui/Text.tsx) render the bundled face
+ * (src/theme/fonts.ts), or the system font until the fonts are loaded.
  */
 export const fontFamily = {
-  display: undefined as string | undefined,
-  body: undefined as string | undefined,
-  mono: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }) as string,
+  display: FONT_FAMILIES.display as string,
+  body: FONT_FAMILIES.body as string,
+  mono: FONT_FAMILIES.mono as string,
 };
 
 export const fontWeight = {
@@ -54,6 +57,45 @@ export const motion = {
   base: 200,
   slow: 320,
 } as const;
+
+/**
+ * How far the large title of a screen follows the system text size: up to twice its size, which
+ * is still larger than body text at the largest accessibility size. Beyond that a single word of
+ * a title ("Americas") no longer fits the width of a phone and is cut in two.
+ */
+export const TITLE_MAX_FONT_SCALE = 2;
+
+/**
+ * How far the controls that stay on screen above a scrolling list follow the system text size
+ * (the segments of a tab, the region switcher of the Search tab): a little, like the tab bar and
+ * the navigation header of the system, which do not grow with it either. At the largest
+ * accessibility sizes they otherwise broke their words over five lines and took the whole
+ * screen, leaving the list under them out of reach. On iOS a long press shows them enlarged
+ * (the system's large content viewer).
+ */
+export const PINNED_MAX_FONT_SCALE = 1.35;
+
+/**
+ * How far a collector's handle follows the system text size (owner decision of 2026-10-28, R8
+ * follow-up 1: cap the small things, leave paragraphs alone): as little as the controls pinned
+ * above a list. A handle has no spaces, so at the largest accessibility sizes even a short one no
+ * longer fit its row and iOS broke it anywhere ("collector_ / 7f3k2a"). At this cap a handle of
+ * the longest length the API allows (24 characters of [a-z0-9_], `HANDLE_MAX`) in ordinary
+ * letters and digits fits one line of a row beside an avatar on a 402 pt wide phone; a wider one,
+ * or a narrower row ("Message {handle}" in a button), keeps its size and ends with "…". Every
+ * place that draws a handle uses `HandleText` or `HANDLE_TEXT_PROPS`
+ * (src/components/ui/HandleText.tsx). Paragraphs that name a collector keep growing. Not
+ * `TITLE_MAX_FONT_SCALE`: at 2 a handle of 24 characters is wider than such a row (about 430 pt
+ * for 314), and a line that leads with a handle and may take two lines ("@{handle} · Quebec")
+ * would break it again.
+ *
+ * A handle is never shrunk to fit (`adjustsFontSizeToFit`; review fix 2 of the owner decisions of
+ * 2026-10-28): React Native 0.86's renderer ignores `minimumFontScale` on iOS and on Android and
+ * shrinks down to 4 points, and on iOS a frame a fraction of a point shorter than the line drives
+ * it there at any text size (a handle drawn a quarter of its size at the default size). The owner:
+ * big text with an occasional cut beats small text.
+ */
+export const HANDLE_MAX_FONT_SCALE = PINNED_MAX_FONT_SCALE;
 
 export function textStyle(
   size: keyof typeof fontSize,

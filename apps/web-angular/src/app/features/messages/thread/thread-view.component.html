@@ -1,0 +1,173 @@
+@let conv = c();
+<section
+  class="thread"
+  [class.thread--drawer]="mode() === 'drawer'"
+  [attr.aria-label]="chat.conversation(conv.other.handle)"
+  (dragover)="onDragOver($event)"
+  (dragleave)="onDragLeave($event)"
+  (drop)="onDrop($event)"
+>
+  <div class="thread__chat">
+    @if (mode() === 'page') {
+      <app-thread-header
+        [conversation]="conv"
+        [typing]="store.otherTyping()"
+        [blocked]="blockedByMe()"
+        [canRate]="rateable().length > 0"
+        [showBack]="showBack()"
+        [showDeal]="!!dealMode()"
+        [dealOpen]="dealOpen()"
+        (back)="back.emit()"
+        (dealToggle)="toggleDeal()"
+        (action)="onAction($event)"
+      />
+    } @else {
+      <ng-content select="[drawerHeader]" />
+    }
+
+    @if (blockedByMe()) {
+      <div class="banner" role="status">
+        <mat-icon aria-hidden="true">block</mat-icon>
+        <span>
+          You blocked {{ conv.other.handle }}. Neither of you can send messages and this chat is
+          hidden from your inbox.
+        </span>
+        <button matButton type="button" (click)="onAction('unblock')">Unblock</button>
+      </div>
+    } @else if (store.messagingBlocked()) {
+      <div class="banner" role="status" data-testid="cannot-receive">
+        <mat-icon aria-hidden="true">speaker_notes_off</mat-icon>
+        <span>{{ composerCopy.cannotSend }}.</span>
+      </div>
+    }
+
+    @if (conv.subject; as subject) {
+      <app-pinned-bar
+        [subject]="subject"
+        [side]="side()"
+        [otherHandle]="conv.other.handle"
+        [disabled]="cannotSend()"
+        (markSold)="markSold()"
+      />
+    }
+    @if (store.status() !== 'unavailable') {
+      <p class="tip" data-testid="chat-tip">
+        <mat-icon aria-hidden="true">verified_user</mat-icon>
+        <span>{{ tip() }}</span>
+      </p>
+    }
+
+    <div class="thread__body">
+      @switch (store.status()) {
+        @case ('loading') {
+          <div class="thread__skeleton" aria-busy="true">
+            <span class="visually-hidden">Loading messages</span>
+            <app-skeleton width="55%" height="40px" />
+            <app-skeleton class="thread__skeleton-own" width="45%" height="40px" />
+            <app-skeleton width="62%" height="56px" />
+            <app-skeleton class="thread__skeleton-own" width="38%" height="40px" />
+          </div>
+        }
+        @case ('error') {
+          <div class="thread__pad">
+            <app-error-state
+              title="Messages could not load"
+              [message]="errorMessage()"
+              [requestId]="store.error()?.requestId ?? null"
+              (retry)="store.load()"
+            />
+          </div>
+        }
+        @case ('unavailable') {
+          <app-empty-state
+            icon="speaker_notes_off"
+            title="This conversation is not available"
+            description="It may be hidden because of a block, or the collector left OrenjiTrade."
+          />
+        }
+        @default {
+          @if (store.messages().length === 0) {
+            <app-empty-state
+              icon="waving_hand"
+              [title]="'Say hello to ' + conv.other.handle"
+              description="Ask about a card, or share one of yours with the + button."
+            />
+          } @else {
+            <app-message-list
+              class="thread__list"
+              [messages]="store.messages()"
+              [other]="conv.other"
+              [selfId]="store.selfId()"
+              [hasOlder]="store.hasOlder()"
+              [loadingOlder]="store.loadingOlder()"
+              [typing]="store.otherTyping()"
+              [canRate]="rateable().length > 0"
+              [now]="now()"
+              (loadOlder)="store.loadOlder()"
+              (rate)="rate()"
+              (undo)="undoSale($event)"
+            />
+          }
+        }
+      }
+      @if (dropping()) {
+        <div class="thread__drop" aria-hidden="true">
+          <mat-icon>add_photo_alternate</mat-icon>
+          <span>{{ composerCopy.dropPhoto }}</span>
+        </div>
+      }
+    </div>
+
+    <app-message-composer
+      [busy]="store.sending()"
+      [disabled]="cannotSend()"
+      [error]="store.sendError()"
+      [retryReply]="!!store.retryDraft()"
+      [placeholder]="placeholder()"
+      [draftKey]="conv.id"
+      [replies]="replies()"
+      (send)="onSend($event)"
+      (quickReply)="onQuickReply($event)"
+      (retry)="store.retry()"
+      (action)="onComposerAction($event)"
+      (typing)="store.userTyping()"
+    />
+  </div>
+
+  @if (dealMode(); as dm) {
+    @if (dealOpen()) {
+      @if (dm !== 'pane') {
+        <div class="deal-scrim" aria-hidden="true" data-deal-scrim></div>
+      }
+      <aside
+        id="deal-panel"
+        tabindex="-1"
+        class="deal-host"
+        [class.deal-host--pane]="dm === 'pane'"
+        [class.deal-host--drawer]="dm === 'drawer'"
+        [class.deal-host--sheet]="dm === 'sheet'"
+        [attr.aria-label]="chat.deal"
+        [attr.role]="dm === 'pane' ? 'complementary' : 'dialog'"
+        [attr.aria-modal]="dm === 'pane' ? null : 'true'"
+        [cdkTrapFocus]="dm !== 'pane'"
+        [cdkTrapFocusAutoCapture]="dm !== 'pane'"
+        (keydown.escape)="onDealEscape($event, dm)"
+      >
+        <app-deal-panel
+          [conversation]="conv"
+          [side]="side()"
+          [messages]="store.messages()"
+          [selfId]="store.selfId()"
+          [canRate]="rateable().length > 0"
+          [now]="now()"
+          [closable]="dm !== 'pane'"
+          (rate)="rate()"
+          (undo)="undoSale($event)"
+          (shareCard)="onComposerAction('card')"
+          (ask)="onAsk($event)"
+          (closed)="closeDeal()"
+        />
+      </aside>
+    }
+  }
+</section>

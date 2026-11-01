@@ -407,15 +407,45 @@ export async function printingIdOf(
   return match!.printingId!;
 }
 
-/** A public binder of `holder` (published until disabled). */
+const gameIds = new Map<string, string>();
+
+/**
+ * The id of a game by its slug (`GET /games`, public): a binder holds the cards of one game (stage
+ * G), so the suite's binders name the game of the cards they take.
+ */
+export async function gameIdOf(api: APIRequestContext, slug: string): Promise<string> {
+  const known = gameIds.get(slug);
+  if (known) {
+    return known;
+  }
+  const response = await api.get(`${API_URL}/api/v1/games`);
+  expect(response.ok(), 'GET /games').toBeTruthy();
+  for (const game of (await response.json()) as { id: string; slug: string }[]) {
+    gameIds.set(game.slug, game.id);
+  }
+  const id = gameIds.get(slug);
+  expect(id, `game ${slug}`).toBeTruthy();
+  return id!;
+}
+
+/**
+ * A public binder of `holder` (published until disabled), of `game` (the suite's cards are
+ * Pokémon cards, PFT-002, by default).
+ */
 export async function apiPublicBinder(
   api: APIRequestContext,
   holder: EmulatorUser,
-  name: string
+  name: string,
+  game = 'pokemon'
 ): Promise<string> {
   const created = await api.post(`${API_URL}/api/v1/binders`, {
     headers: authHeader(holder.idToken),
-    data: { name, kind: 'TRADE', description: 'Fictional binder of the mobile E2E suite.' },
+    data: {
+      name,
+      kind: 'TRADE',
+      description: 'Fictional binder of the mobile E2E suite.',
+      gameId: await gameIdOf(api, game),
+    },
   });
   expect(created.ok(), 'POST /binders').toBeTruthy();
   const id = ((await created.json()) as { id: string }).id;
@@ -496,7 +526,10 @@ export async function apiOffer(
   return (await response.json()) as ApiOffer;
 }
 
-/** A cash offer by `buyer` on a public item (the second user of two-user specs). */
+/**
+ * A cash offer by `buyer` on a public item, made through the API (offers left the phone, ADR 0018;
+ * the API keeps them for the paused web): what an old conversation and notification still hold.
+ */
 export async function apiMakeOffer(
   api: APIRequestContext,
   buyer: EmulatorUser,
@@ -509,28 +542,6 @@ export async function apiMakeOffer(
     data: { itemId, kind: 'CASH', cashAmount, currency: 'CAD', ...(message ? { message } : {}) },
   });
   expect(response.status(), 'POST /offers').toBe(201);
-  return (await response.json()) as ApiOffer;
-}
-
-/** A cash counter-offer by `as` on the live proposal `offerId` (its current version). */
-export async function apiCounterOffer(
-  api: APIRequestContext,
-  as: EmulatorUser,
-  offerId: string,
-  cashAmount: number
-): Promise<ApiOffer> {
-  const current = await apiOffer(api, as, offerId);
-  const response = await api.post(`${API_URL}/api/v1/offers/${offerId}/counter`, {
-    headers: authHeader(as.idToken),
-    data: {
-      kind: 'CASH',
-      cashAmount,
-      currency: 'CAD',
-      tradeItemIds: [],
-      version: current.version,
-    },
-  });
-  expect(response.status(), 'POST /offers/{id}/counter').toBe(200);
   return (await response.json()) as ApiOffer;
 }
 
@@ -549,32 +560,47 @@ export async function apiDeclineOffer(
   expect(response.status(), 'POST /offers/{id}/decline').toBe(200);
 }
 
-/** `as` confirms the exchange of a trade (both confirmations complete it). */
-export async function apiCompleteTrade(
-  api: APIRequestContext,
-  as: EmulatorUser,
-  tradeId: string
-): Promise<{ status: string }> {
-  const response = await api.post(`${API_URL}/api/v1/trades/${tradeId}/complete`, {
-    headers: authHeader(as.idToken),
-  });
-  expect(response.status(), 'POST /trades/{id}/complete').toBe(200);
-  return (await response.json()) as { status: string };
-}
-
 /** The ratings of a collector as `as` sees them. */
 export async function apiCollectorRatings(
   api: APIRequestContext,
   as: EmulatorUser,
   handle: string
-): Promise<{ items: { rater: { handle: string }; overall: number; comment?: string | null }[] }> {
+): Promise<{
+  items: {
+    rater: { handle: string };
+    overall: number;
+    comment?: string | null;
+    breakdown?: Record<string, number | null>;
+  }[];
+}> {
   const response = await api.get(`${API_URL}/api/v1/collectors/${handle}/ratings`, {
     headers: authHeader(as.idToken),
   });
   expect(response.ok(), 'GET /collectors/{handle}/ratings').toBeTruthy();
   return (await response.json()) as {
-    items: { rater: { handle: string }; overall: number; comment?: string | null }[];
+    items: {
+      rater: { handle: string };
+      overall: number;
+      comment?: string | null;
+      breakdown?: Record<string, number | null>;
+    }[];
   };
+}
+
+/** Whether `as` may rate `userId` now (`GET /ratings/eligibility`). */
+export async function apiCanRate(
+  api: APIRequestContext,
+  as: EmulatorUser,
+  userId: string
+): Promise<boolean> {
+  const response = await api.get(`${API_URL}/api/v1/ratings/eligibility?userId=${userId}`, {
+    headers: authHeader(as.idToken),
+  });
+  if (!response.ok()) {
+    return false;
+  }
+  const body = (await response.json()) as { interactions?: { alreadyRated: boolean }[] };
+  return (body.interactions ?? []).some((interaction) => !interaction.alreadyRated);
 }
 
 /** `as`'s own reports (`GET /me/reports`). */
@@ -708,7 +734,12 @@ export async function apiInventoryItem(
   api: APIRequestContext,
   as: EmulatorUser,
   itemId: string
-): Promise<{ id: string; visibility: string; images: { id: string; url: string }[] }> {
+): Promise<{
+  id: string;
+  visibility: string;
+  condition: string;
+  images: { id: string; url: string }[];
+}> {
   const response = await api.get(`${API_URL}/api/v1/inventory/items/${itemId}`, {
     headers: authHeader(as.idToken),
   });
@@ -716,6 +747,7 @@ export async function apiInventoryItem(
   return (await response.json()) as {
     id: string;
     visibility: string;
+    condition: string;
     images: { id: string; url: string }[];
   };
 }
@@ -777,3 +809,119 @@ export const PHOTO_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP8z8DAwMDAxMDAwMDAAAANHQEDasKb6QAAAABJRU5ErkJggg==',
   'base64'
 );
+
+/**
+ * `POST /conversations` as `from` about a card (`subjectItemId`) or a deck core
+ * (`subjectBinderId`): the chat's pinned subject (stage R4). The conversation id.
+ */
+export async function apiStartConversationAbout(
+  api: APIRequestContext,
+  from: EmulatorUser,
+  recipientId: string,
+  subject: { subjectItemId?: string; subjectBinderId?: string }
+): Promise<string> {
+  const response = await api.post(`${API_URL}/api/v1/conversations`, {
+    headers: authHeader(from.idToken),
+    data: { recipientId, ...subject },
+  });
+  expect([200, 201], `POST /conversations about ${JSON.stringify(subject)}`).toContain(
+    response.status()
+  );
+  return ((await response.json()) as { id: string }).id;
+}
+
+export interface ApiConversation {
+  id: string;
+  unreadCount: number;
+  subject?: {
+    kind: string;
+    id: string;
+    ownerId: string;
+    name: string;
+    sold: boolean;
+    listed: boolean;
+    askingPriceText?: string | null;
+    copies?: number | null;
+  } | null;
+}
+
+/** `GET /conversations/{id}` as `as` (stage R4: with its subject). */
+export async function apiConversation(
+  api: APIRequestContext,
+  as: EmulatorUser,
+  conversationId: string
+): Promise<ApiConversation> {
+  const response = await api.get(`${API_URL}/api/v1/conversations/${conversationId}`, {
+    headers: authHeader(as.idToken),
+  });
+  expect(response.ok(), 'GET /conversations/{id}').toBeTruthy();
+  return (await response.json()) as ApiConversation;
+}
+
+export interface ApiSaleMessage {
+  id: string;
+  kind: string;
+  body: string;
+  payload?: {
+    sale?: {
+      saleId: string;
+      sellerId: string;
+      buyerId: string;
+      name: string;
+      trackingNumber?: string | null;
+      undone: boolean;
+    };
+  };
+}
+
+/** The SYSTEM sale messages of a chat as `as` reads it (stage R4). */
+export async function apiSaleMessages(
+  api: APIRequestContext,
+  as: EmulatorUser,
+  conversationId: string
+): Promise<ApiSaleMessage[]> {
+  return ((await apiMessages(api, as, conversationId)) as unknown as ApiSaleMessage[]).filter(
+    (message) => message.kind === 'SYSTEM' && !!message.payload?.sale
+  );
+}
+
+/**
+ * A public deck core of `seller` with its price and one private card; the binder id. Of `game`
+ * (the card's; Pokémon by default, stage G).
+ */
+export async function apiDeckCore(
+  api: APIRequestContext,
+  seller: EmulatorUser,
+  name: string,
+  price: string,
+  printingId: string,
+  game = 'pokemon'
+): Promise<string> {
+  const created = await api.post(`${API_URL}/api/v1/binders`, {
+    headers: authHeader(seller.idToken),
+    data: {
+      name,
+      visibility: 'PUBLIC',
+      sellsAsCore: true,
+      askingPriceText: price,
+      description: 'Fictional deck core of the mobile E2E suite.',
+      gameId: await gameIdOf(api, game),
+    },
+  });
+  expect(created.status(), 'POST /binders (deck core)').toBe(201);
+  const id = ((await created.json()) as { id: string }).id;
+  await apiAddItem(api, seller, printingId, { binderId: id, visibility: 'PRIVATE' });
+  return id;
+}
+
+/** The notifications of `as` (newest first). */
+export async function apiNotifications(
+  api: APIRequestContext,
+  as: EmulatorUser
+): Promise<{ type: string; title: string; data: Record<string, unknown> }[]> {
+  const response = await api.get(`${API_URL}/api/v1/notifications`, {
+    headers: authHeader(as.idToken),
+  });
+  expect(response.ok(), 'GET /notifications').toBeTruthy();
+  return ((await response.json()) as { items: never[] }).items;
+}

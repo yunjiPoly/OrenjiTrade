@@ -13,7 +13,7 @@ import {
 } from './support/stack';
 
 /**
- * Settings → Blocked users (stage M7, the web's blocked users section on `GET /me/blocks` and
+ * Settings › Blocked collectors (stage M7, the web's blocked users section on `GET /me/blocks` and
  * `DELETE /users/{id}/block`): a block from a conversation, the blocked collector's profile
  * pointing at the list, the list itself and the unblock, checked on the API and on what the
  * other collector can do.
@@ -49,29 +49,32 @@ test.describe('mobile blocked users', () => {
     await page.getByTestId('conversation-menu').click();
     await page.getByTestId('conversation-block').click();
     const dialog = page.getByTestId('block-dialog');
-    await expect(dialog).toContainText(`Block ${ben.displayName}?`);
-    await expect(dialog).toContainText('Settings → Blocked users');
+    // The chat names the collector by handle (stage R4).
+    await expect(dialog).toContainText(`Block ${ben.handle}?`);
+    await expect(dialog).toContainText('Settings → Blocked collectors');
     await dialog.getByRole('button', { name: 'Block' }).click();
     await expect(thread.getByTestId('conversation-blocked-banner')).toContainText(
-      `You blocked ${ben.displayName}`,
+      `You blocked ${ben.handle}`,
       { timeout: 30_000 }
     );
     expect((await apiMyBlocks(request, ada)).map((user) => user.handle)).toEqual([ben.handle]);
     expect(await apiSendText(request, ben, conversationId, 'Still there?')).toBe(403);
 
-    // Ben's profile: Message is unavailable because of the block, with a link to the list.
+    // Ben's profile (stage R6): the header and Unblock, none of his listings, no Message.
     await openInApp(page, `/collectors/${ben.handle}`);
     const profile = screen(page, 'collector');
     await expect(profile.getByTestId('collector-name')).toHaveText(ben.displayName, {
       timeout: 30_000,
     });
-    await expect(profile.getByTestId('collector-message')).toHaveAttribute('aria-disabled', 'true');
-    await expect(profile.getByTestId('collector-message-reason')).toHaveText(
-      'Messaging is unavailable because of a block. Manage blocks in Settings.'
+    await expect(profile.getByTestId('collector-blocked')).toContainText(
+      `You blocked ${ben.handle}.`
     );
-    await profile.getByTestId('collector-message-blocked-users').click();
+    await expect(profile.getByRole('button', { name: `Unblock ${ben.handle}` })).toBeVisible();
+    await expect(profile.getByTestId('collector-message')).toHaveCount(0);
+    await expect(profile.getByTestId('profile-cards')).toHaveCount(0);
+    await openInApp(page, '/settings/blocked');
 
-    // Blocked users: Ben, when he was blocked, Unblock.
+    // Blocked collectors: Ben, when he was blocked, Unblock.
     const list = screen(page, 'settings-blocked');
     const row = list.getByTestId(`blocked-${ben.handle}`);
     await expect(row).toBeVisible({ timeout: 30_000 });
@@ -83,7 +86,7 @@ test.describe('mobile blocked users', () => {
     );
     await row.getByRole('button', { name: `Unblock ${ben.displayName}` }).click();
     await unblocked;
-    await expect(snackbar(page)).toHaveText(`${ben.displayName} is unblocked.`, {
+    await expect(snackbar(page)).toContainText(`${ben.displayName} is unblocked.`, {
       timeout: 30_000,
     });
     await expect(list.getByTestId('blocked-empty')).toBeVisible({ timeout: 30_000 });

@@ -22,6 +22,14 @@ export interface AuditActor {
      */
     handle?: string | null;
     type: AuditActorTypeEnum;
+    /**
+     * Display name of the acting account when it still exists (web stage WH2)
+     */
+    displayName?: string | null;
+    /**
+     * The acting account\'s highest staff role today (SUPER_ADMIN, ADMIN, MODERATOR), null for a collector or SYSTEM
+     */
+    role?: string | null;
 }
 export enum AuditActorTypeEnum {
     User = 'USER',

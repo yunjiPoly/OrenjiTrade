@@ -1,0 +1,550 @@
+<div class="cp">
+  <header class="cp__head">
+    <div class="cp__heading">
+      <h1 class="cp__title">Overview</h1>
+      <p class="cp__sub">
+        @if (admin()) {
+          What needs a person today, and how OrenjiTrade is doing. Each queue links to the place
+          where you act on it.
+        } @else {
+          Reports and flags waiting for the moderation team.
+        }
+      </p>
+    </div>
+    <div class="cp__actions">
+      @if (counts.loadedAt(); as at) {
+        <span class="cp__updated" [title]="at | date: 'medium'"
+          >Updated {{ at | relativeTime }}</span
+        >
+      }
+      <button
+        type="button"
+        class="cb cb--outline"
+        [attr.aria-disabled]="counts.loading() ? 'true' : null"
+        (click)="counts.loading() || refresh()"
+      >
+        <app-admin-icon name="refresh" [size]="18" />
+        Refresh
+      </button>
+    </div>
+  </header>
+
+  <!-- Needs a person (A1) / Waiting for the team (A24). -->
+  <section aria-labelledby="ov-needs">
+    <h2 class="cp__section-title" id="ov-needs">
+      {{ admin() ? 'Needs a person' : 'Waiting for the team' }}
+    </h2>
+    @if (countsError(); as error) {
+      <app-error-state
+        title="The counts could not load"
+        [message]="message(error)"
+        [requestId]="error.requestId"
+        retryLabel="Try again"
+        (retry)="refresh()"
+      />
+    } @else if (admin() ? needsTiles() : teamTiles(); as tiles) {
+      <ul class="tiles" data-testid="dashboard-tiles">
+        @for (tile of tiles; track tile.id) {
+          <li class="tile" [class.tile--alert]="tile.alert" [attr.data-tile]="tile.id">
+            <p class="tile__head">
+              <span class="tile__icon"><app-admin-icon [name]="tile.icon" [size]="18" /></span>
+              <span class="tile__label">{{ tile.label }}</span>
+            </p>
+            <p class="tile__value" data-testid="tile-value">{{ tile.value }}</p>
+            <p class="tile__hint">{{ tile.hint }}</p>
+            @if (tile.link; as link) {
+              <a class="cp-link tile__link" [routerLink]="link.path" [queryParams]="link.query">
+                {{ link.label }}
+                <app-admin-icon name="arrowRight" [size]="16" />
+              </a>
+            }
+          </li>
+        }
+      </ul>
+    } @else {
+      <div class="tiles" aria-busy="true">
+        <span class="visually-hidden">Loading the counts</span>
+        @for (bone of bones; track bone) {
+          <app-skeleton height="168px" />
+        }
+      </div>
+    }
+  </section>
+
+  @if (admin()) {
+    <div class="grid">
+      <div class="grid__main">
+        <!-- Report queue -->
+        <section class="cp-card" aria-labelledby="ov-queue">
+          <div class="cp-card__head">
+            <h2 class="cp-card__title" id="ov-queue" tabindex="-1">Report queue</h2>
+            <a class="cp-link" routerLink="/admin/reports">
+              All reports <app-admin-icon name="arrowRight" [size]="16" />
+            </a>
+          </div>
+          <p class="cp-card__sub">{{ queueLine() }}</p>
+          @let q = queue();
+          @if (q.error; as error) {
+            <div class="card-state">
+              <app-error-state
+                compact
+                title="The report queue could not load"
+                [message]="message(error)"
+                [requestId]="error.requestId"
+                retryLabel="Try again"
+                (retry)="loadQueue()"
+              />
+            </div>
+          } @else if (q.data; as reports) {
+            @if (reports.length === 0) {
+              <p class="card-empty">No open reports. Nothing waits for a moderator.</p>
+            } @else {
+              <ul class="cp-rows" aria-label="Open reports">
+                @for (report of reports; track report.id) {
+                  <li class="qrow">
+                    <span class="cp-avatar" aria-hidden="true">{{
+                      initials(report.reportedUser.handle)
+                    }}</span>
+                    <a
+                      class="qrow__text"
+                      [routerLink]="['/admin/reports', report.id]"
+                      [attr.data-queue]="report.id"
+                    >
+                      <span class="qrow__title">
+                        <strong>&#64;{{ report.reportedUser.handle }}</strong>
+                        <span class="cp-muted"> · {{ number(report.number) }}</span>
+                      </span>
+                      <span class="qrow__line">
+                        {{ reason(report.reason) }} · {{ context(report.contextSource) }} ·
+                        {{ report.createdAt | relativeTime }}
+                      </span>
+                    </a>
+                    <span [class]="statusChip(report.status)">{{
+                      statusLabel(report.status)
+                    }}</span>
+                    @if (canTake(report)) {
+                      <button
+                        type="button"
+                        class="cb cb--outline cb--small"
+                        [attr.aria-disabled]="assigning() ? 'true' : null"
+                        [attr.aria-label]="'Assign report ' + number(report.number) + ' to me'"
+                        (click)="assigning() || assignToMe(report)"
+                      >
+                        Assign to me
+                      </button>
+                    } @else {
+                      <span class="qrow__who">{{ assigneeLabel(report) }}</span>
+                    }
+                  </li>
+                }
+              </ul>
+            }
+          } @else {
+            <div class="card-state" aria-busy="true">
+              <span class="visually-hidden">Loading the report queue</span>
+              <app-skeleton variant="list" lines="4" />
+            </div>
+          }
+        </section>
+
+        <!-- Open flags -->
+        <section class="cp-card" aria-labelledby="ov-flags">
+          <div class="cp-card__head">
+            <h2 class="cp-card__title" id="ov-flags">Open flags</h2>
+            <a class="cp-link" routerLink="/admin/moderation">
+              Flags and rules <app-admin-icon name="arrowRight" [size]="16" />
+            </a>
+          </div>
+          @let f = openFlags();
+          @if (f.error; as error) {
+            <div class="card-state">
+              <app-error-state
+                compact
+                title="The flags could not load"
+                [message]="message(error)"
+                [requestId]="error.requestId"
+                retryLabel="Try again"
+                (retry)="loadFlags()"
+              />
+            </div>
+          } @else if (f.data; as list) {
+            @if (list.length === 0) {
+              <p class="card-empty">No open flags.</p>
+            } @else {
+              <ul class="cp-rows" aria-label="Open flags">
+                @for (flag of list; track flag.id) {
+                  <li class="frow">
+                    <span class="frow__icon" aria-hidden="true">
+                      <app-admin-icon name="shieldCheck" [size]="18" />
+                    </span>
+                    <span class="frow__text">
+                      <span class="frow__title">{{ flagTitle(flag) }}</span>
+                      <span class="frow__line">
+                        @if (flag.community; as content) {
+                          “{{ content.text }}” · {{ flagRoom(flag) }} ·
+                        }
+                        {{ flag.createdAt | relativeTime }}
+                      </span>
+                    </span>
+                  </li>
+                }
+              </ul>
+            }
+          } @else {
+            <div class="card-state" aria-busy="true">
+              <span class="visually-hidden">Loading the flags</span>
+              <app-skeleton variant="list" lines="2" />
+            </div>
+          }
+        </section>
+      </div>
+
+      <div class="grid__side">
+        <!-- System -->
+        <section class="cp-card" aria-labelledby="ov-system">
+          <div class="cp-card__head">
+            <h2 class="cp-card__title" id="ov-system">System</h2>
+            <a class="cp-link" routerLink="/admin/system-health">
+              System health <app-admin-icon name="arrowRight" [size]="16" />
+            </a>
+          </div>
+          @let h = health();
+          @if (h.error; as error) {
+            <div class="card-state">
+              <app-error-state
+                compact
+                title="System health could not load"
+                [message]="message(error)"
+                [requestId]="error.requestId"
+                retryLabel="Try again"
+                (retry)="loadHealth()"
+              />
+            </div>
+          } @else if (h.data; as data) {
+            <p class="sys__status" [class.sys__status--down]="data.status !== 'UP'">
+              <span class="sys__dot" aria-hidden="true"></span>
+              {{ data.status === 'UP' ? 'All systems operational' : 'Something needs a look' }}
+              <span class="cp-muted"> · checked {{ data.checkedAt | relativeTime }}</span>
+            </p>
+            <dl class="sys">
+              @for (component of components(data); track component.name) {
+                <div class="sys__row">
+                  <dt>{{ component.name }}</dt>
+                  <dd>
+                    <span
+                      class="cp-chip"
+                      [class.cp-chip--success]="component.status === 'UP'"
+                      [class.cp-chip--danger]="component.status !== 'UP'"
+                      >{{ component.status === 'UP' ? 'Up' : 'Down' }}</span
+                    >
+                  </dd>
+                </div>
+              }
+              <div class="sys__row">
+                <dt>Events waiting</dt>
+                <dd>{{ data.outbox.incomplete }}</dd>
+              </div>
+              @if (freshness(data); as run) {
+                <div class="sys__row">
+                  <dt>Listing freshness</dt>
+                  <dd>
+                    {{ jobStatusLabel(run.status) }} ·
+                    <time [attr.datetime]="run.at">{{ run.at | relativeTime }}</time>
+                  </dd>
+                </div>
+              }
+            </dl>
+          } @else {
+            <div class="card-state" aria-busy="true">
+              <span class="visually-hidden">Loading system health</span>
+              <app-skeleton variant="list" lines="4" />
+            </div>
+          }
+          <div class="meter-block">
+            @let c = cache();
+            @if (c.error; as error) {
+              <app-error-state
+                compact
+                title="The card image cache could not load"
+                [message]="message(error)"
+                [requestId]="error.requestId"
+                retryLabel="Try again"
+                (retry)="loadCache()"
+              />
+            } @else if (c.data; as data) {
+              @let m = meter(data);
+              <p class="meter__head">
+                <span>Card images</span>
+                <strong data-testid="cache-meter">{{ m.line }}</strong>
+              </p>
+              <div class="meter" role="img" [attr.aria-label]="'Card image cache: ' + m.line">
+                @for (part of m.parts; track part.game) {
+                  <span
+                    class="meter__part"
+                    [style.width.%]="part.percent"
+                    [style.background]="part.color"
+                  ></span>
+                }
+              </div>
+              @if (m.parts.length) {
+                <ul class="meter__legend">
+                  @for (part of m.parts; track part.game) {
+                    <li>
+                      <span class="meter__swatch" [style.background]="part.color"></span>
+                      {{ part.name }} {{ part.mb.toLocaleString('en-US') }} MB
+                    </li>
+                  }
+                </ul>
+              }
+            } @else {
+              <app-skeleton height="56px" />
+            }
+          </div>
+        </section>
+
+        <!-- Recent staff actions -->
+        <section class="cp-card" aria-labelledby="ov-audit">
+          <div class="cp-card__head">
+            <h2 class="cp-card__title" id="ov-audit">Recent staff actions</h2>
+            <a class="cp-link" routerLink="/admin/audit-logs">
+              Audit log <app-admin-icon name="arrowRight" [size]="16" />
+            </a>
+          </div>
+          @let a = audit();
+          @if (a.error; as error) {
+            <div class="card-state">
+              <app-error-state
+                compact
+                title="The audit log could not load"
+                [message]="message(error)"
+                [requestId]="error.requestId"
+                retryLabel="Try again"
+                (retry)="loadAudit()"
+              />
+            </div>
+          } @else if (a.data; as entries) {
+            @if (entries.length === 0) {
+              <p class="card-empty">No staff action yet.</p>
+            } @else {
+              <ul class="cp-rows" aria-label="Recent staff actions">
+                @for (entry of entries; track entry.id) {
+                  <li class="arow">
+                    <span class="cp-avatar cp-avatar--small" aria-hidden="true">{{
+                      initials(entry.actor.handle ?? 'System')
+                    }}</span>
+                    <span class="arow__text">
+                      <span
+                        ><strong>{{ actorLabel(entry) }}</strong> ·
+                        {{ auditLabel(entry.action) }}
+                        @if (entry.targetLabel) {
+                          · {{ entry.targetLabel }}
+                        }
+                      </span>
+                      <time class="arow__time" [attr.datetime]="entry.occurredAt">{{
+                        entry.occurredAt | relativeTime
+                      }}</time>
+                    </span>
+                  </li>
+                }
+              </ul>
+            }
+          } @else {
+            <div class="card-state" aria-busy="true">
+              <span class="visually-hidden">Loading the audit log</span>
+              <app-skeleton variant="list" lines="4" />
+            </div>
+          }
+        </section>
+      </div>
+    </div>
+
+    <section aria-labelledby="ov-collectors">
+      <h2 class="cp__section-title" id="ov-collectors">Collectors</h2>
+      @if (collectors(); as tiles) {
+        <ul class="tiles">
+          @for (tile of tiles; track tile.id) {
+            <li class="tile tile--plain" [attr.data-tile]="tile.id">
+              <p class="tile__head">
+                <span class="tile__label">{{ tile.label }}</span>
+              </p>
+              <p class="tile__value" data-testid="tile-value">
+                {{ tile.value.toLocaleString('en-US') }}
+              </p>
+              <p class="tile__hint">{{ tile.hint }}</p>
+              @if (tile.link; as link) {
+                <a class="cp-link tile__link" [routerLink]="link.path" [queryParams]="link.query">
+                  {{ link.label }} <app-admin-icon name="arrowRight" [size]="16" />
+                </a>
+              }
+            </li>
+          }
+        </ul>
+      } @else if (!countsError()) {
+        <div class="tiles" aria-busy="true">
+          <span class="visually-hidden">Loading the collectors' numbers</span>
+          @for (bone of bones; track bone) {
+            <app-skeleton height="140px" />
+          }
+        </div>
+      }
+    </section>
+  } @else {
+    <!-- A24: a moderator's desk. -->
+    <div class="grid grid--even">
+      <section class="cp-card" aria-labelledby="ov-mine">
+        <div class="cp-card__head">
+          <h2 class="cp-card__title" id="ov-mine" tabindex="-1">Assigned to you</h2>
+          <a
+            class="cp-link"
+            routerLink="/admin/reports"
+            [queryParams]="{ mine: '1', status: 'UNDER_REVIEW' }"
+          >
+            All reports <app-admin-icon name="arrowRight" [size]="16" />
+          </a>
+        </div>
+        @let my = mine();
+        @if (my.error; as error) {
+          <div class="card-state">
+            <app-error-state
+              compact
+              title="Your reports could not load"
+              [message]="message(error)"
+              [requestId]="error.requestId"
+              retryLabel="Try again"
+              (retry)="loadMine()"
+            />
+          </div>
+        } @else if (my.data; as reports) {
+          <p class="cp-card__sub">
+            {{ reports.length }} {{ reports.length === 1 ? 'report' : 'reports' }} on your desk
+          </p>
+          @if (reports.length === 0) {
+            <p class="card-empty">Nothing on your desk. Take one from Unassigned.</p>
+          } @else {
+            <ul class="cp-rows" aria-label="Reports assigned to you">
+              @for (report of reports; track report.id) {
+                <li class="qrow">
+                  <span class="cp-avatar" aria-hidden="true">{{
+                    initials(report.reportedUser.handle)
+                  }}</span>
+                  <span class="qrow__text">
+                    <span class="qrow__title">
+                      <strong>&#64;{{ report.reportedUser.handle }}</strong>
+                      <span class="cp-muted"> · {{ number(report.number) }}</span>
+                      @if (report.openReportsAgainstUser > 1) {
+                        <span class="cp-chip cp-chip--danger"
+                          >{{ report.openReportsAgainstUser }} open</span
+                        >
+                      }
+                    </span>
+                    <span class="qrow__line">
+                      {{ reason(report.reason) }} · {{ context(report.contextSource) }} ·
+                      {{ report.createdAt | relativeTime }}
+                    </span>
+                  </span>
+                  <a
+                    class="cb cb--outline cb--small"
+                    [routerLink]="['/admin/reports', report.id]"
+                    [attr.aria-label]="'Open report ' + number(report.number)"
+                    [attr.data-mine]="report.id"
+                    >Open</a
+                  >
+                </li>
+              }
+            </ul>
+          }
+        } @else {
+          <div class="card-state" aria-busy="true">
+            <span class="visually-hidden">Loading your reports</span>
+            <app-skeleton variant="list" lines="3" />
+          </div>
+        }
+      </section>
+
+      <section class="cp-card" aria-labelledby="ov-unassigned">
+        <div class="cp-card__head">
+          <h2 class="cp-card__title" id="ov-unassigned">Unassigned</h2>
+        </div>
+        @let un = unassigned();
+        @if (un.error; as error) {
+          <div class="card-state">
+            <app-error-state
+              compact
+              title="The unassigned reports could not load"
+              [message]="message(error)"
+              [requestId]="error.requestId"
+              retryLabel="Try again"
+              (retry)="loadUnassigned()"
+            />
+          </div>
+        } @else if (un.data; as reports) {
+          <p class="cp-card__sub">
+            {{ reports.length }} {{ reports.length === 1 ? 'report' : 'reports' }} waiting for a
+            moderator
+          </p>
+          @if (reports.length === 0) {
+            <p class="card-empty">Every report has a moderator.</p>
+          } @else {
+            <ul class="cp-rows" aria-label="Unassigned reports">
+              @for (report of reports; track report.id) {
+                <li class="qrow">
+                  <span class="cp-avatar" aria-hidden="true">{{
+                    initials(report.reportedUser.handle)
+                  }}</span>
+                  <a class="qrow__text" [routerLink]="['/admin/reports', report.id]">
+                    <span class="qrow__title">
+                      <strong>&#64;{{ report.reportedUser.handle }}</strong>
+                      <span class="cp-muted"> · {{ number(report.number) }}</span>
+                      @if (report.openReportsAgainstUser > 1) {
+                        <span class="cp-chip cp-chip--danger"
+                          >{{ report.openReportsAgainstUser }} open</span
+                        >
+                      }
+                    </span>
+                    <span class="qrow__line">
+                      {{ reason(report.reason) }} · {{ context(report.contextSource) }} ·
+                      {{ report.createdAt | relativeTime }}
+                    </span>
+                  </a>
+                  <button
+                    type="button"
+                    class="cb cb--outline cb--small"
+                    [attr.aria-disabled]="assigning() ? 'true' : null"
+                    [attr.aria-label]="'Assign report ' + number(report.number) + ' to me'"
+                    (click)="assigning() || assignToMe(report)"
+                  >
+                    Assign to me
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        } @else {
+          <div class="card-state" aria-busy="true">
+            <span class="visually-hidden">Loading the unassigned reports</span>
+            <app-skeleton variant="list" lines="3" />
+          </div>
+        }
+      </section>
+    </div>
+
+    <section class="cp-card decide" aria-labelledby="ov-decide">
+      <span class="decide__icon" aria-hidden="true"
+        ><app-admin-icon name="hammer" [size]="20"
+      /></span>
+      <div>
+        <h2 class="cp-card__title" id="ov-decide">What moderators decide</h2>
+        <p class="decide__text">
+          Warn, pause listings or dismiss a report; resolve flags; manage the rooms; hide ratings
+          and references. Suspending or banning an account is an administrator’s decision: write
+          what you recommend in a note on the report, and an administrator decides.
+        </p>
+        <p class="decide__links">
+          <a class="cp-link" routerLink="/admin/moderation">Flags and rules</a>
+          <a class="cp-link" routerLink="/admin/community">Community</a>
+          <a class="cp-link" routerLink="/admin/ratings">Ratings</a>
+        </p>
+      </div>
+    </section>
+  }
+</div>

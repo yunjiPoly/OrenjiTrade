@@ -116,7 +116,7 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                 .doesNotContain("radiusKm")
                 .doesNotContain("distanceBucket")
                 .doesNotContain("showDistance");
-        // Phase 2 (catalog, feature flags, plans and limits).
+        // Phase 2 (catalog, feature flags and usage limits).
         for (String path :
                 java.util.List.of(
                         "/api/v1/games",
@@ -130,16 +130,11 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                         "/api/v1/printings/{id}",
                         "/api/v1/public/placeholder-images/{game}/{file}",
                         "/api/v1/public/feature-flags",
-                        "/api/v1/plans",
-                        "/api/v1/me/plan",
+                        "/api/v1/me/limits",
                         "/api/v1/admin/feature-flags",
                         "/api/v1/admin/feature-flags/{key}",
-                        "/api/v1/admin/plans",
-                        "/api/v1/admin/plans/{code}",
                         "/api/v1/admin/usage-limits",
                         "/api/v1/admin/usage-limits/{id}",
-                        "/api/v1/admin/users/{id}/entitlements",
-                        "/api/v1/admin/users/{id}/entitlements/{entitlementId}",
                         "/api/v1/admin/games",
                         "/api/v1/admin/games/{slug}",
                         "/api/v1/admin/sets",
@@ -287,6 +282,75 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                         "language",
                         "active",
                         "matchCount");
+        // Stage S5 (inventory import: YDK deck files and Collectr CSV exports).
+        for (String path :
+                java.util.List.of(
+                        "/api/v1/inventory/imports",
+                        "/api/v1/inventory/imports/limits",
+                        "/api/v1/inventory/imports/{id}",
+                        "/api/v1/inventory/imports/{id}/rows",
+                        "/api/v1/inventory/imports/{id}/rows/{rowId}",
+                        "/api/v1/inventory/imports/{id}/bulk",
+                        "/api/v1/inventory/imports/{id}/commit",
+                        "/api/v1/admin/inventory/import-settings",
+                        "/internal/jobs/inventory-import-purge")) {
+            assertThat(paths.has(path)).as(path).isTrue();
+            paths.path(path)
+                    .properties()
+                    .forEach(
+                            operation -> {
+                                assertThat(operation.getValue().path("summary").asString())
+                                        .as("summary of %s %s", operation.getKey(), path)
+                                        .isNotEmpty();
+                                assertThat(operation.getValue().path("operationId").asString())
+                                        .as("operationId of %s %s", operation.getKey(), path)
+                                        .isNotEmpty();
+                            });
+        }
+        JsonNode importSchemas = document.path("components").path("schemas");
+        assertThat(
+                        paths.path("/api/v1/inventory/imports")
+                                .path("get")
+                                .path("operationId")
+                                .asString())
+                .isEqualTo("listInventoryImports");
+        assertThat(importSchemas.path("InventoryImportRow").path("properties").propertyNames())
+                .contains(
+                        "status",
+                        "unmatchedReason",
+                        "source",
+                        "deck",
+                        "card",
+                        "printing",
+                        "suggestedPrintingIds",
+                        "condition",
+                        "conditionSource",
+                        "quantity",
+                        "included",
+                        "willImport",
+                        "ownedQuantity");
+        // What Collectr says a card is worth is never part of the contract.
+        assertThat(importSchemas.path("InventoryImportRow").toString())
+                .doesNotContainIgnoringCase("price");
+        assertThat(
+                        importSchemas
+                                .path("InventoryImportRowSource")
+                                .path("properties")
+                                .propertyNames())
+                .containsExactlyInAnyOrder("passcode", "name", "set", "number", "rarity");
+        assertThat(importSchemas.path("ProblemDetail").path("properties").propertyNames())
+                .contains("reason", "fileLimit", "missingColumns", "unresolved", "requested");
+        assertThat(
+                        importSchemas
+                                .path("ProblemDetail")
+                                .path("properties")
+                                .path("errorCode")
+                                .toString())
+                .contains(
+                        "IMPORT_EXPIRED",
+                        "IMPORT_ALREADY_COMMITTED",
+                        "IMPORT_ROWS_UNRESOLVED",
+                        "IMPORT_EMPTY");
         // Phase 7 (ratings, references, reports, moderation, delisting, admin console).
         for (String path :
                 java.util.List.of(
@@ -391,74 +455,28 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                         "CardImageCacheStatus", "CatalogImportReport", "CatalogSyncRun")) {
             assertThat(document.path("components").path("schemas").has(schema)).as(schema).isTrue();
         }
-        // Phase 10 (subscriptions, credits, referrals, ads, donations, admin).
-        for (String path :
-                java.util.List.of(
-                        "/api/v1/me/plan",
-                        "/api/v1/me/subscription/checkout",
-                        "/api/v1/me/subscription/cancel",
-                        "/api/v1/me/subscription/mobile-receipt",
-                        "/api/v1/billing/fake/{ref}",
-                        "/api/v1/billing/fake/{ref}/confirm",
-                        "/api/v1/webhooks/billing/{provider}",
-                        "/api/v1/admin/subscriptions",
-                        "/api/v1/admin/subscriptions/{id}",
-                        "/api/v1/admin/subscriptions/{id}/cancel",
-                        "/internal/jobs/subscriptions-period",
-                        "/api/v1/me/credits",
-                        "/api/v1/me/credits/spend",
-                        "/api/v1/me/referrals",
-                        "/api/v1/me/referrals/redeem",
-                        "/api/v1/admin/credits/grant",
-                        "/api/v1/admin/credits/ledger",
-                        "/api/v1/admin/credits/products",
-                        "/api/v1/admin/credits/products/{key}",
-                        "/api/v1/admin/credits/settings",
-                        "/internal/jobs/credits-reconcile",
-                        "/api/v1/ads",
-                        "/api/v1/ads/{creativeId}/impression",
-                        "/api/v1/ads/{creativeId}/click",
-                        "/api/v1/admin/ads/advertisers",
-                        "/api/v1/admin/ads/advertisers/{id}",
-                        "/api/v1/admin/ads/placements",
-                        "/api/v1/admin/ads/placements/{key}",
-                        "/api/v1/admin/ads/campaigns",
-                        "/api/v1/admin/ads/campaigns/{id}",
-                        "/api/v1/admin/ads/campaigns/{id}/targeting",
-                        "/api/v1/admin/ads/campaigns/{id}/creatives",
-                        "/api/v1/admin/ads/campaigns/{id}/stats",
-                        "/api/v1/admin/ads/creatives/{id}",
-                        "/internal/ads/clicks/{clickId}/conversions",
-                        "/api/v1/donations/checkout",
-                        "/api/v1/me/donations",
-                        "/api/v1/donations/fake/{ref}",
-                        "/api/v1/donations/fake/{ref}/confirm",
-                        "/api/v1/webhooks/donations/{provider}",
-                        "/api/v1/public/donations/supporters",
-                        "/api/v1/admin/donations",
-                        "/api/v1/admin/donations/{id}",
-                        "/api/v1/admin/donations/{id}/refund",
-                        "/api/v1/admin/donations/settings")) {
-            assertThat(paths.has(path)).as(path).isTrue();
-            paths.path(path)
-                    .properties()
-                    .forEach(
-                            operation -> {
-                                assertThat(operation.getValue().path("summary").asString())
-                                        .as("summary of %s %s", operation.getKey(), path)
-                                        .isNotEmpty();
-                                assertThat(operation.getValue().path("tags"))
-                                        .as("tags of %s %s", operation.getKey(), path)
-                                        .isNotEmpty();
-                            });
-        }
-        assertThat(paths.path("/api/v1/ads").path("get").path("security")).isEmpty();
-        assertThat(
-                        paths.path("/api/v1/me/subscription/mobile-receipt")
-                                .path("post")
-                                .path("responses")
-                                .has("501"))
-                .isTrue();
+        // Stage F1 ("free for all"): no route of Premium, credits, donations or ads is left.
+        java.util.List<String> paid = new java.util.ArrayList<>();
+        paths.propertyNames()
+                .forEach(
+                        path -> {
+                            if (path.matches(
+                                    ".*/(plans?|subscriptions?|billing|credits|referrals|donations"
+                                            + "|ads|entitlements|subscriptions-period"
+                                            + "|credits-reconcile)"
+                                            + "(/.*)?$")) {
+                                paid.add(path);
+                            }
+                        });
+        assertThat(paid).as("routes of the removed paid features").isEmpty();
+        assertThat(paths.path("/api/v1/me/limits").path("get").path("tags").get(0).asString())
+                .isEqualTo("limits");
+        assertThat(document.path("components").path("schemas").has("MyPlan")).isFalse();
+        JsonNode limitStatus =
+                document.path("components").path("schemas").path("LimitStatus").path("properties");
+        assertThat(limitStatus.has("limit")).isTrue();
+        assertThat(limitStatus.has("planCode")).isFalse();
+        assertThat(limitStatus.has("upgradeUrl")).isFalse();
         assertThat(paths.path("/api/v1/offers").path("post").path("responses").has("422")).isTrue();
         assertThat(paths.path("/api/v1/offers").path("post").path("responses").has("429")).isTrue();
         assertThat(paths.path("/api/v1/public/report-reasons").path("get").path("security"))
@@ -541,7 +559,8 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                 .anySatisfy(code -> assertThat(code.asString()).isEqualTo("OFFER_ALREADY_OPEN"))
                 .anySatisfy(code -> assertThat(code.asString()).isEqualTo("STALE_OFFER"));
         assertThat(schemas.path("ProblemDetail").path("properties").has("limitKey")).isTrue();
-        assertThat(schemas.path("ProblemDetail").path("properties").has("upgradeUrl")).isTrue();
+        assertThat(schemas.path("ProblemDetail").path("properties").has("upgradeUrl")).isFalse();
+        assertThat(schemas.path("ProblemDetail").path("properties").has("planCode")).isFalse();
         for (String schema :
                 java.util.List.of(
                         "CardSummary",
@@ -553,9 +572,9 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                         "CardSuggestion",
                         "GameResponse",
                         "GameSchema",
-                        "Plan",
-                        "MyPlan",
+                        "MyLimits",
                         "LimitStatus",
+                        "AdminUsageLimit",
                         "FeatureFlag",
                         "CatalogSyncRun",
                         "InventoryItemResponse",

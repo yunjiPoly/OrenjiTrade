@@ -5,6 +5,7 @@ import com.orenjitrade.api.binders.api.PublicBinderResponses.PublicBinderSummary
 import com.orenjitrade.api.binders.domain.PublicBinderService.PublicBinderHit;
 import com.orenjitrade.api.common.CursorPage;
 import com.orenjitrade.api.common.TimeProvider;
+import com.orenjitrade.api.profiles.domain.PrivacyPolicyService;
 import com.orenjitrade.api.search.domain.RegionMapService;
 import com.orenjitrade.api.search.domain.RegionMapService.BinderCounts;
 import io.swagger.v3.oas.annotations.Operation;
@@ -40,10 +41,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class RegionMapController {
 
     private final RegionMapService regionMapService;
+    private final PrivacyPolicyService privacyPolicy;
     private final TimeProvider timeProvider;
 
-    public RegionMapController(RegionMapService regionMapService, TimeProvider timeProvider) {
+    public RegionMapController(
+            RegionMapService regionMapService,
+            PrivacyPolicyService privacyPolicy,
+            TimeProvider timeProvider) {
         this.regionMapService = regionMapService;
+        this.privacyPolicy = privacyPolicy;
         this.timeProvider = timeProvider;
     }
 
@@ -55,12 +61,15 @@ public class RegionMapController {
             operationId = "getRegionBinderCounts",
             summary = "Public binders per state/province of a region (auth optional)",
             description =
-                    "Effectively public binders holding at least one public item whose owner is"
-                        + " discoverable (opted in, ACTIVE, profile not PRIVATE, listings not"
-                        + " paused) with a location in the region, per subdivision code;"
-                        + " subdivisions without binders are absent. Signed-in callers never count"
+                    "Effectively public binders holding at least one public item, and public deck"
+                        + " cores (which need no cards), whose owner is discoverable (opted in,"
+                        + " ACTIVE, profile not PRIVATE, listings not paused) with a location in"
+                        + " the region, per subdivision code; `deckCoreCount` says how many of them"
+                        + " are deck cores (other binders = binderCount - deckCoreCount)."
+                        + " Subdivisions without binders are absent. Signed-in callers never count"
                         + " collectors blocked with them. Anonymous answers are cached server-side"
-                        + " 60 s.")
+                        + " 60 s. `game` (stage G) counts only that game's binders (400 for an"
+                        + " unknown game); without it every game counts, as before.")
     @ApiResponse(responseCode = "200", description = "Binder counts per subdivision")
     @ApiResponse(
             responseCode = "404",
@@ -71,9 +80,16 @@ public class RegionMapController {
                             schema = @Schema(ref = SearchController.PROBLEM_REF)))
     public RegionBinderCountsResponse binderCounts(
             @AuthenticationPrincipal @Nullable AuthenticatedUser principal,
-            @PathVariable @Size(max = 32) String region) {
+            @PathVariable @Size(max = 32) String region,
+            @Parameter(
+                            description =
+                                    "Game slug (GET /games): only that game's binders (stage G,"
+                                            + " the phone's browsed game); every game without it")
+                    @RequestParam(required = false)
+                    @Size(max = 32)
+                    @Nullable String game) {
         return RegionBinderCountsResponse.from(
-                regionMapService.binderCounts(SearchController.viewer(principal), region));
+                regionMapService.binderCounts(SearchController.viewer(principal), region, game));
     }
 
     @GetMapping(
@@ -84,11 +100,16 @@ public class RegionMapController {
             operationId = "listSubdivisionBinders",
             summary = "Public binders of a state/province (auth optional)",
             description =
-                    "Public binders of discoverable collectors located in the subdivision, most"
-                        + " recently updated first, cursor paginated. Each binder carries its name,"
-                        + " public item count, freshness (last update) and owner block (handle,"
-                        + " display name, avatar, state/province + country; never a city). 404 when"
-                        + " the region is unknown or the subdivision is not one of its own.")
+                    "Public binders (and public deck cores, which need no cards) of discoverable"
+                        + " collectors located in the subdivision, most recently updated first,"
+                        + " cursor paginated. Each binder carries its name, public item count,"
+                        + " freshness (last update), owner block (handle, display name, avatar,"
+                        + " state/province + country; never a city) and, for a deck core, its"
+                        + " price, photos and key cards. `deckCore` keeps the deck cores (true) or"
+                        + " the other binders (false); `q` matches a binder's name or description,"
+                        + " its owner's handle and a deck core's card names. 404 when the region is"
+                        + " unknown or the subdivision is not one of its own. `game` (stage G)"
+                        + " keeps the binders of that game only (400 for an unknown game).")
     @ApiResponse(responseCode = "200", description = "One page of binders")
     @ApiResponse(
             responseCode = "404",
@@ -101,19 +122,109 @@ public class RegionMapController {
             @AuthenticationPrincipal @Nullable AuthenticatedUser principal,
             @PathVariable @Size(max = 32) String region,
             @PathVariable @Size(max = 6) String code,
+            @Parameter(description = "Deck cores only (true) or other binders only (false)")
+                    @RequestParam(required = false)
+                    @Nullable Boolean deckCore,
+            @Parameter(
+                            description =
+                                    "Binder name or description, owner handle, or a card of a deck"
+                                            + " core")
+                    @RequestParam(required = false)
+                    @Size(max = 100)
+                    @Nullable String q,
+            @Parameter(
+                            description =
+                                    "Game slug (GET /games): only that game's binders (stage G,"
+                                            + " the phone's browsed game); every game without it")
+                    @RequestParam(required = false)
+                    @Size(max = 32)
+                    @Nullable String game,
             @Parameter(description = "Opaque cursor of the previous page")
                     @RequestParam(required = false)
                     @Size(max = 200)
                     @Nullable String cursor,
             @RequestParam(defaultValue = "20") @Min(1) @Max(RegionMapService.MAX_PAGE_SIZE)
                     int limit) {
-        CursorPage<PublicBinderHit> page =
+        return page(
                 regionMapService.subdivisionBinders(
-                        SearchController.viewer(principal), region, code, cursor, limit);
+                        SearchController.viewer(principal),
+                        region,
+                        code,
+                        deckCore,
+                        q,
+                        game,
+                        cursor,
+                        limit),
+                principal);
+    }
+
+    @GetMapping(
+            path = "/api/v1/regions/{region}/binders",
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    @SecurityRequirements
+    @Operation(
+            operationId = "listRegionBinders",
+            summary = "Public binders of a whole region (auth optional)",
+            description =
+                    "As GET /regions/{region}/subdivisions/{code}/binders for every state and"
+                            + " province of the region (Search › Binders without a state): public"
+                            + " binders and deck cores of discoverable collectors, most recently"
+                            + " updated first, cursor paginated, with the same `deckCore` and `q`"
+                            + " filters and `game` (stage G). 404 for an unknown region.")
+    @ApiResponse(responseCode = "200", description = "One page of binders")
+    @ApiResponse(
+            responseCode = "404",
+            description = "Unknown region",
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                            schema = @Schema(ref = SearchController.PROBLEM_REF)))
+    public CursorPage<PublicBinderSummaryResponse> regionBinders(
+            @AuthenticationPrincipal @Nullable AuthenticatedUser principal,
+            @PathVariable @Size(max = 32) String region,
+            @Parameter(description = "Deck cores only (true) or other binders only (false)")
+                    @RequestParam(required = false)
+                    @Nullable Boolean deckCore,
+            @Parameter(
+                            description =
+                                    "Binder name or description, owner handle, or a card of a deck"
+                                            + " core")
+                    @RequestParam(required = false)
+                    @Size(max = 100)
+                    @Nullable String q,
+            @Parameter(
+                            description =
+                                    "Game slug (GET /games): only that game's binders (stage G,"
+                                            + " the phone's browsed game); every game without it")
+                    @RequestParam(required = false)
+                    @Size(max = 32)
+                    @Nullable String game,
+            @Parameter(description = "Opaque cursor of the previous page")
+                    @RequestParam(required = false)
+                    @Size(max = 200)
+                    @Nullable String cursor,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(RegionMapService.MAX_PAGE_SIZE)
+                    int limit) {
+        return page(
+                regionMapService.regionBinders(
+                        SearchController.viewer(principal),
+                        region,
+                        deckCore,
+                        q,
+                        game,
+                        cursor,
+                        limit),
+                principal);
+    }
+
+    /** The page; its owner blocks without who they are for a signed-out caller (stage R15). */
+    private CursorPage<PublicBinderSummaryResponse> page(
+            CursorPage<PublicBinderHit> page, @Nullable AuthenticatedUser principal) {
         Instant now = timeProvider.now();
+        boolean showWho = SearchController.showWho(privacyPolicy, principal);
         return new CursorPage<>(
                 page.items().stream()
-                        .map(hit -> PublicBinderSummaryResponse.from(hit, now))
+                        .map(hit -> PublicBinderSummaryResponse.from(hit, now, showWho))
                         .toList(),
                 page.nextCursor(),
                 page.hasMore());
@@ -123,12 +234,20 @@ public class RegionMapController {
     @Schema(name = "RegionBinderCounts", description = "Public binders per state/province")
     public record RegionBinderCountsResponse(
             @Schema(requiredMode = RequiredMode.REQUIRED, example = "americas-north") String region,
-            @Schema(requiredMode = RequiredMode.REQUIRED, description = "Public binders in all")
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            description = "Public binders in all (deck cores included)")
                     long total,
             @Schema(
                             requiredMode = RequiredMode.REQUIRED,
                             description = "Subdivisions holding at least one public binder")
-                    List<SubdivisionBinderCount> subdivisions) {
+                    List<SubdivisionBinderCount> subdivisions,
+            @Schema(
+                            requiredMode = RequiredMode.NOT_REQUIRED,
+                            example = "1",
+                            description =
+                                    "The public deck cores among `total` (stage R3). Always sent")
+                    long deckCoreTotal) {
 
         static RegionBinderCountsResponse from(BinderCounts counts) {
             return new RegionBinderCountsResponse(
@@ -138,8 +257,11 @@ public class RegionMapController {
                             .map(
                                     count ->
                                             new SubdivisionBinderCount(
-                                                    count.code(), count.binderCount()))
-                            .toList());
+                                                    count.code(),
+                                                    count.binderCount(),
+                                                    count.deckCoreCount()))
+                            .toList(),
+                    counts.deckCoreTotal());
         }
     }
 
@@ -147,5 +269,17 @@ public class RegionMapController {
     @Schema(name = "SubdivisionBinderCount")
     public record SubdivisionBinderCount(
             @Schema(requiredMode = RequiredMode.REQUIRED, example = "CA-QC") String code,
-            @Schema(requiredMode = RequiredMode.REQUIRED, example = "3") long binderCount) {}
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            example = "3",
+                            description = "Public binders, deck cores included")
+                    long binderCount,
+            @Schema(
+                            requiredMode = RequiredMode.NOT_REQUIRED,
+                            example = "1",
+                            description =
+                                    "The public deck cores among them (stage R3): the map's state"
+                                            + " card says \"{n} binders · {n} deck cores\" with"
+                                            + " binderCount - deckCoreCount binders. Always sent")
+                    long deckCoreCount) {}
 }

@@ -17,6 +17,7 @@ import org.jspecify.annotations.Nullable;
  * @param regionLabel platform region code of region channels (ADR 0017)
  * @param description description
  * @param postCount24h visible posts of the last 24 hours
+ * @param lastPost the newest post the caller may see (stage R11), {@code null} when none
  */
 @Schema(name = "CommunityChannel", description = "A public community channel")
 public record ChannelView(
@@ -30,4 +31,12 @@ public record ChannelView(
                 @JsonInclude(JsonInclude.Include.ALWAYS)
                 @Nullable String regionLabel,
         @Schema(requiredMode = RequiredMode.REQUIRED) String description,
-        @Schema(requiredMode = RequiredMode.REQUIRED) int postCount24h) {}
+        @Schema(requiredMode = RequiredMode.REQUIRED) int postCount24h,
+        @Schema(
+                        nullable = true,
+                        description =
+                                "Stage R11: the newest post the caller may see (blocked"
+                                        + " collectors, suspended accounts, deleted and removed"
+                                        + " posts left out), null when none")
+                @JsonInclude(JsonInclude.Include.ALWAYS)
+                @Nullable ChannelLastPost lastPost) {}

@@ -2,6 +2,7 @@ package com.orenjitrade.api.inventory;
 
 import static com.orenjitrade.api.inventory.InventoryTestSupport.SERVICE_TOKEN;
 import static com.orenjitrade.api.inventory.InventoryTestSupport.binder;
+import static com.orenjitrade.api.inventory.InventoryTestSupport.gameId;
 import static com.orenjitrade.api.inventory.InventoryTestSupport.item;
 import static com.orenjitrade.api.inventory.InventoryTestSupport.printing;
 import static com.orenjitrade.api.inventory.InventoryTestSupport.privacy;
@@ -194,7 +195,7 @@ class FreshnessJobIT extends AbstractIntegrationTest {
                                 HttpMethod.POST,
                                 "/api/v1/binders",
                                 uid,
-                                binder("Aging binder", "PUBLIC"),
+                                binder("Aging binder", "PUBLIC", gameId(testUsers, "riftbound")),
                                 201)
                         .path("id")
                         .asString();
@@ -253,7 +254,8 @@ class FreshnessJobIT extends AbstractIntegrationTest {
         String until = Instant.now().plus(Duration.ofHours(2)).toString();
         String temporary =
                 createItem(uid, Map.of("visibility", "TEMPORARILY_PUBLIC", "publicUntil", until));
-        Map<String, Object> binderBody = binder("Weekend", "TEMPORARILY_PUBLIC");
+        Map<String, Object> binderBody =
+                binder("Weekend", "TEMPORARILY_PUBLIC", gameId(testUsers, "riftbound"));
         binderBody.put("publicUntil", until);
         String binderId =
                 callJson(HttpMethod.POST, "/api/v1/binders", uid, binderBody, 201)
@@ -306,7 +308,12 @@ class FreshnessJobIT extends AbstractIntegrationTest {
         String uid = uniqueUid("fresh-binder");
         listedCollector(uid);
         String binderId =
-                callJson(HttpMethod.POST, "/api/v1/binders", uid, binder("Old", "PUBLIC"), 201)
+                callJson(
+                                HttpMethod.POST,
+                                "/api/v1/binders",
+                                uid,
+                                binder("Old", "PUBLIC", gameId(testUsers, "riftbound")),
+                                201)
                         .path("id")
                         .asString();
         String inBinder = createItem(uid, Map.of("binderId", binderId));

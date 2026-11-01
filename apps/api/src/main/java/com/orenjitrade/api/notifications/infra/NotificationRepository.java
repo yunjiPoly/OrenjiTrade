@@ -5,6 +5,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -88,9 +89,15 @@ public class NotificationRepository {
     }
 
     /**
-     * In-app notifications of a user, newest first, after the cursor; at most {@code limit} rows.
+     * In-app notifications of a user, newest first, after the cursor, leaving out the {@code
+     * excludedTypes} (type names; empty = none); at most {@code limit} rows.
      */
-    public List<Row> page(UUID userId, @Nullable TimeCursor cursor, boolean unreadOnly, int limit) {
+    public List<Row> page(
+            UUID userId,
+            @Nullable TimeCursor cursor,
+            boolean unreadOnly,
+            Collection<String> excludedTypes,
+            int limit) {
         StringBuilder sql =
                 new StringBuilder("SELECT ")
                         .append(COLUMNS)
@@ -98,12 +105,18 @@ public class NotificationRepository {
         if (unreadOnly) {
             sql.append(" AND read_at IS NULL");
         }
+        if (!excludedTypes.isEmpty()) {
+            sql.append(" AND type NOT IN (:excludedTypes)");
+        }
         if (cursor != null) {
             sql.append(" AND (created_at, id) < (:cursorAt, :cursorId)");
         }
         sql.append(" ORDER BY created_at DESC, id DESC LIMIT :limit");
         JdbcClient.StatementSpec statement =
                 jdbc.sql(sql.toString()).param("userId", userId).param("limit", limit);
+        if (!excludedTypes.isEmpty()) {
+            statement = statement.param("excludedTypes", List.copyOf(excludedTypes));
+        }
         if (cursor != null) {
             statement =
                     statement
@@ -113,13 +126,20 @@ public class NotificationRepository {
         return statement.query(NotificationRepository::map).list();
     }
 
-    public long unreadCount(UUID userId) {
-        return jdbc.sql(
-                        "SELECT count(*) FROM notification WHERE user_id = :userId AND in_app"
-                                + " AND read_at IS NULL")
-                .param("userId", userId)
-                .query(Long.class)
-                .single();
+    /** Unread in-app notifications of a user, leaving out the {@code excludedTypes} (names). */
+    public long unreadCount(UUID userId, Collection<String> excludedTypes) {
+        JdbcClient.StatementSpec statement =
+                jdbc.sql(
+                                "SELECT count(*) FROM notification WHERE user_id = :userId AND"
+                                        + " in_app AND read_at IS NULL"
+                                        + (excludedTypes.isEmpty()
+                                                ? ""
+                                                : " AND type NOT IN (:excludedTypes)"))
+                        .param("userId", userId);
+        if (!excludedTypes.isEmpty()) {
+            statement = statement.param("excludedTypes", List.copyOf(excludedTypes));
+        }
+        return statement.query(Long.class).single();
     }
 
     /** Marks one in-app notification of the user read (idempotent); the row, or empty. */
@@ -199,10 +219,128 @@ public class NotificationRepository {
                 .list();
     }
 
+    public int deleteByDedupKey(String dedupKey) {
+        return jdbc.sql("DELETE FROM notification WHERE dedup_key = :key")
+                .param("key", dedupKey)
+                .update();
+    }
+
     public int deleteByUser(UUID userId) {
         return jdbc.sql("DELETE FROM notification WHERE user_id = :userId")
                 .param("userId", userId)
                 .update();
+    }
+
+    /**
+     * The other collectors' MESSAGE rows sent by a deleted account: the sender's name in the title
+     * and at the start of the body becomes {@code name} (the body keeps its phrase, one of {@code
+     * phrases}, else the plain message phrase). Returns the rows changed.
+     */
+    public int renameMessageSender(
+            UUID senderId, String title, String name, List<String> phrases, String fallback) {
+        // The phrases are plain words ("sent you a photo"): no regular-expression character.
+        String pattern = "(" + String.join("|", phrases) + ")\\.$";
+        return jdbc.sql(
+                        "UPDATE notification SET title = :title, body = :name || ' ' ||"
+                                + " coalesce(substring(body from :pattern), :fallback) || '.'"
+                                + " WHERE type = 'MESSAGE' AND data->>'senderId' = :senderId")
+                .param("title", title)
+                .param("name", name)
+                .param("pattern", pattern)
+                .param("fallback", fallback)
+                .param("senderId", senderId.toString())
+                .update();
+    }
+
+    /**
+     * The other collectors' WISHLIST_ALERT rows about a deleted account's listing: the handle in
+     * the body ("listed by @handle in") and in {@code data.collectorHandle} becomes {@code name}.
+     */
+    public int renameWishlistCollector(UUID collectorId, String name) {
+        return jdbc.sql(
+                        "UPDATE notification SET body = regexp_replace(body, 'listed by @\\S+ in ',"
+                                + " 'listed by ' || :name || ' in '), data = jsonb_set(data,"
+                                + " '{collectorHandle}', to_jsonb(CAST(:name AS text)), false)"
+                                + " WHERE type = 'WISHLIST_ALERT' AND data->>'collectorId' ="
+                                + " :collectorId")
+                .param("name", name)
+                .param("collectorId", collectorId.toString())
+                .update();
+    }
+
+    /**
+     * The other collectors' RATING_RECEIVED rows from a deleted account (WF, after WE review R2-2):
+     * those that carry its id ({@code data.raterId}, written since stage WF), and the older rows
+     * without an id that name it by {@code handle} ({@code data.raterHandle}) and were written at
+     * or after {@code since} (the account's creation: an older row cannot be the account's,
+     * whatever handle it names). The title becomes {@code title}, the body's rater ("{name} rated
+     * you 5/5.") and {@code data.raterHandle} become {@code name}. Returns the rows changed.
+     */
+    public int renameRater(
+            UUID raterId,
+            @Nullable String handle,
+            @Nullable Instant since,
+            String title,
+            String name) {
+        String set =
+                "UPDATE notification SET title = :title, body = regexp_replace(body, '^.* rated"
+                        + " you ', :name || ' rated you '), data = jsonb_set(data,"
+                        + " '{raterHandle}', to_jsonb(CAST(:name AS text)), false) WHERE type ="
+                        + " 'RATING_RECEIVED' AND ";
+        int changed =
+                jdbc.sql(set + "data->>'raterId' = :raterId")
+                        .param("title", title)
+                        .param("name", name)
+                        .param("raterId", raterId.toString())
+                        .update();
+        if (handle != null && since != null) {
+            changed +=
+                    jdbc.sql(
+                                    set
+                                            + "data->>'raterId' IS NULL AND data->>'raterHandle' ="
+                                            + " :handle AND created_at >= :since")
+                            .param("title", title)
+                            .param("name", name)
+                            .param("handle", handle)
+                            .param("since", Timestamp.from(since))
+                            .update();
+        }
+        return changed;
+    }
+
+    /**
+     * The other collectors' SALE_RECORDED rows from a deleted account, by the rule of {@link
+     * #renameRater}: those that carry its id ({@code data.sellerId}), and the older rows without an
+     * id that name it by {@code handle} ({@code data.sellerHandle}) and were written at or after
+     * {@code since}. The handle starting the title ("{handle} marked … as sold to you") and {@code
+     * data.sellerHandle} become {@code name}. Returns the rows changed.
+     */
+    public int renameSeller(
+            UUID sellerId, @Nullable String handle, @Nullable Instant since, String name) {
+        // The stored handle starts the title: that handle is replaced, whatever it was.
+        String set =
+                "UPDATE notification SET title = CASE WHEN left(title,"
+                    + " length(data->>'sellerHandle') + 1) = (data->>'sellerHandle') || ' ' THEN"
+                    + " :name || substring(title from length(data->>'sellerHandle') + 1) ELSE title"
+                    + " END, data = jsonb_set(data, '{sellerHandle}', to_jsonb(CAST(:name AS"
+                    + " text)), false) WHERE type = 'SALE_RECORDED' AND ";
+        int changed =
+                jdbc.sql(set + "data->>'sellerId' = :sellerId")
+                        .param("name", name)
+                        .param("sellerId", sellerId.toString())
+                        .update();
+        if (handle != null && since != null) {
+            changed +=
+                    jdbc.sql(
+                                    set
+                                            + "data->>'sellerId' IS NULL AND data->>'sellerHandle'"
+                                            + " = :handle AND created_at >= :since")
+                            .param("name", name)
+                            .param("handle", handle)
+                            .param("since", Timestamp.from(since))
+                            .update();
+        }
+        return changed;
     }
 
     private static Row map(ResultSet rs, int rowNum) throws SQLException {

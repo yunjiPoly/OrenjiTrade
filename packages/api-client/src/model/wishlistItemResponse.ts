@@ -38,5 +38,9 @@ export interface WishlistItemResponse {
     priceTerm?: WishPriceTerm;
     createdAt: string;
     updatedAt: string;
+    /**
+     * At least one public holder of the caller\'s home region has a copy that fits (stage R5; always sent; GET /wishlist/availability answers for any region)
+     */
+    available?: boolean;
 }
 

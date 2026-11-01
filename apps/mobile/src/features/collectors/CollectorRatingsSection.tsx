@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { useCollectorRatings, useCollectorReferences } from '@/src/api/hooks/collectors';
@@ -11,6 +11,7 @@ import { Button } from '@/src/components/ui/Button';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { SectionCard } from '@/src/components/ui/Layout';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
+import { Text } from '@/src/components/ui/Text';
 import { ratingParams } from '@/src/features/ratings/ratingRoutes';
 import { relativeTime } from '@/src/lib/relativeTime';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
@@ -107,8 +108,8 @@ export function CollectorRatingsSection({
           {items.length === 0 ? (
             <Text testID="ratings-empty" style={[textStyle('sm'), { color: palette.textMuted }]}>
               {isOwn
-                ? 'No ratings yet. Collectors can rate you after a completed trade, an accepted offer or a real conversation.'
-                : 'No ratings yet. Ratings appear after completed trades, accepted offers or real conversations.'}
+                ? 'No ratings yet. Collectors can rate you after a deal or a real conversation.'
+                : 'No ratings yet. Ratings appear after deals or real conversations.'}
             </Text>
           ) : (
             <View style={styles.list}>

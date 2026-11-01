@@ -11,7 +11,11 @@ import {
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
-import type { CollectorProfileResponse, RatingSummaryResponse } from '@orenji/api-client';
+import type {
+  CollectorProfileResponse,
+  RatingSummaryResponse,
+  ReferenceResponse,
+} from '@orenji/api-client';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
 import { RelativeTimePipe } from '../../../shared/pipes/relative-time.pipe';
 import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
@@ -48,7 +52,7 @@ import { RatingSummaryComponent } from './rating-summary.component';
     <section class="ratings" id="collector-ratings" aria-labelledby="collector-ratings-heading">
       <header class="ratings__head">
         <div>
-          <h2 id="collector-ratings-heading" tabindex="-1">Ratings &amp; references</h2>
+          <h2 id="collector-ratings-heading" tabindex="-1">All ratings and references</h2>
           <p class="ratings__muted">
             From collectors who traded, made a deal or had a real conversation with
             {{ isOwn() ? 'you' : p.displayName }}.
@@ -67,6 +71,7 @@ import { RatingSummaryComponent } from './rating-summary.component';
           <app-error-state
             compact
             title="Ratings could not load"
+            retryLabel="Try again"
             [message]="errorMessage()"
             [requestId]="store.error()?.requestId ?? null"
             (retry)="store.load()"
@@ -80,10 +85,11 @@ import { RatingSummaryComponent } from './rating-summary.component';
                 <app-empty-state
                   icon="star_outline"
                   title="No ratings yet"
+                  [level]="3"
                   [description]="
                     isOwn()
-                      ? 'Collectors can rate you after a completed trade, an accepted offer or a real conversation.'
-                      : 'Ratings appear after completed trades, accepted offers or real conversations.'
+                      ? 'Collectors can rate you after a deal or a real conversation.'
+                      : 'Ratings appear after deals or real conversations.'
                   "
                 />
               } @else {
@@ -144,7 +150,7 @@ import { RatingSummaryComponent } from './rating-summary.component';
             <p class="ratings__muted">
               @if (store.referencesFailed()) {
                 References could not load.
-                <button matButton type="button" (click)="store.loadReferences()">Retry</button>
+                <button matButton type="button" (click)="store.loadReferences()">Try again</button>
               } @else {
                 No references yet.
               }
@@ -303,6 +309,8 @@ export class CollectorRatingsSectionComponent {
   readonly isOwn = input(false);
   /** The summary after every (re)load, for the profile header. */
   readonly summaryChange = output<RatingSummaryResponse>();
+  /** The latest references (the profile's side column shows the 2 newest, spec 11). */
+  readonly referencesChange = output<ReferenceResponse[]>();
 
   protected readonly errorMessage = computed(() => {
     const error = this.store.error();
@@ -321,8 +329,8 @@ export class CollectorRatingsSectionComponent {
     const name = this.profile().displayName;
     return eligibility.interactions.length > 0
       ? `You already rated your interactions with ${name}. You can edit a rating for 14 days.`
-      : `You can rate ${name} after a completed trade, an accepted offer or a conversation ` +
-          'where you both sent at least 3 messages.';
+      : `You can rate ${name} after a deal with them or a conversation where you both sent at ` +
+          'least 3 messages.';
   });
 
   constructor() {
@@ -345,6 +353,12 @@ export class CollectorRatingsSectionComponent {
       const summary = this.store.summary();
       if (summary && this.store.status() === 'ready') {
         untracked(() => this.summaryChange.emit(summary));
+      }
+    });
+    effect(() => {
+      const references = this.store.references();
+      if (references) {
+        untracked(() => this.referencesChange.emit(references.slice(0, 2)));
       }
     });
   }

@@ -1,34 +1,29 @@
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { Checkbox } from '@/src/components/ui/FormControls';
+import { Text } from '@/src/components/ui/Text';
 import { radius, spacing, textStyle, useTheme } from '@/src/theme';
 
-import {
-  AGE_CONFIRMATION_ERROR,
-  AGE_CONFIRMATION_ERROR_FR,
-  AGE_CONFIRMATION_LABEL_EN,
-  AGE_CONFIRMATION_LABEL_FR,
-  ageConfirmationAccessibleLabel,
-} from './ageConfirmation';
+import { AGE_CONFIRMATION_ERROR, AGE_CONFIRMATION_LABEL_EN } from './ageConfirmation';
 
 export interface AgeConfirmationCheckboxProps {
   checked: boolean;
   onChange: (checked: boolean) => void;
   /** Show the validation message (the parent sets it after a submit attempt). */
-  showError: boolean;
+  showError?: boolean;
   disabled?: boolean;
   testID?: string;
 }
 
 /**
- * The 18+ confirmation checkbox (web: `app-age-confirmation-checkbox`): never ticked by default,
- * never part of "Accept all", labelled in English and French; the parent records the
- * confirmation server-side with `POST /me/consents` (`AGE_CONFIRMATION`).
+ * The 18+ confirmation (web: `app-age-confirmation-checkbox`) in its own card, as in mockup v50
+ * (screens 37 and 43): never ticked by default, never part of "Accept all", English only (owner,
+ * 2026-10-20). The parent records it server-side with `POST /me/consents` (`AGE_CONFIRMATION`).
  */
 export function AgeConfirmationCheckbox({
   checked,
   onChange,
-  showError,
+  showError = false,
   disabled,
   testID = 'age-confirmation',
 }: AgeConfirmationCheckboxProps) {
@@ -36,14 +31,11 @@ export function AgeConfirmationCheckbox({
   const error = showError && !checked;
   return (
     <View
-      style={[
-        styles.box,
-        { borderColor: error ? palette.danger : palette.border, backgroundColor: palette.surface },
-      ]}
+      style={[styles.card, { borderColor: error ? palette.danger : palette.borderStrong }]}
       testID={`${testID}-box`}
     >
       <Checkbox
-        label={ageConfirmationAccessibleLabel(Platform.OS)}
+        label={AGE_CONFIRMATION_LABEL_EN}
         checked={checked}
         onChange={onChange}
         error={error}
@@ -51,23 +43,26 @@ export function AgeConfirmationCheckbox({
         testID={testID}
       >
         <Text style={[textStyle('sm'), { color: palette.ink }]}>{AGE_CONFIRMATION_LABEL_EN}</Text>
-        <Text style={[textStyle('xs'), { color: palette.textMuted }]}>
-          {AGE_CONFIRMATION_LABEL_FR}
-        </Text>
       </Checkbox>
       {error ? (
-        <View accessibilityRole="alert" testID={`${testID}-error`} style={styles.error}>
-          <Text style={[textStyle('sm'), { color: palette.danger }]}>{AGE_CONFIRMATION_ERROR}</Text>
-          <Text style={[textStyle('sm'), { color: palette.danger }]}>
-            {AGE_CONFIRMATION_ERROR_FR}
-          </Text>
-        </View>
+        <Text
+          accessibilityRole="alert"
+          testID={`${testID}-error`}
+          style={[textStyle('sm'), styles.error, { color: palette.danger }]}
+        >
+          {AGE_CONFIRMATION_ERROR}
+        </Text>
       ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  box: { borderWidth: 1, borderRadius: radius.md, padding: spacing[2], gap: spacing[1] },
-  error: { paddingHorizontal: spacing[2], paddingBottom: spacing[1], gap: 2 },
+  card: {
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    paddingHorizontal: 14,
+    paddingVertical: spacing[1],
+  },
+  error: { paddingBottom: spacing[2] },
 });

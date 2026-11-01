@@ -15,8 +15,7 @@ public enum ReportReason {
     HARASSMENT("Harassment", "Insults, threats, hateful or unwanted repeated contact."),
     SPAM("Spam", "Unsolicited promotion, repeated messages or advertising."),
     INAPPROPRIATE_BEHAVIOR(
-            "Inappropriate behaviour",
-            "Behaviour that breaks the Community Guidelines, including at meetups."),
+            "Inappropriate behaviour", "Behaviour that breaks the Community Guidelines."),
     MISLEADING_LISTINGS(
             "Misleading listings",
             "Cards that are not available, wrong condition or prices that are not honoured."),

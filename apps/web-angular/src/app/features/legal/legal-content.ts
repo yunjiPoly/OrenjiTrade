@@ -174,11 +174,11 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
     title: 'Privacy Policy',
     shortTitle: 'Privacy',
     summary: 'What we collect, why, how long we keep it, and the choices you have.',
-    version: '0.1-draft',
+    version: '0.2-draft',
     effectiveDate: null,
     // Platform regions instead of geolocation (ADR 0017, 2026-10-08): no coordinates, no distances;
     // the public place is the state or province. Law 25 additions 2026-10-05.
-    lastUpdated: LAST_UPDATED,
+    lastUpdated: '2026-10-14',
     definitions: [
       ...COMMON_DEFINITIONS,
       {
@@ -271,7 +271,7 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
         heading: 'Where your data is stored, transfers outside Quebec, and age requirement',
         clauses: [
           'Our database, uploaded images and analytics are hosted on Google Cloud in the Montréal region (northamerica-northeast1, Québec), as configured in our infrastructure [to confirm at launch].',
-          'Some service providers may store or process personal information outside Quebec: Firebase Authentication (Google; sign-in email address, password hash, phone number for staff two-factor sign-in, provider ids; data location [to confirm]); Firebase Cloud Messaging (Google; push notification tokens; data location [to confirm]); Cloudflare (network security and content delivery; IP addresses and request logs at its global edge; data location [to confirm]); and, only when payment or premium features are enabled, Stripe (payment, payout and subscription data; United States [to confirm]). Before communicating personal information outside Quebec we assess, among other things, whether it will receive adequate protection, including through contractual safeguards.',
+          'Some service providers may store or process personal information outside Quebec: Firebase Authentication (Google; sign-in email address, password hash, phone number for staff two-factor sign-in, provider ids; data location [to confirm]); Firebase Cloud Messaging (Google; push notification tokens; data location [to confirm]); Cloudflare (network security and content delivery; IP addresses and request logs at its global edge; data location [to confirm]); and, only when protected payments are enabled, Stripe (payment and payout data; United States [to confirm]). Before communicating personal information outside Quebec we assess, among other things, whether it will receive adequate protection, including through contractual safeguards.',
           'The Service is for people 18 years of age and older and is not directed at minors. We do not knowingly collect personal information from anyone under 18. We close accounts we find to belong to minors and delete their personal information, subject to the retention periods described above and to the law.',
         ],
       },
@@ -283,9 +283,9 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
     title: 'Community Guidelines',
     shortTitle: 'Community',
     summary: 'How Collectors are expected to treat each other in search, in chat and in trades.',
-    version: '0.1-draft',
+    version: '0.2-draft',
     effectiveDate: null,
-    lastUpdated: LAST_UPDATED,
+    lastUpdated: '2026-10-14',
     definitions: COMMON_DEFINITIONS,
     contact: CONTACT_SUPPORT,
     sections: [
@@ -320,7 +320,7 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
         heading: 'Community channels',
         clauses: [
           'Stay on topic: game channels are for that game, "looking for" channels for wants, "new listings" for what you just listed.',
-          'No spam, repeated cross-posting, or unsolicited advertising. Sponsored content is labelled by OrenjiTrade and is never posted by ordinary accounts.',
+          'No spam, repeated cross-posting, or unsolicited advertising.',
         ],
       },
       {
@@ -339,9 +339,9 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
     title: 'Marketplace Policy',
     shortTitle: 'Marketplace',
     summary: 'Rules for listings, offers, prices and what may be traded or sold on OrenjiTrade.',
-    version: '0.1-draft',
+    version: '0.2-draft',
     effectiveDate: null,
-    lastUpdated: LAST_UPDATED,
+    lastUpdated: '2026-10-14',
     definitions: [
       ...COMMON_DEFINITIONS,
       {
@@ -379,9 +379,9 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
       },
       {
         id: 'fees',
-        heading: 'Fees and plans',
+        heading: 'Fees',
         clauses: [
-          'Listing and browsing are free within the limits of your plan. Limits and premium entitlements are shown in Settings and may change with notice.',
+          'Listing and browsing are free. The same usage limits apply to every Collector (for example the number of Binders, or of public Binders opened per day); they are shown where they apply and may change with notice.',
           'Where protected payments are enabled, applicable fees are displayed before you confirm a payment.',
         ],
       },
@@ -562,9 +562,9 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
     title: 'Acceptable Use Policy',
     shortTitle: 'Acceptable use',
     summary: 'Technical and behavioural limits that protect the Service and its Collectors.',
-    version: '0.1-draft',
+    version: '0.2-draft',
     effectiveDate: null,
-    lastUpdated: LAST_UPDATED,
+    lastUpdated: '2026-10-14',
     definitions: COMMON_DEFINITIONS,
     contact: CONTACT_LEGAL,
     sections: [
@@ -574,7 +574,7 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
         clauses: [
           'Attempting to determine another Collector’s precise location or address, including by combining their profile, listings, messages or activity across multiple queries or accounts.',
           'Scraping, crawling or bulk-exporting listings, profiles or map data, or using the Service to build a competing dataset.',
-          'Circumventing rate limits, plan limits, freshness rules, or moderation actions.',
+          'Circumventing rate limits, usage limits, freshness rules, or moderation actions.',
           'Uploading malicious code, probing or testing the security of the Service without written authorisation, or interfering with other Collectors’ use of the Service.',
         ],
       },
@@ -608,40 +608,44 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
     title: 'Trading safely',
     shortTitle: 'Trading safely',
     summary:
-      'Practical advice for meeting and trading with other collectors, what OrenjiTrade shows about you, and how to report or block someone.',
-    version: '0.1-draft',
+      'How deals work on OrenjiTrade: cards ship by mail and payment happens outside the app. What to check before you pay, what OrenjiTrade shows about you, and how to report or block someone.',
+    version: '0.2-draft',
     effectiveDate: null,
-    lastUpdated: LAST_UPDATED,
+    lastUpdated: '2026-10-14',
     definitions: COMMON_DEFINITIONS,
     contact: CONTACT_SUPPORT,
     sections: [
       {
-        id: 'before-you-meet',
-        heading: 'Before you meet',
+        id: 'how-deals-work',
+        heading: 'How deals work',
         clauses: [
-          'Meet in a busy public place, in daylight: a café, a shopping centre, a card shop or a library. Some police stations offer safe exchange zones; check the website of your local police service.',
-          'Bring someone along when the cards are valuable, and tell a friend where you are going and when you expect to be back.',
-          'Never share your home address, your workplace or your routine. OrenjiTrade only ever shows your state or province (and your city on your profile, if you choose), and you control what you publish.',
-          'Agree on the details in the app before you meet: which cards, which condition, which price or trade, and how you will pay. The conversation and the offer stay as a record.',
+          'You agree on the deal in the chat with the other collector, and the cards ship by mail.',
+          'OrenjiTrade never handles the money: payment happens outside the app, for example by Interac e-Transfer. OrenjiTrade is not a party to your deals and cannot refund them.',
         ],
       },
       {
-        id: 'during-the-exchange',
-        heading: 'During the exchange',
+        id: 'before-you-pay',
+        heading: 'Before you pay',
         clauses: [
-          'Check the cards before handing over money or your own cards: condition, edition, printing, and signs of a counterfeit. Take your time; a genuine trader expects it.',
-          'Keep the exchange simple: one meeting, in person, cards and payment at the same time.',
-          'Walk away if something feels wrong. You never owe anyone a trade.',
+          'Check the collector’s ratings and references, and ask for photos of the real card, front and back.',
+          'Agree in the chat on the card, its condition, the price, the shipping and the payment method. The conversation stays as a record.',
+        ],
+      },
+      {
+        id: 'shipping',
+        heading: 'Shipping',
+        clauses: [
+          'Sellers ship once the payment has arrived, with tracking, and add the tracking number when they mark the card sold.',
+          'Share your address only in the chat with the collector you deal with, never in a public post, a binder or your profile.',
         ],
       },
       {
         id: 'warning-signs',
         heading: 'Warning signs',
         clauses: [
-          'Pressure to decide right now, to meet somewhere isolated or at night, or to move the conversation off OrenjiTrade.',
-          'Deals that seem too good to be true usually are.',
-          'Requests to pay outside the agreed method: a deposit before you meet, gift cards, wire transfers or cryptocurrency to "hold" a card.',
-          'Stories that change, brand-new accounts with no history, or a refusal to show the actual card.',
+          'Pressure to decide or to pay right now.',
+          'A payment method other than the one you agreed on, or a request for gift cards or cryptocurrency.',
+          'A price far below the market, a refusal to ship with tracking, or a refusal to show the real card.',
         ],
       },
       {
@@ -659,14 +663,6 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
           'Report a collector from their profile, from the conversation menu or from a community post ("Report collector"). Choose a reason; moderators review every report, and the reported collector is never told who reported them.',
           'Block a collector from their profile or from the conversation menu: you stop seeing each other’s binders, profiles and posts on the map, in search and in the community, and neither of you can message the other. Manage blocks in Settings → Blocked users.',
           'If you are in danger, contact your local emergency services first (911 in Canada).',
-        ],
-      },
-      {
-        id: 'payments',
-        heading: 'Payments',
-        clauses: [
-          'At launch, OrenjiTrade does not process payments between collectors: you settle trades and sales directly with each other. OrenjiTrade is not a party to your trades and cannot refund them.',
-          'If you pay, prefer a method you can verify on the spot, and only once you have checked the cards.',
         ],
       },
     ],

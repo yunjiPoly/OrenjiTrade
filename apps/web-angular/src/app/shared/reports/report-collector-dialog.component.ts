@@ -51,21 +51,38 @@ export interface ReportContextInput {
   binderId?: string;
 }
 
+/** A community post being reported ("Report this post", board W22): what the dialog shows of it. */
+export interface ReportPostPreview {
+  /** "Quebec · 9:12 AM" (the province only, never a city). */
+  meta: string;
+  /** The post's text (cut to 140 characters with "…" by the dialog). */
+  text: string;
+}
+
 export interface ReportDialogData {
   target: ReportTarget;
   context: ReportContextInput;
+  /** Reporting a post: the dialog is "Report this post" with the post's words (web WF). */
+  post?: ReportPostPreview;
+}
+
+/** A post's text in the report dialog: one line of at most 140 characters. */
+export function reportPostExcerpt(text: string): string {
+  const flat = text.replace(/\s+/g, ' ').trim();
+  return flat.length > 140 ? `${flat.slice(0, 137)}…` : flat;
 }
 
 /**
- * "Report collector" modal (product spec § 23): the collector, "Why are you reporting this
- * user?" with the server's reasons as radio buttons (spec order), optional details, Cancel /
- * Confirm. Confirm stays disabled until a reason is chosen; it sends `POST /reports/collectors`
+ * "Report {handle}" (520, product spec § 23, web spec 10.5): the collector, "Why are you reporting
+ * them?" with the server's reasons and their lines as radio rows (spec order), optional details,
+ * Cancel and "Send report", disabled with "Choose a reason first." until a reason is chosen; it sends `POST /reports/collectors`
  * with an `Idempotency-Key` fixed for the dialog (a retry repeats the original answer). Refusals
  * (409 already open, 422 self, 429 daily limit) are explained inline; success turns the dialog
- * into a confirmation. Closes with the {@link ReportConfirmation} once sent.
+ * into "Report sent" with Done and "Follow it in My reports". Closes with the {@link ReportConfirmation} once sent.
  */
 @Component({
   selector: 'app-report-collector-dialog',
+  host: { '[class.report--post]': '!!data.post' },
   imports: [
     ReactiveFormsModule,
     RouterLink,
@@ -85,47 +102,87 @@ export interface ReportDialogData {
       <mat-dialog-content>
         <div class="done" role="status">
           <span class="done__icon" aria-hidden="true"><mat-icon>verified_user</mat-icon></span>
-          <p class="done__lead">
-            Thank you. Our moderation team will review your report about
-            <strong>{{ data.target.displayName }}</strong
-            >. They are not told who reported them.
-          </p>
-          <p class="done__muted">
-            You will get a notification once the review is complete. Follow it any time in
-            <a routerLink="/settings/reports" [mat-dialog-close]="confirmation"
-              >Settings → My reports</a
-            >.
-          </p>
+          @if (data.post) {
+            <p class="done__lead">
+              Thank you. Our moderators will review this post by
+              <strong>{{ data.target.handle || data.target.displayName }}</strong
+              >. They are not told who reported it.
+            </p>
+          } @else {
+            <p class="done__lead">
+              Thank you. Our moderation team will review your report about
+              <strong>{{ data.target.displayName }}</strong
+              >. They are not told who reported them.
+            </p>
+          }
+          <p class="done__muted">You will get a notification once the review is complete.</p>
         </div>
       </mat-dialog-content>
-      <mat-dialog-actions align="end">
-        <button #done matButton="filled" type="button" [mat-dialog-close]="confirmation">
+      <mat-dialog-actions align="end" class="done__actions">
+        <a class="done__follow" routerLink="/settings/reports" [mat-dialog-close]="confirmation"
+          >Follow it in My reports</a
+        >
+        <button #done matButton="outlined" type="button" [mat-dialog-close]="confirmation">
           Done
         </button>
       </mat-dialog-actions>
     } @else {
-      <h2 mat-dialog-title>Report collector</h2>
+      @if (data.post) {
+        <!-- Board W22: the header's Close beside the title (WF review U11). -->
+        <h2 mat-dialog-title class="title--closable">Report this post</h2>
+        <button
+          type="button"
+          class="close"
+          aria-label="Close"
+          mat-dialog-close
+          data-testid="report-close"
+        >
+          <mat-icon aria-hidden="true">close</mat-icon>
+        </button>
+      } @else {
+        <h2 mat-dialog-title>Report {{ data.target.handle || data.target.displayName }}</h2>
+      }
       <form (submit)="submit($event)" novalidate>
         <mat-dialog-content>
-          <div class="who">
-            <app-avatar
-              [src]="data.target.avatarUrl"
-              [name]="data.target.displayName"
-              [decorative]="true"
-            />
-            <span class="who__names">
-              <span class="who__name">{{ data.target.displayName }}</span>
-              @if (data.target.handle) {
-                <span class="who__handle">&#64;{{ data.target.handle }}</span>
-              }
-            </span>
-          </div>
+          @if (data.post; as post) {
+            <div class="who who--post" data-testid="report-post-preview">
+              <app-avatar
+                [src]="data.target.avatarUrl"
+                [name]="data.target.handle || data.target.displayName"
+                [decorative]="true"
+              />
+              <span class="who__names">
+                <span class="who__name"
+                  >{{ data.target.handle || data.target.displayName }}
+                  <span class="who__handle">{{ post.meta }}</span></span
+                >
+                <span class="who__text">{{ excerpt(post.text) }}</span>
+              </span>
+            </div>
+          } @else {
+            <div class="who">
+              <app-avatar
+                [src]="data.target.avatarUrl"
+                [name]="data.target.displayName"
+                [decorative]="true"
+              />
+              <span class="who__names">
+                <span class="who__name">{{ data.target.displayName }}</span>
+                @if (data.target.handle) {
+                  <span class="who__handle">&#64;{{ data.target.handle }}</span>
+                }
+              </span>
+            </div>
+          }
 
-          <p class="question" [id]="ids.question">Why are you reporting this user?</p>
+          <p class="question" [id]="ids.question">
+            {{ data.post ? 'Why are you reporting it?' : 'Why are you reporting them?' }}
+          </p>
 
           @if (reasons.reasons(); as options) {
             <mat-radio-group
               class="reasons"
+              [class.reasons--lines]="!!data.post"
               [formControl]="reason"
               [attr.aria-labelledby]="ids.question"
               required
@@ -180,8 +237,13 @@ export interface ReportDialogData {
 
           <p class="privacy">
             <mat-icon aria-hidden="true">lock</mat-icon>
-            Reports are confidential and reviewed by the OrenjiTrade moderation team. False reports
-            can lead to action on your own account.
+            @if (data.post) {
+              Reports are confidential: they are never told who reported them. False reports can
+              lead to action on your own account.
+            } @else {
+              Reports are confidential and reviewed by the OrenjiTrade moderation team. False
+              reports can lead to action on your own account.
+            }
           </p>
 
           @if (problem(); as problem) {
@@ -192,15 +254,107 @@ export interface ReportDialogData {
           }
         </mat-dialog-content>
         <mat-dialog-actions align="end">
-          <button matButton type="button" mat-dialog-close>Cancel</button>
+          @if (!reasonValue()) {
+            <span class="hint" data-testid="report-choose-first">Choose a reason first.</span>
+          }
+          <button matButton="outlined" type="button" mat-dialog-close>Cancel</button>
           <button matButton="filled" type="submit" [disabled]="!canConfirm()">
-            {{ submitting() ? 'Sending…' : 'Confirm' }}
+            {{ submitting() ? 'Sending…' : 'Send report' }}
           </button>
         </mat-dialog-actions>
       </form>
     }
   `,
   styles: `
+    :host {
+      position: relative;
+      display: block;
+    }
+    .title--closable {
+      padding-right: 64px;
+    }
+    .close {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      display: grid;
+      place-items: center;
+      width: 36px;
+      height: 36px;
+      border: 0;
+      border-radius: 50%;
+      background: none;
+      color: var(--color-ink);
+      cursor: pointer;
+    }
+    .close:hover {
+      background: var(--color-surface-variant);
+    }
+    .close:focus-visible {
+      outline: var(--focus-width) solid var(--color-focus-ring);
+      outline-offset: -2px;
+    }
+    /* A post's report (board W22): compact rows divided by lines, no boxes. */
+    .reasons--lines {
+      gap: 0;
+    }
+    .reasons--lines .reason,
+    .reasons--lines .reason:hover,
+    .reasons--lines .reason--on {
+      padding: 2px 0 6px;
+      border: 0;
+      border-top: 1px solid var(--color-border);
+      border-radius: 0;
+      background: none;
+    }
+    .reasons--lines .reason:first-child {
+      border-top: 0;
+    }
+    /*
+     * Board W22 fits the post, the seven reasons, Details, the sentence and the buttons in one
+     * dialog at 1440x900 (WF review R1-4): the content may use the window's height less the title,
+     * the buttons and 16 px above and below, and the rows are compact (32 px radios, as Material's
+     * density -2, and 12 px lines under the reasons). A shorter window scrolls the content; below
+     * 600 px wide the content keeps Material's 65 % of the height, and the dialog never outgrows the
+     * window (ReportActionsService's maxHeight).
+     */
+    :host(.report--post) mat-dialog-content {
+      /* The form between the title and the content hides Material's "title + content" rule. */
+      padding-top: 0;
+    }
+    @media (min-width: 600px) {
+      :host(.report--post) mat-dialog-content {
+        max-height: max(160px, calc(100dvh - 176px));
+      }
+    }
+    :host(.report--post) .who--post {
+      margin-bottom: var(--spacing-3);
+      padding: 10px var(--spacing-3);
+    }
+    .reasons.reasons--lines {
+      --mat-radio-state-layer-size: 32px;
+      --mat-radio-touch-target-display: none;
+
+      margin-bottom: var(--spacing-2);
+    }
+    .reasons--lines .reason__description {
+      margin: -4px 0 0 36px;
+      font-size: var(--font-size-xs);
+      line-height: 16px;
+    }
+    .hint {
+      margin-right: auto;
+      color: var(--color-text-muted);
+      font-size: var(--font-size-sm);
+    }
+    .done__actions {
+      gap: var(--spacing-3);
+    }
+    .done__follow {
+      margin-right: auto;
+      color: var(--color-accent);
+      font-weight: var(--font-weight-semibold);
+    }
     .who {
       display: flex;
       align-items: center;
@@ -218,6 +372,14 @@ export interface ReportDialogData {
     .who__name {
       font-weight: var(--font-weight-semibold);
       color: var(--color-ink);
+    }
+    .who--post {
+      align-items: flex-start;
+    }
+    .who__text {
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-sm);
+      overflow-wrap: anywhere;
     }
     .who__handle {
       color: var(--color-text-muted);
@@ -340,6 +502,7 @@ export class ReportCollectorDialogComponent {
 
   protected readonly maxDetails = REPORT_DETAILS_MAX;
   protected readonly ids = { question: `report-q-${Math.random().toString(36).slice(2, 8)}` };
+  protected readonly excerpt = reportPostExcerpt;
   /** One key per dialog: a double submit or a retry after a lost answer repeats the first. */
   private readonly idempotencyKey = newRequestId();
 

@@ -40,12 +40,14 @@ import {
     ConfirmBinderRequestParams,
     CreateBinderRequestParams,
     DeleteBinderRequestParams,
+    DeleteBinderImageRequestParams,
     GetBinderRequestParams,
     ListBinderItemsRequestParams,
     PublishBinderRequestParams,
     ReorderBindersRequestParams,
     UnpublishBinderRequestParams,
-    UpdateBinderRequestParams
+    UpdateBinderRequestParams,
+    UploadBinderImageRequestParams
 } from './binders.serviceInterface';
 
 
@@ -123,7 +125,7 @@ export class BindersService extends BaseService implements BindersServiceInterfa
 
     /**
      * Create a binder
-     * Added at the end of the caller\&#39;s list. PRIVATE unless &#x60;visibility&#x60; says otherwise; TEMPORARILY_PUBLIC needs &#x60;publicUntil&#x60; at most 30 days ahead. 429 LIMIT_REACHED (limitKey &#x60;binders.max&#x60;) beyond the plan\&#39;s binder limit.
+     * Added at the end of the caller\&#39;s list. PRIVATE unless &#x60;visibility&#x60; says otherwise; TEMPORARILY_PUBLIC needs &#x60;publicUntil&#x60; at most 30 days ahead. 429 LIMIT_REACHED (limitKey &#x60;binders.max&#x60;) beyond the binder limit, the same for every collector. &#x60;gameId&#x60; (stage G): the one game whose cards it holds, an ACTIVE game with cards (400 otherwise); without it (the paused web) the binder takes the game of the first card filed in it while it holds none and refuses no card. With &#x60;gameId&#x60;, &#x60;coverPrintingId&#x60; is a card of that game (409 BINDER_GAME_MISMATCH otherwise).
      * @endpoint post /api/v1/binders
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -257,6 +259,70 @@ export class BindersService extends BaseService implements BindersServiceInterfa
             {
                 context: localVarHttpContext,
                 params: localVarQueryParameters.toHttpParams(),
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * Remove a photo of one of the caller\&#39;s binders
+     * @endpoint delete /api/v1/binders/{id}/images/{imageId}
+     * @param requestParameters
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public deleteBinderImage(requestParameters: DeleteBinderImageRequestParams, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any>;
+    public deleteBinderImage(requestParameters: DeleteBinderImageRequestParams, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<any>>;
+    public deleteBinderImage(requestParameters: DeleteBinderImageRequestParams, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<any>>;
+    public deleteBinderImage(requestParameters: DeleteBinderImageRequestParams, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        const id = requestParameters?.id;
+        if (id === null || id === undefined) {
+            throw new Error('Required parameter id was null or undefined when calling deleteBinderImage.');
+        }
+        const imageId = requestParameters?.imageId;
+        if (imageId === null || imageId === undefined) {
+            throw new Error('Required parameter imageId was null or undefined when calling deleteBinderImage.');
+        }
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/v1/binders/${this.configuration.encodeParam({name: "id", value: id, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}/images/${this.configuration.encodeParam({name: "imageId", value: imageId, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<any>('delete', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
                 responseType: <any>responseType_,
                 ...(withCredentials ? { withCredentials } : {}),
                 headers: localVarHeaders,
@@ -762,7 +828,7 @@ export class BindersService extends BaseService implements BindersServiceInterfa
 
     /**
      * Update a binder (any subset of the fields)
-     * Absent fields are unchanged; &#x60;publicUntil&#x60; and &#x60;coverPrintingId&#x60; may be null. Making the binder PUBLIC or TEMPORARILY_PUBLIC confirms it and its items (like publish).
+     * Absent fields are unchanged; &#x60;publicUntil&#x60;, &#x60;coverPrintingId&#x60; and &#x60;askingPriceText&#x60; may be null. Making the binder PUBLIC or TEMPORARILY_PUBLIC confirms it and its items (like publish), and so does &#x60;confirm: true&#x60;. &#x60;sellsAsCore&#x60; turns \&quot;Sell as a deck core\&quot; on or off (photos and price are kept, public views show them only for a deck core); &#x60;askingPriceText&#x60; is at most 40 characters once trimmed, and a plain amount also sets &#x60;askingPrice&#x60;. &#x60;gameId&#x60; (stage G) changes the binder\&#39;s game while it holds no card: 409 BINDER_GAME_LOCKED once it has one or while a card deleted or sold from it can still come back (&#x60;gameLocked&#x60;), 400 for a game that is not ACTIVE or has no cards. A binder that has its game takes a &#x60;coverPrintingId&#x60; of that game only (409 BINDER_GAME_MISMATCH, also for a new game while the cover is of another one: send &#x60;coverPrintingId&#x60; too).
      * @endpoint patch /api/v1/binders/{id}
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -826,6 +892,95 @@ export class BindersService extends BaseService implements BindersServiceInterfa
             {
                 context: localVarHttpContext,
                 body: updateBinderRequest,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * Add a photo to one of the caller\&#39;s binders (a deck core)
+     * Multipart part &#x60;file&#x60;: JPEG, PNG or WebP up to 8 MB (type sniffed from the content). Re-encoded as JPEG, at most 1600 px on the long side, without any metadata (EXIF/GPS stripped). At most 4 photos per binder (409). 404 for another collector\&#39;s binder, 413 above 8 MB, 415 for other types, 400 for unreadable images. Rate-limited (60 per hour). Public views show the photos of a deck core only.
+     * @endpoint post /api/v1/binders/{id}/images
+     * @param requestParameters
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public uploadBinderImage(requestParameters: UploadBinderImageRequestParams, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<BinderResponse>;
+    public uploadBinderImage(requestParameters: UploadBinderImageRequestParams, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<BinderResponse>>;
+    public uploadBinderImage(requestParameters: UploadBinderImageRequestParams, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<BinderResponse>>;
+    public uploadBinderImage(requestParameters: UploadBinderImageRequestParams, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        const id = requestParameters?.id;
+        if (id === null || id === undefined) {
+            throw new Error('Required parameter id was null or undefined when calling uploadBinderImage.');
+        }
+        const file = requestParameters?.file;
+        if (file === null || file === undefined) {
+            throw new Error('Required parameter file was null or undefined when calling uploadBinderImage.');
+        }
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+        // to determine the Content-Type header
+        const consumes: string[] = [
+            'multipart/form-data'
+        ];
+
+        const canConsumeForm = this.canConsumeForm(consumes);
+
+        let localVarFormParams: { append(param: string, value: any): any; };
+        let localVarUseForm = false;
+        let localVarConvertFormParamsToString = false;
+        // use FormData to transmit files using content-type "multipart/form-data"
+        // see https://stackoverflow.com/questions/4007969/application-x-www-form-urlencoded-or-multipart-form-data
+        localVarUseForm = canConsumeForm;
+        if (localVarUseForm) {
+            localVarFormParams = new FormData();
+        } else {
+            localVarFormParams = new HttpParams({encoder: this.encoder});
+        }
+
+        if (file !== undefined) {
+            localVarFormParams = localVarFormParams.append('file', <any>file) as any || localVarFormParams;
+        }
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/v1/binders/${this.configuration.encodeParam({name: "id", value: id, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}/images`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<BinderResponse>('post', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                body: localVarConvertFormParamsToString ? localVarFormParams.toString() : localVarFormParams,
                 responseType: <any>responseType_,
                 ...(withCredentials ? { withCredentials } : {}),
                 headers: localVarHeaders,

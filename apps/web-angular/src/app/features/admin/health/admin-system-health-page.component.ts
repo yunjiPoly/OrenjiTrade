@@ -1,14 +1,22 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { AdminConsoleService, SystemHealth } from '@orenji/api-client';
+import { RouterLink } from '@angular/router';
+import {
+  AdminCatalogService,
+  AdminConsoleService,
+  CardImageCacheStatus,
+  SystemHealth,
+} from '@orenji/api-client';
+import { FEATURE, FeatureFlagsService } from '../../../core/feature-flags/feature-flags.service';
+import { mbText, meterSegments } from '../card-data/card-data';
+import { AdminIconComponent } from '../console/admin-icon.component';
+import { gameName } from '../console/console-labels';
+import { JOBS, JOB_ORDER, jobName } from './job-labels';
 import { ApiError, toApiError } from '../../../core/http/api-error';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
 import { silentErrors } from '../../../core/http/http-context';
 import { RelativeTimePipe } from '../../../shared/pipes/relative-time.pipe';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
-import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
 import { AdminChipComponent, ChipTone } from '../shared/admin-chip.component';
 
@@ -22,12 +30,15 @@ const COMPONENT_LABELS: Record<string, string> = {
   ssl: 'TLS certificates',
 };
 
-const JOB_LABELS: Record<string, string> = {
-  freshness: 'Listing freshness (hourly)',
-  delist: 'Strikes and pauses (nightly)',
-  'account-deletion': 'Account deletion',
-  'upload-cleanup': 'Upload clean-up',
-  ping: 'Scheduler ping',
+/** What each component is (board A21). */
+const COMPONENT_HELP: Record<string, string> = {
+  db: 'Accounts, cards, binders and messages',
+  redis: 'Rate limits, presence and cached settings',
+  diskSpace: 'Room for the card image cache and uploads',
+  livenessState: 'The API process is running',
+  readinessState: 'The API accepts requests',
+  ping: 'The API answers health checks',
+  ssl: 'Valid and not close to expiry',
 };
 
 /** Chip tone of an actuator status or a job's last status. */
@@ -57,89 +68,179 @@ export function healthTone(status: string | null | undefined): ChipTone {
   selector: 'app-admin-system-health-page',
   imports: [
     DatePipe,
-    MatButtonModule,
-    MatIconModule,
+    RouterLink,
     AdminChipComponent,
+    AdminIconComponent,
     ErrorStateComponent,
-    PageHeaderComponent,
     RelativeTimePipe,
     SkeletonComponent,
   ],
   template: `
-    <div class="admin-page">
-      <app-page-header
-        title="System health"
-        subtitle="Is everything running? Components of the API, background events and scheduled jobs."
-      >
-        <button actions matButton="outlined" type="button" [disabled]="loading()" (click)="load()">
-          <mat-icon aria-hidden="true">refresh</mat-icon>
-          Refresh
-        </button>
-      </app-page-header>
+    <div class="cp">
+      <header class="cp__head">
+        <div class="cp__heading">
+          <p class="cp__eyebrow">System</p>
+          <h1 class="cp__title">System health</h1>
+          <p class="cp__sub">
+            Is everything running? The API's parts, background events and scheduled jobs.
+          </p>
+        </div>
+        <div class="cp__actions">
+          <button
+            type="button"
+            class="cb cb--outline"
+            [attr.aria-disabled]="loading() ? 'true' : null"
+            (click)="loading() || load()"
+          >
+            <app-admin-icon name="refresh" [size]="18" />
+            {{ loading() ? 'Checking…' : 'Refresh' }}
+          </button>
+        </div>
+      </header>
 
       @if (error(); as error) {
         <app-error-state
           title="Health could not load"
           [message]="message(error)"
           [requestId]="error.requestId"
+          retryLabel="Try again"
           (retry)="load()"
         />
       } @else if (health(); as h) {
         <div class="overall" [attr.data-status]="h.status" role="status">
-          <mat-icon aria-hidden="true">{{ h.status === 'UP' ? 'check_circle' : 'error' }}</mat-icon>
-          <div>
+          <app-admin-icon [name]="h.status === 'UP' ? 'checkCircle' : 'alert'" [size]="28" />
+          <div class="overall__text">
             <p class="overall__title" data-testid="health-status">
               {{ h.status === 'UP' ? 'All systems operational' : 'Status: ' + h.status }}
             </p>
-            <p class="admin-muted">Checked {{ h.checkedAt | relativeTime }}</p>
+            <p class="overall__line">
+              Checked {{ h.checkedAt | relativeTime }} · {{ h.checkedAt | date: 'mediumDate' }}
+            </p>
           </div>
+          <p class="overall__facts">
+            {{ upCount() }} of {{ components().length }} components up ·
+            {{ h.outbox.incomplete }} events waiting · {{ failures() }} job
+            {{ failures() === 1 ? 'failure' : 'failures' }} in 24 h
+          </p>
         </div>
 
         <div class="grid">
-          <section class="admin-card" aria-labelledby="health-components">
-            <h2 id="health-components">Components</h2>
+          <section class="cp-card hc" aria-labelledby="health-components">
+            <h2 class="cp-card__title" id="health-components">Components</h2>
+            <p class="hc__sub">The API's own health check</p>
             <ul class="list">
               @for (component of components(); track component.name) {
                 <li>
-                  <span>{{ component.label }}</span>
+                  <span>
+                    <span class="list__name">{{ component.label }}</span>
+                    @if (component.help) {
+                      <span class="list__help">{{ component.help }}</span>
+                    }
+                  </span>
                   <app-admin-chip [tone]="tone(component.status)">{{
-                    component.status
+                    statusWord(component.status)
                   }}</app-admin-chip>
                 </li>
               }
             </ul>
           </section>
-          <section class="admin-card" aria-labelledby="health-queues">
-            <h2 id="health-queues">Queues</h2>
-            <ul class="list">
-              <li>
-                <span>Events waiting in the outbox</span>
-                <strong>{{ h.outbox.incomplete }}</strong>
-              </li>
-              <li>
-                <span>Failed event publications</span>
-                <app-admin-chip [tone]="h.outbox.failed > 0 ? 'danger' : 'success'">{{
-                  h.outbox.failed
-                }}</app-admin-chip>
-              </li>
-              <li>
-                <span>Oldest waiting event</span>
-                <span class="admin-muted">{{
-                  h.outbox.oldestPublishedAt ? (h.outbox.oldestPublishedAt | relativeTime) : 'none'
-                }}</span>
-              </li>
-              <li>
-                <span>Notifications waiting for dispatch</span>
-                <strong>{{ h.notificationsPendingDispatch }}</strong>
-              </li>
-            </ul>
-          </section>
+          <div class="col">
+            <section class="cp-card hc" aria-labelledby="health-queues">
+              <h2 class="cp-card__title" id="health-queues">Events and queues</h2>
+              <ul class="list">
+                <li>
+                  <span>
+                    <span class="list__name">Events waiting in the outbox</span>
+                    <span class="list__help">Recorded with their change, not yet handled</span>
+                  </span>
+                  <strong>{{ h.outbox.incomplete }}</strong>
+                </li>
+                <li>
+                  <span>
+                    <span class="list__name">Failed event publications</span>
+                    <span class="list__help">A listener could not handle them</span>
+                  </span>
+                  <app-admin-chip [tone]="h.outbox.failed > 0 ? 'danger' : 'success'">{{
+                    h.outbox.failed
+                  }}</app-admin-chip>
+                </li>
+                <li>
+                  <span>
+                    <span class="list__name">Oldest waiting event</span>
+                    <span class="list__help">How long the oldest one has waited</span>
+                  </span>
+                  <span class="cp-muted">{{
+                    h.outbox.oldestPublishedAt
+                      ? (h.outbox.oldestPublishedAt | relativeTime)
+                      : 'none'
+                  }}</span>
+                </li>
+                <li>
+                  <span>
+                    <span class="list__name">Notifications waiting for dispatch</span>
+                    <span class="list__help">Push and email not sent yet</span>
+                  </span>
+                  <strong>{{ h.notificationsPendingDispatch }}</strong>
+                </li>
+              </ul>
+            </section>
+            <section class="cp-card hc" aria-labelledby="health-storage">
+              <div class="hc__head">
+                <h2 class="cp-card__title" id="health-storage">Storage</h2>
+                @if (cache(); as c) {
+                  <app-admin-chip [tone]="c.remainingMb > 0 ? 'success' : 'warning'">{{
+                    c.remainingMb > 0 ? 'Under the cap' : 'At the cap'
+                  }}</app-admin-chip>
+                }
+              </div>
+              @if (cache(); as c) {
+                <p class="hc__meter-line">
+                  <span class="list__name">Card images</span>
+                  <span>{{ mbText(c.usedMb) }} of {{ c.limitMb.toLocaleString('en-US') }} MB</span>
+                </p>
+                <div
+                  class="meter"
+                  role="img"
+                  [attr.aria-label]="mbText(c.usedMb) + ' of ' + c.limitMb + ' MB used'"
+                >
+                  @for (seg of segments(); track seg.game) {
+                    <span
+                      [style.width.%]="seg.percent"
+                      [style.background]="'var(--game-tile-' + seg.game + '-foreground)'"
+                    ></span>
+                  }
+                </div>
+                @if (segments().length) {
+                  <ul class="legend">
+                    @for (seg of segments(); track seg.game) {
+                      <li>{{ gameLabel(seg.game) }} {{ mbText(seg.mb) }} MB</li>
+                    }
+                  </ul>
+                }
+                <p class="list__help">
+                  {{ percentUsed() }}% used · reserved {{ mbText(c.reservedMb) }} MB ·
+                  {{ c.files.toLocaleString('en-US') }} files
+                  @if (c.reconciledAt) {
+                    · reconciled {{ c.reconciledAt | date: 'MMM d' }}
+                  }
+                </p>
+              } @else if (cacheError()) {
+                <p class="list__help">The card image cache could not load.</p>
+              } @else {
+                <app-skeleton variant="list" lines="2" />
+              }
+              <a class="cp-link" routerLink="/admin/card-data"
+                >Card data and images <app-admin-icon name="arrowRight" [size]="16"
+              /></a>
+            </section>
+          </div>
         </div>
 
-        <section class="admin-card jobs" aria-labelledby="health-jobs">
-          <h2 id="health-jobs">Scheduled jobs</h2>
-          <div class="table-wrap">
-            <table class="table" aria-labelledby="health-jobs">
+        <section class="cp-card hc jobs" aria-labelledby="health-jobs">
+          <h2 class="cp-card__title" id="health-jobs">Scheduled jobs</h2>
+          <p class="hc__sub">{{ jobsLine() }}</p>
+          <div class="ct">
+            <table class="table" aria-label="Scheduled jobs">
               <thead>
                 <tr>
                   <th scope="col">Job</th>
@@ -150,32 +251,48 @@ export function healthTone(status: string | null | undefined): ChipTone {
                 </tr>
               </thead>
               <tbody>
-                @for (job of h.jobs; track job.name) {
+                @for (row of jobRows(); track row.key) {
                   <tr>
-                    <th scope="row">{{ jobLabel(job.name) }}</th>
-                    <td [title]="job.lastStartedAt | date: 'medium'">
-                      {{ job.lastStartedAt | relativeTime }}
-                    </td>
-                    <td>
-                      <app-admin-chip [tone]="tone(job.lastStatus)">{{
-                        job.lastStatus
-                      }}</app-admin-chip>
-                    </td>
-                    <td>{{ job.lastSucceededAt ? (job.lastSucceededAt | relativeTime) : '—' }}</td>
-                    <td>
-                      <app-admin-chip [tone]="job.failuresLast24h > 0 ? 'danger' : 'success'">{{
-                        job.failuresLast24h
-                      }}</app-admin-chip>
-                    </td>
-                  </tr>
-                } @empty {
-                  <tr>
-                    <td colspan="5" class="admin-muted">No job has run yet.</td>
+                    <th scope="row">
+                      <span class="list__name">{{ row.info.name }}</span>
+                      <span class="list__help">{{ row.info.when }} · {{ row.info.what }}</span>
+                    </th>
+                    @if (row.job; as job) {
+                      <td [title]="job.lastStartedAt | date: 'medium'">
+                        {{ job.lastStartedAt | relativeTime }}
+                        <span class="list__help">{{
+                          job.lastStartedAt | date: 'MMM d, HH:mm'
+                        }}</span>
+                      </td>
+                      <td>
+                        <app-admin-chip [tone]="tone(job.lastStatus)">{{
+                          statusWord(job.lastStatus)
+                        }}</app-admin-chip>
+                      </td>
+                      <td>
+                        {{ job.lastSucceededAt ? (job.lastSucceededAt | relativeTime) : '—' }}
+                      </td>
+                      <td>
+                        <app-admin-chip [tone]="job.failuresLast24h > 0 ? 'danger' : 'success'">{{
+                          job.failuresLast24h
+                        }}</app-admin-chip>
+                      </td>
+                    } @else {
+                      <td>Never</td>
+                      <td><app-admin-chip tone="neutral">No run yet</app-admin-chip></td>
+                      <td>—</td>
+                      <td>0</td>
+                    }
                   </tr>
                 }
               </tbody>
             </table>
           </div>
+          @if (!paymentsOn()) {
+            <p class="list__help jobs__note">
+              Offer expiry and payout release jobs appear only while protectedPayments is on.
+            </p>
+          }
         </section>
       } @else {
         <div aria-busy="true">
@@ -186,81 +303,12 @@ export function healthTone(status: string | null | undefined): ChipTone {
       }
     </div>
   `,
-  styleUrls: ['../shared/admin-page.scss'],
-  styles: `
-    .overall {
-      display: flex;
-      align-items: center;
-      gap: var(--spacing-3);
-      margin-bottom: var(--spacing-4);
-      padding: var(--spacing-4);
-      border: 1px solid color-mix(in srgb, var(--color-success) 45%, var(--color-border));
-      border-radius: var(--radius-lg);
-      background: color-mix(in srgb, var(--color-success) 10%, var(--color-surface));
-    }
-    .overall mat-icon {
-      width: 32px;
-      height: 32px;
-      font-size: 32px;
-      color: var(--color-success);
-    }
-    .overall:not([data-status='UP']) {
-      border-color: color-mix(in srgb, var(--color-danger) 45%, var(--color-border));
-      background: color-mix(in srgb, var(--color-danger) 10%, var(--color-surface));
-    }
-    .overall:not([data-status='UP']) mat-icon {
-      color: var(--color-danger);
-    }
-    .overall p {
-      margin: 0;
-    }
-    .overall__title {
-      font-size: var(--font-size-lg);
-      font-weight: var(--font-weight-semibold);
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: var(--spacing-4);
-      margin-bottom: var(--spacing-4);
-    }
-    .list {
-      margin: 0;
-      padding: 0;
-      list-style: none;
-    }
-    .list li {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: var(--spacing-3);
-      padding: var(--spacing-2) 0;
-      border-bottom: 1px solid var(--color-border);
-      font-size: var(--font-size-sm);
-    }
-    .list li:last-child {
-      border-bottom: 0;
-    }
-    .table-wrap {
-      overflow-x: auto;
-    }
-    .table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: var(--font-size-sm);
-    }
-    .table th,
-    .table td {
-      padding: var(--spacing-2);
-      border-bottom: 1px solid var(--color-border);
-      text-align: left;
-      white-space: nowrap;
-    }
-    .table thead th {
-      color: var(--color-text-muted);
-      font-weight: var(--font-weight-medium);
-    }
-  `,
+  styleUrls: [
+    '../console/console-page.scss',
+    '../console/console-controls.scss',
+    '../console/console-table.scss',
+    './admin-system-health-page.component.scss',
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AdminSystemHealthPageComponent {
@@ -271,10 +319,60 @@ export class AdminSystemHealthPageComponent {
   protected readonly error = signal<ApiError | null>(null);
   protected readonly tone = healthTone;
   protected readonly components = computed(() =>
-    Object.entries(this.health()?.components ?? {})
-      .map(([name, status]) => ({ name, status, label: COMPONENT_LABELS[name] ?? name }))
-      .sort((a, b) => a.label.localeCompare(b.label)),
+    Object.entries(this.health()?.components ?? {}).map(([name, status]) => ({
+      name,
+      status,
+      label: COMPONENT_LABELS[name] ?? name,
+      help: COMPONENT_HELP[name] ?? null,
+    })),
   );
+  protected readonly upCount = computed(
+    () => this.components().filter((component) => component.status === 'UP').length,
+  );
+  protected readonly paymentsOn = inject(FeatureFlagsService).enabled(FEATURE.protectedPayments);
+  /** Every job named and explained (spec 15.7), the ones that never ran included. */
+  protected readonly jobRows = computed(() => {
+    const jobs = this.health()?.jobs ?? [];
+    const known = JOB_ORDER.filter((key) => this.paymentsOn() || !JOBS[key].payments).map(
+      (key) => ({ key, info: JOBS[key], job: jobs.find((job) => job.name === key) ?? null }),
+    );
+    const others = jobs
+      .filter((job) => !JOBS[job.name])
+      .map((job) => ({
+        key: job.name,
+        info: { name: jobName(job.name), when: '', what: '' },
+        job,
+      }));
+    return [...known, ...others];
+  });
+  protected readonly failures = computed(() =>
+    (this.health()?.jobs ?? []).reduce((sum, job) => sum + (job.failuresLast24h ?? 0), 0),
+  );
+  /** "9 jobs · 8 succeeded on their last run, 1 has never run · 0 failures in 24 h". */
+  protected readonly jobsLine = computed(() => {
+    const rows = this.jobRows();
+    const succeeded = rows.filter((row) => row.job?.lastStatus === 'SUCCEEDED').length;
+    const never = rows.filter((row) => !row.job).length;
+    const parts = [`${succeeded} succeeded on their last run`];
+    if (never) {
+      parts.push(`${never} ${never === 1 ? 'has' : 'have'} never run`);
+    }
+    return `${rows.length} jobs · ${parts.join(', ')} · ${this.failures()} ${
+      this.failures() === 1 ? 'failure' : 'failures'
+    } in 24 h`;
+  });
+  protected readonly cache = signal<CardImageCacheStatus | null>(null);
+  protected readonly cacheError = signal(false);
+  protected readonly segments = computed(() => {
+    const cache = this.cache();
+    return cache ? meterSegments(cache) : [];
+  });
+  protected readonly percentUsed = computed(() => {
+    const cache = this.cache();
+    return cache ? Math.round((cache.usedMb / Math.max(1, cache.limitMb)) * 100) : 0;
+  });
+  protected readonly mbText = mbText;
+  private readonly catalogApi = inject(AdminCatalogService);
 
   constructor() {
     this.load();
@@ -283,6 +381,11 @@ export class AdminSystemHealthPageComponent {
   protected load(): void {
     this.loading.set(true);
     this.error.set(null);
+    this.cacheError.set(false);
+    this.catalogApi.getCardImageCacheStatus('body', false, { context: silentErrors() }).subscribe({
+      next: (cache) => this.cache.set(cache),
+      error: () => this.cacheError.set(true),
+    });
     this.api.getSystemHealth('body', false, { context: silentErrors() }).subscribe({
       next: (health) => {
         this.health.set(health);
@@ -299,7 +402,26 @@ export class AdminSystemHealthPageComponent {
     return friendlyMessage(error);
   }
 
-  protected jobLabel(name: string): string {
-    return JOB_LABELS[name] ?? name;
+  protected statusWord(status: string | null | undefined): string {
+    switch (status) {
+      case 'UP':
+        return 'Up';
+      case 'DOWN':
+        return 'Down';
+      case 'SUCCEEDED':
+        return 'Succeeded';
+      case 'FAILED':
+        return 'Failed';
+      case 'RUNNING':
+        return 'Running';
+      case 'OUT_OF_SERVICE':
+        return 'Out of service';
+      default:
+        return status ? status.charAt(0) + status.slice(1).toLowerCase() : 'Unknown';
+    }
+  }
+
+  protected gameLabel(slug: string): string {
+    return gameName(slug) ?? slug;
   }
 }

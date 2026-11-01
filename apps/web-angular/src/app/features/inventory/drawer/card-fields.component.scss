@@ -1,0 +1,204 @@
+// The phone's card fields in the 440 drawers (web redesign spec 9.8): 24 apart.
+:host {
+  display: block;
+}
+
+.cf {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.cf__field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cf__label {
+  color: var(--color-ink);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.cf__label--row {
+  display: flex;
+  justify-content: space-between;
+}
+
+.cf__counter {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-medium);
+}
+
+.cf__counter--over {
+  color: var(--color-danger);
+}
+
+.cf__copies {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 56px;
+  padding: 0 8px 0 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+}
+
+.cf__copies .cf__label {
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+}
+
+.cf__stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cf__step {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--color-surface-variant);
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.cf__step:hover {
+  background: var(--color-surface-elevated);
+}
+
+.cf__qty {
+  width: 52px;
+  height: 40px;
+  border: 0;
+  background: transparent;
+  color: var(--color-ink);
+  font: inherit;
+  font-size: var(--font-size-section);
+  font-weight: var(--font-weight-semibold);
+  text-align: center;
+}
+
+.cf__price {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.cf__price app-segmented {
+  flex: none;
+}
+
+.cf__input {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border-input);
+  border-radius: var(--radius-input);
+  background: var(--color-surface);
+}
+
+.cf__input:focus-within {
+  border-color: var(--color-accent);
+}
+
+.cf__input input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--color-ink);
+  font: inherit;
+  font-size: var(--font-size-body);
+}
+
+.cf__unit {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.cf__select {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border-input);
+  border-radius: var(--radius-input);
+  background: var(--color-surface);
+  display: flex;
+  align-items: center;
+}
+
+// MatSelect sets no focus class on its host (A5): its own :focus-visible shows the 2 px ring.
+.cf__select:focus-visible,
+.cf__select.mat-select-open {
+  border-color: var(--color-accent);
+}
+
+.cf__select:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.cf__trigger {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cf__opt-note {
+  margin-left: 8px;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-meta);
+}
+
+.cf__note {
+  min-height: 84px;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border-input);
+  border-radius: var(--radius-input);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  resize: vertical;
+}
+
+.cf__note:focus {
+  border-color: var(--color-accent);
+  outline: none;
+}
+
+.cf__hint {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-meta);
+}
+
+.cf__hint--error,
+.cf__error {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: var(--font-size-meta);
+}
+
+.cf__step:focus-visible,
+.cf__qty:focus-visible,
+.cf__input:has(input:focus-visible),
+.cf__note:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.cf__step mat-icon {
+  width: 20px;
+  height: 20px;
+  font-size: 20px;
+}

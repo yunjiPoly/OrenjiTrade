@@ -11,14 +11,8 @@ import {
   untracked,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
-import { MatSelectModule } from '@angular/material/select';
-import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router, RouterLink } from '@angular/router';
 import {
   AdminBinder,
@@ -26,20 +20,26 @@ import {
   ListAdminBindersRequestParams,
   PageResponseAdminBinder,
 } from '@orenji/api-client';
-import { Subject, Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
+import { Subject, Subscription, debounceTime, distinctUntilChanged, forkJoin, map } from 'rxjs';
 import { ApiError, toApiError } from '../../../core/http/api-error';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
 import { silentErrors } from '../../../core/http/http-context';
 import { RelativeTimePipe } from '../../../shared/pipes/relative-time.pipe';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
-import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
 import { listingStateLabel } from '../listings/admin-listing-rows.component';
 import { AdminChipComponent, ChipTone } from '../shared/admin-chip.component';
-import { askReason, runAdminAction } from '../shared/admin-actions';
+import { askReason } from '../shared/admin-actions';
+import { ToastService } from '../../../core/feedback/toast.service';
+import { AdminIconComponent } from '../console/admin-icon.component';
+import { runConsoleAction } from '../console/console-actions';
+import { gameName } from '../console/console-labels';
+import { GameBadgeComponent } from '../console/game-badge.component';
+import { visibilityBreakdown } from './binder-counts';
 
 const PAGE_SIZE = 20;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const VISIBILITIES = ['PUBLIC', 'TEMPORARILY_PUBLIC', 'PRIVATE'] as const;
 const VISIBILITY_LABELS: Record<string, string> = {
   PUBLIC: 'Public',
@@ -69,47 +69,80 @@ function toPage(value: string | undefined): number {
   imports: [
     DatePipe,
     RouterLink,
-    MatButtonModule,
-    MatFormFieldModule,
-    MatIconModule,
-    MatInputModule,
     MatPaginatorModule,
-    MatSelectModule,
+    RelativeTimePipe,
     AdminChipComponent,
+    AdminIconComponent,
     EmptyStateComponent,
     ErrorStateComponent,
-    PageHeaderComponent,
-    RelativeTimePipe,
+    GameBadgeComponent,
     SkeletonComponent,
   ],
   template: `
-    <div class="admin-page">
-      <app-page-header
-        title="Binders"
-        subtitle="Binders collectors publish. Unpublish one that breaks the rules; the owner keeps every card."
-      />
-      <div class="admin-filters" role="search" aria-label="Filter binders">
-        <mat-form-field
-          appearance="outline"
-          class="admin-filters__search"
-          subscriptSizing="dynamic"
-        >
-          <mat-label>Search binder or owner</mat-label>
-          <mat-icon matPrefix aria-hidden="true">search</mat-icon>
-          <input matInput type="search" [value]="query() ?? ''" (input)="onSearch($event)" />
-        </mat-form-field>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Visibility</mat-label>
-          <mat-select
-            [value]="params().visibility ?? null"
-            (selectionChange)="navigate({ visibility: $event.value })"
+    <div class="cp">
+      <header class="cp__head">
+        <div class="cp__heading">
+          <p class="cp__eyebrow">Collectors</p>
+          <h1 class="cp__title">Binders</h1>
+          <p class="cp__sub">
+            Binders and deck cores collectors publish. Unpublish one that breaks the rules; the
+            owner keeps every card.
+          </p>
+        </div>
+      </header>
+      <div class="cp-filterbar" role="search" aria-label="Filter binders">
+        <label class="cp-field cp-field--grow">
+          <span class="cp-field__label">Search</span>
+          <span class="cp-search">
+            <app-admin-icon name="search" [size]="16" />
+            <input
+              class="cp-input"
+              type="search"
+              placeholder="Binder name"
+              [value]="query() ?? ''"
+              (input)="onSearch($event)"
+            />
+          </span>
+        </label>
+        <label class="cp-field">
+          <span class="cp-field__label">Visibility</span>
+          <select
+            class="cp-select"
+            (change)="navigate({ visibility: $any($event.target).value || null })"
           >
-            <mat-option [value]="null">Any visibility</mat-option>
+            <option value="" [selected]="!params().visibility">Any visibility</option>
             @for (value of visibilities; track value) {
-              <mat-option [value]="value">{{ visibilityLabel(value) }}</mat-option>
+              <option [value]="value" [selected]="params().visibility === value">
+                {{ visibilityLabel(value) }}
+              </option>
             }
-          </mat-select>
-        </mat-form-field>
+          </select>
+        </label>
+        <label class="cp-field">
+          <span class="cp-field__label">Kind</span>
+          <select
+            class="cp-select"
+            (change)="navigate({ kind: $any($event.target).value || null })"
+          >
+            <option value="" [selected]="!kindFilter()">Any kind</option>
+            <option value="binder" [selected]="kindFilter() === 'binder'">Binder</option>
+            <option value="deck" [selected]="kindFilter() === 'deck'">Deck core</option>
+          </select>
+        </label>
+        <label class="cp-field">
+          <span class="cp-field__label">Owner</span>
+          <select
+            class="cp-select"
+            (change)="navigate({ ownerId: $any($event.target).value || null })"
+          >
+            <option value="" [selected]="!params().ownerId">Anyone</option>
+            @for (owner of owners(); track owner.id) {
+              <option [value]="owner.id" [selected]="params().ownerId === owner.id">
+                &#64;{{ owner.handle }}
+              </option>
+            }
+          </select>
+        </label>
       </div>
 
       @if (error(); as error) {
@@ -117,6 +150,7 @@ function toPage(value: string | undefined): number {
           title="Binders could not load"
           [message]="message(error)"
           [requestId]="error.requestId"
+          retryLabel="Try again"
           (retry)="reload()"
         />
       } @else if (loading() && !result()) {
@@ -129,124 +163,161 @@ function toPage(value: string | undefined): number {
           <app-empty-state
             icon="menu_book"
             title="No binders match"
-            description="Try another search or visibility."
+            description="Try another search, visibility, kind or owner."
           />
         } @else {
-          <p class="admin-count" aria-live="polite">
-            {{ page.totalItems }} {{ page.totalItems === 1 ? 'binder' : 'binders' }}
-          </p>
-          <ul class="binders" aria-label="Binders" [class.admin-dim]="loading()">
-            @for (binder of page.items ?? []; track binder.id) {
-              <li class="binder" [attr.data-binder]="binder.id">
-                <span class="binder__icon" aria-hidden="true"><mat-icon>menu_book</mat-icon></span>
-                <div class="binder__text">
-                  <p class="binder__name">
-                    @if (binder.effectivePublic) {
-                      <a [routerLink]="['/binders', binder.id]">{{ binder.name }}</a>
-                    } @else {
-                      {{ binder.name }}
-                    }
-                  </p>
-                  <p class="binder__meta">
-                    {{ kindLabel(binder.kind) }} · {{ binder.itemCount }}
-                    {{ binder.itemCount === 1 ? 'card' : 'cards' }} ·
-                    <a [routerLink]="['/admin/users', binder.ownerId]"
-                      >&#64;{{ binder.ownerHandle ?? 'unknown' }}</a
-                    >
-                    ·
-                    <span [title]="binder.confirmedAt | date: 'medium'"
-                      >confirmed {{ binder.confirmedAt | relativeTime }}</span
-                    >
-                  </p>
-                </div>
-                <div class="binder__chips">
-                  <app-admin-chip [tone]="visibilityTone(binder)">{{
-                    visibilityLabel(binder.visibility)
-                  }}</app-admin-chip>
-                  <app-admin-chip [tone]="freshnessTone(binder.freshnessState)">{{
-                    freshnessLabel(binder.freshnessState)
-                  }}</app-admin-chip>
-                </div>
-                @if (binder.visibility !== 'PRIVATE') {
-                  <button
-                    matButton
-                    type="button"
-                    class="binder__action"
-                    [disabled]="busy() === binder.id"
-                    [attr.aria-label]="'Unpublish ' + binder.name"
-                    (click)="unpublish(binder)"
-                  >
-                    <mat-icon aria-hidden="true">unpublished</mat-icon>
-                    Unpublish
-                  </button>
-                }
-              </li>
+          <p class="cp-count" aria-live="polite">
+            {{ (page.totalItems ?? 0).toLocaleString('en-US') }}
+            {{ page.totalItems === 1 ? 'binder' : 'binders' }}
+            @if (breakdown()) {
+              · {{ breakdown() }}
             }
-          </ul>
-          @if ((page.totalItems ?? 0) > pageSize) {
-            <mat-paginator
-              [length]="page.totalItems ?? 0"
-              [pageIndex]="page.page ?? 0"
-              [pageSize]="pageSize"
-              [hidePageSize]="true"
-              aria-label="Binder pages"
-              (page)="onPage($event)"
-            />
-          }
+            · recently changed first
+            @if (loading()) {
+              · updating…
+            }
+          </p>
+          <div class="ct ct--actions" [class.ct--dim]="loading()">
+            <table class="bt" aria-label="Binders">
+              <thead>
+                <tr>
+                  <th scope="col">Binder</th>
+                  <th scope="col">Kind</th>
+                  <th scope="col">Owner</th>
+                  <th scope="col">Last confirmed</th>
+                  <th scope="col">Visibility</th>
+                  <th scope="col">Freshness</th>
+                  <th scope="col"><span class="visually-hidden">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (binder of page.items ?? []; track binder.id) {
+                  <tr [attr.data-binder]="binder.id">
+                    <td>
+                      <span class="bt__name">
+                        <app-game-badge [game]="binder.game" size="sm" />
+                        <span>
+                          @if (binder.effectivePublic) {
+                            <a class="ct__name" [routerLink]="['/binders', binder.id]">{{
+                              binder.name
+                            }}</a>
+                          } @else {
+                            <span class="ct__name">{{ binder.name }}</span>
+                          }
+                          <span class="ct__sub"
+                            >{{ gameLabel(binder.game) }} · {{ binder.itemCount }}
+                            {{ binder.itemCount === 1 ? 'card' : 'cards' }}</span
+                          >
+                        </span>
+                      </span>
+                    </td>
+                    <td>
+                      @if (binder.kind === 'DECK') {
+                        <span class="cp-chip bt__deck">Deck core</span>
+                      } @else {
+                        Binder
+                        <span class="ct__sub">{{ kindLabel(binder.kind) }}</span>
+                      }
+                    </td>
+                    <td>
+                      <a class="bt__owner" [routerLink]="['/admin/users', binder.ownerId]"
+                        >&#64;{{ binder.ownerHandle ?? 'unknown' }}</a
+                      >
+                    </td>
+                    <td>
+                      @if (binder.visibility === 'PRIVATE') {
+                        <span class="cp-muted">—</span>
+                      } @else {
+                        <span [title]="binder.confirmedAt | date: 'medium'"
+                          >Confirmed {{ binder.confirmedAt | relativeTime }}</span
+                        >
+                        @if (binder.freshnessState === 'STALE') {
+                          <span class="ct__sub">Out of search</span>
+                        } @else if (binder.freshnessState === 'HIDDEN') {
+                          <span class="ct__sub">Off search and the map</span>
+                        }
+                      }
+                    </td>
+                    <td>
+                      <app-admin-chip [tone]="visibilityTone(binder)">{{
+                        visibilityLabel(binder.visibility)
+                      }}</app-admin-chip>
+                    </td>
+                    <td>
+                      @if (binder.visibility === 'PRIVATE') {
+                        <span class="cp-muted">Not listed</span>
+                      } @else {
+                        <app-admin-chip [tone]="freshnessTone(binder.freshnessState)">{{
+                          freshnessLabel(binder.freshnessState)
+                        }}</app-admin-chip>
+                      }
+                    </td>
+                    <td class="bt__actions">
+                      @if (binder.visibility !== 'PRIVATE') {
+                        <button
+                          type="button"
+                          class="cb cb--quiet cb--small bt__unpublish"
+                          [attr.aria-disabled]="busy() === binder.id ? 'true' : null"
+                          [attr.aria-label]="'Unpublish ' + binder.name"
+                          (click)="busy() === binder.id || unpublish(binder)"
+                        >
+                          Unpublish
+                        </button>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <div class="ct-pager">
+            <span>{{ range() }}</span>
+            @if ((page.totalItems ?? 0) > pageSize) {
+              <mat-paginator
+                [length]="page.totalItems ?? 0"
+                [pageIndex]="page.page ?? 0"
+                [pageSize]="pageSize"
+                [hidePageSize]="true"
+                aria-label="Binder pages"
+                (page)="onPage($event)"
+              />
+            }
+          </div>
         }
       }
     </div>
   `,
-  styleUrls: ['../shared/admin-page.scss'],
+  styleUrls: [
+    '../console/console-page.scss',
+    '../console/console-controls.scss',
+    '../console/console-table.scss',
+  ],
   styles: `
-    .binders {
-      margin: 0;
-      padding: 0;
-      list-style: none;
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-lg);
-      background: var(--color-surface);
+    .bt {
+      min-width: 980px;
     }
-    .binder {
+    .bt__name {
       display: flex;
-      flex-wrap: wrap;
       align-items: center;
-      gap: var(--spacing-2) var(--spacing-4);
-      padding: var(--spacing-3) var(--spacing-4);
-      border-bottom: 1px solid var(--color-border);
+      gap: 10px;
     }
-    .binder:last-child {
-      border-bottom: 0;
+    .bt__deck {
+      background: color-mix(in srgb, var(--color-deck-core, #a78bfa) 18%, transparent);
+      color: light-dark(#6d28d9, #c4b5fd);
     }
-    .binder__icon {
-      display: grid;
-      place-items: center;
-      width: 40px;
-      height: 40px;
-      border-radius: var(--radius-md);
-      background: var(--color-primary-container);
-      color: var(--color-on-primary-container);
-    }
-    .binder__text {
-      flex: 1 1 260px;
-      min-width: 0;
-    }
-    .binder__text p {
-      margin: 0;
-    }
-    .binder__name {
+    .bt__owner {
+      color: var(--color-accent);
       font-weight: var(--font-weight-semibold);
+      text-decoration: none;
     }
-    .binder__meta {
-      color: var(--color-text-muted);
-      font-size: var(--font-size-sm);
+    .bt__owner:hover {
+      text-decoration: underline;
     }
-    .binder__chips {
-      display: flex;
-      gap: var(--spacing-1);
+    .bt__actions {
+      text-align: right;
     }
-    .binder__action {
-      color: var(--color-danger);
+    .bt__unpublish {
+      color: var(--app-danger-text);
     }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -255,44 +326,90 @@ export class AdminBindersPageComponent {
   private readonly api = inject(AdminBindersService);
   private readonly router = inject(Router);
   private readonly dialog = inject(MatDialog);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly toasts = inject(ToastService);
 
   readonly query = input<string | undefined>();
   readonly visibility = input<string | undefined>();
+  readonly kind = input<string | undefined>();
+  readonly ownerId = input<string | undefined>();
   readonly page = input<string | undefined>();
 
   protected readonly pageSize = PAGE_SIZE;
   protected readonly visibilities = VISIBILITIES;
   protected readonly freshnessLabel = listingStateLabel;
+  /** Kind: a binder (every kind but DECK) or a deck core (the API's `deckCore`). */
+  protected readonly kindFilter = computed<'binder' | 'deck' | null>(() =>
+    this.kind() === 'deck' ? 'deck' : this.kind() === 'binder' ? 'binder' : null,
+  );
   protected readonly params = computed<ListAdminBindersRequestParams>(() => ({
     query: this.query()?.trim() || undefined,
     visibility: (VISIBILITIES as readonly string[]).includes(this.visibility() ?? '')
       ? (this.visibility() as ListAdminBindersRequestParams['visibility'])
       : undefined,
+    deckCore: this.kindFilter() === null ? undefined : this.kindFilter() === 'deck',
+    ownerId: UUID.test(this.ownerId() ?? '') ? this.ownerId() : undefined,
     page: toPage(this.page()),
     size: PAGE_SIZE,
   }));
+  /** "1–20 of 59" (board A10). */
+  protected readonly range = computed(() => {
+    const page = this.result();
+    const total = page?.totalItems ?? 0;
+    if (!page || !total) {
+      return '';
+    }
+    const start = (page.page ?? 0) * PAGE_SIZE + 1;
+    return `${start}–${start + (page.items ?? []).length - 1} of ${total.toLocaleString('en-US')}`;
+  });
+  /**
+   * The Owner filter's people (the API's `ownerId`): the owners on the pages read, by @handle
+   * (never an id), the filtered one kept.
+   */
+  protected readonly owners = signal<{ id: string; handle: string }[]>([]);
   protected readonly result = signal<PageResponseAdminBinder | null>(null);
   protected readonly loading = signal(true);
   protected readonly error = signal<ApiError | null>(null);
   protected readonly busy = signal<string | null>(null);
 
+  /** "42 public · 3 temporarily public · 14 private" while no visibility is picked (board A10). */
+  protected readonly breakdown = signal('');
+  /** The filters the breakdown follows: every one but the page and the visibility. */
+  private readonly countParams = computed(
+    () => {
+      const { query, deckCore, ownerId, visibility } = this.params();
+      return { query, deckCore, ownerId, visibility };
+    },
+    { equal: (a, b) => JSON.stringify(a) === JSON.stringify(b) },
+  );
+
   private readonly searches = new Subject<string>();
   private subscription: Subscription | null = null;
+  private counts: Subscription | null = null;
 
   constructor() {
     effect(() => {
       const params = this.params();
       untracked(() => this.load(params));
     });
+    effect(() => {
+      const params = this.countParams();
+      untracked(() => this.loadBreakdown(params));
+    });
     this.searches
       .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed())
       .subscribe((query) => this.navigate({ query: query.trim() || null }));
-    inject(DestroyRef).onDestroy(() => this.subscription?.unsubscribe());
+    inject(DestroyRef).onDestroy(() => {
+      this.subscription?.unsubscribe();
+      this.counts?.unsubscribe();
+    });
   }
 
   protected visibilityLabel(value: string): string {
     return VISIBILITY_LABELS[value] ?? value;
+  }
+
+  protected gameLabel(slug: string): string {
+    return gameName(slug) ?? slug;
   }
 
   protected kindLabel(value: string): string {
@@ -340,6 +457,28 @@ export class AdminBindersPageComponent {
 
   protected reload(): void {
     this.load(this.params());
+    this.loadBreakdown(this.countParams());
+  }
+
+  /** One count per visibility (`size=1` reads with the other filters); nothing on a failure. */
+  private loadBreakdown(params: Partial<ListAdminBindersRequestParams>): void {
+    this.counts?.unsubscribe();
+    this.breakdown.set('');
+    if (params.visibility) {
+      return;
+    }
+    this.counts = forkJoin(
+      VISIBILITIES.map((visibility) =>
+        this.api
+          .listAdminBinders({ ...params, visibility, page: 0, size: 1 }, 'body', false, {
+            context: silentErrors(),
+          })
+          .pipe(map((page) => ({ visibility, count: page.totalItems ?? Number.NaN }))),
+      ),
+    ).subscribe({
+      next: (counts) => this.breakdown.set(visibilityBreakdown(counts)),
+      error: () => this.breakdown.set(''),
+    });
   }
 
   protected async unpublish(binder: AdminBinder): Promise<void> {
@@ -355,8 +494,8 @@ export class AdminBindersPageComponent {
       return;
     }
     this.busy.set(binder.id);
-    const done = await runAdminAction(
-      this.snackBar,
+    const done = await runConsoleAction(
+      this.toasts,
       this.api.unpublishBinderAsAdmin(
         { id: binder.id, unpublishBinderRequest: { reason: answer.reason } },
         'body',
@@ -372,6 +511,16 @@ export class AdminBindersPageComponent {
     }
   }
 
+  private rememberOwners(binders: AdminBinder[]): void {
+    const known = new Map(this.owners().map((owner) => [owner.id, owner]));
+    for (const binder of binders) {
+      if (binder.ownerHandle && !known.has(binder.ownerId)) {
+        known.set(binder.ownerId, { id: binder.ownerId, handle: binder.ownerHandle });
+      }
+    }
+    this.owners.set([...known.values()].sort((a, b) => a.handle.localeCompare(b.handle)));
+  }
+
   private load(params: ListAdminBindersRequestParams): void {
     this.subscription?.unsubscribe();
     this.loading.set(true);
@@ -382,6 +531,7 @@ export class AdminBindersPageComponent {
         next: (result) => {
           this.result.set(result);
           this.loading.set(false);
+          this.rememberOwners(result.items ?? []);
         },
         error: (error: unknown) => {
           this.error.set(toApiError(error));

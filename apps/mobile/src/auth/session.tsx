@@ -10,7 +10,10 @@ import {
   type ReactNode,
 } from 'react';
 
+import { useGuestAction } from '@/src/account/guestAction';
+import { usePendingLink } from '@/src/account/pendingLink';
 import { clearAccountSignal } from '@/src/api/accountSignal';
+import { unloadSavedDetails } from '@/src/features/shipping/savedDetailsStore';
 
 import { AuthError } from './authErrors';
 import { firebaseAuthPort, type AuthPort, type AuthUser } from './authPort';
@@ -92,9 +95,11 @@ export function SessionProvider({ children, port = firebaseAuthPort }: SessionPr
     // Anonymous → signed in keeps the cache: user data is keyed by uid, public data stays valid
     // (and removing queries here would orphan the observers that just subscribed to the new uid).
     if (previous !== undefined && previous !== null && previous !== uid) {
-      // Signed out or another user: answers may depend on the viewer, drop everything.
+      // Signed out or another user: answers may depend on the viewer, drop everything (the
+      // saved shipping details stay in the phone's secure storage, keyed by account).
       clearAccountSignal();
       queryClient.clear();
+      unloadSavedDetails();
     }
     lastUid.current = uid;
   }, [queryClient, uid]);
@@ -209,6 +214,11 @@ export function SessionProvider({ children, port = firebaseAuthPort }: SessionPr
   );
 
   const signOut = useCallback(async () => {
+    // An explicit sign-out remembers no screen: the next account on this phone must never open
+    // a link kept for this collector (Review our terms, the welcome; stage R12's review fix 1).
+    usePendingLink.getState().clear();
+    // Nor finish a guest's action kept before this collector signed in (stage R15).
+    useGuestAction.getState().clear();
     await port.signOut();
     dispatch({ type: 'auth-state-changed', user: null });
   }, [port]);

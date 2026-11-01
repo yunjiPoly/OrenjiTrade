@@ -4,6 +4,8 @@ import com.orenjitrade.api.cards.domain.CatalogImages;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 /**
  * The card a notification is about (ADR 0015): notifications concerning one card (WISHLIST_ALERT,
@@ -45,6 +47,19 @@ public final class NotificationCards {
         if (imageUrl != null && !imageUrl.isBlank()) {
             data.put(CARD_IMAGE_URL, imageUrl);
         }
+    }
+
+    /**
+     * A picture URL as a notification stores it: API-relative when it points at this API (a URL
+     * resolved inside a request carries the request's origin, which is never stored; the
+     * notification centre resolves it again for each reader).
+     */
+    public static @Nullable String storable(@Nullable String url) {
+        if (url == null || RequestContextHolder.getRequestAttributes() == null) {
+            return url;
+        }
+        String origin = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
+        return url.startsWith(origin + "/") ? url.substring(origin.length()) : url;
     }
 
     /**

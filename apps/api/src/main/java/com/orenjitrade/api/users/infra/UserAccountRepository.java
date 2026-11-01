@@ -1,5 +1,6 @@
 package com.orenjitrade.api.users.infra;
 
+import com.orenjitrade.api.auth.domain.AccountStatus;
 import com.orenjitrade.api.users.domain.UserAccount;
 import java.time.Instant;
 import java.util.Collection;
@@ -32,19 +33,19 @@ public interface UserAccountRepository
     @EntityGraph(attributePaths = "roles")
     Optional<UserAccount> findWithRolesByHandleIgnoreCase(String handle);
 
-    /** Cheap projection for audit actors. */
-    @Query("select u.id as id, u.handle as handle from UserAccount u where u.id in :ids")
-    List<HandleProjection> findHandlesByIdIn(@Param("ids") Collection<UUID> ids);
-
-    /** Cheap projection for plan resolution (billing module, through the service). */
-    @Query("select u.planCode from UserAccount u where u.id = :id")
-    Optional<String> findPlanCodeById(@Param("id") UUID id);
-
+    /**
+     * Sets {@code last_active_at}, except for a deleted account and an account whose suspension is
+     * in force ({@code suspended} is {@link AccountStatus#SUSPENDED}).
+     */
     @Modifying
     @Query(
             "update UserAccount u set u.lastActiveAt = :now where u.id = :id and u.deletedAt is"
-                    + " null")
-    int touchLastActive(@Param("id") UUID id, @Param("now") Instant now);
+                    + " null and not (u.status = :suspended and (u.suspendedUntil is null or"
+                    + " u.suspendedUntil > :now))")
+    int touchLastActive(
+            @Param("id") UUID id,
+            @Param("now") Instant now,
+            @Param("suspended") AccountStatus suspended);
 
     /**
      * Ids of accounts able to receive notices (ACTIVE, or SUSPENDED with an elapsed end), oldest
@@ -64,10 +65,4 @@ public interface UserAccountRepository
             @Param("staffOnly") boolean staffOnly,
             @Param("limit") int limit,
             @Param("offset") long offset);
-
-    interface HandleProjection {
-        UUID getId();
-
-        String getHandle();
-    }
 }

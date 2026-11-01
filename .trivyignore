@@ -1,0 +1,14 @@
+# Trivy exceptions for the "Trivy gate" of .github/workflows/ci.yml. Same policy as
+# security/npm-audit-allowlist.json (docs/security/README.md): only when no usable patched
+# release exists, each with its reason and an expiry date (Trivy fails again after it).
+
+# zod 3.25.76 nested under @expo/cli (the npm allowlist's GHSA-mrhx-c7xc-m3w5). The workspace's
+# own zod is 4.6.6; @expo/cli 57 requires zod ^3.25.76, no patched zod 3 exists, and zod 4 would
+# break the Expo CLI's v3 imports. Build and dev-server tooling only, in no bundle.
+CVE-2023-54404 exp:2026-11-30
+
+# decode-uri-component 0.2.2 under expo-router 57 -> query-string 7.1.3 (the npm allowlist's
+# GHSA-qr28-fpjm-wq7f; Trivy names it CVE-2026-118664). The only fixed release, 0.5.1, is an ES
+# module only and query-string 7 loads it with require(), so an override would break the phone's
+# router. Reaches neither the web bundle nor the API.
+CVE-2026-118664 exp:2026-11-30

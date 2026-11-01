@@ -30,6 +30,9 @@ public final class AuditLogSpecifications {
             if (filter.from() != null) {
                 predicates.add(builder.greaterThanOrEqualTo(root.get("occurredAt"), filter.from()));
             }
+            if (filter.actorType() != null) {
+                predicates.add(builder.equal(root.get("actorType"), filter.actorType()));
+            }
             if (filter.to() != null) {
                 predicates.add(builder.lessThan(root.get("occurredAt"), filter.to()));
             }

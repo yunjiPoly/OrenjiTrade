@@ -94,4 +94,25 @@ describe('thread items', () => {
     const unread = buildThreadItems([{ ...messages[3], readByOther: false }], 'me', now);
     expect((unread[1] as MessageItem).status).toBe('sent');
   });
+
+  it('drops the note of a sale the seller undid (its pushed copy says undone)', () => {
+    const note = {
+      id: 'sale-note',
+      conversationId: 'c1',
+      senderId: null,
+      kind: 'SYSTEM',
+      body: '',
+      createdAt: '2026-09-30T10:00:00Z',
+      readByOther: false,
+      moderationState: 'OK',
+      payload: { sale: { saleId: 's1', undone: false } },
+    } as unknown as MessageResponse;
+    const kept = mergeMessages([], [note]);
+    expect(kept.map((m) => m.id)).toEqual(['sale-note']);
+    const undone = {
+      ...note,
+      payload: { sale: { saleId: 's1', undone: true } },
+    } as MessageResponse;
+    expect(mergeMessages(kept, [undone])).toEqual([]);
+  });
 });

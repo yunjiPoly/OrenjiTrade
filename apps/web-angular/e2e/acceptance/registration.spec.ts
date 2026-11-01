@@ -38,16 +38,20 @@ test.describe('acceptance: registration', () => {
     await expect(
       page.getByRole('heading', { level: 1, name: 'Create your account' }),
     ).toBeVisible();
+    await page.getByLabel('Display name').fill(displayName);
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password', { exact: true }).fill(TEST_PASSWORD);
-    await page.getByRole('button', { name: 'Create account' }).click();
-    await expect(page.getByText('Please accept every document to continue.')).toBeVisible();
+    // "Create account" waits until every box is ticked, one reason line under it (spec 14).
+    await page.getByRole('button', { name: 'Create account' }).click({ force: true });
+    await expect(page.locator('#su-why')).toHaveText(
+      'Accept the documents and confirm your age to continue.',
+    );
     await page.getByRole('checkbox', { name: 'Accept all' }).check();
     // The 18+ confirmation is a separate, explicit statement that "Accept all" never ticks.
-    await expect(
-      page.getByText('You must confirm that you are 18 years of age or older to use OrenjiTrade.'),
-    ).toBeVisible();
-    await page.getByRole('checkbox', { name: /I confirm I am 18 years of age or older/ }).check();
+    await expect(page.locator('#su-why')).toHaveText(
+      'Confirm that you are 18 or older to continue.',
+    );
+    await page.getByRole('checkbox', { name: 'I confirm I am 18 years of age or older' }).check();
     await page.getByRole('button', { name: 'Create account' }).click();
 
     // --- Verify the email ------------------------------------------------------------------------
@@ -59,10 +63,12 @@ test.describe('acceptance: registration', () => {
     // --- Create the profile ------------------------------------------------------------------------
     await expect(page).toHaveURL(/\/onboarding/, { timeout: 20_000 });
     await page.getByLabel('Handle').fill(handle);
-    await page.getByLabel('Display name').fill(displayName);
-    await page.getByLabel('Bio').fill('Fictional collector registered by the acceptance suite.');
+    await expect(page.getByLabel('Display name')).toHaveValue(displayName);
+    await page
+      .getByLabel('Bio (optional)')
+      .fill('Fictional collector registered by the acceptance suite.');
     const next = page.getByRole('button', { name: 'Continue', exact: true });
-    await next.filter({ visible: true }).click();
+    await next.click();
 
     await expect(page.getByRole('heading', { name: 'What do you collect?' })).toBeVisible();
     const pokemon = page
@@ -70,10 +76,10 @@ test.describe('acceptance: registration', () => {
       .getByRole('button', { name: 'Pokémon' });
     await pokemon.click();
     await expect(pokemon).toHaveAttribute('aria-pressed', 'true');
-    await next.filter({ visible: true }).click();
+    await next.click();
 
-    // --- Where are you? -------------------------------------------------------------------------
-    await expect(page.getByRole('heading', { name: 'Where are you?' })).toBeVisible();
+    // --- Where do you ship from? -----------------------------------------------------------------
+    await expect(page.getByRole('heading', { name: 'Where do you ship from?' })).toBeVisible();
     await expect(page.locator('.leaflet-container')).toHaveCount(0);
     const city = cityToken();
     privacy.registerCity(handle, city);
@@ -82,7 +88,7 @@ test.describe('acceptance: registration', () => {
     await chooseOption(page, 'State or province', 'Brittany');
     await page.getByLabel('City (optional)').fill(city);
     await page.getByRole('button', { name: 'Finish' }).click();
-    await expect(page).toHaveURL(/\/map(\?region=[a-z-]+)?$/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/:\d+\/(\?region=[a-z-]+(&game=[a-z-]+)?)?$/, { timeout: 20_000 });
     await expect(page.getByText('Welcome to OrenjiTrade! Your profile is ready.')).toBeVisible();
 
     // The server stored the declared place (codes and the city text only, never a coordinate).
@@ -116,11 +122,11 @@ test.describe('acceptance: registration', () => {
     await expect(page.getByText('You are signed out. See you soon!')).toBeVisible();
 
     await signIn(page, { email, password: TEST_PASSWORD });
-    await expect(page).toHaveURL(/\/map(\?region=[a-z-]+)?$/);
+    await expect(page).toHaveURL(/:\d+\/(\?region=[a-z-]+(&game=[a-z-]+)?)?$/);
     // Signed in: the home region is browsed.
-    await page.goto('/map');
-    await expect(page).toHaveURL(/\/map\?region=europe$/);
-    await expect(page.getByTestId('region-switcher')).toContainText('Europe');
+    await page.goto('/');
+    await expect(page).toHaveURL(/:\d+\/\?region=europe&game=[a-z-]+$/);
+    await expect(page.getByTestId('region-pill')).toContainText('Europe');
     await openAccountMenu(page);
     await expect(page.getByTestId('account-menu-handle')).toHaveText(`@${handle}`);
     await page.keyboard.press('Escape');
@@ -131,16 +137,15 @@ test.describe('acceptance: registration', () => {
     // Not discoverable yet (the default): the profile shows no place at all.
     await page.goto(`/collectors/${handle}`);
     await expect(page.getByRole('heading', { level: 1, name: displayName })).toBeVisible();
-    await expect(page.getByRole('list', { name: 'Games' })).toContainText('Pokémon');
-    await expect(page.getByRole('list', { name: 'Collector details' })).toContainText(
-      'Not on the map',
-    );
+    await expect(page.getByRole('list', { name: 'Games and tags' })).toContainText('Pokémon');
+    await expect(page.getByTestId('collector-facts')).toContainText('Not on the map');
     await expect(page.getByTestId('collector-city')).toHaveCount(0);
 
     // Discoverable: the profile shows the state and, with "show my city" on, the city.
     await api.updatePrivacy(token, { discoverable: true });
     await page.reload();
-    await expect(page.getByTestId('collector-public-label')).toContainText(label);
+    // The header names the province (board W23b), the city before it.
+    await expect(page.getByTestId('collector-public-label')).toContainText(label.split(',')[0]);
     await expect(page.getByTestId('collector-city')).toHaveText(city);
   });
 });

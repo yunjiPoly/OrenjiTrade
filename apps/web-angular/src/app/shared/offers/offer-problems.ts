@@ -126,7 +126,7 @@ export function offerProblem(
     case 'LIMIT_REACHED':
       return problem(
         error.errorCode,
-        'You reached the number of offers your plan allows today. It resets soon.',
+        'You reached the number of offers you can make today. It resets tomorrow.',
       );
     case 'VALIDATION_FAILED': {
       const fields: OfferProblem['fields'] = {};

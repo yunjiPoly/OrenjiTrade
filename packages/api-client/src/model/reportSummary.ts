@@ -25,6 +25,10 @@ export interface ReportSummary {
      * Open reports against the reported collector
      */
     openReportsAgainstUser: number;
+    /**
+     * The short number staff read (\"#1047\", V135)
+     */
+    number: number;
 }
 export enum ReportSummaryStatusEnum {
     Open = 'OPEN',

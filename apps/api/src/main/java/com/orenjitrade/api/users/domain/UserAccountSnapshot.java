@@ -22,7 +22,6 @@ public record UserAccountSnapshot(
         AccountStatus status,
         @Nullable Instant suspendedUntil,
         @Nullable String suspensionReason,
-        String planCode,
         Set<Role> roles,
         Instant createdAt,
         Instant updatedAt,

@@ -6,10 +6,10 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
 
+import { Text } from '@/src/components/ui/Text';
 import { elevation, fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 import { Button } from './Button';
@@ -68,7 +68,8 @@ export function FormDialog({
           accessibilityRole="button"
           accessibilityLabel={cancelLabel}
           onPress={cancel}
-          style={[StyleSheet.absoluteFill, { backgroundColor: palette.overlay }]}
+          style={[StyleSheet.absoluteFill, { backgroundColor: palette.scrim }]}
+          testID={`${testID}-backdrop`}
         />
         <View
           testID={testID}

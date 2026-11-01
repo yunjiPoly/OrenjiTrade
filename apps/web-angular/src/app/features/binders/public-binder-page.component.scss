@@ -1,0 +1,431 @@
+// A public binder (container 1200, board W9) and a deck core (container 1120, board W8).
+:host {
+  display: block;
+}
+
+.pbp {
+  width: 100%;
+  // The content is 1200 (1120 for a deck core) plus the side padding (spec 8.1, 8.2).
+  max-width: 1248px;
+  margin: 0 auto;
+  padding: 28px 24px 48px;
+}
+
+.pbp--core {
+  max-width: 1168px;
+}
+
+.pbp__crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.pbp__crumbs a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-ink);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+}
+
+.pbp__crumbs a:hover {
+  text-decoration: underline;
+}
+
+.pbp__sep,
+.pbp__muted {
+  color: var(--color-text-muted);
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: var(--color-surface-variant);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-tag);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.tag--core,
+.tag--public {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.tag--core {
+  background: var(--color-deck-core-tag-background);
+  color: var(--color-deck-core-tag-text);
+}
+
+.tag--public {
+  background: var(--color-accent-tint);
+  color: var(--color-accent);
+}
+
+.pbp__outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 20px;
+  border: 1px solid var(--color-border-input);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-ink);
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.pbp__more {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-left: auto;
+  border: 1px solid var(--color-border-input);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.pbp__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-accent);
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.pbp__state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 48px 0;
+}
+
+.pbp__state-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--font-size-2xl);
+}
+
+.pbp__state-text,
+.pbp__empty {
+  margin: 0 0 8px;
+  color: var(--color-text-muted);
+}
+
+.pbp__loading {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pbp__bone {
+  display: block;
+  border-radius: 8px;
+  background: var(--color-surface-variant);
+}
+
+.pbp__bone--crumb {
+  width: 260px;
+  height: 16px;
+}
+
+.pbp__bone--title {
+  width: 320px;
+  height: 36px;
+}
+
+.pbp__grid-bones {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(136px, 1fr));
+  gap: 20px;
+}
+
+.pbp__bone--card {
+  max-width: 160px;
+  aspect-ratio: 5 / 7;
+}
+
+.pbp__more-cards {
+  display: flex;
+  margin: 28px auto 0;
+}
+
+// --- deck core -------------------------------------------------------------------------------
+
+.core {
+  display: grid;
+  grid-template-columns: minmax(0, 680px) 400px;
+  gap: 40px;
+  align-items: start;
+}
+
+.core__panel {
+  position: sticky;
+  top: 88px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.core__tags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.core__name,
+.core__price {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-bold);
+}
+
+.core__name {
+  font-size: var(--font-size-3xl);
+  line-height: 36px;
+}
+
+.core__price {
+  margin-top: -8px;
+  font-size: var(--font-size-2xl);
+}
+
+.core__facts {
+  margin: -8px 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.core__message {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 52px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font: inherit;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.core__label {
+  margin: 8px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.core__note {
+  margin: -8px 0 0;
+  font-size: var(--font-size-body);
+  line-height: 24px;
+  white-space: pre-line;
+}
+
+.core__keys {
+  margin-top: 32px;
+}
+
+.core__h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+}
+
+.core__keys-lead {
+  margin: 6px 0 16px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+// --- binder ----------------------------------------------------------------------------------
+
+.bnd__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.bnd__game {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.bnd__name {
+  margin: 6px 0 4px;
+  font-family: var(--font-display);
+  font-size: var(--font-size-title);
+  font-weight: var(--font-weight-bold);
+  line-height: 36px;
+}
+
+.bnd__facts {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.bnd__description {
+  max-width: 640px;
+  margin: 8px 0 0;
+  color: var(--color-text-secondary);
+}
+
+.bnd__owner {
+  margin-top: 20px;
+}
+
+.bnd__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.bnd__message {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary-tint);
+  color: var(--app-primary-text);
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.bnd__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 24px 0 20px;
+}
+
+.bnd__search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 320px;
+  max-width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border-input);
+  border-radius: var(--radius-input);
+  background: var(--color-surface);
+}
+
+.bnd__search:focus-within {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-focus-ring);
+}
+
+.bnd__search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--color-ink);
+  font: inherit;
+}
+
+.bnd__sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--color-border-input);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+@media (max-width: 1279.98px) {
+  .core {
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 32px;
+  }
+}
+
+@media (max-width: 959.98px) {
+  .pbp {
+    padding: 16px 16px 32px;
+  }
+
+  .core {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  // On the phone the name, the price and Message come right after the photos (board W8).
+  .core__panel {
+    position: static;
+    order: 1;
+  }
+
+  .core__main {
+    display: contents;
+  }
+
+  .core__keys {
+    order: 2;
+  }
+
+  .bnd__search {
+    width: 100%;
+  }
+
+  .pbp__grid-bones {
+    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+    gap: 12px;
+  }
+}

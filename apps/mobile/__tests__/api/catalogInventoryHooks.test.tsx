@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
 import {
+  useApplyBinderPhotoChanges,
   useBinderItems,
   useCreateBinder,
   useDeleteBinder,
@@ -9,6 +10,8 @@ import {
   usePublicBinder,
   usePublicBinderItems,
   usePublishBinder,
+  useReorderBinders,
+  useUpdateBinder,
 } from '@/src/api/hooks/binders';
 import {
   EMPTY_CARD_SEARCH,
@@ -28,6 +31,7 @@ import {
   useInventoryItems,
   useResumeListings,
 } from '@/src/api/hooks/inventory';
+import { useRemoveLocation, useSaveLocation, useSavePrivacy } from '@/src/api/hooks/location';
 import { meKeys } from '@/src/api/queryKeys';
 import { DEFAULT_INVENTORY_FILTERS } from '@/src/lib/inventoryFilters';
 
@@ -42,6 +46,8 @@ import {
   ITEM_ID,
   itemFixture,
   listingStatusFixture,
+  locationFixture,
+  privacyFixture,
   publicBinderFixture,
   publicItemFixture,
   SETS,
@@ -293,6 +299,154 @@ describe('binder hooks', () => {
     expect(api.callsTo('DELETE /api/v1/binders/{id}')[0]?.query.get('deleteItems')).toBe('false');
     // The deleted binder's items are not refetched.
     expect(api.callsTo('GET /api/v1/binders/{id}/items')).toHaveLength(before);
+  });
+
+  it('a binder write or delete refreshes the lists that show it to others (review fix 2 of R3)', async () => {
+    mockApi(
+      signedInRoutes({
+        'POST /api/v1/binders': ok(binderFixture({ id: 'b-new', name: 'New' }), 201),
+        'PATCH /api/v1/binders/{id}': ok(
+          binderFixture({ sellsAsCore: true, askingPriceText: '$150', visibility: 'PUBLIC' })
+        ),
+        'PUT /api/v1/binders/reorder': ok([binderFixture()]),
+        'DELETE /api/v1/binders/{id}': noContent,
+      })
+    );
+    const { wrapper, queryClient } = setup();
+    const uid = 'uid-maika';
+    // The owner's profile rows and counts, the map's counts and state list, a binder search.
+    const listings = [
+      meKeys.collector(uid, 'maika'),
+      meKeys.collectorPart(uid, 'maika', 'binders'),
+      meKeys.regionBinderCounts(uid, 'americas-north'),
+      meKeys.regionBinderSearch(uid, { region: 'americas-north' }),
+      meKeys.search(uid, { q: 'core', types: ['binders'], region: 'americas-north' }),
+    ];
+    const outOfDate = async (write: () => Promise<unknown>) => {
+      for (const key of listings) {
+        queryClient.setQueryData(key, { cached: true });
+      }
+      expect(listings.map((key) => queryClient.getQueryState(key)?.isInvalidated)).toEqual(
+        listings.map(() => false)
+      );
+      await act(async () => {
+        await write();
+      });
+      return listings.map((key) => queryClient.getQueryState(key)?.isInvalidated);
+    };
+    const every = listings.map(() => true);
+
+    const update = renderHook(() => useUpdateBinder(), { wrapper });
+    expect(
+      await outOfDate(() =>
+        update.result.current.mutateAsync({ id: BINDER_ID, patch: { askingPriceText: '$150' } })
+      )
+    ).toEqual(every);
+    const create = renderHook(() => useCreateBinder(), { wrapper });
+    expect(
+      await outOfDate(() => create.result.current.mutateAsync({ name: 'New', kind: 'TRADE' }))
+    ).toEqual(every);
+    const photos = renderHook(() => useApplyBinderPhotoChanges(), { wrapper });
+    expect(
+      await outOfDate(() =>
+        photos.result.current.mutateAsync({ id: BINDER_ID, add: [], remove: [] })
+      )
+    ).toEqual(every);
+    const reorder = renderHook(() => useReorderBinders(), { wrapper });
+    expect(await outOfDate(() => reorder.result.current.mutateAsync([BINDER_ID]))).toEqual(every);
+    const remove = renderHook(() => useDeleteBinder(), { wrapper });
+    expect(await outOfDate(() => remove.result.current.mutateAsync(BINDER_ID))).toEqual(every);
+  });
+
+  it('a write that changes who sees the cards refreshes the Inventory (its Public or Private tags)', async () => {
+    mockApi(
+      signedInRoutes({
+        'PATCH /api/v1/binders/{id}': ok(binderFixture({ visibility: 'PRIVATE' })),
+        'PUT /api/v1/me/settings/privacy': ok(privacyFixture({ discoverable: false })),
+        'PUT /api/v1/me/location': ok(locationFixture({ discoverable: true })),
+        'DELETE /api/v1/me/location': noContent,
+      })
+    );
+    const { wrapper, queryClient } = setup();
+    const uid = 'uid-maika';
+    // The Inventory tab stays mounted: its list, the summary and the binders' cards.
+    const lists = [
+      meKeys.inventoryItems(uid, DEFAULT_INVENTORY_FILTERS),
+      meKeys.inventorySummary(uid),
+      meKeys.binderItems(uid, BINDER_ID, { q: '' }),
+    ];
+    const outOfDate = async (write: () => Promise<unknown>) => {
+      for (const key of lists) {
+        queryClient.setQueryData(key, { cached: true });
+      }
+      await act(async () => {
+        await write();
+      });
+      return lists.map((key) => queryClient.getQueryState(key)?.isInvalidated);
+    };
+    const every = lists.map(() => true);
+
+    // A binder made private: its public cards are "Public · not visible" now.
+    const update = renderHook(() => useUpdateBinder(), { wrapper });
+    expect(
+      await outOfDate(() =>
+        update.result.current.mutateAsync({ id: BINDER_ID, patch: { visibility: 'PRIVATE' } })
+      )
+    ).toEqual(every);
+    // "Show me on the map" turned off (Settings › Location or Privacy).
+    const privacy = renderHook(() => useSavePrivacy(), { wrapper });
+    expect(
+      await outOfDate(() =>
+        privacy.result.current.mutateAsync(privacyFixture({ discoverable: false }))
+      )
+    ).toEqual(every);
+    // The location saved (onboarding, Settings › Location) or removed (discoverability goes off).
+    const save = renderHook(() => useSaveLocation(), { wrapper });
+    expect(
+      await outOfDate(() =>
+        save.result.current.mutateAsync({ countryCode: 'CA', subdivisionCode: 'CA-QC' })
+      )
+    ).toEqual(every);
+    const remove = renderHook(() => useRemoveLocation(), { wrapper });
+    expect(await outOfDate(() => remove.result.current.mutateAsync())).toEqual(every);
+  });
+
+  it('cards moved, made public or private, or deleted at once refresh those lists too (R3 leftover R2-2)', async () => {
+    // Edit binder's "Save changes": its PATCH first, then the cards it moves in or out with the
+    // bulk request. The owner's profile row (card count, games, card pictures) must follow the
+    // moves, not only the PATCH that landed before them.
+    const api = mockApi(
+      signedInRoutes({
+        'POST /api/v1/inventory/items/bulk': ok({ updated: 1, skipped: [] }),
+      })
+    );
+    const { wrapper, queryClient } = setup();
+    const uid = 'uid-maika';
+    const listings = [
+      meKeys.collector(uid, 'maika'),
+      meKeys.collectorPart(uid, 'maika', 'binders'),
+      meKeys.regionBinderCounts(uid, 'americas-north'),
+      meKeys.search(uid, { q: 'core', types: ['binders'], region: 'americas-north' }),
+    ];
+    const bulk = renderHook(() => useBulkInventory(), { wrapper });
+    for (const body of [
+      { action: 'MOVE_TO_BINDER' as const, itemIds: [ITEM_ID], binderId: BINDER_ID },
+      // Without a binder id the cards become unfiled (taken out of the binder).
+      { action: 'MOVE_TO_BINDER' as const, itemIds: [ITEM_ID] },
+      { action: 'SET_VISIBILITY' as const, itemIds: [ITEM_ID], visibility: 'PUBLIC' as const },
+      { action: 'DELETE' as const, itemIds: [ITEM_ID] },
+    ]) {
+      for (const key of listings) {
+        queryClient.setQueryData(key, { cached: true });
+      }
+      await act(async () => {
+        await bulk.result.current.mutateAsync(body);
+      });
+      expect(listings.map((key) => queryClient.getQueryState(key)?.isInvalidated)).toEqual(
+        listings.map(() => true)
+      );
+    }
+    expect(api.callsTo('POST /api/v1/inventory/items/bulk')).toHaveLength(4);
   });
 
   it('reads public binders with the token when signed in', async () => {

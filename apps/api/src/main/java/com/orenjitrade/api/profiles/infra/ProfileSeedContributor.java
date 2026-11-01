@@ -7,7 +7,10 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.sql.Timestamp;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
@@ -18,15 +21,26 @@ import tools.jackson.databind.json.JsonMapper;
 /**
  * Seeds the profiles, tags and privacy settings of the 12 fictional accounts ({@code
  * db/seed/profiles.json}, see {@code docs/development/seed-data.md}). Discoverable: collectors 1-6,
- * 8 and premium_user; not discoverable: collector7 and the staff accounts. Idempotent and
- * respectful of local edits: rows that already exist are left untouched; tag usage counts are
- * recomputed at the end. Deleted accounts are skipped.
+ * 8 and premium_user (an ordinary collector since stage F1); not discoverable: collector7 and the
+ * staff accounts. Idempotent and respectful of local edits: rows that already exist are left
+ * untouched; tag usage counts are recomputed at the end. Deleted accounts are skipped.
+ *
+ * <p>One exception, for a database seeded before stage F1 ("free for all", ADR 0019) and migrated
+ * since: a bio that still holds the exact text an older seed wrote ({@link #RETIRED_BIOS}) gets
+ * today's seed bio, so the former Premium account no longer calls itself "Premium member." on its
+ * public profile. A bio the collector changed is never touched.
  */
 @Component
 public class ProfileSeedContributor implements SeedContributor {
 
     static final String RESOURCE = "db/seed/profiles.json";
     static final String SEED_ID_PREFIX = "00000000-0000-4000-8000-0000000000";
+
+    /** Seed bios of earlier stages, by account number, that today's seed replaces. */
+    static final Map<String, String> RETIRED_BIOS =
+            Map.of("09", "Collector and trader across all four games. Premium member.");
+
+    private static final Logger log = LoggerFactory.getLogger(ProfileSeedContributor.class);
 
     private final JdbcClient jdbc;
     private final TimeProvider timeProvider;
@@ -101,6 +115,10 @@ public class ProfileSeedContributor implements SeedContributor {
                     .param("discoverable", profile.discoverable())
                     .param("now", now)
                     .update();
+            String retired = RETIRED_BIOS.get(profile.nn());
+            if (retired != null && replaceRetiredBio(userId, retired, profile.bio(), now) > 0) {
+                log.info("Seed account {}: the bio of an earlier seed was replaced", profile.nn());
+            }
         }
         jdbc.sql(
                         """
@@ -108,6 +126,20 @@ public class ProfileSeedContributor implements SeedContributor {
                             WHERE pt.tag_id = t.id)
                         WHERE t.usage_count <> (SELECT count(*) FROM profile_tag pt WHERE pt.tag_id = t.id)
                         """)
+                .update();
+    }
+
+    /** Today's seed bio in place of an earlier seed's, only while the bio is exactly that text. */
+    private int replaceRetiredBio(UUID userId, String retired, String bio, Timestamp now) {
+        return jdbc.sql(
+                        """
+                        UPDATE profile SET bio = :bio, updated_at = :now
+                         WHERE user_id = :id AND bio = :retired
+                        """)
+                .param("id", userId)
+                .param("bio", bio)
+                .param("retired", retired)
+                .param("now", now)
                 .update();
     }
 

@@ -8,6 +8,7 @@ import com.orenjitrade.api.delisting.domain.FreshnessState;
 import com.orenjitrade.api.inventory.domain.Availability;
 import com.orenjitrade.api.inventory.domain.InventoryChanges.OwnerQuery;
 import com.orenjitrade.api.inventory.domain.InventoryChanges.PublicQuery;
+import com.orenjitrade.api.inventory.domain.InventoryChanges.PublicSort;
 import com.orenjitrade.api.inventory.domain.ItemRow;
 import java.math.BigDecimal;
 import java.sql.Array;
@@ -18,11 +19,13 @@ import java.sql.Types;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.SqlParameterValue;
@@ -33,6 +36,19 @@ import org.springframework.stereotype.Repository;
  * {@code inventory_item} access (explicit SQL). Every read carries the live effective public
  * visibility ({@link #LISTED}); public lists filter on it and never on the materialised flag. Reads
  * join the catalog tables (card, game) and the owner's account and privacy rows read-only.
+ *
+ * <p>Locks (docs/database/schema.md "Locks of binders and inventory items"): the callers of the
+ * writes here hold the owner lock of the collector, then binder rows are locked before item rows,
+ * and item rows in ascending {@code id}. The trigger {@code trg_inventory_item_binder_count}
+ * updates the binder of an item whose {@code binder_id} or {@code deleted_at} changes, so callers
+ * of those writes hold the binder first ({@code InventoryService.lockForWrite}); every statement
+ * here that locks several items takes them through an {@code ORDER BY id} locking clause.
+ *
+ * <p>Item rows are locked {@code FOR NO KEY UPDATE}, the lock an {@code UPDATE} of these columns
+ * takes anyway: offers, trade lines, trades and sent wishlist alerts reference items, and the
+ * key-share lock of their foreign key checks conflicts with {@code FOR UPDATE} only. A write here
+ * and a transaction that inserts such references therefore never wait for each other. Only the
+ * account purge ({@link #lockAllOf}) deletes item rows, and it takes them {@code FOR UPDATE}.
  */
 @Repository
 public class InventoryItemRepository {
@@ -60,11 +76,35 @@ public class InventoryItemRepository {
                     + PublicVisibilityRules.OWNER_LISTINGS_PUBLIC
                     + ")";
 
+    /**
+     * The item is a live card of an effectively public deck core (aliases of {@link #LISTED}): a
+     * buyer sees it as one of the core's key cards whatever the card's own visibility, because the
+     * cards of a deck core sell only together (owner spec 2026-10-14, section 7; stage R3 review).
+     * It never lists the card alone: {@link #LISTED} still decides the card's own listings (who has
+     * this card, public item lists and counts), so a private card filed in a deck core stays
+     * private when it leaves the core, when the core is deleted, or when the switch is turned off.
+     */
+    public static final String IN_PUBLIC_CORE =
+            "(i.deleted_at IS NULL AND g.status = 'ACTIVE' AND i.freshness_state <> 'HIDDEN'"
+                    + " AND b.id IS NOT NULL AND b.sells_as_core AND "
+                    + PublicVisibilityRules.binderListed("b")
+                    + " AND "
+                    + PublicVisibilityRules.OWNER_LISTINGS_PUBLIC
+                    + ")";
+
+    /**
+     * Buyers see the item: listed on its own ({@link #LISTED}) or as a key card of a public deck
+     * core ({@link #IN_PUBLIC_CORE}). For what a binder shows of its cards: key cards, games, card
+     * pictures and the cards a binder search matches; never an item's own data.
+     */
+    public static final String SHOWN_PUBLICLY = "(" + LISTED + " OR " + IN_PUBLIC_CORE + ")";
+
     private static final String COLUMNS =
             """
             i.id, i.owner_id, i.binder_id, b.name AS binder_name, i.printing_id, c.id AS card_id,
             c.name AS card_name, g.slug AS game, i.quantity, i.condition, i.language, i.edition,
-            i.finish, i.asking_price, i.currency, i.availability, i.accepts_offers, i.notes,
+            i.finish, i.asking_price, i.asking_price_text, i.currency, i.availability,
+            i.accepts_offers, i.notes,
             i.public_notes, i.visibility, i.public_until, i.freshness_state, i.confirmed_at,
             i.created_at, i.updated_at,
             """
@@ -114,11 +154,80 @@ public class InventoryItemRepository {
                 .list();
     }
 
-    /** Locks the owner's non-deleted item row. */
+    /**
+     * The owners of the items among {@code ids}, deleted ones included (an owner never changes).
+     */
+    public List<UUID> ownersOf(Collection<UUID> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        return jdbc.sql("SELECT DISTINCT owner_id FROM inventory_item WHERE id IN (:ids)")
+                .param("ids", ids)
+                .query(UUID.class)
+                .list();
+    }
+
+    /**
+     * Binders the live items among {@code ids} are filed in, read without a row lock: the binders
+     * an item write locks before it locks the items. The caller holds the owner lock, so no other
+     * write moves these items meanwhile.
+     *
+     * @param ownerId only this owner's items when given
+     */
+    public List<UUID> binderIdsOf(@Nullable UUID ownerId, Collection<UUID> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        JdbcClient.StatementSpec statement =
+                jdbc.sql(
+                                "SELECT DISTINCT binder_id FROM inventory_item WHERE id IN (:ids)"
+                                        + " AND binder_id IS NOT NULL AND deleted_at IS NULL"
+                                        + (ownerId == null ? "" : " AND owner_id = :ownerId"))
+                        .param("ids", ids);
+        if (ownerId != null) {
+            statement = statement.param("ownerId", ownerId);
+        }
+        return statement.query(UUID.class).list();
+    }
+
+    /**
+     * Locks the live items among {@code ids} in ascending id order and returns them with the binder
+     * they are filed in now (it cannot change while the lock is held). The id order is the second
+     * line behind the owner lock, which already keeps the collector's other writes off these rows.
+     * {@code FOR NO KEY UPDATE}: no item write changes the key or deletes the row, so it does not
+     * conflict with the foreign key checks of rows that reference the items.
+     *
+     * @param ownerId only this owner's items when given
+     */
+    public List<LockedItem> lockAll(@Nullable UUID ownerId, Collection<UUID> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        JdbcClient.StatementSpec statement =
+                jdbc.sql(
+                                "SELECT id, owner_id, binder_id FROM inventory_item"
+                                        + " WHERE id IN (:ids) AND deleted_at IS NULL"
+                                        + (ownerId == null ? "" : " AND owner_id = :ownerId")
+                                        + " ORDER BY id FOR NO KEY UPDATE")
+                        .param("ids", ids);
+        if (ownerId != null) {
+            statement = statement.param("ownerId", ownerId);
+        }
+        return statement
+                .query(
+                        (rs, rowNum) ->
+                                new LockedItem(
+                                        rs.getObject("id", UUID.class),
+                                        rs.getObject("owner_id", UUID.class),
+                                        rs.getObject("binder_id", UUID.class)))
+                .list();
+    }
+
+    /** Locks the owner's non-deleted item row (writes that never reach a binder: photos). */
     public boolean lockOwned(UUID ownerId, UUID id) {
         return jdbc.sql(
                         "SELECT id FROM inventory_item WHERE id = :id AND owner_id = :ownerId"
-                                + " AND deleted_at IS NULL FOR UPDATE")
+                                + " AND deleted_at IS NULL FOR NO KEY UPDATE")
                 .param("id", id)
                 .param("ownerId", ownerId)
                 .query(UUID.class)
@@ -142,12 +251,19 @@ public class InventoryItemRepository {
             where.append(" AND i.binder_id = :binderId");
             params.put("binderId", query.binderId());
         }
+        if (query.cardId() != null) {
+            where.append(" AND p.card_id = :cardId");
+            params.put("cardId", query.cardId());
+        }
         if (query.unfiled()) {
             where.append(" AND i.binder_id IS NULL");
         }
         if (query.visibility() != null) {
             where.append(" AND i.visibility = :visibility");
             params.put("visibility", query.visibility().name());
+        }
+        if (query.markedPublic()) {
+            where.append(" AND i.visibility IN ('PUBLIC', 'TEMPORARILY_PUBLIC')");
         }
         if (query.availability() != null) {
             where.append(" AND i.availability = :availability");
@@ -169,10 +285,14 @@ public class InventoryItemRepository {
                             " ORDER BY c.normalized_name"
                                     + direction
                                     + ", s.code, p.collector_number, i.id";
+                    // A price that is no plain amount ("85% TCG") has no asking_price: it sorts
+                    // after every amount, before the cards without any price (stage R2).
                     case PRICE ->
                             " ORDER BY i.asking_price"
                                     + direction
-                                    + " NULLS LAST, c.normalized_name, i.id";
+                                    + " NULLS LAST, (i.asking_price_text IS NULL),"
+                                    + " c.normalized_name, i.id";
+                    case CREATED -> " ORDER BY i.created_at" + direction + ", i.id";
                 };
         return page(where.toString(), order, params, query.page(), query.size());
     }
@@ -200,12 +320,25 @@ public class InventoryItemRepository {
             where.append(" AND i.availability = :availability");
             params.put("availability", query.availability().name());
         }
+        if (query.excludeDeckCoreItems()) {
+            // The cards of a deck core sell only with it (owner spec 2026-10-14, section 7).
+            where.append(" AND (i.binder_id IS NULL OR NOT b.sells_as_core)");
+        }
         return page(
-                where.toString(),
-                " ORDER BY c.normalized_name, s.code, p.collector_number, i.id",
-                params,
-                query.page(),
-                query.size());
+                where.toString(), publicOrder(query.sort()), params, query.page(), query.size());
+    }
+
+    /** The ORDER BY of a public page; every order ends on the item id, so pages never overlap. */
+    static String publicOrder(PublicSort sort) {
+        return switch (sort) {
+            case NAME -> " ORDER BY c.normalized_name, s.code, p.collector_number, i.id";
+            case RECENT -> " ORDER BY i.created_at DESC, i.id";
+            // A price that is no plain amount ("85% TCG") has no asking_price: after the amounts,
+            // before the cards without any price.
+            case PRICE ->
+                    " ORDER BY i.asking_price ASC NULLS LAST, (i.asking_price_text IS NULL),"
+                            + " c.normalized_name, i.id";
+        };
     }
 
     /**
@@ -285,16 +418,6 @@ public class InventoryItemRepository {
                 .optional();
     }
 
-    /** The owner of a live item, locking it; empty for unknown or deleted items. */
-    public Optional<UUID> lockOwnerOf(UUID id) {
-        return jdbc.sql(
-                        "SELECT owner_id FROM inventory_item WHERE id = :id AND deleted_at IS NULL"
-                                + " FOR UPDATE")
-                .param("id", id)
-                .query(UUID.class)
-                .optional();
-    }
-
     private static AdminRow adminRow(ResultSet rs, int rowNum) throws SQLException {
         Timestamp warnedAt = rs.getTimestamp("warned_at");
         return new AdminRow(
@@ -352,7 +475,11 @@ public class InventoryItemRepository {
     // Statistics
     // ---------------------------------------------------------------------------------------
 
-    /** Counts and games per binder. */
+    /**
+     * Counts and games per binder. The public count is the cards listed on their own; the public
+     * games are those of the cards buyers see, a public deck core's cards included ({@link
+     * #SHOWN_PUBLICLY}).
+     */
     public List<BinderStatsRow> binderStats(Collection<UUID> binderIds, Instant now) {
         if (binderIds.isEmpty()) {
             return List.of();
@@ -364,7 +491,7 @@ public class InventoryItemRepository {
                                 + ") AS public_count,"
                                 + " array_agg(DISTINCT g.slug) AS games,"
                                 + " array_agg(DISTINCT g.slug) FILTER (WHERE "
-                                + LISTED
+                                + SHOWN_PUBLICLY
                                 + ") AS public_games"
                                 + FROM
                                 + " WHERE i.binder_id IN (:ids) AND i.deleted_at IS NULL"
@@ -390,9 +517,9 @@ public class InventoryItemRepository {
         }
         return jdbc.sql(
                         "SELECT DISTINCT ON (i.binder_id) i.binder_id, i.printing_id,"
-                                + " (SELECT im.storage_key FROM inventory_item_image im"
+                                + " (SELECT im.id FROM inventory_item_image im"
                                 + " WHERE im.item_id = i.id ORDER BY im.sort_order, im.created_at"
-                                + " LIMIT 1) AS image_key"
+                                + " LIMIT 1) AS image_id"
                                 + FROM
                                 + " WHERE i.binder_id IN (:ids) AND i.deleted_at IS NULL"
                                 + (publicOnly ? " AND " + LISTED : "")
@@ -404,7 +531,99 @@ public class InventoryItemRepository {
                                 new CoverRow(
                                         rs.getObject("binder_id", UUID.class),
                                         rs.getObject("printing_id", UUID.class),
-                                        rs.getString("image_key")))
+                                        rs.getObject("image_id", UUID.class)))
+                .list();
+    }
+
+    /**
+     * The first {@code max} printings per binder, one row each, in the order the items were added
+     * (a binder's preview pictures, stage R3), optionally among the cards buyers see ({@link
+     * #SHOWN_PUBLICLY}: catalog pictures only, never an item's own photo).
+     */
+    public List<PreviewRow> binderPreviews(
+            Collection<UUID> binderIds, boolean publicOnly, int max, Instant now) {
+        if (binderIds.isEmpty()) {
+            return List.of();
+        }
+        return jdbc.sql(
+                        "SELECT binder_id, printing_id FROM (SELECT i.binder_id, i.printing_id,"
+                                + " row_number() OVER (PARTITION BY i.binder_id ORDER BY"
+                                + " min(i.created_at), i.printing_id) AS position"
+                                + FROM
+                                + " WHERE i.binder_id IN (:ids) AND i.deleted_at IS NULL"
+                                + (publicOnly ? " AND " + SHOWN_PUBLICLY : "")
+                                + " GROUP BY i.binder_id, i.printing_id) ranked"
+                                + " WHERE position <= :max ORDER BY binder_id, position")
+                .param("ids", binderIds)
+                .param("max", max)
+                .param("now", Timestamp.from(now))
+                .query(
+                        (rs, rowNum) ->
+                                new PreviewRow(
+                                        rs.getObject("binder_id", UUID.class),
+                                        rs.getObject("printing_id", UUID.class)))
+                .list();
+    }
+
+    /**
+     * The first card of each sold deck core among those its sale took out (soft-deleted at or after
+     * the binder's {@code sold_at}), in the order they were added: the picture a chat about it
+     * keeps once it is sold (stage R4, review fix 1, F7). Binders not sold, or without such a card,
+     * are absent.
+     */
+    public List<PreviewRow> soldCorePreviews(Collection<UUID> binderIds) {
+        if (binderIds.isEmpty()) {
+            return List.of();
+        }
+        return jdbc.sql(
+                        """
+                        SELECT DISTINCT ON (i.binder_id) i.binder_id, i.printing_id
+                          FROM inventory_item i
+                          JOIN binder b ON b.id = i.binder_id
+                         WHERE i.binder_id IN (:ids) AND b.sold_at IS NOT NULL
+                           AND i.deleted_at >= b.sold_at
+                         ORDER BY i.binder_id, i.created_at, i.id
+                        """)
+                .param("ids", binderIds)
+                .query(
+                        (rs, rowNum) ->
+                                new PreviewRow(
+                                        rs.getObject("binder_id", UUID.class),
+                                        rs.getObject("printing_id", UUID.class)))
+                .list();
+    }
+
+    /**
+     * The cards of each binder with their copies (every printing of a card together), most copies
+     * first, then by name, at most {@code max} per binder (a deck core's key cards, stage R3),
+     * optionally among the cards buyers see ({@link #SHOWN_PUBLICLY}: every live card of a public
+     * deck core, whatever its own visibility).
+     */
+    public List<KeyCardRow> binderKeyCards(
+            Collection<UUID> binderIds, boolean publicOnly, int max, Instant now) {
+        if (binderIds.isEmpty()) {
+            return List.of();
+        }
+        return jdbc.sql(
+                        "SELECT binder_id, card_id, card_name, copies FROM (SELECT i.binder_id,"
+                                + " c.id AS card_id, c.name AS card_name, sum(i.quantity) AS"
+                                + " copies, row_number() OVER (PARTITION BY i.binder_id ORDER BY"
+                                + " sum(i.quantity) DESC, c.name, c.id) AS position"
+                                + FROM
+                                + " WHERE i.binder_id IN (:ids) AND i.deleted_at IS NULL"
+                                + (publicOnly ? " AND " + SHOWN_PUBLICLY : "")
+                                + " GROUP BY i.binder_id, c.id, c.name) ranked"
+                                + " WHERE position <= :max ORDER BY binder_id, position")
+                .param("ids", binderIds)
+                .param("max", max)
+                .param("now", Timestamp.from(now))
+                .query(
+                        (rs, rowNum) ->
+                                new KeyCardRow(
+                                        rs.getObject("binder_id", UUID.class),
+                                        rs.getObject("card_id", UUID.class),
+                                        rs.getString("card_name"),
+                                        rs.getLong("copies")))
                 .list();
     }
 
@@ -467,6 +686,56 @@ public class InventoryItemRepository {
         return result;
     }
 
+    /** Non-deleted items of the owner (the usage of {@code inventory.items.max}). */
+    public long countLive(UUID ownerId) {
+        return jdbc.sql(
+                        "SELECT count(*) FROM inventory_item WHERE owner_id = :ownerId AND"
+                                + " deleted_at IS NULL")
+                .param("ownerId", ownerId)
+                .query(Long.class)
+                .single();
+    }
+
+    /**
+     * The owner's live items of the given printings, read without a row lock. The private ones
+     * ({@link MergeCandidate#privateItem}) are the items an import can raise instead of adding an
+     * equal one, the oldest first; an item the owner shows is never raised by an import (an
+     * imported copy never becomes public by being merged) and is only listed so a preview can say
+     * that it exists. A caller that writes holds the owner lock.
+     */
+    public List<MergeCandidate> mergeCandidates(UUID ownerId, Collection<UUID> printingIds) {
+        List<MergeCandidate> result = new ArrayList<>();
+        List<UUID> distinct = printingIds.stream().distinct().toList();
+        for (int from = 0; from < distinct.size(); from += 1000) {
+            jdbc.sql(
+                            """
+                            SELECT id, printing_id, condition, language, edition, quantity,
+                                   (visibility = 'PRIVATE') AS private_item
+                              FROM inventory_item
+                             WHERE owner_id = :ownerId AND deleted_at IS NULL
+                               AND printing_id IN (:printingIds)
+                             ORDER BY (visibility = 'PRIVATE') DESC, created_at, id
+                            """)
+                    .param("ownerId", ownerId)
+                    .param(
+                            "printingIds",
+                            distinct.subList(from, Math.min(distinct.size(), from + 1000)))
+                    .query(
+                            rs -> {
+                                result.add(
+                                        new MergeCandidate(
+                                                rs.getObject("id", UUID.class),
+                                                rs.getObject("printing_id", UUID.class),
+                                                rs.getString("condition"),
+                                                rs.getString("language"),
+                                                rs.getString("edition"),
+                                                rs.getInt("quantity"),
+                                                rs.getBoolean("private_item")));
+                            });
+        }
+        return result;
+    }
+
     // ---------------------------------------------------------------------------------------
     // Writes
     // ---------------------------------------------------------------------------------------
@@ -475,14 +744,14 @@ public class InventoryItemRepository {
         jdbc.sql(
                         """
                         INSERT INTO inventory_item (id, owner_id, binder_id, printing_id, quantity,
-                            condition, language, edition, finish, asking_price, currency,
-                            availability, accepts_offers, notes, public_notes, visibility,
-                            public_until, freshness_state, created_at, updated_at, confirmed_at,
-                            last_owner_activity_at)
+                            condition, language, edition, finish, asking_price, asking_price_text,
+                            currency, availability, accepts_offers, notes, public_notes,
+                            visibility, public_until, freshness_state, created_at, updated_at,
+                            confirmed_at, last_owner_activity_at)
                         VALUES (:id, :ownerId, :binderId, :printingId, :quantity, :condition,
-                            :language, :edition, :finish, :askingPrice, :currency, :availability,
-                            :acceptsOffers, :notes, :publicNotes, :visibility, :publicUntil,
-                            'ACTIVE', :now, :now, :now, :now)
+                            :language, :edition, :finish, :askingPrice, :askingPriceText,
+                            :currency, :availability, :acceptsOffers, :notes, :publicNotes,
+                            :visibility, :publicUntil, 'ACTIVE', :now, :now, :now, :now)
                         """)
                 .param("id", id)
                 .param("ownerId", ownerId)
@@ -498,6 +767,7 @@ public class InventoryItemRepository {
                            SET binder_id = :binderId, printing_id = :printingId,
                                quantity = :quantity, condition = :condition, language = :language,
                                edition = :edition, finish = :finish, asking_price = :askingPrice,
+                               asking_price_text = :askingPriceText,
                                currency = :currency, availability = :availability,
                                accepts_offers = :acceptsOffers, notes = :notes,
                                public_notes = :publicNotes, visibility = :visibility,
@@ -562,25 +832,307 @@ public class InventoryItemRepository {
     }
 
     public void softDelete(UUID id, Instant now) {
+        softDelete(id, null, now);
+    }
+
+    /**
+     * Soft-deletes a live item; {@code restorableUntil} set (an owner's own delete, stage R2) keeps
+     * it restorable, and its photos, until then.
+     */
+    public void softDelete(UUID id, @Nullable Instant restorableUntil, Instant now) {
         jdbc.sql(
                         """
                         UPDATE inventory_item SET deleted_at = :now, updated_at = :now,
-                               last_owner_activity_at = :now
+                               last_owner_activity_at = :now, restorable_until = :restorableUntil
                          WHERE id = :id AND deleted_at IS NULL
+                        """)
+                .param("id", id)
+                .param("restorableUntil", timestamp(restorableUntil), Types.TIMESTAMP)
+                .param("now", Timestamp.from(now))
+                .update();
+    }
+
+    /**
+     * The binder an item of the owner is filed in, read without a lock, whether the item is live or
+     * deleted (the restore of a deleted item locks that binder first). The caller holds the owner
+     * lock. Empty for unknown and other owners' items; an empty optional inside for an unfiled one.
+     */
+    public Optional<Optional<UUID>> binderOfAnyState(UUID ownerId, UUID id) {
+        return jdbc.sql(
+                        "SELECT binder_id FROM inventory_item WHERE id = :id AND owner_id ="
+                                + " :ownerId")
+                .param("id", id)
+                .param("ownerId", ownerId)
+                .query((rs, rowNum) -> Optional.ofNullable(rs.getObject("binder_id", UUID.class)))
+                .optional();
+    }
+
+    /**
+     * Locks one item of the owner, live or deleted, and returns its delete state (restore). {@code
+     * FOR NO KEY UPDATE}, like every item write.
+     */
+    public Optional<DeleteState> lockDeleteState(UUID ownerId, UUID id) {
+        return jdbc.sql(
+                        "SELECT id, binder_id, deleted_at, restorable_until FROM inventory_item"
+                                + " WHERE id = :id AND owner_id = :ownerId FOR NO KEY UPDATE")
+                .param("id", id)
+                .param("ownerId", ownerId)
+                .query(
+                        (rs, rowNum) -> {
+                            Timestamp deletedAt = rs.getTimestamp("deleted_at");
+                            Timestamp until = rs.getTimestamp("restorable_until");
+                            return new DeleteState(
+                                    rs.getObject("id", UUID.class),
+                                    rs.getObject("binder_id", UUID.class),
+                                    deletedAt == null ? null : deletedAt.toInstant(),
+                                    until == null ? null : until.toInstant());
+                        })
+                .optional();
+    }
+
+    /**
+     * Brings a soft-deleted item back with {@code quantity} copies (the undo of an older sale of
+     * the card after a later sale took its last copies, review fix 1, F4).
+     */
+    public void restoreWithQuantity(UUID id, int quantity, Instant now) {
+        jdbc.sql(
+                        """
+                        UPDATE inventory_item SET deleted_at = NULL, restorable_until = NULL,
+                               quantity = :quantity, updated_at = :now,
+                               last_owner_activity_at = :now
+                         WHERE id = :id AND deleted_at IS NOT NULL
+                        """)
+                .param("id", id)
+                .param("quantity", quantity)
+                .param("now", Timestamp.from(now))
+                .update();
+    }
+
+    /** Brings a soft-deleted item back (restore); the binder count trigger counts it again. */
+    public void restore(UUID id, Instant now) {
+        jdbc.sql(
+                        """
+                        UPDATE inventory_item SET deleted_at = NULL, restorable_until = NULL,
+                               updated_at = :now, last_owner_activity_at = :now
+                         WHERE id = :id AND deleted_at IS NOT NULL
                         """)
                 .param("id", id)
                 .param("now", Timestamp.from(now))
                 .update();
     }
 
+    // ---------------------------------------------------------------------------------------
+    // Sales and chat subjects (stage R4)
+    // ---------------------------------------------------------------------------------------
+
+    /**
+     * Holds an item, live or deleted, {@code FOR KEY SHARE} until the transaction ends, before a
+     * row of another module references it (a chat's subject): the lock its foreign key check takes
+     * anyway, taken before that row is written, so a binder delete or an account purge holding the
+     * item never waits for that row in turn. It conflicts with no write of the owner ({@code FOR NO
+     * KEY UPDATE}).
+     *
+     * @return whether the item exists
+     */
+    public boolean lockKeyShare(UUID id) {
+        return jdbc.sql("SELECT id FROM inventory_item WHERE id = :id FOR KEY SHARE")
+                .param("id", id)
+                .query(UUID.class)
+                .optional()
+                .isPresent();
+    }
+
+    /** The soft-deleted items among {@code ids}. */
+    public Set<UUID> deletedAmong(Collection<UUID> ids) {
+        if (ids.isEmpty()) {
+            return Set.of();
+        }
+        return new HashSet<>(
+                jdbc.sql(
+                                "SELECT id FROM inventory_item WHERE id IN (:ids) AND deleted_at"
+                                        + " IS NOT NULL")
+                        .param("ids", ids)
+                        .query(UUID.class)
+                        .list());
+    }
+
+    /**
+     * Soft-deletes every live item of a binder, keeping them restorable (and their photos) until
+     * {@code restorableUntil}: a deck core sold with its cards (stage R4), which an undo brings
+     * back. Rows in ascending id, {@code FOR NO KEY UPDATE}; the caller holds the owner lock and
+     * the binder. Returns their ids.
+     */
+    public List<UUID> softDeleteInBinderRestorable(
+            UUID ownerId, UUID binderId, Instant restorableUntil, Instant now) {
+        return jdbc.sql(
+                        """
+                        WITH sold AS MATERIALIZED (
+                            SELECT id FROM inventory_item
+                             WHERE owner_id = :ownerId AND binder_id = :binderId
+                               AND deleted_at IS NULL
+                             ORDER BY id FOR NO KEY UPDATE)
+                        UPDATE inventory_item i SET deleted_at = :now, updated_at = :now,
+                               last_owner_activity_at = :now, restorable_until = :until
+                          FROM sold s
+                         WHERE i.id = s.id
+                        RETURNING i.id
+                        """)
+                .param("ownerId", ownerId)
+                .param("binderId", binderId)
+                .param("until", Timestamp.from(restorableUntil))
+                .param("now", Timestamp.from(now))
+                .query(UUID.class)
+                .list();
+    }
+
+    /**
+     * Brings back the items among {@code ids} that a deck core sale soft-deleted: still deleted,
+     * still in the binder and still restorable at {@code now} (the undo of the sale, stage R4).
+     * Rows in ascending id, {@code FOR NO KEY UPDATE}; the caller holds the owner lock and the
+     * binder. Returns their ids.
+     */
+    public List<UUID> restoreInBinder(
+            UUID ownerId, UUID binderId, Collection<UUID> ids, Instant now) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        return jdbc.sql(
+                        """
+                        WITH back AS MATERIALIZED (
+                            SELECT id FROM inventory_item
+                             WHERE id IN (:ids) AND owner_id = :ownerId AND binder_id = :binderId
+                               AND deleted_at IS NOT NULL AND restorable_until > :now
+                             ORDER BY id FOR NO KEY UPDATE)
+                        UPDATE inventory_item i SET deleted_at = NULL, restorable_until = NULL,
+                               updated_at = :now, last_owner_activity_at = :now
+                          FROM back b
+                         WHERE i.id = b.id
+                        RETURNING i.id
+                        """)
+                .param("ids", ids)
+                .param("ownerId", ownerId)
+                .param("binderId", binderId)
+                .param("now", Timestamp.from(now))
+                .query(UUID.class)
+                .list();
+    }
+
+    /**
+     * Puts sold copies back on an item the transaction holds, live or deleted since (the undo of a
+     * sale that left copies: a later restore of the item then brings them all), at most 9 999.
+     */
+    public void addCopiesBack(UUID id, int by, Instant now) {
+        jdbc.sql(
+                        """
+                        UPDATE inventory_item SET quantity = LEAST(quantity + :by, 9999),
+                               updated_at = :now, last_owner_activity_at = :now
+                         WHERE id = :id
+                        """)
+                .param("id", id)
+                .param("by", by)
+                .param("now", Timestamp.from(now))
+                .update();
+    }
+
+    /**
+     * Closes the restore windows that have passed (at most {@code limit} items, skipping the rows
+     * another transaction holds, like every job statement) and returns the items: the caller
+     * deletes their photos.
+     */
+    public List<UUID> closeRestoreWindows(Instant now, int limit) {
+        return jdbc.sql(
+                        """
+                        WITH due AS MATERIALIZED (
+                            SELECT id FROM inventory_item
+                             WHERE restorable_until IS NOT NULL AND restorable_until <= :now
+                             ORDER BY id
+                             LIMIT :limit
+                               FOR NO KEY UPDATE SKIP LOCKED)
+                        UPDATE inventory_item i SET restorable_until = NULL
+                          FROM due d
+                         WHERE i.id = d.id
+                        RETURNING i.id
+                        """)
+                .param("now", Timestamp.from(now))
+                .param("limit", limit)
+                .query(UUID.class)
+                .list();
+    }
+
+    /** Deleted items of a binder whose undo window is still open (stage G). */
+    public long countRestorableInBinder(UUID binderId, Instant now) {
+        return jdbc.sql(
+                        """
+                        SELECT count(*) FROM inventory_item
+                         WHERE binder_id = :binderId AND deleted_at IS NOT NULL
+                           AND restorable_until > :now
+                        """)
+                .param("binderId", binderId)
+                .param("now", Timestamp.from(now))
+                .query(Long.class)
+                .single();
+    }
+
+    /**
+     * The binders among {@code binderIds} named by a deleted item whose undo window is still open
+     * (stage G, review fix 1, U2: their game is locked meanwhile). One query for a whole list.
+     */
+    public java.util.Set<UUID> bindersWithRestorable(
+            java.util.Collection<UUID> binderIds, Instant now) {
+        if (binderIds.isEmpty()) {
+            return java.util.Set.of();
+        }
+        return new java.util.HashSet<>(
+                jdbc.sql(
+                                """
+                                SELECT DISTINCT binder_id FROM inventory_item
+                                 WHERE binder_id IN (:binderIds) AND deleted_at IS NOT NULL
+                                   AND restorable_until > :now
+                                """)
+                        .param("binderIds", binderIds)
+                        .param("now", Timestamp.from(now))
+                        .query(UUID.class)
+                        .list());
+    }
+
+    /**
+     * Ends the restore windows of the owner's deleted items filed in a binder that is being deleted
+     * (its row goes, so such an item could no longer come back where it was) and returns them: the
+     * caller deletes their photos. The caller holds the owner lock and the binder.
+     */
+    public List<UUID> endRestoreWindowsInBinder(UUID ownerId, UUID binderId) {
+        return jdbc.sql(
+                        """
+                        WITH ended AS MATERIALIZED (
+                            SELECT id FROM inventory_item
+                             WHERE owner_id = :ownerId AND binder_id = :binderId
+                               AND restorable_until IS NOT NULL
+                             ORDER BY id FOR NO KEY UPDATE)
+                        UPDATE inventory_item i SET restorable_until = NULL
+                          FROM ended e
+                         WHERE i.id = e.id
+                        RETURNING i.id
+                        """)
+                .param("ownerId", ownerId)
+                .param("binderId", binderId)
+                .query(UUID.class)
+                .list();
+    }
+
     /** Soft-deletes every item of a binder; returns their ids. */
     public List<UUID> softDeleteInBinder(UUID ownerId, UUID binderId, Instant now) {
         return jdbc.sql(
                         """
-                        UPDATE inventory_item SET deleted_at = :now, updated_at = :now,
+                        WITH doomed AS MATERIALIZED (
+                            SELECT id FROM inventory_item
+                             WHERE owner_id = :ownerId AND binder_id = :binderId
+                               AND deleted_at IS NULL
+                             ORDER BY id FOR NO KEY UPDATE)
+                        UPDATE inventory_item i SET deleted_at = :now, updated_at = :now,
                                last_owner_activity_at = :now
-                         WHERE owner_id = :ownerId AND binder_id = :binderId AND deleted_at IS NULL
-                        RETURNING id
+                          FROM doomed d
+                         WHERE i.id = d.id
+                        RETURNING i.id
                         """)
                 .param("ownerId", ownerId)
                 .param("binderId", binderId)
@@ -597,10 +1149,13 @@ public class InventoryItemRepository {
             UUID ownerId, UUID binderId, boolean keepVisibility, Instant now) {
         String visibility = keepVisibility ? "" : ", visibility = 'PRIVATE', public_until = NULL";
         return jdbc.sql(
-                        "UPDATE inventory_item SET binder_id = NULL, updated_at = :now"
-                                + visibility
+                        "WITH unfiled AS MATERIALIZED (SELECT id FROM inventory_item"
                                 + " WHERE owner_id = :ownerId AND binder_id = :binderId"
-                                + " RETURNING id")
+                                + " ORDER BY id FOR NO KEY UPDATE)"
+                                + " UPDATE inventory_item i SET binder_id = NULL, updated_at = :now"
+                                + visibility
+                                + " FROM unfiled u WHERE i.id = u.id"
+                                + " RETURNING i.id")
                 .param("ownerId", ownerId)
                 .param("binderId", binderId)
                 .param("now", Timestamp.from(now))
@@ -620,7 +1175,7 @@ public class InventoryItemRepository {
                                 "WITH previous AS (SELECT id, freshness_state FROM inventory_item"
                                         + " WHERE owner_id = :ownerId AND deleted_at IS NULL AND "
                                         + scope
-                                        + " FOR UPDATE)"
+                                        + " ORDER BY id FOR NO KEY UPDATE)"
                                         + " UPDATE inventory_item i SET confirmed_at = :now,"
                                         + " last_owner_activity_at = :now, warned_at = NULL,"
                                         + " freshness_state = 'ACTIVE', hidden_reason = NULL"
@@ -655,7 +1210,7 @@ public class InventoryItemRepository {
     public Optional<Integer> lockQuantity(UUID ownerId, UUID id) {
         return jdbc.sql(
                         "SELECT quantity FROM inventory_item WHERE id = :id AND owner_id ="
-                                + " :ownerId AND deleted_at IS NULL FOR UPDATE")
+                                + " :ownerId AND deleted_at IS NULL FOR NO KEY UPDATE")
                 .param("id", id)
                 .param("ownerId", ownerId)
                 .query(Integer.class)
@@ -676,6 +1231,20 @@ public class InventoryItemRepository {
                 .update();
     }
 
+    /** Adds {@code by} copies to an item the transaction holds (the caller keeps it ≤ 9 999). */
+    public void addQuantity(UUID id, int by, Instant now) {
+        jdbc.sql(
+                        """
+                        UPDATE inventory_item SET quantity = quantity + :by, updated_at = :now,
+                               last_owner_activity_at = :now
+                         WHERE id = :id AND deleted_at IS NULL
+                        """)
+                .param("id", id)
+                .param("by", by)
+                .param("now", Timestamp.from(now))
+                .update();
+    }
+
     public void touch(UUID id, Instant now) {
         jdbc.sql(
                         "UPDATE inventory_item SET updated_at = :now, last_owner_activity_at = :now"
@@ -689,28 +1258,52 @@ public class InventoryItemRepository {
     // Freshness job
     // ---------------------------------------------------------------------------------------
 
-    /** Expired temporary publications become PRIVATE; returns the number of items changed. */
+    /**
+     * Expired temporary publications become PRIVATE; returns the number of items changed. Like
+     * every statement of the job, it skips the items another transaction holds ({@code SKIP
+     * LOCKED}): the job never waits for a row, and its next run handles them.
+     *
+     * <p>Deleted items are left as they are (nothing reads the visibility of a deleted item). The
+     * job may still have to clear a listed flag on a deleted item ({@link #reconcile}); written
+     * here as well, that row would be written twice in one run, and the second update re-runs the
+     * foreign key check of {@code binder_id}: a key-share lock on the binder. A deleted item keeps
+     * its binder, and a binder deleted together with its items reaches it only through its {@code
+     * DELETE} ({@code ON DELETE SET NULL}), with the full row lock of the binder in hand: the
+     * delete would wait for the job at the item and the job for the delete at the binder.
+     */
     public int normaliseExpired(Instant now) {
         return jdbc.sql(
                         """
-                        UPDATE inventory_item SET visibility = 'PRIVATE', public_until = NULL
-                         WHERE visibility = 'TEMPORARILY_PUBLIC' AND public_until <= :now
+                        WITH expired AS MATERIALIZED (
+                            SELECT id FROM inventory_item
+                             WHERE visibility = 'TEMPORARILY_PUBLIC' AND public_until <= :now
+                               AND deleted_at IS NULL
+                             ORDER BY id FOR NO KEY UPDATE SKIP LOCKED)
+                        UPDATE inventory_item i SET visibility = 'PRIVATE', public_until = NULL
+                          FROM expired e
+                         WHERE i.id = e.id
                         """)
                 .param("now", Timestamp.from(now))
                 .update();
     }
 
-    /** Re-derives the freshness of every non-deleted item; returns the changes. */
+    /**
+     * Re-derives the freshness of every non-deleted item; returns the changes. The state is
+     * computed in the locking clause, so it is the state of the row as locked.
+     */
     public List<StateChange> recomputeFreshness(FreshnessPolicy policy, Instant now) {
         return jdbc.sql(
-                        "WITH computed AS (SELECT id, freshness_state AS old_state, "
+                        "WITH computed AS MATERIALIZED (SELECT id, freshness_state AS old_state, "
                                 + FRESHNESS_CASE
-                                + " AS new_state FROM inventory_item WHERE deleted_at IS NULL)"
+                                + " AS new_state FROM inventory_item WHERE deleted_at IS NULL"
+                                + " AND freshness_state <> "
+                                + FRESHNESS_CASE
+                                + " ORDER BY id FOR NO KEY UPDATE SKIP LOCKED)"
                                 + " UPDATE inventory_item i SET freshness_state = c.new_state,"
                                 + " hidden_reason = CASE WHEN c.new_state = 'HIDDEN'"
                                 + " THEN 'STALE_UNCONFIRMED' ELSE NULL END"
                                 + " FROM computed c"
-                                + " WHERE i.id = c.id AND c.old_state <> c.new_state"
+                                + " WHERE i.id = c.id"
                                 + " RETURNING i.id, i.owner_id, i.binder_id, i.publicly_listed,"
                                 + " c.old_state, c.new_state")
                 .param("hiddenCutoff", Timestamp.from(policy.hiddenCutoff(now)))
@@ -732,11 +1325,16 @@ public class InventoryItemRepository {
     public List<Warned> warn(FreshnessPolicy policy, Instant now) {
         return jdbc.sql(
                         """
-                        UPDATE inventory_item SET warned_at = :now
-                         WHERE deleted_at IS NULL AND warned_at IS NULL AND publicly_listed
-                           AND freshness_state <> 'HIDDEN'
-                           AND confirmed_at <= :warnCutoff AND confirmed_at > :hiddenCutoff
-                        RETURNING id, owner_id, binder_id, confirmed_at
+                        WITH due AS MATERIALIZED (
+                            SELECT id FROM inventory_item
+                             WHERE deleted_at IS NULL AND warned_at IS NULL AND publicly_listed
+                               AND freshness_state <> 'HIDDEN'
+                               AND confirmed_at <= :warnCutoff AND confirmed_at > :hiddenCutoff
+                             ORDER BY id FOR NO KEY UPDATE SKIP LOCKED)
+                        UPDATE inventory_item i SET warned_at = :now
+                          FROM due d
+                         WHERE i.id = d.id
+                        RETURNING i.id, i.owner_id, i.binder_id, i.confirmed_at
                         """)
                 .param("now", Timestamp.from(now))
                 .param("warnCutoff", Timestamp.from(policy.warnCutoff(now)))
@@ -753,9 +1351,14 @@ public class InventoryItemRepository {
 
     /**
      * Stores the effective public visibility of the items matching {@code scopeSql} (a condition on
-     * alias {@code i}) and returns those whose value flipped.
+     * alias {@code i}) and returns those whose value flipped. The flipped rows are locked in
+     * ascending id order before they are written.
+     *
+     * @param skipLocked leave the items another transaction holds to a later call instead of
+     *     waiting for them (the freshness job, which reconciles every item)
      */
-    public List<ListingChange> reconcile(String scopeSql, Map<String, ?> params, Instant now) {
+    public List<ListingChange> reconcile(
+            String scopeSql, Map<String, ?> params, boolean skipLocked, Instant now) {
         JdbcClient.StatementSpec statement =
                 jdbc.sql(
                                 "WITH computed AS (SELECT i.id, "
@@ -764,13 +1367,19 @@ public class InventoryItemRepository {
                                         + FROM
                                         + " WHERE "
                                         + scopeSql
+                                        + "), flipped AS MATERIALIZED (SELECT t.id, c.listed,"
+                                        + " c.card_id, c.game"
+                                        + " FROM inventory_item t JOIN computed c ON c.id = t.id"
+                                        + " WHERE t.publicly_listed <> c.listed"
+                                        + " ORDER BY t.id FOR NO KEY UPDATE OF t"
+                                        + (skipLocked ? " SKIP LOCKED" : "")
                                         + ")"
                                         + " UPDATE inventory_item t SET publicly_listed ="
-                                        + " c.listed, listing_changed_at = :now"
-                                        + " FROM computed c"
-                                        + " WHERE t.id = c.id AND t.publicly_listed <> c.listed"
-                                        + " RETURNING t.id, t.owner_id, t.printing_id, c.card_id,"
-                                        + " c.game, c.listed, t.availability, t.asking_price,"
+                                        + " f.listed, listing_changed_at = :now"
+                                        + " FROM flipped f"
+                                        + " WHERE t.id = f.id"
+                                        + " RETURNING t.id, t.owner_id, t.printing_id, f.card_id,"
+                                        + " f.game, f.listed, t.availability, t.asking_price,"
                                         + " t.currency")
                         .param("now", Timestamp.from(now));
         for (Map.Entry<String, ?> param : params.entrySet()) {
@@ -796,9 +1405,15 @@ public class InventoryItemRepository {
     // Account deletion
     // ---------------------------------------------------------------------------------------
 
-    /** Every item of an owner, deleted or not (purge). */
-    public List<UUID> idsOf(UUID ownerId) {
-        return jdbc.sql("SELECT id FROM inventory_item WHERE owner_id = :ownerId")
+    /**
+     * Every item of an owner, deleted or not, locked in ascending id order (purge: the delete that
+     * follows takes the rows in no particular order). {@code FOR UPDATE}, the lock of the delete,
+     * so the delete never has to strengthen a lock it holds.
+     */
+    public List<UUID> lockAllOf(UUID ownerId) {
+        return jdbc.sql(
+                        "SELECT id FROM inventory_item WHERE owner_id = :ownerId ORDER BY id FOR"
+                                + " UPDATE")
                 .param("ownerId", ownerId)
                 .query(UUID.class)
                 .list();
@@ -850,6 +1465,7 @@ public class InventoryItemRepository {
                 rs.getString("edition"),
                 rs.getString("finish"),
                 rs.getBigDecimal("asking_price"),
+                rs.getString("asking_price_text"),
                 rs.getString("currency").trim(),
                 Availability.valueOf(rs.getString("availability")),
                 rs.getBoolean("accepts_offers"),
@@ -870,11 +1486,12 @@ public class InventoryItemRepository {
      * @param binderId binder
      * @param printingId printing
      * @param quantity copies
-     * @param condition condition code
+     * @param condition condition code, {@code null} when not stated
      * @param language ISO 639-1
      * @param edition edition code
      * @param finish finish code
      * @param askingPrice price
+     * @param askingPriceText the price as typed
      * @param currency ISO 4217
      * @param availability availability
      * @param acceptsOffers offers welcome
@@ -887,11 +1504,12 @@ public class InventoryItemRepository {
             @Nullable UUID binderId,
             UUID printingId,
             int quantity,
-            String condition,
+            @Nullable String condition,
             String language,
             String edition,
             String finish,
             @Nullable BigDecimal askingPrice,
+            @Nullable String askingPriceText,
             String currency,
             Availability availability,
             boolean acceptsOffers,
@@ -900,16 +1518,53 @@ public class InventoryItemRepository {
             ListingVisibility visibility,
             @Nullable Instant publicUntil) {
 
+        /** An item without the stage R2 fields (no price text). */
+        public Values(
+                @Nullable UUID binderId,
+                UUID printingId,
+                int quantity,
+                @Nullable String condition,
+                String language,
+                String edition,
+                String finish,
+                @Nullable BigDecimal askingPrice,
+                String currency,
+                Availability availability,
+                boolean acceptsOffers,
+                String notes,
+                String publicNotes,
+                ListingVisibility visibility,
+                @Nullable Instant publicUntil) {
+            this(
+                    binderId,
+                    printingId,
+                    quantity,
+                    condition,
+                    language,
+                    edition,
+                    finish,
+                    askingPrice,
+                    null,
+                    currency,
+                    availability,
+                    acceptsOffers,
+                    notes,
+                    publicNotes,
+                    visibility,
+                    publicUntil);
+        }
+
         Map<String, Object> params() {
             Map<String, Object> params = new LinkedHashMap<>();
             params.put("binderId", new SqlParameterValue(Types.OTHER, binderId));
             params.put("printingId", printingId);
             params.put("quantity", quantity);
-            params.put("condition", condition);
+            params.put("condition", new SqlParameterValue(Types.VARCHAR, condition));
             params.put("language", language);
             params.put("edition", edition);
             params.put("finish", finish);
             params.put("askingPrice", new SqlParameterValue(Types.NUMERIC, askingPrice));
+            params.put("askingPriceText", new SqlParameterValue(Types.VARCHAR, askingPriceText));
             params.put("currency", currency);
             params.put("availability", availability.name());
             params.put("acceptsOffers", acceptsOffers);
@@ -922,8 +1577,52 @@ public class InventoryItemRepository {
         }
     }
 
+    /**
+     * An item whose row the transaction holds.
+     *
+     * @param id item
+     * @param ownerId owner
+     * @param binderId binder, {@code null} when unfiled
+     */
+    public record LockedItem(UUID id, UUID ownerId, @Nullable UUID binderId) {}
+
+    /**
+     * A live item of the owner that is equal to a line of an import.
+     *
+     * @param id item
+     * @param printingId printing
+     * @param condition condition code
+     * @param language language of the copy
+     * @param edition edition of the copy
+     * @param quantity copies it holds
+     * @param privateItem whether its visibility is PRIVATE: only such an item is raised by an
+     *     import
+     */
+    public record MergeCandidate(
+            UUID id,
+            UUID printingId,
+            String condition,
+            String language,
+            String edition,
+            int quantity,
+            boolean privateItem) {}
+
     /** A page of rows and the total. */
     public record Page(List<ItemRow> rows, long total) {}
+
+    /**
+     * The delete state of an item (restore).
+     *
+     * @param id item
+     * @param binderId binder, {@code null} when unfiled
+     * @param deletedAt soft delete, {@code null} for a live item
+     * @param restorableUntil end of the restore window, {@code null} when it cannot be restored
+     */
+    public record DeleteState(
+            UUID id,
+            @Nullable UUID binderId,
+            @Nullable Instant deletedAt,
+            @Nullable Instant restorableUntil) {}
 
     /** An admin row: the item, its owner's handle, printing code and warning time. */
     public record AdminRow(
@@ -943,8 +1642,14 @@ public class InventoryItemRepository {
             List<String> games,
             List<String> publicGames) {}
 
-    /** First item of a binder. */
-    public record CoverRow(UUID binderId, UUID printingId, @Nullable String imageKey) {}
+    /** First item of a binder, with the id of its first photo (null without one). */
+    public record CoverRow(UUID binderId, UUID printingId, @Nullable UUID imageId) {}
+
+    /** A printing among the first items of a binder (its preview pictures). */
+    public record PreviewRow(UUID binderId, UUID printingId) {}
+
+    /** A card of a binder with its copies (a deck core's key card). */
+    public record KeyCardRow(UUID binderId, UUID cardId, String cardName, long copies) {}
 
     /** Summary counters of an owner. */
     public record SummaryRow(

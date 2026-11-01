@@ -3,6 +3,11 @@
 > **ADR 0017 (2026-10-08):** binder owners carry a `place` (state or province and country)
 > instead of `location: {publicLabel, distanceBucket}`; see
 > [s1-regions-location.md](s1-regions-location.md).
+>
+> **Stage R2 of the phone redesign (2026-10-14):** `asking_price_text`, a `condition` that may
+> be not stated (`conditionStated`), `sort=created`, `PATCH … confirm`, and the undo of a delete
+> (`POST /inventory/items/{id}/restore` within 10 minutes; photos kept until then); see
+> [r2-inventory-phone.md](r2-inventory-phone.md).
 
 All under `/api/v1`. Owner-only unless stated. Effective public visibility is computed server
 side: item visible ⇔ item.visibility ∈ {PUBLIC, TEMPORARILY_PUBLIC(not expired)} ∧ binder
@@ -38,6 +43,8 @@ ACTIVE 0–14, AGING 15–30, STALE 31–45, HIDDEN 46+ days since `confirmed_at
 
 ## Endpoints — binders
 
+> **Stage R3 (2026-10-15):** deck cores (`sellsAsCore`, the price as typed, photos with `POST` / `DELETE /binders/{id}/images`, key cards, `confirm` on `PATCH`) and the rule that a public deck core shows without cards: [r3-binders-deck-cores.md](r3-binders-deck-cores.md).
+
 - `GET /binders` (mine) → `[BinderResponse]`; `POST /binders` `{ name, description, kind, visibility, publicUntil }`; `GET|PATCH|DELETE /binders/{id}` (delete moves items to no binder unless `?deleteItems=true`)
 - `POST /binders/{id}/publish` body `{ "mode": "PUBLIC|ONE_HOUR|ONE_DAY|UNTIL_DISABLED" }` → sets visibility/public_until; `POST /binders/{id}/unpublish`; `POST /binders/{id}/confirm`
 - `GET /binders/{id}/items?…` (owner: all; others: only effective-public items via the public route below)
@@ -49,7 +56,7 @@ ACTIVE 0–14, AGING 15–30, STALE 31–45, HIDDEN 46+ days since `confirmed_at
 
 - `GET /collectors/{handle}/binders` → `[PublicBinderSummary]` (only effective-public binders with ≥1 effective-public item)
 - `GET /public/binders/{id}` → `PublicBinderResponse` `{ id, name, description, owner: {id, handle, displayName, avatarUrl, location: {publicLabel, distanceBucket}}, freshness, itemCount, games: [] }`
-- `GET /public/binders/{id}/items?game=&query=&availability=&page=&size=` → `PageResponse<PublicInventoryItem>` `{ id, printing: PrintingSummary, card, quantity, condition, language, edition, finish, askingPrice, currency, availability, acceptsOffers, publicNotes, images, freshness }` — never `notes`, never owner coordinates.
+- `GET /public/binders/{id}/items?game=&query=&availability=&page=&size=&sort=` (`sort=name|recent|price`, by name by default; web stage WD, [wd-web-search.md](wd-web-search.md)) → `PageResponse<PublicInventoryItem>` `{ id, printing: PrintingSummary, card, quantity, condition, language, edition, finish, askingPrice, currency, availability, acceptsOffers, publicNotes, images, freshness }` — never `notes`, never owner coordinates.
 - `GET /collectors/{handle}/inventory?…` → effective-public items across binders (same shape).
 
 ## Jobs
@@ -62,6 +69,16 @@ listings of owners with `unresponsive_strikes ≥ policy.max_strikes` (strike lo
 job exists and no-ops without strikes).
 
 ## Web `/inventory` page (Phase 3 UI)
+
+> **Replaced by web redesign stage WB (2026-10-28)**: the web's Inventory now uses the phone's card
+> model (no condition, availability, offers or "Temporarily public" controls; the stored values are
+> kept), a binder pane by game, a 72 px table and a grid, the bulk dock (SET_VISIBILITY,
+> MOVE_TO_BINDER, CONFIRM, DELETE with Undo through `POST /items/{id}/restore`), inline price and
+> copies (`PATCH` with `confirm: true`), quick add rows (one `POST /inventory/items` each), the Edit
+> card and Add cards drawers, the Binders tab and the import at `/inventory/import`. No endpoint
+> changed. See `apps/web-angular/README.md`, "Inventory, binders and public binders", and
+> IMPLEMENTATION_STATUS.md, "Web redesign WB: Inventory and Import". The paragraph below is the
+> Phase 3 page, kept for history.
 
 Left: binder list (All cards, Unfiled, then binders with visibility icon + counts, "New binder").
 Top: search, game filter, visibility segmented control (All / Private / Public / Temporarily

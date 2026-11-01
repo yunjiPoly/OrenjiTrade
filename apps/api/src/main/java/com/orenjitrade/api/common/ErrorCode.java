@@ -43,6 +43,35 @@ public enum ErrorCode {
     ALREADY_RATED(HttpStatus.CONFLICT, "Already rated"),
     /** A rating can only be edited within 14 days of its creation (Phase 7). */
     RATING_EDIT_WINDOW_CLOSED(HttpStatus.CONFLICT, "Rating edit window closed"),
+    /**
+     * A deleted inventory item can only be restored within 10 minutes of its delete, and only after
+     * its owner's own delete (stage R2 of the phone redesign).
+     */
+    RESTORE_WINDOW_CLOSED(HttpStatus.CONFLICT, "Restore window closed"),
+    /**
+     * Mark as sold (stage R4): the chat's card has no copy left (deleted, or every copy already
+     * sold), or its deck core is already sold.
+     */
+    NOTHING_LEFT_TO_SELL(HttpStatus.CONFLICT, "Nothing left to sell"),
+    /**
+     * A sale can only be undone by its seller within 10 minutes, while what it took can still come
+     * back (stage R4; extension {@code undoableUntil} when the window has passed).
+     */
+    SALE_UNDO_CLOSED(HttpStatus.CONFLICT, "Sale undo closed"),
+    /** A sale that one of the two collectors already rated cannot be undone (stage R4). */
+    SALE_ALREADY_RATED(HttpStatus.CONFLICT, "Sale already rated"),
+    /**
+     * Mark as sold named a card or deck core that is no longer what the chat is about: the other
+     * collector pinned another one since the seller looked (stage R4).
+     */
+    SUBJECT_CHANGED(HttpStatus.CONFLICT, "Subject changed"),
+    /**
+     * A binder's game changes only while it holds no card (stage G: a binder holds the cards of one
+     * game).
+     */
+    BINDER_GAME_LOCKED(HttpStatus.CONFLICT, "Binder game locked"),
+    /** A card goes only into a binder of its own game (stage G). */
+    BINDER_GAME_MISMATCH(HttpStatus.CONFLICT, "Binder game mismatch"),
     /** The caller already has an open report against this collector (Phase 7). */
     REPORT_ALREADY_OPEN(HttpStatus.CONFLICT, "Report already open"),
     /** Collectors cannot report themselves (Phase 7). */
@@ -94,20 +123,23 @@ public enum ErrorCode {
     /** A payment provider webhook failed signature verification (Phase 9; stored as IGNORED). */
     WEBHOOK_SIGNATURE_INVALID(HttpStatus.BAD_REQUEST, "Invalid webhook signature"),
     /**
-     * The caller already holds a live subscription (Phase 10; extensions {@code subscriptionId},
-     * {@code currentStatus}); cancel it or wait for the end of its period first.
+     * An inventory import preview is older than its time to live (stage S5): upload the file again.
+     * Once the purge job removed it, the same request answers {@link #NOT_FOUND}.
      */
-    ALREADY_SUBSCRIBED(HttpStatus.CONFLICT, "Already subscribed"),
+    IMPORT_EXPIRED(HttpStatus.GONE, "Import expired"),
     /**
-     * The credit balance does not cover a spend or a negative adjustment (Phase 10; extensions
-     * {@code balance}, {@code cost}). Credits are never bought with money through this API.
+     * The commit of an inventory import has started or ended: the preview can no longer be edited
+     * or discarded (extension {@code currentStatus}).
      */
-    INSUFFICIENT_CREDITS(HttpStatus.CONFLICT, "Insufficient credits"),
+    IMPORT_ALREADY_COMMITTED(HttpStatus.CONFLICT, "Import already committed"),
     /**
-     * A referral code cannot be redeemed by the caller (Phase 10; extension {@code reason}: SELF,
-     * ALREADY_REDEEMED, ACCOUNT_TOO_OLD, REFERRER_LIMIT).
+     * Rows of an inventory import still need a printing (extension {@code unresolved}): choose one,
+     * use the most recent printing for all of them, leave them out, or commit with {@code
+     * skipUnresolved}.
      */
-    REFERRAL_NOT_ALLOWED(HttpStatus.CONFLICT, "Referral not allowed"),
+    IMPORT_ROWS_UNRESOLVED(HttpStatus.CONFLICT, "Import rows unresolved"),
+    /** No row of an inventory import is ready to be imported. */
+    IMPORT_EMPTY(HttpStatus.CONFLICT, "Nothing to import"),
     CONFLICT(HttpStatus.CONFLICT, "Conflict"),
     /** The requested handle is already used (case-insensitively) or reserved. */
     HANDLE_TAKEN(HttpStatus.CONFLICT, "Handle taken"),
@@ -128,17 +160,14 @@ public enum ErrorCode {
     LOCATION_REQUIRED(HttpStatus.CONFLICT, "Location required"),
     RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "Rate limited"),
     /**
-     * A freemium usage limit was reached (extensions {@code limitKey}, {@code limit}, {@code used},
-     * {@code resetsAt}, {@code upgradeUrl}).
+     * A usage limit was reached (extensions {@code limitKey}, {@code limit}, {@code used}, {@code
+     * resetsAt}); the limits are the same for every collector (ADR 0019).
      */
     LIMIT_REACHED(HttpStatus.TOO_MANY_REQUESTS, "Limit reached"),
     PAYLOAD_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "Payload too large"),
     UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Unsupported media type"),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Internal error"),
-    /**
-     * The route is reserved for a capability that does not exist yet (Phase 10: App Store / Google
-     * Play receipt validation).
-     */
+    /** The route is reserved for a capability that does not exist yet. */
     NOT_IMPLEMENTED(HttpStatus.NOT_IMPLEMENTED, "Not implemented"),
     SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "Service unavailable");
 

@@ -6,54 +6,170 @@
   display: flex;
   flex-direction: column;
   gap: var(--spacing-2);
-  padding: var(--spacing-2) var(--spacing-3) var(--spacing-1);
+  /* The content centred at max 720 with the thread (spec 10.1, WC review U12). */
+  padding: var(--spacing-3) max(var(--spacing-5), calc((100% - 720px) / 2)) var(--spacing-2);
   border-top: 1px solid var(--color-border);
-  background: var(--color-surface);
+  background: var(--color-background);
+}
+
+/* Quick replies (32, outline; spec 10.3). */
+.quick {
+  display: flex;
+  gap: var(--spacing-2);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.quick__chip {
+  flex: 0 0 auto;
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-ink);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: background var(--motion-duration-fast) var(--motion-easing-standard);
+
+  &:hover:not([aria-disabled='true']) {
+    background: var(--color-surface-variant);
+  }
+
+  &:focus-visible {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: var(--focus-offset);
+  }
+
+  &[aria-disabled='true'] {
+    cursor: default;
+    opacity: 0.6;
+  }
 }
 
 .composer__row {
   display: flex;
   align-items: flex-end;
-  gap: var(--spacing-1);
+  gap: var(--spacing-2);
+}
+
+/* "+" and Send: 40 round (spec 10.3); Send is the view's one orange once there is a draft. */
+.composer__plus,
+.composer__send {
+  display: grid;
+  flex: 0 0 40px;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 50%;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  cursor: pointer;
+
+  mat-icon {
+    width: 22px;
+    height: 22px;
+    font-size: 22px;
+  }
+
+  &:focus-visible {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: var(--focus-offset);
+  }
+
+  &:disabled {
+    color: var(--color-text-muted);
+    cursor: default;
+  }
+}
+
+.composer__plus[aria-expanded='true'] mat-icon {
+  transform: rotate(45deg);
+}
+
+.composer__send--ready {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
 }
 
 .composer__text {
   flex: 1 1 auto;
   min-height: 40px;
-  max-height: 160px;
-  padding: 9px var(--spacing-3);
+  max-height: calc(6 * 21px + 20px);
+  padding: 9px var(--spacing-4);
   border: 1px solid var(--color-border);
   border-radius: 20px;
-  background: var(--color-surface-variant);
+  background: var(--color-surface);
   color: var(--color-ink);
   font: inherit;
-  line-height: 1.4;
+  font-size: var(--font-size-body);
+  line-height: 21px;
   resize: none;
   transition: border-color var(--motion-duration-fast) var(--motion-easing-standard);
+
+  &::placeholder {
+    color: var(--color-text-muted);
+  }
 
   &:focus-visible {
     border-color: var(--color-primary);
     outline: var(--focus-width) solid var(--color-focus-ring);
     outline-offset: 1px;
   }
-}
 
-.composer__send:not(:disabled) {
-  color: var(--color-primary);
+  &[aria-disabled='true'] {
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
 }
 
 .composer__error {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
   margin: 0;
   color: var(--color-danger);
   font-size: var(--font-size-sm);
+
+  mat-icon {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    font-size: 18px;
+  }
+}
+
+.composer__failed span {
+  flex: 1 1 auto;
+  color: var(--color-ink);
+}
+
+.composer__retry {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-accent);
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+  }
 }
 
 .composer__counter {
   min-height: 1em;
-  margin: 0;
+  margin: 0 0 0 48px;
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
-  text-align: right;
 }
 
 .composer__counter--warn {
@@ -133,5 +249,26 @@
 @media (prefers-reduced-motion: reduce) {
   .attachment {
     animation: none;
+  }
+}
+
+@media (max-width: 599.98px) {
+  .composer {
+    padding: var(--spacing-2) var(--spacing-3);
+  }
+}
+
+/* A short window: the field grows to 3 lines, so the thread keeps its room (WC review A5). */
+@media (max-height: 560px) {
+  .composer__text {
+    max-height: calc(3 * 21px + 20px);
+  }
+}
+
+/* Below 480 the quick replies wrap: none hides off-screen without a scrollbar (WC review A13). */
+@media (max-width: 479.98px) {
+  .quick {
+    flex-wrap: wrap;
+    overflow-x: visible;
   }
 }

@@ -1,0 +1,567 @@
+<div class="cp">
+  <header class="cp__head">
+    <div class="cp__heading">
+      <p class="cp__eyebrow">Catalog</p>
+      <h1 class="cp__title">Card data and images</h1>
+      <p class="cp__sub">
+        Import each game’s cards from its source and keep the card image cache under its 5 GB cap.
+        Imports are idempotent: unchanged rows aren’t rewritten.
+      </p>
+    </div>
+  </header>
+
+  <!-- Games and sources -->
+  <section class="cd__block" aria-labelledby="cd-games-title">
+    <div class="cd__block-head">
+      <h2 class="cp-card__title" id="cd-games-title">Games and sources</h2>
+      @if (games().data; as list) {
+        <p class="cp-muted cd__aside">
+          {{ syncable().length }} {{ syncable().length === 1 ? 'game' : 'games' }} with a source
+          @if (waiting().length) {
+            · {{ waiting().length }} waiting for a source
+          }
+        </p>
+      }
+    </div>
+    @let g = games();
+    @if (g.error && !g.data) {
+      <app-error-state
+        compact
+        title="The games could not load"
+        [message]="message(g.error)"
+        [requestId]="g.error.requestId"
+        retryLabel="Try again"
+        (retry)="loadGames()"
+      />
+    } @else if (g.data; as list) {
+      <div class="ct ct--actions">
+        <table class="cd__games" aria-label="Games and sources">
+          <thead>
+            <tr>
+              <th scope="col">Game</th>
+              <th scope="col">Source</th>
+              <th scope="col">In the catalog</th>
+              <th scope="col">Last sync</th>
+              <th scope="col"><span class="visually-hidden">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (game of list; track game.game) {
+              <tr>
+                <th scope="row">
+                  <span class="cd__game">
+                    <app-game-badge [game]="game.game" />
+                    <span class="ct__name">{{ name(game.game) }}</span>
+                  </span>
+                </th>
+                <td>
+                  @if (game.providers.length) {
+                    @for (provider of game.providers; track provider) {
+                      <span class="cd__source">{{ sourceName(provider) }}</span>
+                      <span class="ct__sub">{{ sourceNote(provider) }}</span>
+                    }
+                  } @else {
+                    <span class="cd__source">No source yet</span>
+                    <span class="ct__sub">collectors see Cards coming soon</span>
+                  }
+                </td>
+                <td class="ct__num">
+                  @if (game.cards > 0) {
+                    {{ game.cards.toLocaleString('en-US') }} cards
+                    <span class="ct__sub"
+                      >{{ game.sets.toLocaleString('en-US') }} sets ·
+                      {{ game.printings.toLocaleString('en-US') }} printings</span
+                    >
+                  } @else {
+                    <span class="cp-chip cp-chip--warning">Cards coming soon</span>
+                  }
+                </td>
+                <td>
+                  @if (game.lastRun; as run) {
+                    {{ run.createdAt | date: 'MMM d' }} ·
+                    {{ run.mode === 'FULL' ? 'Full' : 'Incremental' }}
+                    @let st = runStatus(run);
+                    <span class="cp-chip" [class]="'cp-chip cp-chip--' + st.tone">{{
+                      st.label
+                    }}</span>
+                  } @else {
+                    <span class="cp-muted">Never</span>
+                  }
+                </td>
+                <td class="cd__actions">
+                  @if (game.providers.length) {
+                    <button
+                      type="button"
+                      class="cb cb--outline cb--small"
+                      [attr.aria-label]="'Sync ' + name(game.game) + '…'"
+                      (click)="syncGame(game.game)"
+                    >
+                      Sync…
+                    </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <div aria-busy="true">
+        <span class="visually-hidden">Loading the games</span>
+        <app-skeleton variant="list" lines="4" />
+      </div>
+    }
+  </section>
+
+  <div class="cd__grid">
+    <!-- Run a sync -->
+    <section class="cp-card cd__card" aria-labelledby="cd-sync-title">
+      <h2 class="cp-card__title" id="cd-sync-title">Run a sync</h2>
+      <p class="cd__line">
+        Imports sets, cards and printings, then fills the image cache with one 320 px JPEG per
+        artwork. Card data always imports in full; images stop at the
+        {{ (cache().data?.limitMb ?? 5120).toLocaleString('en-US') }} MB cap.
+      </p>
+      @if (syncable().length === 0 && games().data) {
+        <p class="cd__note">No game has a source yet: there is nothing to sync.</p>
+      } @else {
+        @let f = form();
+        <form class="cd__form" (submit)="$event.preventDefault(); runSync()" novalidate>
+          <div class="cd__pair">
+            <label class="cp-field">
+              <span class="cd__label">Game</span>
+              <select id="cd-game" class="cp-select" (change)="onSelect('game', $event)">
+                @for (game of syncable(); track game.game) {
+                  <option [value]="game.game" [selected]="game.game === f.game">
+                    {{ name(game.game) }}
+                  </option>
+                }
+              </select>
+              @if (waitingLine(); as line) {
+                <span class="cd__hint">{{ line }}</span>
+              }
+            </label>
+            <label class="cp-field">
+              <span class="cd__label">Source</span>
+              <select class="cp-select" (change)="onSelect('source', $event)">
+                @for (provider of sources(); track provider) {
+                  <option [value]="provider" [selected]="provider === f.source">
+                    {{ sourceName(provider) }}
+                  </option>
+                }
+              </select>
+              <span class="cd__hint">{{ sourceHint(f.source) }}</span>
+            </label>
+          </div>
+
+          <div class="cp-field">
+            <span class="cd__label" id="cd-mode-label">Mode</span>
+            <div class="cp-seg" role="radiogroup" aria-labelledby="cd-mode-label">
+              @for (mode of modes; track mode) {
+                <button
+                  type="button"
+                  role="radio"
+                  class="cp-seg__btn"
+                  [id]="modeId(mode)"
+                  [attr.aria-checked]="f.mode === mode"
+                  [attr.aria-pressed]="f.mode === mode"
+                  [attr.tabindex]="f.mode === mode ? 0 : -1"
+                  (click)="pickMode(mode)"
+                  (keydown)="radioKey($event, modes, f.mode, pickMode, modeId)"
+                >
+                  {{ mode === 'FULL' ? 'Full' : 'Incremental' }}
+                </button>
+              }
+            </div>
+            <span class="cd__hint">{{ modeHints[f.mode] }}</span>
+          </div>
+
+          <div class="cp-field">
+            <span class="cd__label" id="cd-images-label">Images</span>
+            <div class="cd__images">
+              <div class="cp-seg" role="radiogroup" aria-labelledby="cd-images-label">
+                @for (mode of imageModes; track mode.id) {
+                  <button
+                    type="button"
+                    role="radio"
+                    class="cp-seg__btn"
+                    [id]="imagesId(mode.id)"
+                    [attr.aria-checked]="f.images === mode.id"
+                    [attr.aria-pressed]="f.images === mode.id"
+                    [attr.tabindex]="f.images === mode.id ? 0 : -1"
+                    (click)="pickImages(mode.id)"
+                    (keydown)="radioKey($event, imageIds, f.images, pickImages, imagesId)"
+                  >
+                    {{ mode.label }}
+                  </button>
+                }
+              </div>
+              @if (f.images === 'LIMIT') {
+                <label class="cd__limit">
+                  <span class="visually-hidden">Number of artworks</span>
+                  <input
+                    id="cd-limit"
+                    class="cp-input"
+                    inputmode="numeric"
+                    [value]="f.limit"
+                    [attr.aria-invalid]="tried() && limitError() ? 'true' : null"
+                    aria-describedby="cd-limit-help"
+                    (input)="onLimit($event)"
+                  />
+                  <span class="cp-muted">artworks</span>
+                </label>
+              }
+            </div>
+            <span
+              class="cd__hint"
+              id="cd-limit-help"
+              [class.cd__hint--bad]="tried() && !!limitError()"
+            >
+              @if (tried() && limitError(); as error) {
+                {{ error }}
+              } @else {
+                @for (mode of imageModes; track mode.id) {
+                  @if (mode.id === f.images) {
+                    {{ mode.hint }}
+                  }
+                }
+                @if (cache().data; as c) {
+                  Now {{ mbText(c.usedMb) }} of {{ c.limitMb.toLocaleString('en-US') }} MB used.
+                }
+              }
+            </span>
+          </div>
+
+          @if (f.source) {
+            <p class="cd__etiquette">
+              <app-admin-icon name="info" [size]="18" />
+              <span>{{ etiquette(f.source) }}</span>
+            </p>
+          }
+
+          <div class="cd__run">
+            <button
+              type="submit"
+              class="cb cb--primary"
+              [attr.aria-disabled]="running() || !f.source ? 'true' : null"
+            >
+              <app-admin-icon name="sync" [size]="18" />
+              {{ running() ? 'Syncing…' : 'Run sync' }}
+            </button>
+            <span class="cp-muted">Runs in the background; you can leave this page.</span>
+          </div>
+        </form>
+      }
+    </section>
+
+    <!-- Card image cache -->
+    <section class="cp-card cd__card" aria-labelledby="cd-cache-title">
+      @let c = cache();
+      <div class="cd__cache-head">
+        <h2 class="cp-card__title" id="cd-cache-title">Card image cache</h2>
+        @if (c.data; as status) {
+          <span class="cp-chip cp-chip--success">{{ mbText(status.remainingMb) }} MB free</span>
+        }
+      </div>
+      @if (c.error && !c.data) {
+        <app-error-state
+          compact
+          title="The card image cache could not load"
+          [message]="message(c.error)"
+          [requestId]="c.error.requestId"
+          retryLabel="Try again"
+          (retry)="loadCache()"
+        />
+      } @else if (c.data; as status) {
+        <p class="cd__used">
+          <span class="cd__big">{{ mbText(status.usedMb) }}</span>
+          <span class="cp-muted">of {{ status.limitMb.toLocaleString('en-US') }} MB</span>
+          <span class="cd__pct">{{ usedPercent() }}%</span>
+        </p>
+        <div
+          class="cd__meter"
+          role="img"
+          [attr.aria-label]="
+            mbText(status.usedMb) +
+            ' of ' +
+            status.limitMb +
+            ' MB used, ' +
+            usedPercent() +
+            ' percent'
+          "
+        >
+          @for (seg of segments(); track seg.game) {
+            <span
+              class="cd__seg"
+              [style.width.%]="seg.percent"
+              [style.background]="'var(--game-tile-' + seg.game + '-foreground)'"
+            ></span>
+          }
+        </div>
+        @if (segments().length) {
+          <ul class="cd__legend">
+            @for (seg of segments(); track seg.game) {
+              <li>
+                <span
+                  class="cd__dot"
+                  aria-hidden="true"
+                  [style.background]="'var(--game-tile-' + seg.game + '-foreground)'"
+                ></span>
+                {{ name(seg.game) }} {{ mbText(seg.mb) }} MB
+              </li>
+            }
+          </ul>
+        }
+        <p class="cd__meta">
+          Reserved {{ mbText(status.reservedMb) }} MB ·
+          {{ status.files.toLocaleString('en-US') }} files
+          @if (status.reconciledAt) {
+            · reconciled {{ status.reconciledAt | date: 'MMM d, HH:mm' }}
+          }
+        </p>
+        <dl class="cd__counts">
+          <div>
+            <dt>Cached</dt>
+            <dd>{{ (status.images['CACHED'] ?? 0).toLocaleString('en-US') }}</dd>
+          </div>
+          <div>
+            <dt>Not cached</dt>
+            <dd>{{ (status.images['NOT_CACHED'] ?? 0).toLocaleString('en-US') }}</dd>
+          </div>
+          <div>
+            <dt>Failed</dt>
+            <dd>{{ (status.images['FAILED'] ?? 0).toLocaleString('en-US') }}</dd>
+          </div>
+          <div>
+            <dt>Missing at the source</dt>
+            <dd>{{ (status.images['MISSING_AT_SOURCE'] ?? 0).toLocaleString('en-US') }}</dd>
+          </div>
+        </dl>
+        @if (imageRows().length) {
+          <ul class="cp-rows cd__rows" aria-label="Images by game">
+            @for (row of imageRows(); track row.game) {
+              <li>
+                <app-game-badge [game]="row.game" size="sm" />
+                <span class="cd__row-text">
+                  <strong>{{ name(row.game) }}</strong>
+                  <span class="ct__sub"
+                    >{{ gameImagesLine(row) }} ·
+                    @for (p of row.providers; track p; let last = $last) {
+                      {{ sourceName(p) }}{{ last ? '' : ', ' }}
+                    }
+                  </span>
+                </span>
+                <span class="cd__row-mb">{{ mbText(row.mb) }} MB</span>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="cd__note">No game has images in the cache yet.</p>
+        }
+        <div class="cd__cache-actions">
+          <button
+            type="button"
+            class="cb cb--outline"
+            [attr.aria-disabled]="checking() ? 'true' : null"
+            (click)="check()"
+          >
+            <app-admin-icon name="check" [size]="18" />
+            {{ checking() ? 'Checking…' : 'Check the cache' }}
+          </button>
+          <button type="button" class="cb cb--danger-outline" (click)="clear($event)">
+            <app-admin-icon name="trash" [size]="18" />
+            Clear a game’s images…
+          </button>
+        </div>
+        <p class="cd__cap">
+          The cap is {{ status.limitMb.toLocaleString('en-US') }} MB (<code class="cp-mono"
+            >CARD_IMAGE_LOCAL_CACHE_MAX_MB</code
+          >). One 320 px image per artwork; browsers only get
+          <code class="cp-mono">/api/v1/public/card-images/&#123;id&#125;</code>, never a source’s
+          own address.
+        </p>
+      } @else {
+        <div aria-busy="true">
+          <span class="visually-hidden">Loading the card image cache</span>
+          <app-skeleton variant="list" lines="4" />
+        </div>
+      }
+    </section>
+  </div>
+
+  <!-- Recent runs -->
+  <section class="cd__block" aria-labelledby="cd-runs-title">
+    <div class="cd__block-head">
+      <h2 class="cp-card__title" id="cd-runs-title">Recent runs</h2>
+      <p class="cp-muted cd__aside">The last 10, newest first</p>
+    </div>
+    @let r = runs();
+    @if (r.error && !r.data) {
+      <app-error-state
+        compact
+        title="Sync runs could not load"
+        [message]="message(r.error)"
+        [requestId]="r.error.requestId"
+        retryLabel="Try again"
+        (retry)="loadRuns()"
+      />
+    } @else if (r.data; as list) {
+      @if (list.length === 0) {
+        <p class="cd__note">No sync has run yet.</p>
+      } @else {
+        <div class="ct ct--actions">
+          <table aria-label="Catalog sync runs" class="cd__runs">
+            <thead>
+              <tr>
+                <th scope="col">Requested</th>
+                <th scope="col">Game</th>
+                <th scope="col">Source</th>
+                <th scope="col">Mode</th>
+                <th scope="col">Images</th>
+                <th scope="col">Status</th>
+                <th scope="col">Sets / cards / printings</th>
+                <th scope="col"><span class="visually-hidden">Report</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (run of list; track run.id) {
+                @let st = runStatus(run);
+                <tr>
+                  <td class="ct__num">{{ run.createdAt | date: 'MMM d, HH:mm' }}</td>
+                  <td>{{ name(run.game) }}</td>
+                  <td>{{ sourceName(run.provider) }}</td>
+                  <td>{{ run.mode === 'FULL' ? 'Full' : 'Incremental' }}</td>
+                  <td>{{ imagesLabel(run) }}</td>
+                  <td>
+                    <span [class]="'cp-chip cp-chip--' + st.tone">{{ st.label }}</span>
+                    @if (run.error) {
+                      <span class="ct__sub cd__error">{{ run.error }}</span>
+                    }
+                  </td>
+                  <td class="ct__num">
+                    {{ (run.setsUpserted ?? 0).toLocaleString('en-US') }} /
+                    {{ (run.cardsUpserted ?? 0).toLocaleString('en-US') }} /
+                    {{ (run.printingsUpserted ?? 0).toLocaleString('en-US') }}
+                  </td>
+                  <td class="cd__actions">
+                    <button
+                      type="button"
+                      class="cb cb--outline cb--small"
+                      [attr.aria-label]="
+                        'Report of the ' +
+                        name(run.game) +
+                        ' sync of ' +
+                        (run.createdAt | date: 'MMM d, HH:mm')
+                      "
+                      (click)="openReport(run, $event)"
+                    >
+                      Report
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    } @else {
+      <div aria-busy="true">
+        <span class="visually-hidden">Loading the runs</span>
+        <app-skeleton variant="list" lines="3" />
+      </div>
+    }
+  </section>
+</div>
+
+@if (report(); as run) {
+  <div class="scrim" (click)="closeReport()" aria-hidden="true"></div>
+  <div
+    class="drawer"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="cd-report-title"
+    cdkTrapFocus
+    [cdkTrapFocusAutoCapture]="true"
+    data-testid="sync-report"
+  >
+    <header class="drawer__head">
+      <app-game-badge [game]="run.game ?? ''" />
+      <div class="drawer__heading">
+        <h2 class="drawer__title" id="cd-report-title">
+          {{ isFinishedRun(run) ? 'Sync report' : 'Live report' }}
+        </h2>
+        <p class="drawer__sub">
+          {{ name(run.game) }} · {{ sourceName(run.provider) }} ·
+          {{ run.createdAt | date: 'MMM d, HH:mm' }}
+        </p>
+      </div>
+      <button type="button" class="drawer__close" aria-label="Close" (click)="closeReport()">
+        <app-admin-icon name="close" [size]="20" />
+      </button>
+    </header>
+    <div class="drawer__body">
+      @let st = runStatus(run);
+      <p class="cd__report-state">
+        <span [class]="'cp-chip cp-chip--' + st.tone">{{ st.label }}</span>
+        {{ run.mode === 'FULL' ? 'Full' : 'Incremental' }} · {{ imagesLabel(run) }}
+      </p>
+      <ol class="cd__phases" aria-label="Phases">
+        @for (phase of phases; track phase.id; let i = $index) {
+          <li
+            [class.cd__phase--done]="i <= phaseIndex(run)"
+            [attr.aria-current]="i === phaseIndex(run) && !isFinishedRun(run) ? 'step' : null"
+          >
+            {{ phase.label }}
+          </li>
+        }
+      </ol>
+      @if (run.error) {
+        <p class="cd__report-error" role="alert">{{ run.error }}</p>
+      }
+      @if (reportError(); as error) {
+        <p class="cd__note">{{ message(error) }}</p>
+      } @else if (reportData(); as rep) {
+        <dl class="cd__kv">
+          <div>
+            <dt>Source version</dt>
+            <dd>{{ rep.providerDbVersion || '—' }}</dd>
+          </div>
+          <div>
+            <dt>Duration</dt>
+            <dd>{{ durationText(rep.durationSeconds) }}</dd>
+          </div>
+        </dl>
+        @for (part of reportSections(rep); track part.title) {
+          <section class="cd__report-part">
+            <h3 class="cd__report-title">{{ part.title }}</h3>
+            <dl class="cd__kv">
+              @for (row of part.rows; track row[0]) {
+                <div>
+                  <dt>{{ row[0] }}</dt>
+                  <dd>{{ row[1] }}</dd>
+                </div>
+              }
+            </dl>
+          </section>
+        }
+        <section class="cd__report-part">
+          <h3 class="cd__report-title">Warnings and errors</h3>
+          @if (rep.warnings.length === 0 && rep.errors.length === 0) {
+            <p class="cd__note">No warnings: every row of the source was valid.</p>
+          } @else {
+            <ul class="cd__issues">
+              @for (issue of rep.errors; track $index) {
+                <li class="cd__issue--bad">{{ issue }}</li>
+              }
+              @for (issue of rep.warnings; track $index) {
+                <li>{{ issue }}</li>
+              }
+            </ul>
+          }
+        </section>
+      } @else {
+        <p class="cd__note">This run has no report yet.</p>
+      }
+    </div>
+  </div>
+}

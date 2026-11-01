@@ -19,6 +19,7 @@ import { CardImageCacheClearRequest } from '../model/models';
 import { CardImageCacheClearResponse } from '../model/models';
 import { CardImageCacheReconcileResult } from '../model/models';
 import { CardImageCacheStatus } from '../model/models';
+import { CatalogGameSummary } from '../model/models';
 import { CatalogImportReport } from '../model/models';
 import { CatalogSyncRequest } from '../model/models';
 import { CatalogSyncRun } from '../model/models';
@@ -178,6 +179,13 @@ export interface AdminCatalogServiceInterface {
      * @endpoint get /api/v1/admin/games
 */
     listAdminGames(extraHttpRequestParams?: any): Observable<Array<GameResponse>>;
+
+    /**
+     * Each game\&#39;s catalogue, sources and newest sync (ADMIN, SUPER_ADMIN)
+     * Every game in display order (hidden ones too): cards, sets and printings in the catalogue, the sources that serve it (empty for a game without a source yet) and its newest sync run. Counts only.
+     * @endpoint get /api/v1/admin/catalog/games
+*/
+    listCatalogGames(extraHttpRequestParams?: any): Observable<Array<CatalogGameSummary>>;
 
     /**
      * Card providers and the games they serve (ADMIN, SUPER_ADMIN)

@@ -1,17 +1,22 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
-import { MatIconModule } from '@angular/material/icon';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { Router } from '@angular/router';
-import { AdminCatalogService, GameRequest, GameResponse } from '@orenji/api-client';
+import { DatePipe } from '@angular/common';
+import { Router, RouterLink } from '@angular/router';
+import {
+  AdminCatalogService,
+  CatalogGameSummary,
+  GameRequest,
+  GameResponse,
+} from '@orenji/api-client';
 import { firstValueFrom } from 'rxjs';
 import { ApiError, toApiError } from '../../../core/http/api-error';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
 import { silentErrors } from '../../../core/http/http-context';
 import { GamesStore } from '../../../shared/catalog/games.store';
-import { gameInfo } from '../../../shared/domain/games';
-import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
+import { ToastService } from '../../../core/feedback/toast.service';
+import { AdminIconComponent } from '../console/admin-icon.component';
+import { RECORDED, runConsoleAction } from '../console/console-actions';
+import { GameBadgeComponent } from '../console/game-badge.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
-import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
 import { GameEditorComponent } from './game-editor.component';
 
@@ -22,32 +27,52 @@ import { GameEditorComponent } from './game-editor.component';
 @Component({
   selector: 'app-admin-games-page',
   imports: [
-    MatIconModule,
-    EmptyStateComponent,
+    DatePipe,
+    RouterLink,
+    AdminIconComponent,
     ErrorStateComponent,
-    PageHeaderComponent,
-    SkeletonComponent,
+    GameBadgeComponent,
     GameEditorComponent,
+    SkeletonComponent,
   ],
   template: `
-    <div class="admin-page">
-      <app-page-header
-        title="Games"
-        subtitle="Supported games, their order and the schema that drives catalog fields and filters."
-      />
+    <div class="cp">
+      <header class="cp__head">
+        <div class="cp__heading">
+          <p class="cp__eyebrow">Catalog</p>
+          <h1 class="cp__title">Games</h1>
+          <p class="cp__sub">
+            Supported games, their order and the schema that drives catalog fields and filters.
+          </p>
+        </div>
+        <div class="cp__actions">
+          <button type="button" class="cb cb--outline" (click)="select('new')">
+            <app-admin-icon name="plus" [size]="18" />
+            New game
+          </button>
+        </div>
+      </header>
 
       @if (error(); as error) {
         <app-error-state
           title="Games could not load"
           [message]="message(error)"
           [requestId]="error.requestId"
+          retryLabel="Try again"
           (retry)="load()"
         />
       } @else if (games(); as list) {
-        @if (list.length === 0) {
-          <app-empty-state icon="playing_cards" title="No games yet" />
-        } @else {
-          <div class="games">
+        <div class="games">
+          <section class="cp-card games__list-card" aria-labelledby="games-list-title">
+            <div class="games__list-head">
+              <h2 class="cp-card__title" id="games-list-title">In display order</h2>
+              <span class="cp-muted"
+                >{{ list.length }} {{ list.length === 1 ? 'game' : 'games' }}</span
+              >
+            </div>
+            @if (list.length === 0) {
+              <p class="cp-muted games__empty">No games yet.</p>
+            }
             <nav class="games__list" aria-label="Games">
               @for (game of list; track game.slug) {
                 @let current = game.slug === selectedSlug();
@@ -56,38 +81,81 @@ import { GameEditorComponent } from './game-editor.component';
                   class="games__item"
                   [class.games__item--on]="current"
                   [attr.aria-current]="current || null"
-                  [style.--game-accent]="accent(game.slug)"
                   (click)="select(game.slug)"
                 >
-                  <span class="games__dot" aria-hidden="true"></span>
+                  <app-game-badge [game]="game.slug ?? ''" />
                   <span class="games__names">
-                    <span class="games__name">{{ game.name }}</span>
-                    <span class="games__slug mono">{{ game.slug }} · #{{ game.sortOrder }}</span>
+                    <span class="games__name">{{ game.shortName || game.name }}</span>
+                    <span class="games__slug">
+                      <span class="cp-mono">{{ game.slug }}</span> · #{{ game.sortOrder }}
+                    </span>
+                    <span class="games__cards" [class.games__cards--soon]="!cardsOf(game.slug)">
+                      {{ cardsLine(game.slug) }}
+                    </span>
                   </span>
-                  <span
-                    class="games__status"
-                    [class.games__status--hidden]="game.status === 'HIDDEN'"
-                  >
-                    {{ game.status === 'HIDDEN' ? 'Hidden' : 'Active' }}
-                  </span>
+                  <span class="cp-chip" [class.cp-chip--success]="game.status !== 'HIDDEN'">{{
+                    game.status === 'HIDDEN' ? 'Hidden' : 'Active'
+                  }}</span>
                 </button>
               }
             </nav>
-            @if (selected(); as game) {
-              <section class="admin-card games__editor" aria-labelledby="game-editor-title">
-                <h2 id="game-editor-title">
-                  {{ game.name }} <span class="games__slug mono">{{ game.slug }}</span>
-                </h2>
-                <app-game-editor
-                  [game]="game"
-                  [saving]="saving()"
-                  [serverErrors]="serverErrors()"
-                  (save)="save(game, $event)"
-                />
-              </section>
-            }
-          </div>
-        }
+            <p class="games__foot">
+              Lower display order comes first in every game picker. Slugs never change once created.
+            </p>
+          </section>
+          @if (creating()) {
+            <section class="cp-card games__editor" aria-labelledby="game-editor-title">
+              <h2 class="cp-card__title" id="game-editor-title">New game</h2>
+              <p class="games__note">
+                <app-admin-icon name="info" [size]="18" />
+                A new game starts hidden; make it active once its schema is right.
+              </p>
+              <app-game-editor
+                [game]="blank"
+                [creating]="true"
+                [saving]="saving()"
+                [serverErrors]="serverErrors()"
+                (save)="create($event)"
+              />
+            </section>
+          } @else if (selected(); as game) {
+            <section class="cp-card games__editor" aria-labelledby="game-editor-title">
+              <div class="games__editor-head">
+                <app-game-badge [game]="game.slug ?? ''" />
+                <div>
+                  <h2 class="cp-card__title" id="game-editor-title">{{ game.name }}</h2>
+                  <p class="cp-muted games__meta">
+                    <span class="cp-mono">{{ game.slug }}</span>
+                    @if (game.updatedAt) {
+                      · Changed {{ game.updatedAt | date: 'MMM d' }}
+                    }
+                  </p>
+                </div>
+                <span class="cp-chip" [class.cp-chip--success]="game.status !== 'HIDDEN'">{{
+                  game.status === 'HIDDEN' ? 'Hidden' : 'Active'
+                }}</span>
+              </div>
+              @if (summaries() && !cardsOf(game.slug)) {
+                <p class="games__soon" role="note">
+                  <app-admin-icon name="alert" [size]="18" />
+                  <span>
+                    No cards yet. Collectors see “Cards coming soon”: the game shows in the game
+                    picker but can’t be picked on Home or Search, and its rooms stay open. Import
+                    cards in
+                    <a class="cp-link" routerLink="/admin/card-data">Card data and images</a>
+                    once a source is approved.
+                  </span>
+                </p>
+              }
+              <app-game-editor
+                [game]="game"
+                [saving]="saving()"
+                [serverErrors]="serverErrors()"
+                (save)="save(game, $event)"
+              />
+            </section>
+          }
+        </div>
       } @else {
         <div aria-busy="true">
           <span class="visually-hidden">Loading games</span>
@@ -96,42 +164,54 @@ import { GameEditorComponent } from './game-editor.component';
       }
     </div>
   `,
-  styleUrls: ['../shared/admin-page.scss'],
+  styleUrls: ['../console/console-page.scss', '../console/console-controls.scss'],
   styles: `
     .games {
       display: grid;
-      grid-template-columns: 280px minmax(0, 1fr);
-      gap: var(--spacing-5);
+      grid-template-columns: 320px minmax(0, 1fr);
+      gap: 24px;
       align-items: start;
+    }
+    .games__list-card,
+    .games__editor {
+      min-width: 0;
+      padding: 20px 22px;
+    }
+    .games__list-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      font-size: var(--font-size-sm);
     }
     .games__list {
       display: flex;
       flex-direction: column;
-      gap: var(--spacing-2);
+      gap: 6px;
     }
     .games__item {
-      --game-accent: var(--color-primary);
       display: flex;
       align-items: center;
-      gap: var(--spacing-3);
-      padding: var(--spacing-3);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-md);
-      background: var(--color-surface);
+      gap: 12px;
+      padding: 10px 12px;
+      border: 1px solid transparent;
+      border-radius: 12px;
+      background: none;
       color: var(--color-ink);
       font: inherit;
       text-align: left;
       cursor: pointer;
     }
-    .games__item--on {
-      border-color: var(--game-accent);
-      background: color-mix(in srgb, var(--game-accent) 10%, var(--color-surface));
+    .games__item:hover {
+      background: var(--color-surface-variant);
     }
-    .games__dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: var(--game-accent);
+    .games__item:focus-visible {
+      outline: var(--focus-width) solid var(--color-focus-ring);
+      outline-offset: 2px;
+    }
+    .games__item--on {
+      border-color: var(--color-primary);
+      background: var(--color-primary-tint);
     }
     .games__names {
       display: flex;
@@ -142,24 +222,59 @@ import { GameEditorComponent } from './game-editor.component';
     .games__name {
       font-weight: var(--font-weight-semibold);
     }
-    .games__slug {
-      color: var(--color-text-muted);
-      font-size: var(--font-size-xs);
-      font-weight: var(--font-weight-regular);
-    }
-    .games__status {
-      padding: 0 var(--spacing-2);
-      border-radius: var(--radius-pill);
-      background: color-mix(in srgb, var(--color-success) 16%, var(--color-surface));
+    .games__slug,
+    .games__cards {
+      color: var(--color-text-secondary);
       font-size: var(--font-size-xs);
     }
-    .games__status--hidden {
+    .games__cards--soon {
+      color: var(--app-warning-text);
+    }
+    .games__foot,
+    .games__empty {
+      margin: 12px 0 0;
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-xs);
+    }
+    .games__editor-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .games__editor-head > div {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .games__meta {
+      margin: 2px 0 0;
+      font-size: var(--font-size-sm);
+    }
+    .games__soon,
+    .games__note {
+      display: flex;
+      gap: 10px;
+      margin: 0 0 16px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      font-size: var(--font-size-sm);
+    }
+    .games__soon {
+      border: 1px solid color-mix(in srgb, var(--color-warning) 45%, transparent);
+      background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+      color: var(--color-ink);
+    }
+    .games__soon app-admin-icon {
+      color: var(--app-warning-text);
+    }
+    .games__note {
       background: var(--color-surface-variant);
-      color: var(--color-text-muted);
+      color: var(--color-text-secondary);
     }
-    @media (max-width: 959px) {
+    @media (max-width: 1279.98px) {
       .games {
-        grid-template-columns: 1fr;
+        // minmax(0, …): the track shrinks to the screen, not to its widest content (review fix 1).
+        grid-template-columns: minmax(0, 1fr);
       }
     }
   `,
@@ -168,7 +283,7 @@ import { GameEditorComponent } from './game-editor.component';
 export class AdminGamesPageComponent {
   private readonly api = inject(AdminCatalogService);
   private readonly router = inject(Router);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly toasts = inject(ToastService);
   private readonly publicGames = inject(GamesStore);
 
   /** `?game=` query parameter. */
@@ -183,7 +298,52 @@ export class AdminGamesPageComponent {
     return list.find((game) => game.slug === this.game()) ?? list[0] ?? null;
   });
 
-  protected readonly selectedSlug = computed(() => this.selected()?.slug ?? null);
+  protected readonly selectedSlug = computed(() =>
+    this.creating() ? null : (this.selected()?.slug ?? null),
+  );
+  /** "New game" (`?game=new`). */
+  protected readonly creating = computed(() => this.game() === 'new');
+  /** Each game's catalogue (`GET /admin/catalog/games`): "13,942 cards" or "Cards coming soon". */
+  protected readonly summaries = signal<CatalogGameSummary[] | null>(null);
+  /** A new game's starting point (board A13's NEW_SCHEMA). */
+  protected readonly blank: GameResponse = {
+    slug: '',
+    name: '',
+    shortName: '',
+    publisher: '',
+    status: 'HIDDEN',
+    sortOrder: 50,
+    schema: {
+      conditions: [
+        'MINT',
+        'NEAR_MINT',
+        'LIGHTLY_PLAYED',
+        'MODERATELY_PLAYED',
+        'HEAVILY_PLAYED',
+        'DAMAGED',
+      ],
+      editions: ['UNLIMITED'],
+      languages: ['en'],
+      finishes: ['NORMAL'],
+      rarities: ['Common'],
+      metadataFields: [],
+      summaryFields: [],
+    },
+  } as unknown as GameResponse;
+
+  protected cardsOf(slug: string | undefined): number {
+    return this.summaries()?.find((summary) => summary.game === slug)?.cards ?? 0;
+  }
+
+  protected cardsLine(slug: string | undefined): string {
+    if (!this.summaries()) {
+      return '';
+    }
+    const cards = this.cardsOf(slug);
+    return cards
+      ? `${cards.toLocaleString('en-US')} ${cards === 1 ? 'card' : 'cards'}`
+      : 'Cards coming soon';
+  }
 
   constructor() {
     void this.load();
@@ -191,10 +351,6 @@ export class AdminGamesPageComponent {
 
   protected message(error: ApiError): string {
     return friendlyMessage(error);
-  }
-
-  protected accent(slug: string | undefined): string {
-    return `var(${gameInfo(slug ?? '').colorVar})`;
   }
 
   protected select(slug: string | undefined): void {
@@ -205,12 +361,33 @@ export class AdminGamesPageComponent {
   protected async load(): Promise<void> {
     this.error.set(null);
     try {
-      const games = await firstValueFrom(
-        this.api.listAdminGames('body', false, { context: silentErrors() }),
-      );
+      const [games, summaries] = await Promise.all([
+        firstValueFrom(this.api.listAdminGames('body', false, { context: silentErrors() })),
+        firstValueFrom(this.api.listCatalogGames('body', false, { context: silentErrors() })).catch(
+          () => null,
+        ),
+      ]);
       this.games.set(games ?? []);
+      this.summaries.set(summaries);
     } catch (error) {
       this.error.set(toApiError(error));
+    }
+  }
+
+  protected async create(request: GameRequest): Promise<void> {
+    this.saving.set(true);
+    this.serverErrors.set({});
+    const created = await runConsoleAction(
+      this.toasts,
+      this.api.createGame({ gameRequest: request }, 'body', false, { context: silentErrors() }),
+      `${request.name} created.`,
+      `A game with the slug ${request.slug} already exists.`,
+    );
+    this.saving.set(false);
+    if (created) {
+      this.games.update((list) => [...(list ?? []), created]);
+      void this.publicGames.load(true);
+      this.select(created.slug);
     }
   }
 
@@ -229,12 +406,16 @@ export class AdminGamesPageComponent {
       this.games.update((list) =>
         (list ?? []).map((candidate) => (candidate.slug === updated.slug ? updated : candidate)),
       );
-      this.snackBar.open(`${updated.name} saved.`, 'OK', { duration: 4000 });
+      this.toasts.show({ title: `${updated.name} saved.`, sub: RECORDED });
       void this.publicGames.load(true);
     } catch (error) {
       const apiError = toApiError(error);
       this.serverErrors.set(apiError.fieldErrors);
-      this.snackBar.open(friendlyMessage(apiError), 'OK', { duration: 6000 });
+      this.toasts.show({
+        title: friendlyMessage(apiError),
+        sub: apiError.requestId ? `Request ${apiError.requestId}` : null,
+        tone: 'error',
+      });
     } finally {
       this.saving.set(false);
     }

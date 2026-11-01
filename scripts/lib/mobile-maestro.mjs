@@ -44,6 +44,7 @@ import {
   IS_WINDOWS,
   MOBILE_DIR,
   PORTS,
+  ROOT,
   capture,
   childEnv,
   formatDuration,
@@ -91,9 +92,101 @@ const METRO_PORT = 8082;
 const METRO_URL = `http://localhost:${METRO_PORT}`;
 const EXPO_GO = 'host.exp.exponent';
 const MAESTRO_DIR = path.join(MOBILE_DIR, '.maestro');
+const MAESTRO_MEDIA = path.join(MAESTRO_DIR, 'media');
 const MAESTRO_OUTPUT = path.join(WORK_DIR, 'maestro');
+// `--debug-output` puts every run's screenshots and logs in a folder of its own here, named after
+// its start (`2026-10-20_173428`): 1 to 3 GB per full run, and Maestro never deletes them.
+const MAESTRO_RUNS = path.join(MAESTRO_OUTPUT, '.maestro', 'tests');
+const MAESTRO_RUN_FOLDER = /^\d{4}-\d{2}-\d{2}_\d{6}$/;
+const DEFAULT_KEEP_RUNS = 3;
 const SEED_EMAIL = 'collector1@orenjitrade.test';
 const SEED_PASSWORD = 'LocalDev!2026';
+
+/**
+ * How many earlier runs' debug output a run keeps: ORENJI_MAESTRO_KEEP_RUNS (a whole number, 0
+ * keeps none), else 3. Anything else is refused rather than guessed at, since it decides what is
+ * deleted.
+ */
+export function maestroKeepRuns(env = process.env) {
+  const value = env.ORENJI_MAESTRO_KEEP_RUNS?.trim();
+  if (value === undefined || value === '') {
+    return DEFAULT_KEEP_RUNS;
+  }
+  if (!/^\d+$/.test(value)) {
+    throw new Error(`ORENJI_MAESTRO_KEEP_RUNS must be a whole number of runs (0 or more), not "${value}".`);
+  }
+  return Number(value);
+}
+
+/**
+ * The run folders to delete so that the `keep` newest stay. Only names of Maestro's own run
+ * folders count (a timestamp, which sorts as it dates); any other entry is never chosen.
+ */
+export function maestroRunsToDelete(names, keep) {
+  return names
+    .filter((name) => MAESTRO_RUN_FOLDER.test(name))
+    .sort()
+    .reverse()
+    .slice(keep);
+}
+
+/**
+ * Deletes the debug output of all but the `keep` newest earlier runs, before Maestro adds this
+ * run's folder. Only real folders directly inside `dir` whose names are run timestamps are
+ * removed (a link of that name is left alone).
+ *
+ * @returns the folders deleted
+ */
+export function pruneMaestroRuns(keep, dir = MAESTRO_RUNS) {
+  if (!fs.existsSync(dir)) {
+    return [];
+  }
+  const folders = fs
+    .readdirSync(dir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name);
+  const deleted = maestroRunsToDelete(folders, keep).map((name) => path.join(dir, name));
+  for (const folder of deleted) {
+    fs.rmSync(folder, { recursive: true, force: true });
+  }
+  return deleted;
+}
+
+/**
+ * Makes the flows' fictional pictures (apps/mobile/.maestro/media) new files, before Maestro runs.
+ * Their `addMedia` (`xcrun simctl addmedia`) dates a photo by the file's creation date (its
+ * birthtime: the photo library's ZDATECREATED), and the photo pickers of the flows take the newest
+ * photo of the library: a checkout's date made the copy of this run older than any photo added to
+ * the device since (a reviewer's fictional 9000 px picture was taken instead, and refused by the
+ * API; one of the device owner's own photos would have been uploaded to the local API). A new
+ * modification date alone is not enough (review fix 2 of stage R2: `utimes` leaves the birthtime,
+ * so the photo kept the checkout's date): each picture is written again as a new file with the
+ * same bytes and mode (a sibling, renamed over it), so it is created, and modified, now. Only the
+ * dates change, never the content.
+ *
+ * @returns the files renewed
+ */
+export function freshenFlowMedia(dir = MAESTRO_MEDIA) {
+  if (!fs.existsSync(dir)) {
+    return [];
+  }
+  const dated = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isFile() && !entry.name.startsWith('.')) {
+      const file = path.join(dir, entry.name);
+      const fresh = path.join(dir, `.${entry.name}.fresh-${process.pid}`);
+      try {
+        fs.writeFileSync(fresh, fs.readFileSync(file));
+        fs.chmodSync(fresh, fs.statSync(file).mode & 0o777);
+        fs.renameSync(fresh, file);
+      } finally {
+        fs.rmSync(fresh, { force: true });
+      }
+      dated.push(file);
+    }
+  }
+  return dated;
+}
 
 /** App id, host and URLs of a platform (Android: the machine is 10.0.2.2; iOS: localhost). */
 export function targetFor(platform) {
@@ -342,6 +435,13 @@ export async function testMobileMaestro(argv) {
   if (flags.stop) {
     return stopKept();
   }
+  let keepRuns;
+  try {
+    keepRuns = maestroKeepRuns();
+  } catch (error) {
+    log.error(error.message);
+    return 1;
+  }
   const maestro = maestroPath();
   if (!maestro) {
     log.error(maestroNotFoundMessage(process.platform));
@@ -371,6 +471,16 @@ export async function testMobileMaestro(argv) {
     log.info(`Platform: iOS (${choice.why}; choose with --platform android|ios).`);
   }
   log.info(`${resolved.describe}; Maestro: ${maestro}`);
+  // Before anything is built, so a nearly full disk gets its space back first.
+  try {
+    const pruned = pruneMaestroRuns(keepRuns);
+    log.info(
+      `Maestro debug output: ${pruned.length} earlier run folder(s) deleted, the ${keepRuns} newest kept ` +
+        `(${path.relative(ROOT, MAESTRO_RUNS)}; ORENJI_MAESTRO_KEEP_RUNS).`,
+    );
+  } catch (error) {
+    log.warn(`Could not delete the earlier Maestro run folders: ${error.message}`);
+  }
   if ((await ensureInfrastructure()) !== 0) {
     return 1;
   }
@@ -457,6 +567,7 @@ export async function testMobileMaestro(argv) {
     }
 
     fs.mkdirSync(MAESTRO_OUTPUT, { recursive: true });
+    freshenFlowMedia();
     // Flow paths are relative to where npm was invoked (INIT_CWD), Maestro runs in apps/mobile.
     const invokedFrom = process.env.INIT_CWD ?? process.cwd();
     const targets = rest.length > 0 ? rest.map((flow) => path.resolve(invokedFrom, flow)) : [MAESTRO_DIR];

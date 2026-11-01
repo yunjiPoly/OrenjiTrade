@@ -1,106 +1,286 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { Dimensions, Share } from 'react-native';
 
 import ProfileScreen from '@/app/(tabs)/profile';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
-import { locationFixture, profileFixture } from '../support/fixtures';
-import { mockApi, ok, problem } from '../support/mockApi';
+import {
+  WISH_ID,
+  collectorFixture,
+  privacyFixture,
+  publicBinderSummaryFixture,
+  publicItemFixture,
+  publicItemsPage,
+  referencesPageFixture,
+  wishFixture,
+} from '../support/fixtures';
+import { mockApi, ok, problem, type MockRoutes } from '../support/mockApi';
 import { signedInRoutes } from '../support/routes';
 import { mockRouter, resetRouterMock } from '../support/router';
 import { renderWithProviders, resetAppState } from '../test-utils';
 
 jest.mock('expo-router', () => require('../support/router').expoRouterMock());
 
+const CARD = publicItemFixture({ askingPriceText: '$11.50' });
+const CORE = publicBinderSummaryFixture({
+  id: 'core-1',
+  name: 'Snake-Eye core',
+  sellsAsCore: true,
+  askingPriceText: '$180',
+  itemCount: 0,
+});
+
+// The default text size of a phone (jest's window says 2, a larger size where rows stack).
+const WINDOW = Dimensions.get('window');
 beforeEach(() => {
+  Dimensions.set({ window: { ...WINDOW, fontScale: 1 }, screen: { ...WINDOW, fontScale: 1 } });
   resetRouterMock();
   resetAppState();
 });
 
-describe('Profile tab', () => {
-  it('shows a skeleton, then the collector, their interests, area and visibility', async () => {
-    mockApi(signedInRoutes());
-    renderWithProviders(<ProfileScreen />, { port: new FakeAuthPort(testUser()) });
+afterAll(() => {
+  Dimensions.set({ window: WINDOW, screen: WINDOW });
+});
+
+function routes(extra: MockRoutes = {}): MockRoutes {
+  return signedInRoutes({
+    'GET /api/v1/collectors/{handle}': ok(collectorFixture()),
+    'GET /api/v1/collectors/{handle}/inventory': ok(publicItemsPage([CARD])),
+    'GET /api/v1/collectors/{handle}/binders': ok([CORE]),
+    'GET /api/v1/collectors/{handle}/references': ok(referencesPageFixture()),
+    'GET /api/v1/wishlist': ok([wishFixture()]),
+    ...extra,
+  });
+}
+
+const render = () => renderWithProviders(<ProfileScreen />, { port: new FakeAuthPort(testUser()) });
+
+describe('Your Profile tab (mockup screen 21)', () => {
+  it('has the title, the bell and the gear, then your page as others see it', async () => {
+    const api = mockApi(routes());
+    render();
+    expect(screen.getByText('Profile')).toBeOnTheScreen();
+    expect(screen.getByTestId('profile-settings').props.accessibilityLabel).toBe('Settings');
     expect(screen.getByTestId('profile-loading')).toBeOnTheScreen();
 
     expect(await screen.findByTestId('profile-name')).toHaveTextContent('Maïka Test');
+    expect(await screen.findByTestId('notification-bell-profile')).toBeOnTheScreen();
     expect(screen.getByTestId('profile-handle-label')).toHaveTextContent('@maika');
+    expect(screen.getByTestId('profile-rating')).toHaveTextContent(/4\.5$/);
+    // Your line: the city you show, the province, member since; no "Active" (you are here).
+    expect(screen.getByTestId('profile-line')).toHaveTextContent(
+      'Montréal, Quebec · Member since 2026'
+    );
+    expect(screen.getByTestId('profile-chips')).toHaveTextContent('PokémonTracked shipping');
+    // The same page others see, read from the public profile.
+    expect(api.callsTo('GET /api/v1/collectors/{handle}')[0]?.path).toBe(
+      '/api/v1/collectors/maika'
+    );
+    expect(await screen.findByTestId(`profile-card-${CARD.id}`)).toHaveTextContent(/\$11\.50/);
+    expect(screen.getByTestId('profile-binder-core-1')).toHaveTextContent(/Snake-Eye core\$180/);
     expect(screen.getByTestId('profile-bio-text')).toHaveTextContent(
       'Binder collector in Montréal.'
     );
-    expect(screen.getByText('Pokémon')).toBeOnTheScreen();
-    expect(screen.getByText('Local pickup')).toBeOnTheScreen();
-    // The owner sees their own city (shown on the profile) and the state, never a radius.
-    expect(await screen.findByTestId('profile-area')).toHaveTextContent('Montréal, Quebec, Canada');
-    expect(screen.getByTestId('profile-visibility')).toHaveTextContent('Hidden from the map.');
+    expect(await screen.findByText('Fair and friendly trader.')).toBeOnTheScreen();
+    // Edit profile and Share profile instead of Message; no "⋯".
+    expect(screen.getByTestId('profile-edit')).toBeOnTheScreen();
+    expect(screen.getByTestId('profile-share')).toBeOnTheScreen();
+    expect(screen.queryByTestId('collector-message')).toBeNull();
+    expect(screen.queryByTestId('collector-menu')).toBeNull();
     // Never coordinates.
-    expect(screen.queryByText(/45\.5|73\.5/)).toBeNull();
+    expect(screen.queryByText(/45\.5|73\.5|km/)).toBeNull();
   });
 
-  it('says when the collector is visible on the map, and when there is no location yet', async () => {
-    mockApi(
-      signedInRoutes({ 'GET /api/v1/me/location': ok(locationFixture({ discoverable: true })) })
+  it('opens Settings from the gear, the editor from Edit profile, and shares your link', async () => {
+    const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction' });
+    mockApi(routes());
+    render();
+    fireEvent.press(screen.getByTestId('profile-settings'));
+    expect(mockRouter.push).toHaveBeenCalledWith('/settings');
+    fireEvent.press(await screen.findByTestId('profile-edit'));
+    expect(mockRouter.push).toHaveBeenCalledWith('/settings/profile');
+    fireEvent.press(screen.getByTestId('profile-share'));
+    await waitFor(() => expect(share).toHaveBeenCalled());
+    expect(JSON.stringify(share.mock.calls[0]?.[0])).toContain(
+      'https://www.orenjitrade.com/collectors/maika'
     );
-    const { unmount } = renderWithProviders(<ProfileScreen />, {
-      port: new FakeAuthPort(testUser()),
+    share.mockRestore();
+  });
+
+  it('leads "See all" to your Inventory, Inventory › Binders and Search › Wishlist', async () => {
+    mockApi(routes());
+    render();
+    // Each section loads on its own: every link and row is waited for, never read on the frame
+    // of the one found before it (on a loaded runner the next section was not there yet).
+    fireEvent.press(await screen.findByTestId('profile-cards-see-all'));
+    expect(mockRouter.navigate).toHaveBeenLastCalledWith({
+      pathname: '/inventory',
+      params: { view: 'cards' },
     });
-    await waitFor(() =>
-      expect(screen.getByTestId('profile-visibility')).toHaveTextContent(
-        'Visible on the map in Quebec, Canada.'
-      )
-    );
-    unmount();
-
-    mockApi(signedInRoutes({ 'GET /api/v1/me/location': ok({ discoverable: true }) }));
-    renderWithProviders(<ProfileScreen />, { port: new FakeAuthPort(testUser()) });
-    expect(await screen.findByTestId('profile-area')).toHaveTextContent('No location yet.');
-    expect(screen.getByTestId('profile-visibility')).toHaveTextContent('Hidden from the map.');
+    fireEvent.press(await screen.findByTestId('profile-binders-see-all'));
+    expect(mockRouter.navigate).toHaveBeenLastCalledWith({
+      pathname: '/inventory',
+      params: { view: 'binders' },
+    });
+    fireEvent.press(await screen.findByTestId('profile-wishes-see-all'));
+    expect(mockRouter.navigate).toHaveBeenLastCalledWith({
+      pathname: '/search',
+      params: { segment: 'wishlist' },
+    });
+    // Your card opens Edit card, your binder Edit binder.
+    fireEvent.press(await screen.findByTestId(`profile-card-${CARD.id}`));
+    expect(mockRouter.push).toHaveBeenLastCalledWith({
+      pathname: '/items/[id]',
+      params: { id: CARD.id },
+    });
+    fireEvent.press(await screen.findByTestId('profile-binder-core-1'));
+    expect(mockRouter.push).toHaveBeenLastCalledWith({
+      pathname: '/binders/edit',
+      params: { id: 'core-1' },
+    });
   });
 
-  it('shows empty interests', async () => {
+  it('lists your wishes without "I have it"; a row edits the wish', async () => {
+    mockApi(routes());
+    render();
+    const wish = await screen.findByTestId(`profile-wish-${WISH_ID}`);
+    expect(wish).toHaveTextContent(/Azure-Eyes Sky Dragon/);
+    expect(wish).toHaveTextContent(/Any printing · NM only · 85% TCG/);
+    expect(screen.queryByText('I have it')).toBeNull();
+    fireEvent.press(wish);
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/wishlist/edit',
+      params: { id: WISH_ID },
+    });
+    expect(screen.queryByTestId('profile-wishes-hidden')).toBeNull();
+  });
+
+  it('says when others cannot see your wishes', async () => {
     mockApi(
-      signedInRoutes({
-        'GET /api/v1/me/profile': ok(
-          profileFixture({ games: [], languages: [], tags: [], bio: '' })
-        ),
+      routes({
+        'GET /api/v1/me/settings/privacy': ok(privacyFixture({ wishlistVisible: false })),
       })
     );
-    renderWithProviders(<ProfileScreen />, { port: new FakeAuthPort(testUser()) });
-    expect(await screen.findByText('No games yet')).toBeOnTheScreen();
-    expect(screen.getByText('No tags yet')).toBeOnTheScreen();
-    expect(screen.queryByTestId('profile-bio-text')).toBeNull();
+    render();
+    expect(await screen.findByTestId('profile-wishes-hidden')).toHaveTextContent(
+      'Only you see your wishes. Turn on “Let others see what you want” in Settings › Privacy to show them here.'
+    );
+  });
+
+  it('says "Not on the map" without a public place; it opens Location', async () => {
+    mockApi(
+      routes({ 'GET /api/v1/collectors/{handle}': ok(collectorFixture({ location: undefined })) })
+    );
+    render();
+    const line = await screen.findByTestId('profile-line');
+    expect(line).toHaveTextContent('Not on the map · Member since 2026');
+    expect(line.props.accessibilityRole).toBe('link');
+    fireEvent.press(line);
+    expect(mockRouter.push).toHaveBeenCalledWith('/settings/location');
+  });
+
+  it('says how to fill each empty section', async () => {
+    mockApi(
+      routes({
+        'GET /api/v1/me/settings/privacy': ok(privacyFixture({ discoverable: true })),
+        'GET /api/v1/collectors/{handle}': ok(
+          collectorFixture({ bio: '', rating: { average: null, count: 0 } })
+        ),
+        'GET /api/v1/collectors/{handle}/inventory': ok(publicItemsPage([])),
+        'GET /api/v1/collectors/{handle}/binders': ok([]),
+        'GET /api/v1/collectors/{handle}/references': ok(referencesPageFixture({ items: [] })),
+        'GET /api/v1/wishlist': ok([]),
+      })
+    );
+    render();
+    expect(await screen.findByTestId('profile-cards-empty')).toHaveTextContent(
+      'No public cards yet. Make cards public in Inventory so collectors in your region can find them.'
+    );
+    expect(await screen.findByTestId('profile-binders-empty')).toHaveTextContent(
+      'No public binders yet. Make a binder public, or sell a deck core, in Inventory › Binders.'
+    );
+    expect(await screen.findByTestId('profile-wishes-empty')).toHaveTextContent(
+      'No wishes yet. Add the cards you want in Search › Wishlist.'
+    );
+    expect(screen.getByTestId('profile-bio-text')).toHaveTextContent(
+      'No bio yet. Add a few words with Edit profile.'
+    );
+    expect(screen.getByTestId('profile-ratings-empty')).toHaveTextContent('No ratings yet.');
+    // Your "See all" still leads where you add them.
+    expect(screen.getByTestId('profile-cards-see-all')).toBeOnTheScreen();
+  });
+
+  it('while you are not on the map, says why others see no cards and links to Location', async () => {
+    // The API hides the cards and binders of a collector who is not discoverable (others get an
+    // empty list too): "Make cards public" was the wrong advice (stage R6, review fix 1).
+    mockApi(
+      routes({
+        'GET /api/v1/collectors/{handle}': ok(collectorFixture({ location: undefined })),
+        'GET /api/v1/me/settings/privacy': ok(privacyFixture({ discoverable: false })),
+        'GET /api/v1/collectors/{handle}/inventory': ok(publicItemsPage([])),
+        'GET /api/v1/collectors/{handle}/binders': ok([]),
+      })
+    );
+    render();
+    const cards = await screen.findByTestId('profile-cards-empty');
+    await waitFor(() =>
+      expect(cards).toHaveTextContent(
+        /^Collectors cannot see your cards while you are not on the map\.Get on the map$/
+      )
+    );
+    expect(screen.getByTestId('profile-binders-empty')).toHaveTextContent(
+      /^Collectors cannot see your binders while you are not on the map\./
+    );
+    expect(screen.queryByText(/Make cards public/)).toBeNull();
+    fireEvent.press(screen.getByTestId('profile-cards-empty-action'));
+    expect(mockRouter.push).toHaveBeenCalledWith('/settings/location');
+  });
+
+  it('while your profile is private, says why others see no cards and links to Privacy', async () => {
+    mockApi(
+      routes({
+        'GET /api/v1/me/settings/privacy': ok(
+          privacyFixture({ discoverable: true, profileVisibility: 'PRIVATE' })
+        ),
+        'GET /api/v1/collectors/{handle}/inventory': ok(publicItemsPage([])),
+        'GET /api/v1/collectors/{handle}/binders': ok([]),
+      })
+    );
+    render();
+    const binders = await screen.findByTestId('profile-binders-empty');
+    await waitFor(() =>
+      expect(binders).toHaveTextContent(
+        /^Your profile is private, so collectors cannot see your binders\.Privacy settings$/
+      )
+    );
+    fireEvent.press(screen.getByTestId('profile-binders-empty-action'));
+    expect(mockRouter.push).toHaveBeenCalledWith('/settings/privacy');
   });
 
   it('shows an error with retry', async () => {
     const api = mockApi(
-      signedInRoutes({
-        'GET /api/v1/me/profile': [problem(500, 'INTERNAL_ERROR', 'boom'), ok(profileFixture())],
+      routes({
+        'GET /api/v1/collectors/{handle}': [
+          problem(500, 'INTERNAL_ERROR', 'boom'),
+          ok(collectorFixture()),
+        ],
       })
     );
-    renderWithProviders(<ProfileScreen />, { port: new FakeAuthPort(testUser()) });
-    expect(await screen.findByText('We could not load your profile')).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+    render();
+    const error = await screen.findByTestId('profile-error');
+    expect(error).toHaveTextContent(/We could not load your profile/);
+    fireEvent.press(within(error).getByRole('button', { name: 'Try again' }));
     expect(await screen.findByTestId('profile-name')).toHaveTextContent('Maïka Test');
-    expect(api.callsTo('GET /api/v1/me/profile')).toHaveLength(2);
+    expect(api.callsTo('GET /api/v1/collectors/{handle}')).toHaveLength(2);
   });
 
-  it('opens the editor, the public preview and Settings, and signs out', async () => {
-    const port = new FakeAuthPort(testUser());
-    mockApi(signedInRoutes());
-    renderWithProviders(<ProfileScreen />, { port });
-    fireEvent.press(await screen.findByRole('button', { name: 'Edit profile' }));
-    expect(mockRouter.push).toHaveBeenCalledWith('/settings/profile');
-    fireEvent.press(screen.getByRole('button', { name: 'Public preview' }));
-    expect(mockRouter.push).toHaveBeenCalledWith({
-      pathname: '/collectors/[id]',
-      params: { id: 'maika' },
-    });
-    fireEvent.press(screen.getByRole('link', { name: 'Settings' }));
-    expect(mockRouter.push).toHaveBeenCalledWith('/settings');
-    fireEvent.press(screen.getByTestId('profile-offers'));
-    expect(mockRouter.push).toHaveBeenCalledWith('/offers');
-    fireEvent.press(screen.getByTestId('profile-trades'));
-    expect(mockRouter.push).toHaveBeenCalledWith('/trades');
-    fireEvent.press(screen.getByRole('button', { name: 'Sign out' }));
-    await waitFor(() => expect(port.signOut).toHaveBeenCalled());
+  it('has no Offers, Trades, Premium, Credits or Support (ADR 0018, ADR 0019)', async () => {
+    mockApi(routes());
+    render();
+    await screen.findByTestId('profile-name');
+    for (const id of ['profile-offers', 'profile-trades', 'profile-premium', 'profile-credits']) {
+      expect(screen.queryByTestId(id)).toBeNull();
+    }
+    expect(screen.queryByText(/^(Offers|Trades|Premium|Credits|Support OrenjiTrade)$/)).toBeNull();
   });
 });

@@ -1,11 +1,12 @@
 import { expect, test } from './support/fixtures';
 import {
+  API_URL,
   apiListCopy,
   apiPublicBinder,
   apiUpdatePrivacy,
+  authHeader,
   createOnboardedCollector,
   openTab,
-  PLACE_LABELS,
   PLACES,
   printingIdOf,
   requireStack,
@@ -19,16 +20,16 @@ function word(): string {
 }
 
 /**
- * The Search tab's Collectors and Binders segments (stage M7, the web's `/search` tabs on
- * `GET /search`): collectors on the map who allow name search, by name or handle, with their
- * state or province only; public binders by name with their owner; recent searches per segment;
- * the rows open the existing profile and public binder screens. The request names the home
- * region (ADR 0017), never a position; collectors of another region are never listed.
+ * The collectors while a card is typed and Search › Binders (stage R5, owner spec 2026-10-14,
+ * section 8, mockup screens 12 and 14), on the real stack: collectors of the region who allow name
+ * search, by name or handle, at most three, with their state or province only, never a blocked
+ * collector; binders and deck cores of the region by name, handle or key card. The requests name
+ * the home region (ADR 0017), never a position; collectors of another region are never listed.
  */
-test.describe('mobile search segments', () => {
+test.describe('mobile search: collectors while typing, binders', () => {
   requireStack();
 
-  test('collectors by name or handle with their state, public binders by name, recent searches per segment', async ({
+  test('collectors by name or handle with their state, never a blocked one; binders by name with their owner', async ({
     page,
     request,
   }) => {
@@ -49,10 +50,19 @@ test.describe('mobile search segments', () => {
       location: PLACES.brittany,
       discoverable: true,
     });
+    // Blocked by the viewer: never a result either.
+    const blocked = await createOnboardedCollector(request, 'sblock', `${token} Blocked`, {
+      location: PLACES.ontario,
+      discoverable: true,
+    });
     const viewer = await createOnboardedCollector(request, 'sview', 'Mobile Seeker', {
       location: PLACES.quebec,
       discoverable: true,
     });
+    const block = await request.post(`${API_URL}/api/v1/users/${blocked.id}/block`, {
+      headers: authHeader(viewer.idToken),
+    });
+    expect(block.ok(), 'block').toBeTruthy();
     const binderId = await apiPublicBinder(request, neighbour, `${token} trade binder`);
     await apiListCopy(
       request,
@@ -65,94 +75,77 @@ test.describe('mobile search segments', () => {
 
     await openTab(page, 'Search');
     const search = screen(page, 'search');
-    await search.getByRole('tab', { name: 'Collectors' }).click();
-    await expect(search.getByTestId('search-collectors-idle')).toBeVisible({ timeout: 30_000 });
-    await expect(search.getByText('Who trades in your region?')).toBeVisible();
+    await search.getByRole('search', { name: /Card name or code/ }).click({ timeout: 30_000 });
 
-    // By name: the request carries the text and the home region, never a position.
-    const asked = page.waitForRequest(
-      (candidate) =>
-        candidate.url().includes('/api/v1/search?') && candidate.url().includes('types=collectors')
+    // By name: the request carries the text, the home region and the limit, never a position.
+    const asked = page.waitForRequest((candidate) =>
+      candidate.url().includes('/api/v1/search/collectors?')
     );
-    await search.getByLabel('Find a collector').fill(token);
+    await search.getByLabel('Card name or code').fill(token);
     const url = new URL((await asked).url());
     expect(url.searchParams.get('q')).toBe(token);
     expect(url.searchParams.get('region')).toBe('americas-north');
+    expect(url.searchParams.get('limit')).toBe('3');
     expect(url.searchParams.has('lat')).toBe(false);
-    expect(url.searchParams.has('lng')).toBe(false);
-    const row = search.getByTestId(`collector-result-${neighbour.handle}`);
+    const row = search.getByTestId(`search-collector-${neighbour.handle}`);
     await expect(row).toBeVisible({ timeout: 30_000 });
-    const count = search.getByTestId('search-collectors-count');
-    await expect(count).toContainText(`1 collector for “${token}”`);
-    await expect(row).toContainText(`@${neighbour.handle}`);
-    await expect(row).toContainText(PLACE_LABELS.ontario);
+    await expect(row).toContainText('Ontario');
     await expect(row).not.toContainText(/\bkm\b|away/);
-    await expect(search.getByTestId(`collector-result-${hidden.handle}`)).toHaveCount(0);
-    await expect(search.getByTestId(`collector-result-${abroad.handle}`)).toHaveCount(0);
+    await expect(search.getByTestId('search-collectors')).toContainText('Collectors');
+    await expect(search.getByTestId(`search-collector-${hidden.handle}`)).toHaveCount(0);
+    await expect(search.getByTestId(`search-collector-${abroad.handle}`)).toHaveCount(0);
+    await expect(search.getByTestId(`search-collector-${blocked.handle}`)).toHaveCount(0);
+    // No card of the browsed game (Pokémon, the collector's profile game, stage G) has the token.
+    await expect(search.getByTestId('search-no-match')).toContainText(
+      `No Pokémon card matches “${token}”`
+    );
 
-    // By handle; a submitted search is remembered (a typed one only once a row is opened).
-    await search.getByLabel('Find a collector').fill(neighbour.handle);
-    await search.getByLabel('Find a collector').press('Enter');
-    await expect(count).toContainText(`1 collector for “${neighbour.handle}”`, {
-      timeout: 30_000,
-    });
-    await expect(row).toBeVisible();
-
-    // No match: the empty state states the rule.
-    await search.getByLabel('Find a collector').fill(`${token}zzz`);
-    await expect(search.getByTestId('search-collectors-empty')).toBeVisible({ timeout: 30_000 });
-    await expect(
-      search.getByText('Collectors appear when they are on the map and allow name search.')
-    ).toBeVisible();
-
-    // The segment's recent searches come back when the field is emptied, and run again.
-    await search.getByLabel('Find a collector').fill('');
-    await expect(search.getByTestId('search-collectors-idle')).toBeVisible({ timeout: 30_000 });
-    await expect(search.getByTestId(`recent-search-${neighbour.handle}`)).toBeVisible();
-    await expect(search.getByTestId(`recent-search-${token}zzz`)).toHaveCount(0);
-    await search.getByTestId(`recent-search-${neighbour.handle}`).click();
+    // By handle; the row opens the profile, and the search is remembered on this phone.
+    const byHandle = page.waitForResponse(
+      (response) =>
+        response.url().includes('/api/v1/search/collectors?') &&
+        new URL(response.url()).searchParams.get('q') === neighbour.handle
+    );
+    await search.getByLabel('Card name or code').fill(neighbour.handle);
+    await byHandle;
     await expect(row).toBeVisible({ timeout: 30_000 });
-
-    // The row opens the existing profile screen (and remembers the search).
-    await search.getByLabel('Find a collector').fill(token);
-    // The previous results stay on screen while the new query loads: wait for its count.
-    await expect(count).toContainText(`for “${token}”`, { timeout: 30_000 });
-    await expect(row).toBeVisible();
     await row.click();
     const profile = screen(page, 'collector');
     await expect(profile.getByTestId('collector-name')).toHaveText(`${token} Neighbour`, {
       timeout: 30_000,
     });
     await page.goBack();
-    await screen(page, 'search').getByLabel('Find a collector').fill('');
-    await expect(screen(page, 'search').getByTestId(`recent-search-${token}`)).toBeVisible({
+    const back = screen(page, 'search');
+    await back.getByLabel('Card name or code').fill('');
+    await expect(back.getByTestId(`recent-search-${neighbour.handle}`)).toBeVisible({
       timeout: 30_000,
     });
 
-    // Binders by name: the public binder with its owner; its own recent searches.
-    const back = screen(page, 'search');
-    await back.getByRole('tab', { name: 'Binders' }).click();
-    await expect(back.getByTestId('search-binders-idle')).toBeVisible({ timeout: 30_000 });
-    await expect(back.getByText('What is in their binders?')).toBeVisible();
-    await expect(back.getByTestId(`recent-search-${token}`)).toHaveCount(0);
+    // Binders by name: the public binder with its owner, in the whole region.
+    await back.getByRole('tab', { name: 'Binders', exact: true }).click();
     const askedBinders = page.waitForRequest(
       (candidate) =>
-        candidate.url().includes('/api/v1/search?') && candidate.url().includes('types=binders')
+        candidate.url().includes('/api/v1/regions/americas-north/binders?') &&
+        candidate.url().includes('q=')
     );
-    await back.getByLabel('Find a public binder').fill(`${token} trade`);
+    await back.getByLabel('Deck, binder or collector').fill(`${token} trade`);
     expect(new URL((await askedBinders).url()).searchParams.has('lat')).toBe(false);
-    const binder = back.getByTestId(`binder-result-${binderId}`);
+    const binder = back.getByTestId(`binder-search-row-${binderId}`);
     await expect(binder).toBeVisible({ timeout: 30_000 });
-    await expect(back.getByTestId('search-binders-count')).toContainText(
-      `1 public binder for “${token} trade”`
-    );
     await expect(binder).toContainText(`${token} trade binder`);
-    await expect(binder).toContainText(`${token} Neighbour`);
+    await expect(binder).toContainText(`${neighbour.handle} · Ontario · 1 card`);
+    // By the owner's handle too.
+    await back.getByLabel('Deck, binder or collector').fill(neighbour.handle);
+    await expect(binder).toBeVisible({ timeout: 30_000 });
     await binder.click();
     const view = screen(page, 'binder');
     await expect(view.getByTestId('public-binder-title')).toHaveText(`${token} trade binder`, {
       timeout: 30_000,
     });
-    await expect(view.getByTestId('public-binder-owner')).toContainText(`${token} Neighbour`);
+    // The seller row of the redesign (stage R3): the handle and the province.
+    await expect(view.getByTestId('public-binder-owner')).toContainText(neighbour.handle);
+    await expect(view.getByTestId('public-binder-owner-line')).toHaveText(
+      /^Ontario · \d+ public binders?$/
+    );
   });
 });

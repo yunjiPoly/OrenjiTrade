@@ -6,6 +6,7 @@ import {
   ReportCollectorDialogComponent,
   ReportContextInput,
   ReportDialogData,
+  ReportPostPreview,
   ReportTarget,
 } from './report-collector-dialog.component';
 
@@ -21,14 +22,17 @@ export class ReportActionsService {
   async report(
     target: ReportTarget,
     context: ReportContextInput,
+    post?: ReportPostPreview,
   ): Promise<ReportConfirmation | null> {
     const result = await firstValueFrom(
       this.dialog
         .open<ReportCollectorDialogComponent, ReportDialogData, ReportConfirmation>(
           ReportCollectorDialogComponent,
           {
-            data: { target, context },
-            panelClass: 'app-dialog--md',
+            data: post ? { target, context, post } : { target, context },
+            panelClass: 'app-dialog--form',
+            // A post's report uses the window's height (WF review R1-4) and never outgrows it.
+            ...(post ? { maxHeight: 'calc(100dvh - 32px)' } : {}),
             autoFocus: 'dialog',
           },
         )

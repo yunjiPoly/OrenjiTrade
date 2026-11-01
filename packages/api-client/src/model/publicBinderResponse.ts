@@ -7,8 +7,11 @@
  * https://openapi-generator.tech
  * Do not edit the class manually.
  */
+import { BinderKeyCard } from './binderKeyCard';
 import { PublicBinderOwner } from './publicBinderOwner';
+import { BinderImage } from './binderImage';
 import { Freshness } from './freshness';
+import { CollectorRating } from './collectorRating';
 
 
 /**
@@ -31,6 +34,34 @@ export interface PublicBinderResponse {
     itemCount: number;
     games: Array<string>;
     coverImageUrl?: string | null;
+    /**
+     * A deck core (\"Sell as a deck core\", stage R3): one bundle with photos, one price and the description as its note. Always sent
+     */
+    sellsAsCore?: boolean;
+    /**
+     * A deck core\'s asking price as the owner typed it; null for other binders and a core without a price
+     */
+    askingPriceText?: string | null;
+    /**
+     * A deck core\'s photos in order; empty for other binders
+     */
+    photos?: Array<BinderImage>;
+    /**
+     * Up to 3 pictures for lists: a deck core\'s first photo, otherwise the catalog pictures of its first public cards (every card of a deck core counts)
+     */
+    previewImages?: Array<string>;
+    /**
+     * A deck core\'s key cards with their copies, most copies first (at most 30): every live card filed in it, whatever the card\'s own visibility, as its cards sell only together; empty for other binders
+     */
+    keyCards?: Array<BinderKeyCard>;
+    /**
+     * The owner\'s public binders, deck cores included (the seller row of a deck core page)
+     */
+    ownerPublicBinderCount?: number;
+    /**
+     * The owner\'s rating summary for the seller row (web stage WD: no profile read for it); null for a signed-out caller (stage R15)
+     */
+    ownerRating?: CollectorRating;
 }
 export enum PublicBinderResponseKindEnum {
     Collection = 'COLLECTION',

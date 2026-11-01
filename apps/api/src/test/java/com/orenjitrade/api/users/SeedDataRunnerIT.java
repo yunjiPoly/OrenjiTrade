@@ -43,8 +43,12 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                 testUsers.count(
                         "SELECT count(*) FROM inventory_item WHERE id::text LIKE"
                                 + " '00000000-0000-4000-8c00-%'");
-        assertThat(binders).isEqualTo(11);
-        assertThat(items).isEqualTo(39);
+        // Stage R3 added collector2's deck core "Moth Queen core" and its three cards; stage G
+        // split the five binders that mixed games into one binder per game (18); stage R7 added
+        // Home's feed: collector5's deck core "Monarch core" (3 cards), 13 public unfiled cards
+        // of collector5 and 3 of collector2 (19 binders, 61 cards).
+        assertThat(binders).isEqualTo(19);
+        assertThat(items).isEqualTo(61);
         seedDataRunner.seedAll();
         assertThat(
                         testUsers.count(
@@ -76,7 +80,22 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                                         + " '00000000-0000-4000-8b00-000000000601' AND"
                                         + " freshness_state = 'HIDDEN' AND hidden_reason ="
                                         + " 'STALE_UNCONFIRMED'"))
-                .isEqualTo(3);
+                .isEqualTo(2);
+        // Stage G: every seeded binder holds the cards of its own game only.
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM inventory_item i JOIN binder b ON b.id ="
+                                        + " i.binder_id JOIN card_printing p ON p.id ="
+                                        + " i.printing_id JOIN card c ON c.id = p.card_id WHERE"
+                                        + " b.id::text LIKE '00000000-0000-4000-8b00-%' AND"
+                                        + " c.game_id <> b.game_id"))
+                .isZero();
+        Map<String, Object> core = binderRow("00000000-0000-4000-8b00-000000000202");
+        assertThat(core.get("sells_as_core")).isEqualTo(true);
+        assertThat(core.get("asking_price_text")).isEqualTo("$95");
+        assertThat(core.get("asking_price")).isEqualTo(new java.math.BigDecimal("95.00"));
+        assertThat(core.get("publicly_listed")).isEqualTo(true);
+        assertThat(core.get("item_count")).isEqualTo(3);
         Map<String, Object> temporary = binderRow("00000000-0000-4000-8b00-000000000401");
         assertThat(temporary.get("visibility")).isEqualTo("TEMPORARILY_PUBLIC");
         assertThat(temporary.get("public_until")).isNotNull();
@@ -120,7 +139,8 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
         String seededNotifications =
                 "SELECT count(*) FROM notification WHERE id::text LIKE"
                         + " '00000000-0000-4000-9a00-%'";
-        assertThat(testUsers.count(wishes)).isEqualTo(3);
+        // collector2's three, and collector5's two of stage R7 (Home's feed).
+        assertThat(testUsers.count(wishes)).isEqualTo(5);
         assertThat(
                         testUsers.count(
                                 "SELECT count(*) FROM wishlist_item WHERE owner_id = ? AND"
@@ -165,7 +185,7 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
 
         seedDataRunner.seedAll();
 
-        assertThat(testUsers.count(wishes)).isEqualTo(3);
+        assertThat(testUsers.count(wishes)).isEqualTo(5);
         assertThat(testUsers.count(seededNotifications)).isEqualTo(4);
         assertThat(testUsers.count(collector2Alerts, collector2)).isEqualTo(alerts);
         assertThat(
@@ -187,6 +207,128 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
      * asked instead: the alert step runs again while the sent-alert key is missing, and the stored
      * notification stays the only one (its dedup key).
      */
+    /**
+     * Home's feed (stage R7) as collector1 reads it, Yu-Gi-Oh! in Americas (North): the seed's
+     * posts of collector2 and collector5 today, this week and this month, every kind, groups of 12
+     * and 3 cards and a single card, two deck cores (one "Trade only"), three wishes; collector2
+     * sees collector1's five cards of the month. The times are relative to now and written again at
+     * every start, so the feed looks the same a month later.
+     */
+    @Test
+    void seedsHomesFeedRelativeToNow() {
+        String collector1 = "seed-collector1:collector1@orenjitrade.test";
+        String collector2 = "seed-collector2:collector2@orenjitrade.test";
+        java.util.List<JsonNode> posts = seedPosts(collector1);
+        assertThat(
+                        posts.stream()
+                                .map(
+                                        post ->
+                                                post.path("kind").asString()
+                                                        + " "
+                                                        + post.path("collector")
+                                                                .path("handle")
+                                                                .asString())
+                                .toList())
+                .containsExactly(
+                        "NEW_CARDS collector5",
+                        "WANTED collector2",
+                        "DECK_CORE collector2",
+                        "NEW_CARDS collector5",
+                        "WANTED collector5",
+                        "NEW_CARDS collector2",
+                        "DECK_CORE collector5",
+                        "WANTED collector5");
+        JsonNode twelve = posts.get(0).path("newCards");
+        assertThat(twelve.path("total").asLong()).isEqualTo(12);
+        assertThat(twelve.path("previews")).hasSize(4);
+        assertThat(twelve.path("previews").get(0).path("name").asString())
+                .isEqualTo("Monarch's Tempest Decree");
+        assertThat(twelve.path("previews").get(0).path("askingPriceText").asString())
+                .isEqualTo("$11.50");
+        assertThat(twelve.path("previews").get(1).path("askingPriceText").asString())
+                .isEqualTo("90% TCG");
+        assertThat(posts.get(2).path("deckCore").path("askingPriceText").asString())
+                .isEqualTo("$95");
+        assertThat(posts.get(3).path("newCards").path("total").asLong()).isEqualTo(1);
+        assertThat(posts.get(5).path("newCards").path("total").asLong()).isEqualTo(3);
+        assertThat(posts.get(6).path("deckCore").path("askingPriceText").asString())
+                .isEqualTo("Trade only");
+        assertThat(posts.get(6).path("deckCore").path("noteFirstLine").asString())
+                .isEqualTo("Looking for Moth Queen pieces in trade. All NM, in sleeves.");
+        java.time.Instant now = java.time.Instant.now();
+        assertAgo(posts.get(0), now, java.time.Duration.ofMinutes(5));
+        assertAgo(posts.get(1), now, java.time.Duration.ofHours(1));
+        assertAgo(posts.get(2), now, java.time.Duration.ofHours(3));
+        assertAgo(posts.get(3), now, java.time.Duration.ofHours(6));
+        assertAgo(posts.get(4), now, java.time.Duration.ofDays(2));
+        assertAgo(posts.get(5), now, java.time.Duration.ofDays(3));
+        assertAgo(posts.get(6), now, java.time.Duration.ofDays(4));
+        assertAgo(posts.get(7), now, java.time.Duration.ofDays(12));
+
+        // collector2 sees collector1's Yu-Gi-Oh! binder, listed this month (five cards).
+        java.util.List<JsonNode> seenByCollector2 = seedPosts(collector2);
+        JsonNode fromCollector1 =
+                seenByCollector2.stream()
+                        .filter(
+                                post ->
+                                        post.path("collector")
+                                                .path("handle")
+                                                .asString()
+                                                .equals("collector1"))
+                        .findFirst()
+                        .orElseThrow();
+        assertThat(fromCollector1.path("newCards").path("total").asLong()).isEqualTo(5);
+        assertAgo(fromCollector1, now, java.time.Duration.ofDays(9));
+
+        // Dated again at every start: an old listing time comes back to "5 minutes ago".
+        testUsers.update(
+                "UPDATE inventory_item SET listing_changed_at = now() - interval '40 days' WHERE"
+                        + " id::text LIKE '00000000-0000-4000-8c00-0000000500%'");
+        seedDataRunner.seedAll();
+        assertAgo(
+                seedPosts(collector1).get(0),
+                java.time.Instant.now(),
+                java.time.Duration.ofMinutes(5));
+    }
+
+    /**
+     * The seed collectors' posts of the Yu-Gi-Oh! feed of Americas (North), as {@code uid}, page by
+     * page to the end (the suite's other tests add posts of their own, some dated ahead).
+     */
+    private java.util.List<JsonNode> seedPosts(String uid) {
+        java.util.List<JsonNode> posts = new java.util.ArrayList<>();
+        String cursor = null;
+        for (int page = 0; page < 100; page++) {
+            String path = "/api/v1/feed?region=americas-north&game=yugioh&limit=50";
+            if (cursor != null) {
+                path += "&cursor=" + cursor;
+            }
+            JsonNode body = callJson(HttpMethod.GET, path, uid, null, 200);
+            body.path("items")
+                    .forEach(
+                            post -> {
+                                if (post.path("collector")
+                                        .path("id")
+                                        .asString()
+                                        .startsWith("00000000-0000-4000-8000-0000000000")) {
+                                    posts.add(post);
+                                }
+                            });
+            if (body.path("nextCursor").isNull()) {
+                return posts;
+            }
+            cursor = body.path("nextCursor").asString();
+        }
+        throw new AssertionError("the feed never ended");
+    }
+
+    private static void assertAgo(JsonNode post, java.time.Instant now, java.time.Duration ago) {
+        java.time.Instant at = java.time.Instant.parse(post.path("at").asString());
+        assertThat(java.time.Duration.between(at, now).minus(ago).abs())
+                .as("%s became public about %s ago", post.path("id").asString(), ago)
+                .isLessThan(java.time.Duration.ofMinutes(10));
+    }
+
     @Test
     void anUpgradedDatabaseGetsTheSeedWishValuesAndTheSampleAlertOnce() {
         UUID collector2 = UUID.fromString("00000000-0000-4000-8000-000000000002");
@@ -259,6 +401,53 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
         assertThat(wishRow(magicWish)).containsEntry("price_term", "100% TCG+");
     }
 
+    /**
+     * A database seeded before stage F1 ("free for all", ADR 0019) and migrated since (the owner's
+     * own dev database): the former Premium account's bio still says "Premium member." on its
+     * public profile. One seed run gives it today's seed bio; a bio the collector wrote is left
+     * alone, even when it mentions Premium.
+     */
+    @Test
+    void anUpgradedDatabaseLosesTheOldPremiumMemberBio() {
+        UUID formerPremium = UUID.fromString("00000000-0000-4000-8000-000000000009");
+        String seedBio = "Collector and trader across all four games.";
+        assertThat(bioOf(formerPremium)).as("a fresh seed").isEqualTo(seedBio);
+        // What the seed of stage S6 and earlier wrote (db/seed/profiles.json before F1).
+        testUsers.update(
+                "UPDATE profile SET bio = ? WHERE user_id = ?",
+                "Collector and trader across all four games. Premium member.",
+                formerPremium);
+
+        seedDataRunner.seedAll();
+
+        assertThat(bioOf(formerPremium)).isEqualTo(seedBio);
+        JsonNode profile =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/collectors/premium_user",
+                        "seed-collector1:collector1@orenjitrade.test",
+                        null,
+                        200);
+        assertThat(profile.path("bio").asString()).isEqualTo(seedBio);
+        assertThat(profile.toString()).doesNotContain("Premium");
+
+        String own = "Trading binders since 2019. Premium member.";
+        testUsers.update("UPDATE profile SET bio = ? WHERE user_id = ?", own, formerPremium);
+        seedDataRunner.seedAll();
+        assertThat(bioOf(formerPremium)).as("the collector's own words").isEqualTo(own);
+
+        // Back to the seed state for the other tests of this class.
+        testUsers.update("UPDATE profile SET bio = ? WHERE user_id = ?", seedBio, formerPremium);
+    }
+
+    private String bioOf(UUID userId) {
+        return (String)
+                testUsers
+                        .query("SELECT bio FROM profile WHERE user_id = ?", userId)
+                        .get(0)
+                        .get("bio");
+    }
+
     private Map<String, Object> wishRow(String id) {
         return testUsers
                 .query(
@@ -272,7 +461,8 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
         return testUsers
                 .query(
                         "SELECT visibility, public_until, freshness_state, item_count,"
-                                + " publicly_listed FROM binder WHERE id = ?",
+                                + " publicly_listed, sells_as_core, asking_price_text,"
+                                + " asking_price FROM binder WHERE id = ?",
                         UUID.fromString(id))
                 .get(0);
     }
@@ -450,56 +640,6 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void seedsASubscriptionCreditsCampaignsAndDonationsIdempotently() {
-        UUID premiumId = UUID.fromString("00000000-0000-4000-8000-000000000009");
-        UUID collector1 = UUID.fromString("00000000-0000-4000-8000-000000000001");
-        UUID collector8 = UUID.fromString("00000000-0000-4000-8000-000000000008");
-        assertThat(
-                        testUsers.count(
-                                "SELECT count(*) FROM subscription WHERE id ="
-                                        + " '00000000-0000-4000-a000-000000000001' AND user_id = ?"
-                                        + " AND status = 'ACTIVE' AND provider = 'fake'",
-                                premiumId))
-                .isEqualTo(1);
-        int entries = testUsers.count("SELECT count(*) FROM credit_ledger_entry");
-        seedDataRunner.seedAll();
-        assertThat(testUsers.count("SELECT count(*) FROM credit_ledger_entry"))
-                .as("idempotent")
-                .isEqualTo(entries);
-        assertThat(
-                        testUsers.count(
-                                "SELECT COALESCE(SUM(amount), 0) FROM credit_ledger_entry WHERE"
-                                        + " user_id = ?",
-                                collector1))
-                .isGreaterThanOrEqualTo(300);
-        assertThat(
-                        testUsers.count(
-                                "SELECT count(*) FROM referral_redemption WHERE referee_id = ?",
-                                collector8))
-                .isEqualTo(1);
-        assertThat(
-                        testUsers.count(
-                                "SELECT count(*) FROM ad_campaign WHERE id::text LIKE"
-                                        + " '00000000-0000-4000-a200-%'"))
-                .isEqualTo(3);
-        assertThat(
-                        testUsers.count(
-                                "SELECT count(*) FROM ad_creative WHERE id::text LIKE"
-                                        + " '00000000-0000-4000-a200-%' AND status = 'ACTIVE'"))
-                .isEqualTo(6);
-        assertThat(
-                        testUsers.count(
-                                "SELECT count(*) FROM donation WHERE id::text LIKE"
-                                        + " '00000000-0000-4000-a300-%' AND status = 'SUCCEEDED'"))
-                .isEqualTo(2);
-        assertThat(
-                        testUsers.count(
-                                "SELECT count(*) FROM advertiser WHERE contact_email LIKE"
-                                        + " '%.example'"))
-                .isPositive();
-    }
-
-    @Test
     void createsTwelveAccountsAndIsIdempotent() {
         assertThat(seedAccounts.all()).hasSize(12);
         assertThat(testUsers.countSeedAccounts()).isEqualTo(12);
@@ -525,11 +665,7 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                         "reports",
                         "offers",
                         "trades",
-                        "payments",
-                        "subscriptions",
-                        "credits",
-                        "ads",
-                        "donations");
+                        "payments");
         // The catalog seed imported the four fictional mock catalogs (idempotently).
         assertThat(
                         testUsers.count(
@@ -546,11 +682,12 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
         assertThat(testUsers.rolesOf(adminId)).containsExactly("ADMIN", "USER");
         assertThat(testUsers.consentsOf(adminId)).hasSize(4);
 
+        // premium_user keeps its handle and sign-in; since stage F1 it is an ordinary collector.
         UUID premiumId = UUID.fromString("00000000-0000-4000-8000-000000000009");
         Map<String, Object> premium = testUsers.row(premiumId);
-        assertThat(premium.get("plan_code")).isEqualTo("PREMIUM");
+        assertThat(premium).doesNotContainKey("plan_code");
         assertThat(premium.get("provider_uid")).isEqualTo("seed-premium-user");
-        assertThat(testUsers.rolesOf(premiumId)).containsExactly("PREMIUM_USER", "USER");
+        assertThat(testUsers.rolesOf(premiumId)).containsExactly("USER");
 
         UUID superAdminId = UUID.fromString("00000000-0000-4000-8000-000000000012");
         assertThat(testUsers.rolesOf(superAdminId)).containsExactly("SUPER_ADMIN", "USER");
@@ -568,6 +705,6 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                 .expectStatus()
                 .isOk();
         assertThat(me("seed-collector1").path("handle").asString()).isEqualTo("collector1");
-        assertThat(me("seed-collector1").path("plan").asString()).isEqualTo("FREE");
+        assertThat(me("seed-collector1").has("plan")).isFalse();
     }
 }

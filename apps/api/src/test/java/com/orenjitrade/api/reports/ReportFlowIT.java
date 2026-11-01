@@ -5,12 +5,15 @@ import static org.awaitility.Awaitility.await;
 
 import com.orenjitrade.api.admin.AbstractPhase7IT;
 import com.orenjitrade.api.auth.domain.Role;
+import com.orenjitrade.api.auth.infra.NoopIdentityAdminClient;
+import com.orenjitrade.api.common.seed.SeedWordingTest;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
@@ -25,6 +28,8 @@ import tools.jackson.databind.JsonNode;
  * suspension and ban actions.
  */
 class ReportFlowIT extends AbstractPhase7IT {
+
+    @Autowired private NoopIdentityAdminClient identity;
 
     @Test
     void reasonsArePublicAndOrdered() {
@@ -43,6 +48,173 @@ class ReportFlowIT extends AbstractPhase7IT {
                         "OTHER");
         assertThat(reasons.get(0).path("label").asString()).isNotBlank();
         assertThat(reasons.get(0).path("description").asString()).isNotBlank();
+        // Deals ship by mail (ADR 0018): no reason speaks of meetups any more.
+        assertThat(reasons.get(4).path("description").asString())
+                .isEqualTo("Behaviour that breaks the Community Guidelines.");
+        List<String> wording = new ArrayList<>();
+        reasons.forEach(
+                reason -> {
+                    wording.addAll(SeedWordingTest.findings(reason.path("label").asString()));
+                    wording.addAll(SeedWordingTest.findings(reason.path("description").asString()));
+                });
+        assertThat(wording).isEmpty();
+    }
+
+    @Test
+    void reportsCarryAShortNumberAndTheConversationHidesSharedDetails() {
+        Collector reporter = member("rn-reporter");
+        Collector reported = member("rn-reported");
+        Collector other = member("rn-other");
+        String conversationId = conversation(reporter, reported);
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/conversations/" + conversationId + "/messages",
+                reporter.uid(),
+                Map.of("kind", "TEXT", "body", "Ship to:\nSam Fictional\n1 Zqaddress Lane"),
+                201);
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/conversations/" + conversationId + "/messages",
+                reported.uid(),
+                Map.of("kind", "TEXT", "body", "e-Transfer to zqpay@example.test"),
+                201);
+        // The phone puts a saved detail after what is already typed, on a line of its own.
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/conversations/" + conversationId + "/messages",
+                reporter.uid(),
+                Map.of(
+                        "kind",
+                        "TEXT",
+                        "body",
+                        "Great, thanks!\nShip to:\nRae Zqappended\n88 Zqappendstreet"),
+                201);
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/conversations/" + conversationId + "/messages",
+                reported.uid(),
+                Map.of(
+                        "kind",
+                        "TEXT",
+                        "body",
+                        "Total is $20.\ne-Transfer to zqappended@example.test"),
+                201);
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/conversations/" + conversationId + "/messages",
+                reporter.uid(),
+                Map.of("kind", "TEXT", "body", "e-Transfer sent!"),
+                201);
+
+        // A flag on the reported collector's private message counts among their open flags.
+        Object flaggedMessage =
+                testUsers
+                        .query(
+                                "SELECT id FROM message WHERE conversation_id = ?::uuid AND"
+                                        + " sender_id = ? ORDER BY created_at LIMIT 1",
+                                conversationId,
+                                reported.id())
+                        .getFirst()
+                        .get("id");
+        testUsers.update(
+                "INSERT INTO moderation_flag (subject_type, subject_id, reason, author_id) VALUES"
+                        + " ('MESSAGE', ?, 'BANNED_TERM', ?)",
+                flaggedMessage,
+                reported.id());
+
+        JsonNode first =
+                report(
+                        reporter,
+                        reported,
+                        "SCAM",
+                        Map.of("source", "CONVERSATION", "conversationId", conversationId),
+                        201);
+        JsonNode second = report(other, reported, "SPAM", null, 201);
+        String moderator = staff("rn-mod", Role.MODERATOR);
+        JsonNode firstDetail =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/admin/reports/" + first.path("id").asString(),
+                        moderator,
+                        null,
+                        200);
+        long firstNumber = firstDetail.path("number").asLong();
+        assertThat(firstNumber).as("numbers start at 1001").isGreaterThanOrEqualTo(1001);
+        JsonNode secondDetail =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/admin/reports/" + second.path("id").asString(),
+                        moderator,
+                        null,
+                        200);
+        assertThat(secondDetail.path("number").asLong())
+                .as("a later report takes a later number")
+                .isGreaterThan(firstNumber);
+        assertThat(
+                        secondDetail
+                                .path("history")
+                                .path("recentReports")
+                                .get(0)
+                                .path("number")
+                                .asLong())
+                .isPositive();
+
+        // Staff find a report by its number, alone.
+        JsonNode found =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/admin/reports?number=" + firstNumber,
+                        moderator,
+                        null,
+                        200);
+        assertThat(found.path("totalItems").asLong()).isEqualTo(1);
+        assertThat(found.path("items").get(0).path("id").asString())
+                .isEqualTo(first.path("id").asString());
+        assertThat(found.path("items").get(0).path("number").asLong()).isEqualTo(firstNumber);
+        assertThat(
+                        callJson(
+                                        HttpMethod.GET,
+                                        "/api/v1/admin/reports?number=99999999",
+                                        moderator,
+                                        null,
+                                        200)
+                                .path("totalItems")
+                                .asLong())
+                .isZero();
+        callJson(HttpMethod.GET, "/api/v1/admin/reports?number=0", moderator, null, 400);
+
+        JsonNode openFlags = firstDetail.path("history").path("openFlags");
+        assertThat(openFlags).as("the message's flag counts (board A2)").hasSize(1);
+        assertThat(openFlags.get(0).path("reason").asString()).isEqualTo("BANNED_TERM");
+
+        // The address and the e-Transfer email are sent as their kind only (spec 15.8.4).
+        JsonNode messages = firstDetail.path("conversation").path("messages");
+        assertThat(messages).hasSize(5);
+        List<String> shared = new ArrayList<>();
+        for (JsonNode message : messages) {
+            shared.add(
+                    message.path("sharedDetail").isNull()
+                            ? "-"
+                            : message.path("sharedDetail").asString());
+            if (!message.path("sharedDetail").isNull()) {
+                assertThat(message.path("body").asString()).isEmpty();
+            }
+        }
+        assertThat(shared)
+                .containsExactly(
+                        "-",
+                        "ETRANSFER_EMAIL",
+                        "SHIPPING_ADDRESS",
+                        "ETRANSFER_EMAIL",
+                        "SHIPPING_ADDRESS");
+        assertThat(messages.get(0).path("body").asString()).isEqualTo("e-Transfer sent!");
+        assertThat(firstDetail.toString())
+                .doesNotContain("Zqaddress")
+                .doesNotContain("zqpay@example.test")
+                .doesNotContain("Zqappend")
+                .doesNotContain("zqappended@example.test")
+                .doesNotContain("Great, thanks!")
+                .doesNotContain("Total is $20.");
     }
 
     @Test
@@ -244,6 +416,9 @@ class ReportFlowIT extends AbstractPhase7IT {
                 .extracting(row -> row.get("action"))
                 .contains("user.suspend");
         callJson(HttpMethod.GET, "/api/v1/me", reported.uid(), null, 403);
+        assertThat(identity.isDisabled(reported.uid()))
+                .as("owner decision of 2026-10-28: a suspension leaves the login on")
+                .isFalse();
 
         callJson(
                 HttpMethod.POST,
@@ -261,6 +436,7 @@ class ReportFlowIT extends AbstractPhase7IT {
         assertThat(testUsers.auditRowsFor(banned.id()))
                 .extracting(row -> row.get("action"))
                 .contains("user.ban");
+        assertThat(identity.isDisabled(banned.uid())).as("a ban disables the login").isTrue();
 
         // Lifting the suspension also lifts the ban mark.
         callJson(
@@ -270,6 +446,7 @@ class ReportFlowIT extends AbstractPhase7IT {
                 null,
                 204);
         assertThat(testUsers.row(banned.id()).get("banned_at")).isNull();
+        assertThat(identity.isDisabled(banned.uid())).isFalse();
 
         // The reported collector's history lists the decisions.
         JsonNode history =

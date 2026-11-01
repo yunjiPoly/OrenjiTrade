@@ -11,6 +11,12 @@ import { friendlyMessage } from '../../core/http/api-error-messages';
 /** Optional criteria of a rating (Phase 7 contract), in display order. */
 export type RatingCriterion = keyof RatingBreakdown & keyof RatingSummaryResponse;
 
+/**
+ * The criteria the web asks and shows: the phone's (Overall, Communication, Card condition,
+ * Shipping). Collectors don't meet, deals ship by mail (ADR 0018): "Meetup reliability" is never
+ * shown; the API keeps the column, and an old rating's meetup score is kept on edit.
+ */
+
 export interface RatingCriterionInfo {
   key: RatingCriterion;
   label: string;
@@ -26,11 +32,6 @@ export const RATING_CRITERIA: readonly RatingCriterionInfo[] = [
     hint: 'Cards matched the condition described',
   },
   { key: 'shipping', label: 'Shipping', hint: 'Well packed and sent on time' },
-  {
-    key: 'meetupReliability',
-    label: 'Meetup reliability',
-    hint: 'On time at the agreed place',
-  },
 ];
 
 /** Longest rating comment (contract: ≤ 600) and reference (≤ 400). */
@@ -41,27 +42,47 @@ export const REFERENCE_MAX = 400;
 export const RATING_EDIT_DAYS = 14;
 
 export const INTERACTION_KIND_LABELS: Record<string, string> = {
+  SALE: 'Sale',
   TRADE: 'Completed trade',
   OFFER_ACCEPTED: 'Accepted offer',
   CONVERSATION_QUALIFIED: 'Conversation',
 };
 
 export const INTERACTION_KIND_ICONS: Record<string, string> = {
+  SALE: 'sell',
   TRADE: 'handshake',
   OFFER_ACCEPTED: 'local_offer',
   CONVERSATION_QUALIFIED: 'forum',
 };
 
+/**
+ * The line that names what is rated (stage R14): a sale "{card} · sold Oct 20" or "{card} · sold
+ * to you Oct 20"; another interaction its kind and date.
+ */
+export function interactionLine(
+  interaction: Pick<RatingEligibilityInteraction, 'kind' | 'occurredAt' | 'dealName' | 'soldToYou'>,
+  locale = 'en',
+): string {
+  const at = new Date(interaction.occurredAt);
+  const date = Number.isNaN(at.getTime())
+    ? ''
+    : new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }).format(at);
+  if (interaction.kind === 'SALE' && interaction.dealName) {
+    return `${interaction.dealName} · ${interaction.soldToYou ? 'sold to you' : 'sold'} ${date}`.trim();
+  }
+  return `${interactionKindLabel(interaction.kind)} · ${date}`;
+}
+
 export function interactionKindLabel(kind: string | null | undefined): string {
   return kind ? (INTERACTION_KIND_LABELS[kind] ?? kind) : '';
 }
 
-/** Word for a whole-star score, used by the star input ("4 stars, Great"). */
+/** Word for a whole-star score, the phone's (spec 10.5): "4 stars, Good". */
 export const SCORE_WORDS: Record<number, string> = {
   1: 'Poor',
-  2: 'Fair',
-  3: 'Good',
-  4: 'Great',
+  2: 'Not great',
+  3: 'Okay',
+  4: 'Good',
   5: 'Excellent',
 };
 
@@ -124,8 +145,7 @@ export function ratingProblem(
     case 'RATING_NOT_ELIGIBLE':
       return (
         `You can ${subject === 'rating' ? 'rate' : 'write a reference for'} ${displayName} ` +
-        'after a completed trade, an accepted offer or a conversation where you both sent at ' +
-        'least 3 messages.'
+        'after a deal with them or a conversation where you both sent at least 3 messages.'
       );
     case 'ALREADY_RATED':
       return 'You already rated this interaction. Edit your rating from the list instead.';

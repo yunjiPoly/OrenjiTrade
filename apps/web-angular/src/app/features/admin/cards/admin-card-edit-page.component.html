@@ -1,10 +1,37 @@
-<div class="admin-page">
-  <a class="edit__back" routerLink="/admin/cards">
-    <mat-icon aria-hidden="true">arrow_back</mat-icon>
-    All cards
-  </a>
+<div [class]="embedded() ? 'ce ce--drawer' : 'admin-page ce'">
+  @if (!embedded()) {
+    <a class="edit__back" routerLink="/admin/cards">
+      <mat-icon aria-hidden="true">arrow_back</mat-icon>
+      All cards
+    </a>
+  }
 
-  @if (notFound()) {
+  @if (creating()) {
+    <section class="edit__section ce__new" aria-labelledby="card-form-title">
+      <h2 id="card-form-title" class="ce__h">New card</h2>
+      <p class="admin-muted">
+        Usually cards arrive with a source's sync; add one by hand when a source misses it.
+      </p>
+      <form class="edit__form" [formGroup]="form" (ngSubmit)="save()" novalidate>
+        <label class="ce__game edit__wide">
+          <span class="ce__label">Game</span>
+          <select class="ce__select" (change)="pickGame($event)">
+            @for (game of gameOptions(); track game.slug) {
+              <option [value]="game.slug" [selected]="game.slug === createGame()">
+                {{ game.name }}
+              </option>
+            }
+          </select>
+        </label>
+        <ng-container *ngTemplateOutlet="cardFields" />
+        <div class="edit__actions edit__wide">
+          <button matButton="filled" type="submit" [disabled]="saving()">
+            {{ saving() ? 'Creating…' : 'Create card' }}
+          </button>
+        </div>
+      </form>
+    </section>
+  } @else if (notFound()) {
     <app-empty-state
       icon="style"
       title="Card not found"
@@ -13,6 +40,7 @@
   } @else if (error(); as error) {
     <app-error-state
       title="This card could not load"
+      retryLabel="Try again"
       [message]="message(error)"
       [requestId]="error.requestId"
       (retry)="load(id())"
@@ -27,105 +55,37 @@
         [eager]="true"
       />
       <div class="edit__heading">
-        <app-game-chip [slug]="card.game ?? ''" />
-        <h1 class="edit__title">{{ card.name }}</h1>
-        <p class="admin-muted">
-          <span class="mono">{{ card.slug }}</span> ·
-          <a [routerLink]="['/cards', card.id]">Public page</a>
+        <p class="ce__game-line">
+          <app-game-badge [game]="card.game ?? ''" size="sm" />
+          {{ gameName(card.game) }}
         </p>
+        @if (embedded()) {
+          <h3 class="edit__title">{{ card.name }}</h3>
+        } @else {
+          <h1 class="edit__title">{{ card.name }}</h1>
+        }
+        <p class="admin-muted">
+          <span class="mono">{{ card.slug }}</span>
+        </p>
+        <p class="admin-muted">
+          {{ (card.printings ?? []).length }}
+          {{ (card.printings ?? []).length === 1 ? 'printing' : 'printings' }} ·
+          {{ gameName(card.game) }} catalog
+        </p>
+        <a class="ce__public" [routerLink]="['/cards', card.id]" target="_blank"
+          >Public page <app-admin-icon name="external" [size]="14" /><span class="visually-hidden"
+            >(opens in a new tab)</span
+          ></a
+        >
       </div>
     </header>
 
     <section class="admin-card edit__section" aria-labelledby="card-form-title">
-      <h2 id="card-form-title">Card</h2>
+      <h2 id="card-form-title" class="ce__h">Card</h2>
       <form class="edit__form" [formGroup]="form" (ngSubmit)="save()" novalidate>
-        <mat-form-field appearance="outline" class="edit__wide">
-          <mat-label>Name</mat-label>
-          <input matInput formControlName="name" maxlength="200" />
-          @if (form.controls.name.hasError('required')) {
-            <mat-error>A name is required.</mat-error>
-          } @else if (serverErrors()['name']) {
-            <mat-error>{{ serverErrors()['name'] }}</mat-error>
-          }
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Card type</mat-label>
-          <input matInput formControlName="cardType" maxlength="80" />
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Subtype</mat-label>
-          <input matInput formControlName="subtype" maxlength="80" />
-        </mat-form-field>
-        <mat-form-field appearance="outline" class="edit__wide">
-          <mat-label>Card text</mat-label>
-          <textarea matInput formControlName="text" rows="3" maxlength="4000"></textarea>
-        </mat-form-field>
-
-        @if (fields().length) {
-          <fieldset class="edit__meta edit__wide">
-            <legend>Attributes</legend>
-            <div class="edit__meta-grid">
-              @for (field of fields(); track field.key) {
-                @if (metadata.controls[field.key]; as control) {
-                  @switch (field.type) {
-                    @case ('boolean') {
-                      <mat-checkbox class="edit__check" [formControl]="control">
-                        {{ field.label }}
-                      </mat-checkbox>
-                    }
-                    @case ('string_list') {
-                      <mat-form-field appearance="outline">
-                        <mat-label>{{ field.label }}</mat-label>
-                        @if (field.options?.length) {
-                          <mat-select [formControl]="control" multiple>
-                            @for (option of field.options; track option) {
-                              <mat-option [value]="option">{{ option }}</mat-option>
-                            }
-                          </mat-select>
-                        } @else {
-                          <input
-                            matInput
-                            [formControl]="control"
-                            placeholder="Separate values with commas"
-                          />
-                        }
-                        @if (fieldError(field); as message) {
-                          <mat-error>{{ message }}</mat-error>
-                        }
-                      </mat-form-field>
-                    }
-                    @default {
-                      <mat-form-field appearance="outline">
-                        <mat-label>{{ field.label }}</mat-label>
-                        @if (field.options?.length) {
-                          <mat-select [formControl]="control">
-                            <mat-option value="">None</mat-option>
-                            @for (option of field.options; track option) {
-                              <mat-option [value]="option">{{ option }}</mat-option>
-                            }
-                          </mat-select>
-                        } @else {
-                          <input
-                            matInput
-                            [type]="field.type === 'number' ? 'number' : 'text'"
-                            [formControl]="control"
-                          />
-                        }
-                        @if (fieldError(field); as message) {
-                          <mat-hint class="edit__error">{{ message }}</mat-hint>
-                        }
-                      </mat-form-field>
-                    }
-                  }
-                }
-              }
-            </div>
-          </fieldset>
-        }
-
+        <ng-container *ngTemplateOutlet="cardFields" />
         <div class="edit__actions edit__wide">
           <button matButton="filled" type="submit" [disabled]="saving()">
-            <mat-icon aria-hidden="true">save</mat-icon>
             {{ saving() ? 'Saving…' : 'Save card' }}
           </button>
         </div>
@@ -133,7 +93,20 @@
     </section>
 
     <section class="admin-card edit__section" aria-labelledby="printings-title">
-      <h2 id="printings-title">Printings</h2>
+      <div class="ce__printings-head">
+        <h2 id="printings-title" class="ce__h">
+          Printings <span class="ce__count">{{ (card.printings ?? []).length }}</span>
+        </h2>
+        <button
+          matButton="outlined"
+          type="button"
+          [disabled]="editingPrinting() !== null"
+          (click)="addPrinting()"
+        >
+          <mat-icon aria-hidden="true">add</mat-icon>
+          Add printing
+        </button>
+      </div>
       @if ((card.printings ?? []).length) {
         <div class="edit__table-wrap">
           <table class="edit__table" aria-label="Printings">
@@ -147,7 +120,7 @@
                 <th scope="col">Edition</th>
                 <th scope="col">Language</th>
                 <th scope="col">Finish</th>
-                <th scope="col">Price</th>
+                <th scope="col">Market price <span class="ce__staff">Staff only</span></th>
                 <th scope="col"><span class="visually-hidden">Actions</span></th>
               </tr>
             </thead>
@@ -189,8 +162,11 @@
             </tbody>
           </table>
         </div>
+        <p class="admin-muted ce__note">
+          Market prices arrive with each import. Staff see them here; collectors never do.
+        </p>
       } @else {
-        <p class="admin-muted">No printings yet.</p>
+        <p class="admin-muted">No printings yet. Add one with its set and collector number.</p>
       }
     </section>
   } @else {
@@ -201,3 +177,164 @@
     </div>
   }
 </div>
+
+<ng-template #cardFields>
+  <!-- Board A11: the console's fields, labels above (web stage WH2 review fix 2). -->
+  <div class="cf edit__wide">
+    <div class="cf__top">
+      <label class="cf__label" for="card-name">Name</label>
+      <span class="cf__count" aria-hidden="true">{{ form.controls.name.value.length }} / 150</span>
+    </div>
+    <input
+      id="card-name"
+      class="cf__control"
+      [formControl]="form.controls.name"
+      maxlength="150"
+      [attr.aria-invalid]="!!nameError()"
+      [attr.aria-describedby]="nameError() ? 'card-name-error' : null"
+    />
+    @if (nameError(); as error) {
+      <p class="cf__error" id="card-name-error">{{ error }}</p>
+    }
+  </div>
+  <div class="cf">
+    <label class="cf__label" for="card-type">Card type</label>
+    <input
+      id="card-type"
+      class="cf__control"
+      [formControl]="form.controls.cardType"
+      maxlength="80"
+    />
+  </div>
+  <div class="cf">
+    <label class="cf__label" for="card-subtype">Subtype</label>
+    <input
+      id="card-subtype"
+      class="cf__control"
+      [formControl]="form.controls.subtype"
+      maxlength="80"
+    />
+  </div>
+  <div class="cf edit__wide">
+    <div class="cf__top">
+      <label class="cf__label" for="card-text">Card text</label>
+      <span class="cf__count" aria-hidden="true"
+        >{{ form.controls.text.value.length.toLocaleString('en-US') }} / 4,000</span
+      >
+    </div>
+    <textarea
+      id="card-text"
+      class="cf__control"
+      [formControl]="form.controls.text"
+      rows="4"
+      maxlength="4000"
+      aria-describedby="card-text-help"
+    ></textarea>
+    <p class="cf__help" id="card-text-help">Staff only: collectors never see card text.</p>
+  </div>
+
+  @if (fields().length) {
+    <fieldset class="edit__meta edit__wide">
+      <legend>Attributes</legend>
+      <p class="admin-muted ce__schema">
+        From the {{ gameName(creating() ? createGame() : card()?.game) }} schema;
+        <a
+          routerLink="/admin/games"
+          [queryParams]="{ game: creating() ? createGame() : card()?.game }"
+          >Games</a
+        >
+        decides which fields exist.
+      </p>
+      <div class="edit__meta-grid">
+        @for (field of shownFields(); track field.key) {
+          @if (metadata.controls[field.key]; as control) {
+            @switch (field.type) {
+              @case ('boolean') {
+                <label class="cf-check edit__check">
+                  <input type="checkbox" [formControl]="$any(control)" />
+                  {{ field.label }}
+                </label>
+              }
+              @case ('string_list') {
+                @if (field.options?.length) {
+                  <fieldset
+                    class="cf-checks edit__list"
+                    [attr.aria-describedby]="fieldError(field) ? 'meta-error-' + field.key : null"
+                  >
+                    <legend>{{ field.label }}</legend>
+                    @for (option of field.options; track option) {
+                      <label class="cf-check">
+                        <input
+                          type="checkbox"
+                          [checked]="listHas(control.value, option)"
+                          (change)="toggleListValue(control, option, $any($event.target).checked)"
+                        />
+                        {{ option }}
+                      </label>
+                    }
+                    @if (fieldError(field); as message) {
+                      <p class="cf__error edit__list-error" [id]="'meta-error-' + field.key">
+                        {{ message }}
+                      </p>
+                    }
+                  </fieldset>
+                } @else {
+                  <div class="cf">
+                    <label class="cf__label" [for]="'meta-' + field.key">{{ field.label }}</label>
+                    <input
+                      class="cf__control"
+                      [id]="'meta-' + field.key"
+                      [formControl]="$any(control)"
+                      placeholder="Separate values with commas"
+                      [attr.aria-invalid]="!!fieldError(field)"
+                      [attr.aria-describedby]="fieldError(field) ? 'meta-error-' + field.key : null"
+                    />
+                    @if (fieldError(field); as message) {
+                      <p class="cf__error" [id]="'meta-error-' + field.key">{{ message }}</p>
+                    }
+                  </div>
+                }
+              }
+              @default {
+                <div class="cf">
+                  <label class="cf__label" [for]="'meta-' + field.key">{{ field.label }}</label>
+                  @if (field.options?.length) {
+                    <select
+                      class="cf__control"
+                      [id]="'meta-' + field.key"
+                      [formControl]="$any(control)"
+                      [attr.aria-invalid]="!!fieldError(field)"
+                      [attr.aria-describedby]="fieldError(field) ? 'meta-error-' + field.key : null"
+                    >
+                      <option value="">None</option>
+                      @for (option of field.options; track option) {
+                        <option [value]="option">{{ option }}</option>
+                      }
+                    </select>
+                  } @else {
+                    <input
+                      class="cf__control"
+                      [id]="'meta-' + field.key"
+                      [type]="field.type === 'number' ? 'number' : 'text'"
+                      [formControl]="$any(control)"
+                      [attr.aria-invalid]="!!fieldError(field)"
+                      [attr.aria-describedby]="fieldError(field) ? 'meta-error-' + field.key : null"
+                    />
+                  }
+                  @if (fieldError(field); as message) {
+                    <p class="cf__error" [id]="'meta-error-' + field.key">{{ message }}</p>
+                  }
+                </div>
+              }
+            }
+          }
+        }
+      </div>
+      @if (hiddenCount() > 0) {
+        <button type="button" class="ce__more" (click)="showEmpty.set(true)">
+          Show {{ hiddenCount() }} empty {{ hiddenCount() === 1 ? 'field' : 'fields' }}
+        </button>
+      }
+    </fieldset>
+  }
+</ng-template>

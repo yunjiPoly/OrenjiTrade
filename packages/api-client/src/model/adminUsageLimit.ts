@@ -10,11 +10,10 @@
 
 
 /**
- * Usage limit of a plan (admin view)
+ * Usage limit, the same for every collector (admin view)
  */
 export interface AdminUsageLimit { 
     id?: string;
-    planCode?: string;
     key?: string;
     kind?: AdminUsageLimitKindEnum;
     window?: AdminUsageLimitWindowEnum;
@@ -26,6 +25,14 @@ export interface AdminUsageLimit {
     description?: string;
     updatedBy?: string;
     updatedAt?: string;
+    /**
+     * The last editor\'s handle (spec 15.8)
+     */
+    updatedByHandle?: string | null;
+    /**
+     * The last editor\'s display name
+     */
+    updatedByName?: string | null;
 }
 export enum AdminUsageLimitKindEnum {
     Counter = 'COUNTER',

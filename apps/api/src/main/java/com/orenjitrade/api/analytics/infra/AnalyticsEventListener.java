@@ -41,7 +41,8 @@ import org.springframework.transaction.event.TransactionalEventListener;
  *
  * <p>Privacy: account ids become HMAC hashes ({@link ActorHasher}); geography is the platform
  * region and subdivision codes carried by the notification, never a city, a coordinate or a
- * distance (ADR 0017); search text is scrubbed and truncated ({@link AnalyticsText}).
+ * distance (ADR 0017); search text never enters an event, only its length (stage R5; {@link
+ * AnalyticsText} still scrubs any other free text an event may carry).
  */
 @Component
 public class AnalyticsEventListener {
@@ -63,10 +64,9 @@ public class AnalyticsEventListener {
                 () -> {
                     Map<String, Object> payload = new LinkedHashMap<>();
                     payload.put("surface", search.surface());
-                    @Nullable String query = AnalyticsText.sanitize(search.query());
-                    if (query != null) {
-                        payload.put("query", query);
-                    }
+                    // The text itself never enters an event (stage R5): it may name a collector
+                    // (search lists collectors by handle while a card is typed), and the phone's
+                    // recent searches promise "Only you see your searches". Its length stays.
                     payload.put(
                             "query_length", search.query() == null ? 0 : search.query().length());
                     if (search.game() != null) {
@@ -95,10 +95,9 @@ public class AnalyticsEventListener {
                     () -> {
                         Map<String, Object> payload = new LinkedHashMap<>();
                         payload.put("surface", search.surface());
-                        @Nullable String query = AnalyticsText.sanitize(search.query());
-                        if (query != null) {
-                            payload.put("query", query);
-                        }
+                        payload.put(
+                                "query_length",
+                                search.query() == null ? 0 : search.query().length());
                         if (search.game() != null) {
                             payload.put("game", search.game());
                         }

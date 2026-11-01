@@ -17,6 +17,15 @@ export interface BlockTarget {
   displayName: string;
 }
 
+/** A block asked from somewhere with its own words (a community room, board W22). */
+export interface BlockOptions {
+  /** The confirmation's title and text instead of the default ones. */
+  title?: string;
+  message?: string;
+  /** `false`: the caller says it is done itself (a toast with Undo); refusals still show. */
+  notify?: boolean;
+}
+
 /**
  * Block and unblock with a confirmation and a snack bar (`POST/DELETE /users/{id}/block`). Both
  * calls are idempotent on the server. Resolves `true` when the change was made.
@@ -27,16 +36,17 @@ export class BlockActionsService {
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
 
-  async block(target: BlockTarget): Promise<boolean> {
+  async block(target: BlockTarget, options: BlockOptions = {}): Promise<boolean> {
     const confirmed = await firstValueFrom(
       this.dialog
         .open<ConfirmDialogComponent, ConfirmDialogData, boolean>(ConfirmDialogComponent, {
           data: {
-            title: `Block ${target.displayName}?`,
+            title: options.title ?? `Block ${target.displayName}?`,
             message:
+              options.message ??
               'You will stop seeing each other’s binders, profiles and posts on the map, in search ' +
-              'and in the community, and neither of you can send messages. They are not told. ' +
-              'You can unblock them from Settings → Blocked users.',
+                'and in the community, and neither of you can send messages. They are not told. ' +
+                'You can unblock them from Settings → Blocked users.',
             confirmLabel: 'Block',
             tone: 'danger',
           },
@@ -53,7 +63,9 @@ export class BlockActionsService {
           context: silentErrors(),
         }),
       );
-      this.snackBar.open(`${target.displayName} is blocked.`, 'OK', { duration: 5000 });
+      if (options.notify !== false) {
+        this.snackBar.open(`${target.displayName} is blocked.`, 'OK', { duration: 5000 });
+      }
       return true;
     } catch (error) {
       this.snackBar.open(friendlyMessage(toApiError(error)), 'OK', { duration: 6000 });
@@ -61,12 +73,14 @@ export class BlockActionsService {
     }
   }
 
-  async unblock(target: BlockTarget): Promise<boolean> {
+  async unblock(target: BlockTarget, options: Pick<BlockOptions, 'notify'> = {}): Promise<boolean> {
     try {
       await firstValueFrom(
         this.api.unblockUser({ id: target.id }, 'body', false, { context: silentErrors() }),
       );
-      this.snackBar.open(`${target.displayName} is unblocked.`, 'OK', { duration: 5000 });
+      if (options.notify !== false) {
+        this.snackBar.open(`${target.displayName} is unblocked.`, 'OK', { duration: 5000 });
+      }
       return true;
     } catch (error) {
       this.snackBar.open(friendlyMessage(toApiError(error)), 'OK', { duration: 6000 });

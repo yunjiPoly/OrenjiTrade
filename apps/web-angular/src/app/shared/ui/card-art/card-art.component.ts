@@ -92,5 +92,9 @@ export class CardArtComponent {
   /** Game slug (`pokemon`, `yugioh`, `mtg`, `riftbound`). */
   readonly game = input.required<string>();
   protected readonly info = computed(() => gameInfo(this.game()));
-  protected readonly accent = computed(() => `var(${this.info().colorVar})`);
+  /** The monogram tile's deep colour in both themes (the art is its own small surface). */
+  protected readonly accent = computed(() => {
+    const key = this.info().tileKey;
+    return key ? `var(--game-tile-${key}-background)` : 'var(--color-primary)';
+  });
 }

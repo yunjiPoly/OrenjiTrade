@@ -1,0 +1,63 @@
+# Stage R15, review fix 2 (findings F2 and F3 of the reviews): a guest opens Ben's plain public
+# binder (not a deck core) by its link, taps Message and gets the sheet "Sign in to message this
+# collector"; they sign in as Ada (fresh, fictional) and the chat with Ben opens about nothing, as
+# a member's Message on that binder does: no pinned card, no "Check the highlighted fields" (before
+# review fix 1 the API refused the binder as the chat's subject and no chat opened).
+appId: ${APP_ID}
+name: A guest messages a plain public binder's owner, signs in, and the chat opens unpinned
+tags:
+  - mobile-r15
+  - guest
+---
+- runScript:
+    file: scripts/parity.js
+    env:
+      ACTION: holders
+- runFlow: subflows/launch-fresh.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'person-button-home'
+    timeout: 60000
+
+# Ben's public binder as a guest: its Message button asks for an account.
+- openLink: ${APP_URL}/--/binders/${output.binder.id}
+- extendedWaitUntil:
+    visible:
+      id: 'public-binder-message'
+    timeout: 60000
+- assertVisible:
+    id: 'screen-binder'
+- assertVisible: 'Maestro holders binder'
+- assertNotVisible: '${output.ben.handle}'
+- takeScreenshot: r15-plain-binder-guest
+- tapOn:
+    id: 'public-binder-message'
+- extendedWaitUntil:
+    visible:
+      id: 'sign-in-sheet-title'
+      text: 'Sign in to message this collector'
+    timeout: 30000
+- takeScreenshot: r15-sheet-plain-binder
+- tapOn:
+    id: 'sign-in-sheet-sign-in'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-sign-in'
+    timeout: 30000
+
+# Sign in as Ada: the chat with Ben, nothing pinned, no refusal.
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.ada.email}
+      PASSWORD: ${output.ada.password}
+- extendedWaitUntil:
+    visible:
+      id: 'chat-safety-tip'
+    timeout: 60000
+- assertVisible:
+    id: 'screen-conversation'
+- assertNotVisible:
+    id: 'pinned-bar'
+- assertNotVisible: 'Check the highlighted fields.*'
+- takeScreenshot: r15-chat-plain-binder

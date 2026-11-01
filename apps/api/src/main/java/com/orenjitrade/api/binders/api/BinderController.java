@@ -73,12 +73,24 @@ public class BinderController {
             description =
                     "Added at the end of the caller's list. PRIVATE unless `visibility` says"
                             + " otherwise; TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days"
-                            + " ahead. 429 LIMIT_REACHED (limitKey `binders.max`) beyond the plan's"
-                            + " binder limit.")
+                            + " ahead. 429 LIMIT_REACHED (limitKey `binders.max`) beyond the binder"
+                            + " limit, the same for every collector. `gameId` (stage G): the one"
+                            + " game whose cards it holds, an ACTIVE game with cards (400"
+                            + " otherwise); without it (the paused web) the binder takes the"
+                            + " game of the first card filed in it while it holds none and"
+                            + " refuses no card. With `gameId`, `coverPrintingId` is a card of"
+                            + " that game (409 BINDER_GAME_MISMATCH otherwise).")
     @ApiResponse(responseCode = "201", description = "Created")
     @ApiResponse(
             responseCode = "400",
             description = "VALIDATION_FAILED",
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                            schema = @Schema(ref = PROBLEM_REF)))
+    @ApiResponse(
+            responseCode = "409",
+            description = "BINDER_GAME_MISMATCH: the cover is a card of another game",
             content =
                     @Content(
                             mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
@@ -102,7 +114,10 @@ public class BinderController {
                                 body.kind(),
                                 body.visibility(),
                                 body.publicUntil(),
-                                body.coverPrintingId()));
+                                body.coverPrintingId(),
+                                body.sellsAsCore(),
+                                body.askingPriceText(),
+                                body.gameId()));
         return ResponseEntity.created(URI.create("/api/v1/binders/" + created.binder().id()))
                 .body(BinderResponse.from(created, timeProvider.now()));
     }
@@ -128,9 +143,19 @@ public class BinderController {
             operationId = "updateBinder",
             summary = "Update a binder (any subset of the fields)",
             description =
-                    "Absent fields are unchanged; `publicUntil` and `coverPrintingId` may be null."
-                            + " Making the binder PUBLIC or TEMPORARILY_PUBLIC confirms it and its"
-                            + " items (like publish).",
+                    "Absent fields are unchanged; `publicUntil`, `coverPrintingId` and"
+                        + " `askingPriceText` may be null. Making the binder PUBLIC or"
+                        + " TEMPORARILY_PUBLIC confirms it and its items (like publish), and so"
+                        + " does `confirm: true`. `sellsAsCore` turns \"Sell as a deck core\" on or"
+                        + " off (photos and price are kept, public views show them only for a deck"
+                        + " core); `askingPriceText` is at most 40 characters once trimmed, and a"
+                        + " plain amount also sets `askingPrice`. `gameId` (stage G) changes the"
+                        + " binder's game while it holds no card: 409 BINDER_GAME_LOCKED once it"
+                        + " has one or while a card deleted or sold from it can still come back"
+                        + " (`gameLocked`), 400 for a game that is not ACTIVE or has no cards. A"
+                        + " binder that has its game takes a `coverPrintingId` of that game only"
+                        + " (409 BINDER_GAME_MISMATCH, also for a new game while the cover is of"
+                        + " another one: send `coverPrintingId` too).",
             requestBody =
                     @io.swagger.v3.oas.annotations.parameters.RequestBody(
                             required = true,
@@ -149,11 +174,22 @@ public class BinderController {
                     @Content(
                             mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                             schema = @Schema(ref = PROBLEM_REF)))
+    @ApiResponse(
+            responseCode = "409",
+            description =
+                    "BINDER_GAME_LOCKED: the game changes only while the binder holds no card;"
+                            + " BINDER_GAME_MISMATCH: the cover is a card of another game",
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                            schema = @Schema(ref = PROBLEM_REF)))
     public BinderResponse update(
             @AuthenticationPrincipal AuthenticatedUser principal,
             @PathVariable UUID id,
             @RequestBody JsonNode body) {
-        PartialUpdate patch = PartialUpdate.of(body).notNull("name", "description", "kind");
+        PartialUpdate patch =
+                PartialUpdate.of(body)
+                        .notNull("name", "description", "kind", "sellsAsCore", "confirm", "gameId");
         String name = patch.text("name");
         String description = patch.text("description");
         BinderKind kind = patch.enumValue("kind", BinderKind.class);
@@ -163,6 +199,10 @@ public class BinderController {
         }
         Instant publicUntil = patch.instant("publicUntil");
         UUID cover = patch.uuid("coverPrintingId");
+        Boolean sellsAsCore = patch.bool("sellsAsCore");
+        String priceText = patch.text("askingPriceText");
+        Boolean confirm = patch.bool("confirm");
+        UUID gameId = patch.uuid("gameId");
         patch.throwIfInvalid();
         BinderDetails updated =
                 binderService.update(
@@ -176,7 +216,12 @@ public class BinderController {
                                 patch.has("publicUntil"),
                                 publicUntil,
                                 patch.has("coverPrintingId"),
-                                cover));
+                                cover,
+                                sellsAsCore,
+                                patch.has("askingPriceText"),
+                                priceText,
+                                Boolean.TRUE.equals(confirm),
+                                gameId));
         return BinderResponse.from(updated, timeProvider.now());
     }
 

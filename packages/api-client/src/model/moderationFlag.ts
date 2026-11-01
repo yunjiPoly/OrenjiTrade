@@ -7,6 +7,7 @@
  * https://openapi-generator.tech
  * Do not edit the class manually.
  */
+import { FlaggedCommunityContent } from './flaggedCommunityContent';
 
 
 /**
@@ -28,6 +29,18 @@ export interface ModerationFlag {
     resolvedAt?: string | null;
     resolvedBy?: string | null;
     resolutionNote?: string | null;
+    /**
+     * The author\'s display name (web stage WH1)
+     */
+    authorDisplayName?: string | null;
+    /**
+     * The resolving staff member\'s handle
+     */
+    resolvedByHandle?: string | null;
+    /**
+     * A flagged community post or reply: its room and text. Null for a private message (its text is shown only inside a report) and an account
+     */
+    community?: FlaggedCommunityContent;
 }
 export enum ModerationFlagSubjectTypeEnum {
     Message = 'MESSAGE',

@@ -1,0 +1,87 @@
+// Looking for on a profile (spec 11, boards W23 and W23b): the second stylesheet of
+// `collector-profile-view` (one component stylesheet stays under the 6 kB budget).
+// Looking for: rows of 64 (40x58 art, the name, the terms).
+.cp__wishes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cp__wish {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 64px;
+  padding: 6px 14px 6px 6px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+}
+
+.cp__wish-art {
+  flex: none;
+  width: 40px;
+  height: 58px;
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+.cp__wish-art app-card-image {
+  width: 40px;
+  height: 58px;
+}
+
+.cp__wish-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cp__wish-name {
+  color: var(--color-ink);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+}
+
+a.cp__wish-name:hover {
+  text-decoration: underline;
+}
+
+.cp__wish-terms {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
+.cp__wish-note {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cp__have {
+  flex: none;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--app-primary-text);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--app-primary-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.cp__have:hover {
+  background: var(--color-primary-tint);
+}

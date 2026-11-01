@@ -25,6 +25,8 @@ import { HideRatingRequest } from '../model/hideRatingRequest';
 // @ts-ignore
 import { PageResponseAdminRating } from '../model/pageResponseAdminRating';
 // @ts-ignore
+import { PageResponseAdminReference } from '../model/pageResponseAdminReference';
+// @ts-ignore
 import { ProblemDetail } from '../model/problemDetail';
 
 // @ts-ignore
@@ -36,6 +38,7 @@ import {
     HideRatingRequestParams,
     HideReferenceRequestParams,
     ListAdminRatingsRequestParams,
+    ListAdminReferencesRequestParams,
     UnhideRatingRequestParams,
     UnhideReferenceRequestParams
 } from './adminRatings.serviceInterface';
@@ -301,6 +304,117 @@ export class AdminRatingsService extends BaseService implements AdminRatingsServ
         let localVarPath = `/api/v1/admin/ratings`;
         const { basePath, withCredentials } = this.configuration;
         return this.httpClient.request<PageResponseAdminRating>('get', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                params: localVarQueryParameters.toHttpParams(),
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * List references (MODERATOR+)
+     * Newest first; filter by the collector it is about, its author or moderation state (web stage WH1, the console\&#39;s References tab).
+     * @endpoint get /api/v1/admin/references
+     * @param requestParameters
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public listAdminReferences(requestParameters?: ListAdminReferencesRequestParams, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<PageResponseAdminReference>;
+    public listAdminReferences(requestParameters?: ListAdminReferencesRequestParams, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<PageResponseAdminReference>>;
+    public listAdminReferences(requestParameters?: ListAdminReferencesRequestParams, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<PageResponseAdminReference>>;
+    public listAdminReferences(requestParameters?: ListAdminReferencesRequestParams, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        const subjectId = requestParameters?.subjectId;
+        const authorId = requestParameters?.authorId;
+        const state = requestParameters?.state;
+        const page = requestParameters?.page;
+        const size = requestParameters?.size;
+
+        let localVarQueryParameters = new OpenApiHttpParams(this.encoder);
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'subjectId',
+            <any>subjectId,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'authorId',
+            <any>authorId,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'state',
+            <any>state,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'page',
+            <any>page,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'size',
+            <any>size,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/v1/admin/references`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<PageResponseAdminReference>('get', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
                 params: localVarQueryParameters.toHttpParams(),

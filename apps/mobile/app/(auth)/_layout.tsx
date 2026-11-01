@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 
 import { AUTH_SCREEN_TITLES } from '@/src/navigation/backTitles';
+import { headerTitleFont } from '@/src/theme/fonts';
 import { useTheme } from '@/src/theme/useTheme';
 
 /** Signed-out screens. The auth gate keeps signed-in collectors out of this group. */
@@ -12,6 +13,8 @@ export default function AuthLayout() {
       screenOptions={{
         headerStyle: { backgroundColor: palette.surface },
         headerTintColor: palette.ink,
+        // Screen titles in Sora, as everywhere else (stage R12; RootNavigator).
+        headerTitleStyle: headerTitleFont(),
         headerShadowVisible: false,
         headerTitleAlign: 'center',
         contentStyle: { backgroundColor: palette.background },

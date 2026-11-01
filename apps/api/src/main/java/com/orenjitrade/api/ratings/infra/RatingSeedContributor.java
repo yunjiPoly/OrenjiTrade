@@ -93,16 +93,16 @@ public class RatingSeedContributor implements SeedContributor {
                     INTERACTION_TRADE,
                     COLLECTOR2,
                     COLLECTOR1,
-                    new RatingScores(5, 5, 5, null, 5),
-                    "Smooth trade at the café on Mont-Royal, cards exactly as described.",
+                    new RatingScores(5, 5, 5, 5, null),
+                    "Smooth trade by mail, well packed and exactly as described.",
                     now.minus(Duration.ofHours(18)));
             rating(
                     "00000000-0000-4000-9b00-000000000102",
                     INTERACTION_TRADE,
                     COLLECTOR1,
                     COLLECTOR2,
-                    new RatingScores(5, 4, null, null, 5),
-                    "Friendly and right on time. Would trade again.",
+                    new RatingScores(5, 4, null, 5, null),
+                    "Friendly and shipped right away. Would trade again.",
                     now.minus(Duration.ofHours(17)));
             references.insertIfAbsent(
                     UUID.fromString("00000000-0000-4000-9b00-000000000201"),

@@ -42,6 +42,44 @@ class CatalogTextTest {
         assertThat(CatalogText.normalisePrintingCode("  ")).isNull();
     }
 
+    /**
+     * A code typed as the card prints it (stage R10, review fix 1, U2): a space for the dash, and a
+     * padded number (Magic prints 0012; the catalogue's Magic code is ZTK-12) also read without its
+     * zeros, the code as typed first.
+     */
+    @Test
+    void codesTypedAsTheCardPrintsThem() {
+        assertThat(CatalogText.printingCodeCandidates("ZTK-12", false)).containsExactly("ZTK-12");
+        assertThat(CatalogText.printingCodeCandidates("ztk 12", false)).containsExactly("ZTK-12");
+        assertThat(CatalogText.printingCodeCandidates(" ZTK  0012 ", false))
+                .containsExactly("ZTK-0012", "ZTK-12");
+        assertThat(CatalogText.printingCodeCandidates("ztk - 012", false))
+                .containsExactly("ZTK-012", "ZTK-12");
+        assertThat(CatalogText.printingCodeCandidates("ZTK-012P", false))
+                .containsExactly("ZTK-012P", "ZTK-12P");
+        assertThat(CatalogText.printingCodeCandidates("lob en001", false))
+                .containsExactly("LOB-EN001");
+        assertThat(CatalogText.printingCodeCandidates("ZSK-001", false))
+                .containsExactly("ZSK-001", "ZSK-1");
+        assertThat(CatalogText.printingCodeCandidates("ZTK-0", false)).containsExactly("ZTK-0");
+        assertThat(CatalogText.printingCodeCandidates("ZTK-00", false))
+                .containsExactly("ZTK-00", "ZTK-0");
+        // Words are no code, and a code typed without a separator is not guessed.
+        assertThat(CatalogText.printingCodeCandidates("Mew ex", false)).isEmpty();
+        assertThat(CatalogText.printingCodeCandidates("ztk12", false)).isEmpty();
+        assertThat(CatalogText.printingCodeCandidates("ZTK", false)).isEmpty();
+        assertThat(CatalogText.printingCodeCandidates("ZTK 12 34", false)).isEmpty();
+        assertThat(CatalogText.printingCodeCandidates(null, false)).isEmpty();
+        // While typing.
+        assertThat(CatalogText.printingCodePrefixCandidates("ztk 0")).containsExactly("ZTK-0");
+        assertThat(CatalogText.printingCodePrefixCandidates("ztk 01"))
+                .containsExactly("ZTK-01", "ZTK-1");
+        assertThat(CatalogText.printingCodePrefixCandidates("AZR-")).containsExactly("AZR-");
+        assertThat(CatalogText.printingCodePrefixCandidates("azr en0")).containsExactly("AZR-EN0");
+        assertThat(CatalogText.printingCodePrefixCandidates("azr")).isEmpty();
+        assertThat(CatalogText.printingCodePrefixCandidates("Mew ex")).isEmpty();
+    }
+
     @Test
     void placeholderEscapesAndWraps() {
         String svg =

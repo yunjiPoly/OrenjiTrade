@@ -16,6 +16,7 @@ import {
   assertFlushableRedis,
   assertIsolated,
   assertRecreatable,
+  bundleScriptPaths,
   databaseOf,
   deleteRunAccounts,
   developerDirs,
@@ -28,6 +29,7 @@ import {
   reuseRefusal,
   runEmailPrefix,
   storageDirsOf,
+  webBundleRefusal,
 } from './mobile-e2e-guard.mjs';
 
 const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'orenji-mobile-e2e-guard-'));
@@ -89,6 +91,13 @@ describe('isolation of the mobile E2E API environment', () => {
     assert.equal(env.CARD_IMAGE_CACHE_DIR, path.join(workDir, 'card-images'));
     assert.equal(env.STORAGE_PUBLIC_BASE_URL, '');
     assert.equal(env.YGOPRODECK_ENABLED, 'false');
+    assert.equal(env.SCRYFALL_ENABLED, 'false');
+    assert.equal(env.TCGDEX_ENABLED, 'false');
+    // The fictional deck cards of the inventory import, only next to a disabled provider.
+    assert.equal(env.SEED_IMPORT_FIXTURES, 'true');
+    // One address for every worker: the anonymous budget of a single visitor is not enough.
+    assert.equal(env.RATE_LIMIT_ANONYMOUS_PER_MINUTE, '600');
+    assert.equal(env.RATE_LIMIT_GUEST_DISCOVERY_PER_10S, '1000');
   });
 
   it("FAILS when the mobile card image cache directory equals the developer one", () => {
@@ -207,6 +216,18 @@ describe('isolation of the mobile E2E API environment', () => {
       devDirs,
     });
     assert.ok(remote.some((problem) => problem.startsWith('YGOPRODECK_IMAGE_BASE_URL')));
+    for (const flag of ['SCRYFALL_ENABLED', 'TCGDEX_ENABLED']) {
+      const enabled = isolationProblems(isolatedEnv({ [flag]: 'true' }), { workDir, devDirs });
+      assert.ok(enabled.some((problem) => problem.startsWith(flag)), flag);
+    }
+    for (const [name, url] of [
+      ['SCRYFALL_IMAGE_BASE_URL', 'https://cards.scryfall.io/'],
+      ['TCGDEX_ARCHIVE_BASE_URL', 'https://codeload.github.com/tcgdex/cards-database/zip/'],
+      ['TCGDEX_ASSET_BASE_URL', 'https://assets.tcgdex.net/'],
+    ]) {
+      const elsewhere = isolationProblems(isolatedEnv({ [name]: url }), { workDir, devDirs });
+      assert.ok(elsewhere.some((problem) => problem.startsWith(name)), name);
+    }
   });
 
   it('keeps provider snapshots inside the work directory', () => {
@@ -321,5 +342,73 @@ describe('run-scoped test accounts', () => {
       /only the local Auth emulator/,
     );
     assert.equal(called, false);
+  });
+});
+
+describe('the served web export (web WB: refuse a build that talks to another API)', () => {
+  const API = 'http://localhost:8090';
+
+  it('reads the scripts a page loads, the app\'s own only', () => {
+    const html =
+      '<html><head><script src="/_expo/static/js/web/entry-abc.js" defer></script>' +
+      "<script src='_expo/static/js/web/index-1.js'></script>" +
+      '<script src="https://cdn.example.com/x.js"></script><script>inline()</script>' +
+      '<script src="/_expo/static/js/web/entry-abc.js"></script></head></html>';
+    assert.deepEqual(bundleScriptPaths(html), ['/_expo/static/js/web/entry-abc.js', '/_expo/static/js/web/index-1.js']);
+    assert.deepEqual(bundleScriptPaths(''), []);
+  });
+
+  it('accepts a build that names the isolated API and never the developer API', () => {
+    assert.equal(
+      webBundleRefusal([{ name: 'entry.js', text: 'const a={apiBaseUrl:"http://localhost:8090"}' }], API),
+      null,
+    );
+  });
+
+  it('refuses a build without the isolated API (made without EXPO_PUBLIC_API_BASE_URL)', () => {
+    const refusal = webBundleRefusal([{ name: 'entry.js', text: 'const port=8080;fetch(`http://${h}:${port}`)' }], API);
+    assert.match(refusal, /does not name the isolated API http:\/\/localhost:8090/);
+  });
+
+  it('refuses a build that names the developer API anywhere, even beside the isolated one', () => {
+    for (const developer of ['http://localhost:8080/api', '127.0.0.1:8080', 'http://[::1]:8080']) {
+      const refusal = webBundleRefusal(
+        [
+          { name: 'entry.js', text: 'x="http://localhost:8090"' },
+          { name: 'chunk.js', text: `y="${developer}"` },
+        ],
+        API,
+      );
+      assert.match(refusal, /names the developer API \(port 8080\) in chunk\.js/, developer);
+    }
+    assert.equal(webBundleRefusal([{ name: 'a.js', text: 'x="http://localhost:80801"' + ' "http://localhost:8090"' }], API), null);
+  });
+
+  it('refuses a page that loads no bundle at all', () => {
+    assert.match(webBundleRefusal([], API), /loads no JavaScript bundle/);
+    assert.match(webBundleRefusal(undefined, API), /loads no JavaScript bundle/);
+  });
+});
+
+describe('servedBundleRefusal (reads the export served on :19006)', () => {
+  function fakeServer(files) {
+    return async (url) => {
+      const pathName = new URL(url).pathname;
+      return pathName in files ? new Response(files[pathName]) : new Response('missing', { status: 404 });
+    };
+  }
+
+  it('passes the isolated build and refuses a stale one, before any spec runs', async () => {
+    const { servedBundleRefusal } = await import('./mobile-e2e.mjs');
+    const page = '<script src="/_expo/static/js/web/entry-1.js" defer></script>';
+    assert.equal(
+      await servedBundleRefusal(fakeServer({ '/': page, '/_expo/static/js/web/entry-1.js': 'a="http://localhost:8090"' })),
+      null,
+    );
+    assert.match(
+      await servedBundleRefusal(fakeServer({ '/': page, '/_expo/static/js/web/entry-1.js': 'a=`http://${h}:${8080}`' })),
+      /does not name the isolated API/,
+    );
+    assert.match(await servedBundleRefusal(fakeServer({})), /Could not read the web export/);
   });
 });

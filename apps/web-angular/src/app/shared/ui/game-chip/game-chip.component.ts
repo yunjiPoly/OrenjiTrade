@@ -38,5 +38,5 @@ import { gameInfo } from '../../domain/games';
 export class GameChipComponent {
   readonly slug = input.required<string>();
   protected readonly info = computed(() => gameInfo(this.slug()));
-  protected readonly accent = computed(() => `var(${this.info().colorVar})`);
+  protected readonly accent = computed(() => this.info().accent);
 }

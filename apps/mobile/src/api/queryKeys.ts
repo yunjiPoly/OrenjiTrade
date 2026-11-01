@@ -20,6 +20,9 @@ export const meKeys = {
   user: (uid: Uid) => [...ME_ROOT, uidKey(uid)] as const,
   account: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'account'] as const,
   profile: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'profile'] as const,
+  /** The welcome's live handle check (stage R12), per handle as it would be saved. */
+  handleAvailability: (uid: Uid, handle: string) =>
+    [...ME_ROOT, uidKey(uid), 'handle-availability', handle] as const,
   location: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'location'] as const,
   privacy: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'privacy'] as const,
   notifications: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'notifications'] as const,
@@ -31,6 +34,20 @@ export const meKeys = {
   inventoryItem: (uid: Uid, id: string) =>
     [...ME_ROOT, uidKey(uid), 'inventory', 'item', id] as const,
   inventorySummary: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'inventory', 'summary'] as const,
+  /**
+   * Inventory imports (stage S5), apart from `inventory` (an item write must not read a preview
+   * again): every read (prefix), the caller's imports, the file limits, one import, its rows.
+   */
+  imports: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'inventory-imports'] as const,
+  importList: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'inventory-imports', 'list'] as const,
+  importLimits: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'inventory-imports', 'limits'] as const,
+  importOne: (uid: Uid, id: string) =>
+    [...ME_ROOT, uidKey(uid), 'inventory-imports', 'one', id] as const,
+  /** Every page set of an import's rows (prefix), whatever the filter. */
+  importRows: (uid: Uid, id: string) =>
+    [...ME_ROOT, uidKey(uid), 'inventory-imports', 'rows', id] as const,
+  importRowList: (uid: Uid, id: string, status: string | null) =>
+    [...ME_ROOT, uidKey(uid), 'inventory-imports', 'rows', id, status ?? 'all'] as const,
   /** Every binder read (list, one binder, its items): invalidated by binder and item writes. */
   binders: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'binders'] as const,
   binderList: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'binders', 'list'] as const,
@@ -38,13 +55,16 @@ export const meKeys = {
   binderItems: (uid: Uid, id: string, filters: object) =>
     [...ME_ROOT, uidKey(uid), 'binders', 'items', id, filters] as const,
   listingStatus: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'listing-status'] as const,
-  /** The caller's plan (`GET /me/plan`: limits such as `binders.max`). */
-  plan: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'plan'] as const,
+  /** The usage limits with the caller's usage (`GET /me/limits`: `binders.max`, ...). */
+  limits: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'limits'] as const,
   /** Another collector as this viewer sees them: profile, binders, cards, ratings, references. */
   collector: (uid: Uid, handle: string) =>
     [...ME_ROOT, uidKey(uid), 'collectors', handle.toLowerCase()] as const,
-  collectorPart: (uid: Uid, handle: string, part: 'binders' | 'items' | 'ratings' | 'references') =>
-    [...ME_ROOT, uidKey(uid), 'collectors', handle.toLowerCase(), part] as const,
+  collectorPart: (
+    uid: Uid,
+    handle: string,
+    part: 'binders' | 'items' | 'item-pages' | 'ratings' | 'references'
+  ) => [...ME_ROOT, uidKey(uid), 'collectors', handle.toLowerCase(), part] as const,
   /** Conversations (Phase 5): every read below (prefix), the inbox, one conversation, messages. */
   conversations: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'conversations'] as const,
   conversationList: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'conversations', 'list'] as const,
@@ -58,11 +78,29 @@ export const meKeys = {
   blocks: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'blocks'] as const,
   /**
    * Unified search and card holders as this viewer sees them (`GET /search`,
-   * `GET /search/card-holders`: the platform region and blocks depend on who asks).
+   * `GET /search/card-holders`: the platform region and blocks depend on who asks): every read
+   * (prefix), the results of one search, the holders of one card or printing.
    */
+  searches: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'search'] as const,
   search: (uid: Uid, params: object) => [...ME_ROOT, uidKey(uid), 'search', params] as const,
   cardHolders: (uid: Uid, params: object) =>
     [...ME_ROOT, uidKey(uid), 'search', 'holders', params] as const,
+  /**
+   * The region map as this viewer sees it (blocked collectors are never counted or listed):
+   * every read (prefix), the binder counts of a region, the binders of Search › Binders.
+   */
+  regionMap: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'region-map'] as const,
+  regionBinderCounts: (uid: Uid, region: string, game?: string) =>
+    game
+      ? ([...ME_ROOT, uidKey(uid), 'region-map', region, 'counts', game] as const)
+      : ([...ME_ROOT, uidKey(uid), 'region-map', region, 'counts'] as const),
+  /** Search › Binders (stage R5): one state or the whole region, binders or deck cores, a text. */
+  regionBinderSearch: (uid: Uid, params: { region: string }) =>
+    [...ME_ROOT, uidKey(uid), 'region-map', params.region, 'binder-search', params] as const,
+  /** Home's feed (stage R7, `GET /feed`): every page of it (prefix), one region, game and chip. */
+  homeFeeds: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'home-feed'] as const,
+  homeFeed: (uid: Uid, params: { region: string; game: string; kind: string }) =>
+    [...ME_ROOT, uidKey(uid), 'home-feed', params] as const,
   /** A collector's public wishlist (`GET /collectors/{handle}/wishlist`; 404 when hidden). */
   collectorWishlist: (uid: Uid, handle: string) =>
     [...ME_ROOT, uidKey(uid), 'collectors', handle.toLowerCase(), 'wishlist'] as const,
@@ -71,15 +109,26 @@ export const meKeys = {
    * channels with 24 h counts, a channel's posts, a post's replies.
    */
   community: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'community'] as const,
-  communityChannels: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'community', 'channels'] as const,
+  /** Every room list read so far (stage R11), whatever its region. */
+  communityRoomLists: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'community', 'rooms'] as const,
+  /** The rooms of a platform region (`null`: every room). */
+  communityRooms: (uid: Uid, region: string | null) =>
+    [...ME_ROOT, uidKey(uid), 'community', 'rooms', region ?? 'all'] as const,
   communityPosts: (uid: Uid, slug: string) =>
     [...ME_ROOT, uidKey(uid), 'community', 'posts', slug] as const,
-  communityReplies: (uid: Uid, postId: string) =>
-    [...ME_ROOT, uidKey(uid), 'community', 'replies', postId] as const,
   /** Wishlist (stage S2): every read (prefix), the list, the admin price terms. */
   wishlist: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'wishlist'] as const,
   wishlistItems: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'wishlist', 'items'] as const,
   wishPriceTerms: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'wishlist', 'price-terms'] as const,
+  /** Which wishes are "Available" in a region (stage R5, `GET /wishlist/availability`). */
+  wishlistAvailability: (uid: Uid, region: string, game?: string) =>
+    [
+      ...ME_ROOT,
+      uidKey(uid),
+      'wishlist',
+      'availability',
+      game ? { region, game } : { region },
+    ] as const,
   /** Notification centre (Phase 6): every read (prefix), the unread count, the feeds. */
   notificationCentre: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'notification-centre'] as const,
   notificationUnread: (uid: Uid) =>
@@ -93,46 +142,10 @@ export const meKeys = {
   /** Ratings (Phase 7): what the caller may still rate about one collector. */
   ratingEligibility: (uid: Uid, userId: string) =>
     [...ME_ROOT, uidKey(uid), 'rating-eligibility', userId] as const,
+  /** Every rating eligibility of this viewer (prefix: a sale or its undo changes them). */
+  ratingEligibilities: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'rating-eligibility'] as const,
   /** The caller's collector reports (`GET /me/reports`). */
   reports: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'reports'] as const,
-  /** Offers (Phase 8): every read (prefix), an inbox page set per query, one proposal. */
-  offers: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'offers'] as const,
-  offerList: (uid: Uid, query: object) =>
-    [...ME_ROOT, uidKey(uid), 'offers', 'list', query] as const,
-  offer: (uid: Uid, id: string) => [...ME_ROOT, uidKey(uid), 'offers', 'one', id] as const,
-  offerSettings: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'offer-settings'] as const,
-  /** Trades (Phase 8): every read (prefix), a list per filter, one trade. */
-  trades: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'trades'] as const,
-  tradeList: (uid: Uid, filter: string) =>
-    [...ME_ROOT, uidKey(uid), 'trades', 'list', filter] as const,
-  trade: (uid: Uid, id: string) => [...ME_ROOT, uidKey(uid), 'trades', 'one', id] as const,
-  /** Payment protection (Phase 9): the caller's payout account (`GET /me/seller-account`). */
-  sellerAccount: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'seller-account'] as const,
-  /** Disputes of the caller's protected trades: every read (prefix), one dispute. */
-  disputes: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'disputes'] as const,
-  dispute: (uid: Uid, id: string) => [...ME_ROOT, uidKey(uid), 'disputes', 'one', id] as const,
-  /** An evidence file of a dispute (fetched with the ID token, shown from memory). */
-  evidenceFile: (uid: Uid, disputeId: string, evidenceId: string) =>
-    [...ME_ROOT, uidKey(uid), 'disputes', 'file', disputeId, evidenceId] as const,
-  /**
-   * A local fake provider checkout (`payment`: a protected trade, `billing`: a subscription,
-   * `donation`: a donation), the caller's own only.
-   */
-  checkout: (uid: Uid, kind: 'payment' | 'billing' | 'donation', ref: string) =>
-    [...ME_ROOT, uidKey(uid), 'checkout', kind, ref] as const,
-  /** Credits (Phase 10): every read (prefix), the ledger pages, the referral code. */
-  credits: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'credits'] as const,
-  creditLedger: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'credits', 'ledger'] as const,
-  referral: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'credits', 'referral'] as const,
-  /** The caller's donations (`GET /me/donations`). */
-  donations: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'donations'] as const,
-  /**
-   * Sponsored placements served to this viewer (targeting and the plan depend on who asks):
-   * every placement (prefix), one placement for a game and a plan.
-   */
-  ads: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'ads'] as const,
-  adSlot: (uid: Uid, placement: string, game: string | null, plan: string | null, region: string) =>
-    [...ME_ROOT, uidKey(uid), 'ads', placement, game ?? '', plan ?? '', region] as const,
 };
 
 export const publicKeys = {
@@ -140,19 +153,21 @@ export const publicKeys = {
   legalDocuments: ['public', 'legal-documents'] as const,
   games: ['public', 'games'] as const,
   tags: (query: string) => ['tags', query] as const,
-  /** The plans and their limits (`GET /plans`). */
-  plans: ['public', 'plans'] as const,
   /**
    * Public feature flags (`GET /public/feature-flags`: `publicChat`, `protectedPayments`, ...),
    * evaluated for the signed-in collector (partial rollouts), so keyed by who asks.
    */
   featureFlags: (uid: Uid) => ['public', 'feature-flags', uidKey(uid)] as const,
-  /** The public supporters wall (`GET /public/donations/supporters`). */
-  supporters: ['public', 'donations', 'supporters'] as const,
   /** Platform regions, countries and subdivisions (`GET /regions`, ADR 0017). */
   regions: ['public', 'regions'] as const,
+  /** The bundled drawing of a region's borders (no request: a file of the app, ADR 0017). */
+  regionOutline: (region: string) => ['bundled', 'region-outline', region] as const,
   /** The reasons of the "Report collector" dialog (`GET /public/report-reasons`). */
   reportReasons: ['public', 'report-reasons'] as const,
+  /** Every public binder read (prefix): a write to binders or their cards refreshes them. */
+  publicBinders: ['public', 'binders'] as const,
+  /** Every read of one public binder, for every viewer (prefix): the binder and its cards. */
+  publicBinderAll: (id: string) => ['public', 'binders', id] as const,
   /** A public binder as one viewer sees it (blocks and the view limit depend on them). */
   publicBinder: (id: string, uid: Uid) => ['public', 'binders', id, uidKey(uid)] as const,
   publicBinderItems: (id: string, uid: Uid, filters: object) =>

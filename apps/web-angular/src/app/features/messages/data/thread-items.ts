@@ -46,7 +46,10 @@ export function dayLabel(date: Date, now: Date = new Date(), locale = 'en'): str
   return new Intl.DateTimeFormat(locale, options).format(date);
 }
 
-/** Oldest first, without duplicates (a REST answer and its realtime echo share the id). */
+/**
+ * Oldest first, without duplicates (a REST answer and its realtime echo share the id), and without
+ * the notes of undone sales.
+ */
 export function mergeMessages(
   current: readonly MessageResponse[],
   incoming: readonly MessageResponse[],
@@ -56,6 +59,11 @@ export function mergeMessages(
     byId.set(message.id, message);
   }
   for (const message of incoming) {
+    // A sale the seller undid: the API withdraws its note and pushes the undone copy (stage R4).
+    if (message.payload?.sale?.undone) {
+      byId.delete(message.id);
+      continue;
+    }
     const known = byId.get(message.id);
     // Keep a receipt already applied locally when a stale copy arrives.
     byId.set(

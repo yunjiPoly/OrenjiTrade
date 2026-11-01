@@ -1,11 +1,13 @@
 package com.orenjitrade.api.search;
 
 import static com.orenjitrade.api.inventory.InventoryTestSupport.binder;
+import static com.orenjitrade.api.inventory.InventoryTestSupport.gameId;
 import static com.orenjitrade.api.inventory.InventoryTestSupport.item;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.orenjitrade.api.inventory.InventoryTestSupport.IsolatedCard;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -40,7 +42,18 @@ class SearchIT extends AbstractSearchIT {
         publicItem(european, english, Map.of());
         Collector bystander = collector("srch-none", "CA", "CA-QC");
 
-        JsonNode result = get(null, 200, "/api/v1/search?q={q}&region=americas-north", card.code());
+        // A member reads who the holders are; a guest their places only (stage R15).
+        JsonNode guest = get(null, 200, "/api/v1/search?q={q}&region=americas-north", card.code());
+        assertThat(guest.path("collectors")).hasSize(1);
+        assertThat(guest.path("collectors").get(0).path("handle").isNull()).isTrue();
+        assertThat(guest.path("collectors").get(0).path("place").path("label").asString())
+                .isEqualTo("Quebec, Canada");
+        JsonNode result =
+                get(
+                        bystander.uid(),
+                        200,
+                        "/api/v1/search?q={q}&region=americas-north",
+                        card.code());
         assertThat(result.path("query").asString()).isEqualTo(card.code());
         assertThat(result.path("region").asString()).isEqualTo("americas-north");
         assertThat(result.path("resolved").path("printingId").asString())
@@ -68,11 +81,28 @@ class SearchIT extends AbstractSearchIT {
         assertThat(byName.path("resolved").path("printingId").isNull()).isTrue();
         assertThat(byName.path("resolved").path("cardId").asString())
                 .isEqualTo(card.cardId().toString());
-        assertThat(handles(byName))
+        // Signed out: the two holders by their places, never by who they are (stage R15).
+        List<String> placesByName = new ArrayList<>();
+        byName.path("collectors")
+                .forEach(
+                        found -> {
+                            assertThat(found.path("handle").isNull()).isTrue();
+                            placesByName.add(found.path("place").path("label").asString());
+                        });
+        assertThat(placesByName)
+                .containsExactlyInAnyOrder("Quebec, Canada", "California, United States");
+        assertThat(
+                        handles(
+                                get(
+                                        bystander.uid(),
+                                        200,
+                                        "/api/v1/search?q={q}",
+                                        card.name().toUpperCase(Locale.ROOT))))
                 .containsExactlyInAnyOrder(holder.handle(), frenchHolder.handle());
 
         // Europe: the European holder only.
-        JsonNode europe = get(null, 200, "/api/v1/search?q={q}&region=europe", card.code());
+        JsonNode europe =
+                get(bystander.uid(), 200, "/api/v1/search?q={q}&region=europe", card.code());
         assertThat(handles(europe)).containsExactly(european.handle());
 
         // Signed in without a region: the caller's home region.
@@ -104,7 +134,10 @@ class SearchIT extends AbstractSearchIT {
                                 HttpMethod.POST,
                                 "/api/v1/binders",
                                 owner.uid(),
-                                binder(word + " trade vault", "PUBLIC"),
+                                binder(
+                                        word + " trade vault",
+                                        "PUBLIC",
+                                        gameId(testUsers, "pokemon")),
                                 201)
                         .path("id")
                         .asString();
@@ -116,14 +149,19 @@ class SearchIT extends AbstractSearchIT {
                                 HttpMethod.POST,
                                 "/api/v1/binders",
                                 owner.uid(),
-                                binder(word + " empty shelf", "PUBLIC"),
+                                binder(
+                                        word + " empty shelf",
+                                        "PUBLIC",
+                                        gameId(testUsers, "pokemon")),
                                 201)
                         .path("id")
                         .asString();
 
+        String member = uniqueUid("srch-text-member");
+        provisionCompliant(member);
         JsonNode result =
                 get(
-                        null,
+                        member,
                         200,
                         "/api/v1/search?q={q}&region=americas-north",
                         word.toLowerCase(Locale.ROOT));
@@ -166,6 +204,121 @@ class SearchIT extends AbstractSearchIT {
                 .isTrue();
     }
 
+    /**
+     * The binder section and the suggestions are limited in SQL: a collector blocked with the
+     * viewer, in either direction, is left out before the limit, so the next match takes the place
+     * (dropped afterwards, the section came back short or empty while a match existed).
+     */
+    @Test
+    void aBlockLeavesTheBinderSectionAndTheSuggestionsBeforeTheirLimit() {
+        String shelf = token();
+        String people = token();
+        Collector one = collector("srch-block-a", "CA", "CA-MB");
+        Collector two = collector("srch-block-b", "CA", "CA-MB");
+        profile(one, people + " Ashgrove", List.of("pokemon"));
+        profile(two, people + " Birchfield", List.of("pokemon"));
+        Map<String, Collector> ownerOfBinder = new LinkedHashMap<>();
+        Map<String, String> binderOfHandle = new LinkedHashMap<>();
+        for (Collector owner : List.of(one, two)) {
+            String binderId =
+                    callJson(
+                                    HttpMethod.POST,
+                                    "/api/v1/binders",
+                                    owner.uid(),
+                                    binder(
+                                            shelf + " case " + owner.handle(),
+                                            "PUBLIC",
+                                            gameId(testUsers, "pokemon")),
+                                    201)
+                            .path("id")
+                            .asString();
+            Map<String, Object> item = item(printing("pkm-p002a"));
+            item.put("binderId", binderId);
+            callJson(HttpMethod.POST, "/api/v1/inventory/items", owner.uid(), item, 201);
+            ownerOfBinder.put(binderId, owner);
+            binderOfHandle.put(owner.handle(), binderId);
+        }
+        String viewer = uniqueUid("srch-block-viewer");
+        UUID viewerId = provisionCompliant(viewer);
+        String binderSearch = "/api/v1/search?q={q}&types=binders&region=americas-north&limit=1";
+        String suggest = "/api/v1/search/suggest?q={q}&region=americas-north&limit=1";
+
+        // Whoever the order puts first is the one to block; the other must take the place.
+        List<String> firstBinder = ids(get(viewer, 200, binderSearch, shelf).path("binders"));
+        assertThat(firstBinder).hasSize(1);
+        Collector first = ownerOfBinder.get(firstBinder.get(0));
+        Collector second = first == one ? two : one;
+        assertThat(suggested(get(viewer, 200, suggest, shelf), "BINDER")).isEqualTo(firstBinder);
+        List<String> firstPerson = suggested(get(viewer, 200, suggest, people), "COLLECTOR");
+        assertThat(firstPerson).hasSize(1);
+        Collector firstNamed = firstPerson.get(0).equals(one.id().toString()) ? one : two;
+        Collector secondNamed = firstNamed == one ? two : one;
+
+        // The viewer blocks the first of each list.
+        callJson(HttpMethod.POST, "/api/v1/users/" + first.id() + "/block", viewer, null, 200);
+        assertThat(ids(get(viewer, 200, binderSearch, shelf).path("binders")))
+                .as("the next binder, not an empty section")
+                .containsExactly(binderOfHandle.get(second.handle()));
+        assertThat(suggested(get(viewer, 200, suggest, shelf), "BINDER"))
+                .containsExactly(binderOfHandle.get(second.handle()));
+        callJson(HttpMethod.DELETE, "/api/v1/users/" + first.id() + "/block", viewer, null, 204);
+        callJson(HttpMethod.POST, "/api/v1/users/" + firstNamed.id() + "/block", viewer, null, 200);
+        assertThat(suggested(get(viewer, 200, suggest, people), "COLLECTOR"))
+                .as("the next collector, not an empty list")
+                .containsExactly(secondNamed.id().toString());
+        callJson(
+                HttpMethod.DELETE,
+                "/api/v1/users/" + firstNamed.id() + "/block",
+                viewer,
+                null,
+                204);
+        assertThat(ids(get(viewer, 200, binderSearch, shelf).path("binders")))
+                .as("unblocked: the first binder is back")
+                .isEqualTo(firstBinder);
+
+        // The other direction: the first of each list blocks the viewer.
+        callJson(HttpMethod.POST, "/api/v1/users/" + viewerId + "/block", first.uid(), null, 200);
+        assertThat(ids(get(viewer, 200, binderSearch, shelf).path("binders")))
+                .containsExactly(binderOfHandle.get(second.handle()));
+        assertThat(suggested(get(viewer, 200, suggest, shelf), "BINDER"))
+                .containsExactly(binderOfHandle.get(second.handle()));
+        if (firstNamed != first) {
+            callJson(
+                    HttpMethod.DELETE,
+                    "/api/v1/users/" + viewerId + "/block",
+                    first.uid(),
+                    null,
+                    204);
+            callJson(
+                    HttpMethod.POST,
+                    "/api/v1/users/" + viewerId + "/block",
+                    firstNamed.uid(),
+                    null,
+                    200);
+        }
+        assertThat(suggested(get(viewer, 200, suggest, people), "COLLECTOR"))
+                .containsExactly(secondNamed.id().toString());
+
+        // A block is between two collectors: for another member, both lists start as they did.
+        String other = uniqueUid("srch-block-other");
+        provisionCompliant(other);
+        assertThat(ids(get(other, 200, binderSearch, shelf).path("binders")))
+                .isEqualTo(firstBinder);
+        assertThat(suggested(get(other, 200, suggest, people), "COLLECTOR")).isEqualTo(firstPerson);
+    }
+
+    /** Ids of the suggestions of one kind, in order. */
+    private static List<String> suggested(JsonNode suggestions, String type) {
+        List<String> found = new ArrayList<>();
+        suggestions.forEach(
+                entry -> {
+                    if (type.equals(entry.path("type").asString())) {
+                        found.add(entry.path("id").asString());
+                    }
+                });
+        return found;
+    }
+
     @Test
     void catalogSectionsAndValidation() {
         JsonNode sets = get(null, 200, "/api/v1/search?q={q}&types=sets,cards", "AZR");
@@ -204,7 +357,7 @@ class SearchIT extends AbstractSearchIT {
                                 HttpMethod.POST,
                                 "/api/v1/binders",
                                 owner.uid(),
-                                binder(word + " binder", "PUBLIC"),
+                                binder(word + " binder", "PUBLIC", gameId(testUsers, "mtg")),
                                 201)
                         .path("id")
                         .asString();
@@ -212,8 +365,10 @@ class SearchIT extends AbstractSearchIT {
         item.put("binderId", binderId);
         callJson(HttpMethod.POST, "/api/v1/inventory/items", owner.uid(), item, 201);
 
+        String member = uniqueUid("sugg-member");
+        provisionCompliant(member);
         JsonNode suggestions =
-                get(null, 200, "/api/v1/search/suggest?q={q}&region=americas-south", word);
+                get(member, 200, "/api/v1/search/suggest?q={q}&region=americas-south", word);
         List<String> types = new ArrayList<>();
         suggestions.forEach(entry -> types.add(entry.path("type").asString()));
         assertThat(types).contains("COLLECTOR", "BINDER");

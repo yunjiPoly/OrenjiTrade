@@ -272,7 +272,9 @@ export async function createOnboardedCollector(
       handle,
       displayName,
       bio: 'Fictional E2E collector.',
-      games: ['pokemon'],
+      // Yu-Gi-Oh! first: the web browses a collector's first profile game that has cards (the
+      // phone's rule, web stage WD), and the suites search the Yu-Gi-Oh! seed catalog.
+      games: ['yugioh', 'pokemon'],
       languages: ['en'],
     },
   });
@@ -338,9 +340,9 @@ export async function chooseOption(page: Page, label: string, option: string): P
   await expect(select).toContainText(option);
 }
 
-/** Opens the account menu of the top bar (signed in: avatar trigger). */
+/** Opens the account menu of the top bar (signed in: the avatar, spec 4.7). */
 export async function openAccountMenu(page: Page): Promise<void> {
-  await page.getByRole('button', { name: /^Account menu for / }).click();
+  await page.getByRole('button', { name: /^Account menu, / }).click();
 }
 
 export interface DomCoordinateFinding {

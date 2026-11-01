@@ -1,0 +1,374 @@
+// A room in the chat column (board W22): the header 64, the banner, the posts centred at max 720,
+// the message box; Room rules beside it (320 at 1280 and wider), a 360 drawer at md, a sheet below.
+:host {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.room {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.room__chat {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--color-background);
+}
+
+/* "Skip to the message box" (WF review A5): hidden until focused, then over the banner. */
+.room__skip {
+  position: absolute;
+  top: 76px;
+  left: 50%;
+  z-index: 5;
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  white-space: nowrap;
+  transform: translate(-50%, 0);
+  clip-path: inset(50%);
+
+  &:focus,
+  &:focus-visible {
+    clip-path: none;
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: var(--focus-offset);
+  }
+}
+
+.room__head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.room__titles {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.room__name {
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  line-height: 22px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.room__sub {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-meta);
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.room__icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-left: -8px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.room__icon:hover {
+  background: var(--color-surface-variant);
+}
+
+// "Room rules": an outline pill (36), pressed while the rules show (board W22).
+.room__rules-toggle {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.room__rules-toggle:hover,
+.room__rules-toggle[aria-pressed='true'] {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-variant);
+  color: var(--color-ink);
+}
+
+.room__banner {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 8px max(24px, calc((100% - 720px) / 2));
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-meta);
+  line-height: 18px;
+
+  app-shell-icon {
+    flex: none;
+    color: var(--color-accent);
+  }
+}
+
+.room__body {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.room__pad {
+  padding: 16px;
+}
+
+// Newest at the bottom: the log fills the column and its posts sit at its end.
+.room__log {
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 2px;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px 12px 12px;
+}
+
+.room__log--empty {
+  justify-content: center;
+}
+
+.room__older {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0 12px;
+}
+
+.room__older-failed {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-meta);
+}
+
+.room__outline {
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-ink);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.room__outline:hover {
+  background: var(--color-surface-variant);
+}
+
+.room__outline[aria-disabled='true'] {
+  color: var(--color-text-muted);
+  cursor: default;
+}
+
+.room__day {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 12px 6px;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+
+  &::before,
+  &::after {
+    flex: 1;
+    height: 1px;
+    background: var(--color-border);
+    content: '';
+  }
+}
+
+.room__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 16px;
+  text-align: center;
+}
+
+.room__empty-title {
+  margin: 8px 0 0;
+  font-size: var(--font-size-section);
+  font-weight: var(--font-weight-semibold);
+}
+
+.room__empty-text {
+  max-width: 40ch;
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.room__skeleton {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 16px;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px 24px;
+}
+
+.room__bone {
+  display: flex;
+  gap: 12px;
+}
+
+.room__bone-lines {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.room__icon:focus-visible,
+.room__rules-toggle:focus-visible,
+.room__outline:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+// Room rules: a 320 pane (lg), a 360 drawer (md), a full-screen sheet below 960.
+.rules-host {
+  overflow-y: auto;
+  background: var(--color-surface);
+}
+
+.rules-host--pane {
+  flex: 0 0 320px;
+  width: 320px;
+  border-left: 1px solid var(--color-border);
+}
+
+.rules-host--drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  width: min(360px, 100%);
+  border-left: 1px solid var(--color-border);
+  box-shadow: var(--elevation-sheet);
+}
+
+.rules-host--sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 1001;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.rules-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  background: var(--color-overlay);
+}
+
+@media (max-width: 959.98px) {
+  .rules-scrim {
+    position: fixed;
+    z-index: 1000;
+  }
+}
+
+@media (max-width: 599.98px) {
+  .room__head {
+    gap: 10px;
+    padding: 0 12px;
+  }
+
+  .room__banner {
+    padding-inline: 12px;
+  }
+
+  .room__log {
+    padding-inline: 4px;
+  }
+
+  // The header keeps the icon; the button's name stays for screen readers.
+  .room__rules-toggle {
+    width: 40px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .room__rules-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
+// A short window (200 percent zoom of 1440 × 900): the column scrolls under its header and the
+// posts keep at least 160 px.
+@media (max-height: 560px) {
+  .room__chat {
+    overflow-y: auto;
+  }
+
+  .room__body {
+    flex-basis: 160px;
+    min-height: 160px;
+  }
+}

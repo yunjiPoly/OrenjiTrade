@@ -37,6 +37,14 @@ export interface ReportDetail {
      * Only when the report names a conversation between the two (then that conversation only)
      */
     conversation?: ReportedConversation;
+    /**
+     * The short number staff read (\"#1047\", V135)
+     */
+    number: number;
+    /**
+     * The room of a reported community post (\"Open the room\", web stage WH2); null for other reports and for an archived channel named after a city
+     */
+    contextRoomSlug?: string | null;
 }
 export enum ReportDetailStatusEnum {
     Open = 'OPEN',

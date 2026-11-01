@@ -54,7 +54,7 @@ test.describe('acceptance: stale listings', () => {
     const page = await actors.open(admin);
     await page.goto('/admin/listings');
     await expect(page.getByRole('heading', { level: 1, name: 'Listings' })).toBeVisible();
-    const queue = page.getByRole('list', { name: 'Listings to review' });
+    const queue = page.getByRole('table', { name: 'Listings to review' });
     const row = queue.locator(`[data-listing="${itemId}"]`);
     await expect(row).toBeVisible({ timeout: 20_000 });
     await expect(row).toContainText(card);

@@ -14,6 +14,7 @@ import com.orenjitrade.api.reports.domain.ReportReason;
 import com.orenjitrade.api.reports.domain.ReportStatus;
 import com.orenjitrade.api.reports.domain.ResolutionAction;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -62,16 +63,23 @@ public class AdminReportController {
     @Operation(
             operationId = "listReports",
             summary = "List collector reports (MODERATOR+)",
-            description = "Newest first; every filter optional.")
+            description =
+                    "Newest first; every filter optional. `number` finds one report by its short"
+                            + " number (\"#1047\" is 1047; V135, web stage WH1).")
     public PageResponse<ReportSummaryResponse> list(
             @RequestParam(required = false) @Nullable ReportStatus status,
             @RequestParam(required = false) @Nullable ReportReason reason,
             @RequestParam(required = false) @Nullable UUID reportedUserId,
             @RequestParam(required = false) @Nullable UUID assignedTo,
+            @Parameter(description = "The report's short number (staff search)")
+                    @RequestParam(required = false)
+                    @Min(1)
+                    @Max(Long.MAX_VALUE)
+                    @Nullable Long number,
             @RequestParam(defaultValue = "0") @Min(0) @Max(10_000) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
         PageResponse<ReportSummaryView> result =
-                reports.list(status, reason, reportedUserId, assignedTo, page, size);
+                reports.list(status, reason, reportedUserId, assignedTo, number, page, size);
         return new PageResponse<>(
                 result.items().stream().map(ReportSummaryResponse::from).toList(),
                 result.page(),
@@ -155,11 +163,12 @@ public class AdminReportController {
             description =
                     "ACTIONED with an action (WARNING: a notice to the collector; LISTINGS_PAUSED:"
                         + " their public listings are paused; SUSPENDED: suspension with the note"
-                        + " as reason and an optional suspendUntil; BANNED: suspension without end"
-                        + " plus the ban mark) or DISMISSED (action NONE). SUSPENDED and BANNED"
-                        + " need ADMIN (403 for moderators); an administrator's account needs a"
-                        + " SUPER_ADMIN. Audited (`REPORT_RESOLVED` with the action; `user.suspend`"
-                        + " / `user.ban` on the account). With notifyReporter the reporter gets a"
+                        + " as reason and an optional suspendUntil, the login left on; BANNED:"
+                        + " suspension without end plus the ban mark, the identity-provider user"
+                        + " disabled) or DISMISSED (action NONE). SUSPENDED and BANNED need ADMIN"
+                        + " (403 for moderators); an administrator's account needs a SUPER_ADMIN."
+                        + " Audited (`REPORT_RESOLVED` with the action; `user.suspend` / `user.ban`"
+                        + " on the account). With notifyReporter the reporter gets a"
                         + " REPORT_DECISION notification without specifics. 409 for decided"
                         + " reports.")
     @ApiResponse(responseCode = "200", description = "The decided report")

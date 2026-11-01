@@ -112,3 +112,73 @@ export function binderVisibilityStatus(
   }
   return { visibility, pending: true, label: `${label} · not visible`, note };
 }
+
+/** The tag of a card on its row (the phone's, owner change of 2026-10-16): who can see it. */
+export type VisibilityTagKind = 'private' | 'public' | 'pending';
+
+export interface VisibilityTag {
+  kind: VisibilityTagKind;
+  /** "Private", "Public", "Public · not visible" or "Public · ended". */
+  label: string;
+  /** Why, for the tooltip and screen readers. */
+  note: string;
+  icon: 'lock' | 'public' | 'visibility_off';
+}
+
+/**
+ * Private (a lock), Public (a globe), or the amber "Public · not visible" for a card set to public
+ * that nobody can see yet (a private binder, hidden until confirmed, the owner not on the map); a
+ * temporary publication of the old web form that ended reads "Public · ended".
+ */
+export function itemVisibilityTag(
+  item: Pick<
+    InventoryItemResponse,
+    'visibility' | 'publicUntil' | 'effectivePublic' | 'freshness' | 'binder'
+  >,
+  context: { binder?: BinderResponse | null; ownerVisible?: boolean | null; now?: number } = {},
+): VisibilityTag {
+  const now = context.now ?? Date.now();
+  const status = itemVisibilityStatus(item, { ...context, now });
+  if (status.visibility === 'PRIVATE') {
+    return { kind: 'private', label: 'Private', note: status.note, icon: 'lock' };
+  }
+  if (!status.pending) {
+    return { kind: 'public', label: 'Public', note: status.note, icon: 'public' };
+  }
+  const ended =
+    item.visibility === 'TEMPORARILY_PUBLIC' &&
+    !(item.publicUntil && Date.parse(item.publicUntil) > now);
+  return {
+    kind: 'pending',
+    label: ended ? 'Public · ended' : 'Public · not visible',
+    note: status.note,
+    icon: 'visibility_off',
+  };
+}
+
+/** The banner of public cards nobody sees yet (spec 9.3), worded for its real cause (F3). */
+export interface NotVisibleBanner {
+  text: string;
+  /** The owner is hidden from the map with a profile that is not public: Privacy settings fix it. */
+  privacyLink: boolean;
+}
+
+export function notVisibleBanner(
+  count: number,
+  ownerVisible: boolean | null,
+): NotVisibleBanner | null {
+  if (count <= 0) {
+    return null;
+  }
+  const cards = `${count} public ${count === 1 ? "card isn't" : "cards aren't"} visible yet.`;
+  if (ownerVisible === false) {
+    return {
+      text: `${cards} You are hidden from the map and your profile is not public, so collectors can't see your binders.`,
+      privacyLink: true,
+    };
+  }
+  return {
+    text: `${cards} Put them in a public binder or choose your province.`,
+    privacyLink: false,
+  };
+}

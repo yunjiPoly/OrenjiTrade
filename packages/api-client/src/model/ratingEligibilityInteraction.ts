@@ -14,11 +14,20 @@ export interface RatingEligibilityInteraction {
     kind: RatingEligibilityInteractionKindEnum;
     occurredAt: string;
     alreadyRated: boolean;
+    /**
+     * A sale\'s card or deck core as named when it was marked sold (stage R14: the rating form names the deal); null for other kinds
+     */
+    dealName?: string | null;
+    /**
+     * A sale: true when the caller bought it (\"sold to you\"), false when the caller sold it; null for other kinds
+     */
+    soldToYou?: boolean | null;
 }
 export enum RatingEligibilityInteractionKindEnum {
     Trade = 'TRADE',
     OfferAccepted = 'OFFER_ACCEPTED',
-    ConversationQualified = 'CONVERSATION_QUALIFIED'
+    ConversationQualified = 'CONVERSATION_QUALIFIED',
+    Sale = 'SALE'
 };
 
 

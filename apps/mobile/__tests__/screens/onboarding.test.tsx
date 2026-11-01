@@ -1,21 +1,22 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
-import { Platform } from 'react-native';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { KeyboardAvoidingView, ScrollView } from 'react-native';
 
 import OnboardingScreen from '@/app/onboarding';
 import { usePendingLink } from '@/src/account/pendingLink';
-import type { UpdateLocationRequest } from '@/src/api/types';
-import { ageConfirmationAccessibleLabel } from '@/src/features/legal/ageConfirmation';
+import type { GameResponse, UpdateLocationRequest } from '@/src/api/types';
+import { useBrowsingGameStore } from '@/src/features/games/browsingGame';
+import { HANDLE_CHECK_DELAY_MS } from '@/src/features/onboarding/HandleField';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
-  LEGAL_DOCUMENTS,
+  GAMES,
   NOT_ONBOARDED,
   TAGS,
   meFixture,
   privacyFixture,
   profileFixture,
 } from '../support/fixtures';
-import { mockApi, noContent, ok, problem, type MockRequest } from '../support/mockApi';
+import { mockApi, ok, problem, type MockRequest } from '../support/mockApi';
 import { signedInRoutes } from '../support/routes';
 import { mockRouter, resetRouterMock } from '../support/router';
 import { renderWithProviders, resetAppState } from '../test-utils';
@@ -58,6 +59,14 @@ function onboardingRoutes(extra = {}) {
       });
     },
     'PUT /api/v1/me/settings/privacy': ({ body }: MockRequest) => ok(body),
+    'GET /api/v1/me/profile/handle-availability': ({ query }: MockRequest) => {
+      const handle = query.get('handle') ?? '';
+      return ok({
+        handle,
+        status: handle === 'taken_one' ? 'TAKEN' : 'AVAILABLE',
+        available: handle !== 'taken_one',
+      });
+    },
     ...extra,
   });
 }
@@ -73,7 +82,26 @@ async function choose(select: string, value: string) {
   fireEvent.press(await screen.findByTestId(`${select}-option-${value}`));
 }
 
-describe('Onboarding', () => {
+/** One Piece, picked like any game, whose cards are coming soon (no `hasCards`). */
+const ONE_PIECE: GameResponse = {
+  id: 'g5',
+  slug: 'one-piece',
+  name: 'One Piece Card Game',
+  shortName: 'One Piece',
+  status: 'ACTIVE',
+  sortOrder: 4,
+  schema: (GAMES[0] as GameResponse).schema,
+  hasCards: false,
+};
+
+/** Lets the handle's live check run (typing pauses, the API answers). */
+async function settleHandleCheck() {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, HANDLE_CHECK_DELAY_MS + 50));
+  });
+}
+
+describe('Welcome (three steps)', () => {
   it('shows a skeleton while loading, then an error with retry', async () => {
     const api = mockApi(
       onboardingRoutes({
@@ -90,13 +118,33 @@ describe('Onboarding', () => {
     expect(api.callsTo('GET /api/v1/me/profile').length).toBeGreaterThanOrEqual(2);
   });
 
-  it('walks profile → interests → location with validation and the map opt-in off by default', async () => {
+  /** What VoiceOver reads as the bar's value: iOS says now / (max - min) as a percentage. */
+  const spokenPercent = (label: string) => {
+    const value = screen.getByLabelText(label).props.accessibilityValue as {
+      min: number;
+      max: number;
+      now: number;
+    };
+    return Math.round((100 * value.now) / (value.max - value.min));
+  };
+
+  it('walks Who are you?, What do you collect? and Where do you ship from?, then opens Home on the first game picked', async () => {
     const api = mockApi(onboardingRoutes());
     renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
 
-    // Step 1: profile.
+    // Step 1 of 3: no age step (sign-up asked it).
     expect(await screen.findByText('Who are you?')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Step 1 of 3 · Profile')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Step 1 of 3')).toBeOnTheScreen();
+    expect(spokenPercent('Step 1 of 3')).toBe(33);
+    expect(screen.getByText('WELCOME TO ORENJITRADE')).toBeOnTheScreen();
+    expect(screen.queryByText(/18 or older/)).toBeNull();
+    // Deals ship by mail (ADR 0018): the first screen a collector fills in never asks where
+    // they meet, neither in a text nor in a placeholder.
+    expect(
+      screen.getByPlaceholderText('What do you collect? Do you trade, sell or ship?')
+    ).toBeOnTheScreen();
+    expect(screen.queryAllByText(/\bmeet/i)).toHaveLength(0);
+    expect(screen.queryAllByPlaceholderText(/\bmeet/i)).toHaveLength(0);
     fireEvent.changeText(screen.getByLabelText('Display name'), '');
     fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
     expect(screen.getByText('Enter a display name.')).toBeOnTheScreen();
@@ -104,11 +152,20 @@ describe('Onboarding', () => {
 
     fireEvent.changeText(screen.getByLabelText('Display name'), 'Maïka');
     fireEvent.changeText(screen.getByLabelText('Handle'), 'Maika_QC');
-    fireEvent.changeText(screen.getByLabelText('Bio'), 'Vintage binders.');
+    await settleHandleCheck();
+    // The live check: a teal check once the handle is free.
+    expect(await screen.findByLabelText('Available')).toBeOnTheScreen();
+    expect(
+      api.callsTo('GET /api/v1/me/profile/handle-availability').at(-1)?.query.get('handle')
+    ).toBe('maika_qc');
+    fireEvent.changeText(screen.getByLabelText('Bio (optional)'), 'Vintage binders.');
+    expect(screen.getByText('16 / 500')).toBeOnTheScreen();
     fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
 
-    // Step 2: interests (at least one game or tag).
+    // Step 2 of 3: the games, at least one.
     expect(await screen.findByText('What do you collect?')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Step 2 of 3')).toBeOnTheScreen();
+    expect(spokenPercent('Step 2 of 3')).toBe(67);
     expect(api.callsTo('PUT /api/v1/me/profile')[0]?.body).toEqual({
       handle: 'maika_qc',
       displayName: 'Maïka',
@@ -116,36 +173,74 @@ describe('Onboarding', () => {
       games: [],
       languages: [],
     });
-    fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
-    expect(screen.getByTestId('interests-missing')).toHaveTextContent(
-      /Choose at least one game or one tag\./
-    );
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled();
+    expect(screen.getByTestId('interests-missing')).toHaveTextContent('Choose at least one game.');
 
+    // The first game picked opens first.
     fireEvent.press(await screen.findByRole('checkbox', { name: 'Pokémon' }));
-    fireEvent.press(await screen.findByRole('button', { name: 'Add tag Local pickup' }));
+    expect(screen.getByRole('checkbox', { name: 'Pokémon, Opens first' })).toBeChecked();
+    fireEvent.press(screen.getByRole('checkbox', { name: 'Yu-Gi-Oh!' }));
+    expect(screen.getByRole('checkbox', { name: 'Yu-Gi-Oh!' })).toBeChecked();
+    expect(screen.queryByTestId('interests-missing')).toBeNull();
+    fireEvent.press(screen.getByRole('checkbox', { name: 'English' }));
+    fireEvent.press(await screen.findByRole('checkbox', { name: 'Tracked shipping' }));
     expect(screen.getByTestId('tag-count')).toHaveTextContent('1 / 12');
     fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
 
-    // Step 3: where are you? Pickers fed by GET /regions: no map, no GPS (ADR 0017).
-    expect(await screen.findByText('Where are you?')).toBeOnTheScreen();
+    // Step 3 of 3: where do you ship from? Pickers fed by GET /regions: no map, no GPS (ADR 0017).
+    expect(await screen.findByText('Where do you ship from?')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Step 3 of 3')).toBeOnTheScreen();
+    expect(spokenPercent('Step 3 of 3')).toBe(100);
+    expect(api.callsTo('PUT /api/v1/me/profile')[1]?.body).toMatchObject({
+      games: ['pokemon', 'yugioh'],
+      languages: ['en'],
+    });
     expect(api.callsTo('PUT /api/v1/me/profile/tags')[0]?.body).toEqual({
       tagIds: ['tag-1'],
       customLabels: [],
     });
+    // Home and Search open on the first game picked.
+    expect(useBrowsingGameStore.getState().picked['uid-maika']).toBe('pokemon');
+    expect(
+      screen.getByText(
+        'Collectors find binders by state or province. We never use GPS and never ask for your address.'
+      )
+    ).toBeOnTheScreen();
     expect(screen.queryByTestId('collector-map-view')).toBeNull();
     const optIn = screen.getByRole('switch', { name: 'Show me on the map' });
     expect(optIn).not.toBeChecked();
 
-    // Finish without a state: what is missing is said, nothing is saved.
+    // Finish without a state: what is missing is said under the pickers, which scroll into
+    // view (not under the switches, where the pinned bar hid it; stage R12's review fix 1), and
+    // nothing is saved.
+    const layout = (testID: string, y: number) =>
+      fireEvent(screen.getByTestId(testID), 'layout', {
+        nativeEvent: { layout: { x: 0, y, width: 360, height: 60 } },
+      });
+    layout('onboarding-place-fields', 120);
+    layout('location-pickers', 80);
+    const scrollTo = jest.spyOn(ScrollView.prototype, 'scrollTo');
     fireEvent.press(screen.getByRole('button', { name: 'Finish' }));
-    expect(await screen.findByTestId('location-missing')).toHaveTextContent(
-      /Choose your country\./
+    const missing = await screen.findByTestId('location-missing');
+    expect(missing).toHaveTextContent(/Choose your country\./);
+    expect(within(screen.getByTestId('location-pickers')).getByTestId('location-missing')).toBe(
+      missing
     );
+    // 14 (the step's top padding) + 120 + 80, less 12 so the pickers do not touch the header.
+    expect(scrollTo).toHaveBeenLastCalledWith({ y: 202, animated: true });
+    scrollTo.mockRestore();
     expect(api.callsTo('PUT /api/v1/me/location')).toHaveLength(0);
 
     await choose('location-country', 'CA');
     await choose('location-subdivision', 'CA-QC');
+    // The switch's line names the region and the province once chosen.
+    expect(
+      screen.getByText(
+        'Collectors of Americas (North) can find your public binders in Quebec. Visitors without an account never see your name. Off until you turn it on.'
+      )
+    ).toBeOnTheScreen();
     fireEvent.changeText(screen.getByLabelText('City (optional)'), ' Laval ');
+    fireEvent.press(screen.getByRole('switch', { name: 'Show my city on my profile' }));
     fireEvent.press(optIn);
     fireEvent.press(screen.getByRole('button', { name: 'Finish' }));
 
@@ -154,7 +249,7 @@ describe('Onboarding', () => {
       countryCode: 'CA',
       subdivisionCode: 'CA-QC',
       city: 'Laval',
-      showCity: true,
+      showCity: false,
     });
     expect(api.calls.some((call) => call.path.includes('trading-area'))).toBe(false);
     expect(api.callsTo('PUT /api/v1/me/settings/privacy')[0]?.body).toEqual({
@@ -166,16 +261,80 @@ describe('Onboarding', () => {
     );
   });
 
-  it('maps a taken handle onto the field', async () => {
+  it("says a handle is taken while it is typed, and maps the save's 409 onto the field", async () => {
     mockApi(onboardingRoutes({ 'PUT /api/v1/me/profile': problem(409, 'HANDLE_TAKEN', 'taken') }));
     renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
     expect(await screen.findByText('Who are you?')).toBeOnTheScreen();
+    fireEvent.changeText(screen.getByLabelText('Handle'), 'taken_one');
+    await settleHandleCheck();
+    expect(await screen.findByTestId('handle-error')).toHaveTextContent(
+      'That handle is already taken. Try another one.'
+    );
+    expect(screen.queryByLabelText('Available')).toBeNull();
+    // Another handle clears it; the save still decides.
     fireEvent.changeText(screen.getByLabelText('Handle'), 'collector1');
+    expect(screen.queryByTestId('handle-error')).toBeNull();
     fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
     expect(
       await screen.findByText('That handle is already taken. Try another one.')
     ).toBeOnTheScreen();
     expect(screen.queryByText('What do you collect?')).toBeNull();
+  });
+
+  it('never checks a malformed handle', async () => {
+    const api = mockApi(onboardingRoutes());
+    renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
+    expect(await screen.findByText('Who are you?')).toBeOnTheScreen();
+    fireEvent.changeText(screen.getByLabelText('Handle'), 'ab');
+    await settleHandleCheck();
+    expect(screen.queryByLabelText('Available')).toBeNull();
+    expect(
+      api
+        .callsTo('GET /api/v1/me/profile/handle-availability')
+        .some((call) => call.query.get('handle') === 'ab')
+    ).toBe(false);
+  });
+
+  it('marks the next game with cards "Opens first" when the first picked has none yet', async () => {
+    mockApi(
+      onboardingRoutes({
+        'GET /api/v1/me': ok(
+          meFixture({ onboarding: { ...NOT_ONBOARDED, profileComplete: true } })
+        ),
+        'GET /api/v1/games': ok([...GAMES, ONE_PIECE]),
+      })
+    );
+    renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
+    // Resumes on step 2: the profile is saved, no game or tag yet.
+    expect(await screen.findByText('What do you collect?')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Step 2 of 3')).toBeOnTheScreen();
+    const onePiece = await screen.findByRole('checkbox', { name: 'One Piece, Cards coming soon' });
+    fireEvent.press(onePiece);
+    expect(screen.getByRole('checkbox', { name: 'One Piece, Cards coming soon' })).toBeChecked();
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled();
+    fireEvent.press(screen.getByRole('checkbox', { name: 'Yu-Gi-Oh!' }));
+    expect(screen.getByRole('checkbox', { name: 'Yu-Gi-Oh!, Opens first' })).toBeChecked();
+    fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    expect(await screen.findByText('Where do you ship from?')).toBeOnTheScreen();
+    expect(useBrowsingGameStore.getState().picked['uid-maika']).toBe('yugioh');
+    // Back to the games.
+    fireEvent.press(screen.getByRole('button', { name: 'Back to What do you collect?' }));
+    expect(await screen.findByText('What do you collect?')).toBeOnTheScreen();
+  });
+
+  it('resumes on the place step once the profile and the interests are saved', async () => {
+    mockApi(
+      onboardingRoutes({
+        'GET /api/v1/me': ok(
+          meFixture({
+            onboarding: { profileComplete: true, interestsSet: true, locationSet: false },
+          })
+        ),
+      })
+    );
+    renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
+    expect(await screen.findByText('Where do you ship from?')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Step 3 of 3')).toBeOnTheScreen();
   });
 
   it('lets the collector skip the location (nothing about it is sent)', async () => {
@@ -189,11 +348,34 @@ describe('Onboarding', () => {
       })
     );
     renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
-    expect(await screen.findByText('Where are you?')).toBeOnTheScreen();
+    expect(await screen.findByText('Where do you ship from?')).toBeOnTheScreen();
     fireEvent.press(screen.getByRole('button', { name: 'Skip for now' }));
     await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/'));
     expect(api.callsTo('PUT /api/v1/me/location')).toHaveLength(0);
     expect(api.callsTo('PUT /api/v1/me/settings/privacy')).toHaveLength(0);
+  });
+
+  it('reopens the link the gate remembered instead of Home', async () => {
+    mockApi(
+      onboardingRoutes({
+        'GET /api/v1/me': ok(
+          meFixture({
+            onboarding: { profileComplete: true, interestsSet: true, locationSet: false },
+          })
+        ),
+      })
+    );
+    renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
+    expect(await screen.findByText('Where do you ship from?')).toBeOnTheScreen();
+    usePendingLink.getState().set('/collectors/collector5');
+    fireEvent.press(screen.getByRole('button', { name: 'Skip for now' }));
+    // `dismissTo`: back to the screen when it is still under the welcome (a guest who created
+    // their account from it, stage R15), else in place of the welcome (a deep link).
+    await waitFor(() =>
+      expect(mockRouter.dismissTo).toHaveBeenCalledWith('/collectors/collector5')
+    );
+    expect(mockRouter.replace).not.toHaveBeenCalled();
+    expect(usePendingLink.getState().href).toBeNull();
   });
 
   it('switches the region: the countries follow, a whole-country territory needs no state', async () => {
@@ -207,7 +389,7 @@ describe('Onboarding', () => {
       })
     );
     renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
-    expect(await screen.findByText('Where are you?')).toBeOnTheScreen();
+    expect(await screen.findByText('Where do you ship from?')).toBeOnTheScreen();
     await choose('location-region', 'europe');
     fireEvent.press(screen.getByTestId('location-country'));
     expect(await screen.findByTestId('location-country-option-FR')).toBeOnTheScreen();
@@ -242,140 +424,31 @@ describe('Onboarding', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Finish' }));
     expect(await screen.findByText('Unknown subdivision')).toBeOnTheScreen();
     expect(mockRouter.dismissTo).not.toHaveBeenCalled();
-    expect(screen.getByText('Where are you?')).toBeOnTheScreen();
-  });
-});
-
-describe('Onboarding age step (18+ rule)', () => {
-  // The checkbox's accessible name on the platform the tests run as (iOS: both languages).
-  const AGE_LABEL = ageConfirmationAccessibleLabel(Platform.OS);
-  const unconfirmed = (rest: Record<string, boolean>) =>
-    meFixture({ onboarding: { ...NOT_ONBOARDED, ...rest, ageConfirmed: false } });
-
-  it('asks an existing collector only for the confirmation, then sends them back', async () => {
-    const api = mockApi(
-      onboardingRoutes({
-        'GET /api/v1/me': [
-          ok(unconfirmed({ profileComplete: true, interestsSet: true, locationSet: true })),
-          ok(meFixture()),
-        ],
-        'GET /api/v1/me/profile': ok(profileFixture()),
-        'POST /api/v1/me/consents': noContent,
-      })
-    );
-    renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
-    expect(await screen.findByText('Are you 18 or older?')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Step 1 of 4 · Age')).toBeOnTheScreen();
-    expect(screen.queryByLabelText('Handle')).toBeNull();
-    expect(screen.getByText('Je confirme avoir 18 ans ou plus')).toBeOnTheScreen();
-
-    // The terms are readable from the step.
-    fireEvent.press(screen.getByTestId('onboarding-age-terms'));
-    expect(mockRouter.push).toHaveBeenCalledWith({
-      pathname: '/legal/[key]',
-      params: { key: 'terms' },
-    });
-
-    // Unticked: nothing is recorded.
-    fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
-    expect(
-      screen.getByText('You must confirm that you are 18 years of age or older to use OrenjiTrade.')
-    ).toBeOnTheScreen();
-    expect(api.callsTo('POST /api/v1/me/consents')).toHaveLength(0);
-
-    // The gate remembered where the collector was sent to onboarding from.
-    usePendingLink.getState().set('/collectors/collector5');
-    fireEvent.press(await screen.findByRole('checkbox', { name: AGE_LABEL }));
-    fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
-    // The remembered link replaces onboarding (back leads to the tabs), the tabs otherwise.
-    await waitFor(() => expect(mockRouter.replace).toHaveBeenCalledWith('/collectors/collector5'));
-    expect(mockRouter.dismissTo).not.toHaveBeenCalled();
-    expect(usePendingLink.getState().href).toBeNull();
-    expect(api.callsTo('POST /api/v1/me/consents')[0]?.body).toEqual({
-      documentType: 'AGE_CONFIRMATION',
-      version: '2026-10-05',
-      language: 'en',
-    });
-    expect(screen.getByTestId('snackbar')).toHaveTextContent(
-      'Thanks for confirming. Welcome back!'
-    );
+    expect(screen.getByText('Where do you ship from?')).toBeOnTheScreen();
   });
 
-  it('puts the confirmation first for a new account, then continues to the profile step', async () => {
-    const api = mockApi(
-      onboardingRoutes({
-        'GET /api/v1/me': [ok(unconfirmed({})), ok(meFixture({ onboarding: NOT_ONBOARDED }))],
-        'POST /api/v1/me/consents': noContent,
-      })
-    );
-    renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
-    expect(await screen.findByText('Are you 18 or older?')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Step 1 of 4 · Age')).toBeOnTheScreen();
-    fireEvent.press(await screen.findByRole('checkbox', { name: AGE_LABEL }));
-    fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
-    expect(await screen.findByText('Who are you?')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Step 2 of 4 · Profile')).toBeOnTheScreen();
-    expect(api.callsTo('POST /api/v1/me/consents')).toHaveLength(1);
-    expect(mockRouter.dismissTo).not.toHaveBeenCalled();
-  });
-
-  it('shows the failure of the confirmation and offers Sign out so nobody is stuck', async () => {
+  it('offers Sign out on the first step', async () => {
     const port = new FakeAuthPort(testUser());
-    mockApi(
-      onboardingRoutes({
-        'GET /api/v1/me': ok(
-          unconfirmed({ profileComplete: true, interestsSet: true, locationSet: true })
-        ),
-        'GET /api/v1/me/profile': ok(profileFixture()),
-        'POST /api/v1/me/consents': problem(429, 'RATE_LIMITED', 'slow down'),
-      })
-    );
+    mockApi(onboardingRoutes());
     renderWithProviders(<OnboardingScreen />, { port });
-    usePendingLink.getState().set('/collectors/collector5');
-    fireEvent.press(await screen.findByRole('checkbox', { name: AGE_LABEL }));
-    fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
-    expect(await screen.findByText(/Too many requests in a short time/)).toBeOnTheScreen();
-    // Nothing recorded: the collector stays, and the remembered link waits for the retry.
-    expect(mockRouter.replace).not.toHaveBeenCalled();
-    expect(usePendingLink.getState().href).toBe('/collectors/collector5');
+    expect(await screen.findByText('Who are you?')).toBeOnTheScreen();
     fireEvent.press(screen.getByRole('button', { name: 'Sign out' }));
     await waitFor(() => expect(port.signOut).toHaveBeenCalled());
   });
+});
 
-  it('retries the legal documents when they cannot be loaded', async () => {
-    const api = mockApi(
-      onboardingRoutes({
-        'GET /api/v1/me': ok(
-          unconfirmed({ profileComplete: true, interestsSet: true, locationSet: true })
-        ),
-        'GET /api/v1/me/profile': ok(profileFixture()),
-        'GET /api/v1/public/legal/documents': [
-          problem(503, 'SERVICE_UNAVAILABLE', 'down'),
-          ok(LEGAL_DOCUMENTS),
-        ],
-      })
-    );
-    renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
-    expect(await screen.findByText('We could not load the confirmation')).toBeOnTheScreen();
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled();
-    fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
-    expect(await screen.findByRole('checkbox', { name: AGE_LABEL })).toBeOnTheScreen();
-    expect(api.callsTo('GET /api/v1/public/legal/documents')).toHaveLength(2);
-  });
-
-  it('never asks an onboarded account whose API does not report the flag', async () => {
-    mockApi(
-      onboardingRoutes({
-        'GET /api/v1/me': ok(
-          meFixture({
-            onboarding: { profileComplete: false, interestsSet: false, locationSet: false },
-          })
-        ),
-      })
-    );
+describe('Welcome: the keyboard (stage R12, review fix 1)', () => {
+  it('scrolls the field being typed in above the keyboard; the pinned buttons stay at the bottom', async () => {
+    mockApi(onboardingRoutes());
     renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
     expect(await screen.findByText('Who are you?')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Step 1 of 3 · Profile')).toBeOnTheScreen();
-    expect(screen.queryByText('Are you 18 or older?')).toBeNull();
+    // iOS keeps the step's size and scrolls the focused field (the bio included) above the
+    // keyboard; a KeyboardAvoidingView padding lifted the pinned Continue and Sign out over the
+    // fields, which left the bio typed out of sight behind them.
+    expect(screen.getByTestId('onboarding-scroll').props.automaticallyAdjustKeyboardInsets).toBe(
+      true
+    );
+    expect(screen.UNSAFE_getByType(KeyboardAvoidingView).props.behavior).toBeUndefined();
+    expect(screen.getByLabelText('Bio (optional)')).toBeOnTheScreen();
   });
 });

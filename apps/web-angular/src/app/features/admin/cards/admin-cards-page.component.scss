@@ -1,0 +1,69 @@
+.ca__filters {
+  align-items: center;
+}
+.ca__games {
+  flex-wrap: wrap;
+}
+.ca__soon {
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-regular, 400);
+}
+.cp-seg__btn[aria-pressed='true'] .ca__soon {
+  color: inherit;
+}
+.ca__table {
+  min-width: 720px;
+}
+.ca__thumb {
+  width: 52px;
+}
+.ca__thumb app-card-image {
+  --card-image-shadow: none;
+}
+.ca__name {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-ink);
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  text-align: left;
+  cursor: pointer;
+}
+.ca__name:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.ca__name:focus-visible,
+.ca__public:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.ca__row--open {
+  background: var(--color-primary-tint);
+}
+.ca__public {
+  display: inline-grid;
+  place-items: center;
+  color: var(--color-text-secondary);
+}
+.ca__size {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ca__size .cp-select {
+  height: 34px;
+}
+.ca__pos {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+@media (max-width: 719.98px) {
+  .ca__opt {
+    display: none;
+  }
+}

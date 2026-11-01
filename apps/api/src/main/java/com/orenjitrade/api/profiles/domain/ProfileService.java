@@ -14,6 +14,7 @@ import com.orenjitrade.api.profiles.domain.AvatarImageProcessor.AvatarRejectedEx
 import com.orenjitrade.api.profiles.infra.ProfileRepository;
 import com.orenjitrade.api.profiles.infra.TagRepository;
 import com.orenjitrade.api.profiles.infra.TagSearchRepository;
+import com.orenjitrade.api.users.domain.HandleAvailability;
 import com.orenjitrade.api.users.domain.UserAccountService;
 import com.orenjitrade.api.users.domain.UserAccountSnapshot;
 import java.time.Instant;
@@ -149,6 +150,14 @@ public class ProfileService {
     // ---------------------------------------------------------------------------------------
 
     /**
+     * Whether the caller could save {@code rawHandle} as their handle (stage R12, the live check of
+     * the welcome step): the save's own rules, nothing saved, nothing audited.
+     */
+    public HandleAvailability handleAvailability(UUID userId, String rawHandle) {
+        return userAccountService.handleAvailability(userId, rawHandle);
+    }
+
+    /**
      * Saves handle, display name, bio, games and languages. {@code 400} for unknown games, non ISO
      * 639-1 languages or blocked terms; {@code 409 HANDLE_TAKEN} for a taken/reserved handle.
      */
@@ -173,6 +182,20 @@ public class ProfileService {
         profile.update(displayName, bio, games, languages, timeProvider.now());
         profiles.flush();
         return toView(account, profile);
+    }
+
+    /**
+     * Saves the profile ({@link #update}) and replaces its tags ({@link #replaceTags}) in one
+     * transaction (stage R13, Edit profile's one "Save changes"): a refused field or tag saves
+     * nothing, the handle change and its audit row included. Returns the profile as saved, tags
+     * included.
+     */
+    @Transactional
+    public MyProfileView updateWithTags(
+            UUID userId, ProfileUpdate update, List<UUID> tagIds, List<String> customLabels) {
+        update(userId, update);
+        replaceTags(userId, tagIds, customLabels);
+        return getMine(userId);
     }
 
     /**
@@ -226,7 +249,7 @@ public class ProfileService {
     /** Removes the avatar (no-op without one). */
     @Transactional
     public void deleteAvatar(UUID userId) {
-        profiles.findById(userId)
+        profiles.findWithTagsByUserId(userId)
                 .ifPresent(
                         profile -> {
                             @Nullable String previous = profile.getAvatarKey();
@@ -240,7 +263,9 @@ public class ProfileService {
     /**
      * Replaces the profile tags with {@code tagIds} (existing, active tags) plus {@code
      * customLabels} (created as CUSTOM tags after the banned-term check, or reused when a tag with
-     * the same slug exists). At most {@value #MAX_TAGS} in total.
+     * the same slug exists). At most {@value #MAX_TAGS} in total. A hidden or banned tag is
+     * refused; the owner's own profile never lists one (see {@link #getMine}), so an edit form that
+     * sends back what it read keeps working after a tag is hidden (V115 hid local-meetups).
      */
     @Transactional
     public List<TagView> replaceTags(UUID userId, List<UUID> tagIds, List<String> customLabels) {
@@ -356,7 +381,9 @@ public class ProfileService {
                 List.copyOf(profile.getGames()),
                 List.copyOf(profile.getLanguages()),
                 profile.getAvatarKey() == null ? null : storage.publicUrl(profile.getAvatarKey()),
-                profile.getTags().stream().map(Tag::toView).sorted(TagView.DISPLAY_ORDER).toList(),
+                // Active tags only, as others see them: a hidden or banned tag (V115 hid
+                // local-meetups) is neither shown nor sent back by an edit form.
+                activeTagViews(profile),
                 profile.getCompletedAt(),
                 profile.getUpdatedAt());
     }

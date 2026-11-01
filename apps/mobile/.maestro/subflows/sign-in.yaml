@@ -1,11 +1,9 @@
 # Signs in through the sign-in screen (empty fields: right after launch-fresh) with EMAIL /
-# PASSWORD and waits until the app left it.
+# PASSWORD and waits until the app left it. Since stage R15 the app opens on Home as a guest: Sign
+# in is opened with the person button first (open-sign-in.yaml), unless it is already on screen.
 appId: ${APP_ID}
 ---
-- extendedWaitUntil:
-    visible:
-      id: 'screen-sign-in'
-    timeout: 60000
+- runFlow: open-sign-in.yaml
 - tapOn:
     id: 'sign-in-email'
 - inputText: ${EMAIL}

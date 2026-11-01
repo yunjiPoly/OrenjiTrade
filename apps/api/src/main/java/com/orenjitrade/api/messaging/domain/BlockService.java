@@ -120,6 +120,12 @@ public class BlockService {
         return !a.equals(b) && repository.existsBetween(a, b);
     }
 
+    /** Whether {@code blockerId} blocked {@code blockedId} (one direction). */
+    @Transactional(readOnly = true)
+    public boolean hasBlocked(UUID blockerId, UUID blockedId) {
+        return !blockerId.equals(blockedId) && repository.exists(blockerId, blockedId);
+    }
+
     /**
      * Accounts hidden from {@code viewerId} by a block in either direction (community feeds filter
      * their authors with it); empty for signed-out viewers.

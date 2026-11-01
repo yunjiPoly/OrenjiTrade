@@ -14,10 +14,9 @@ import { ALL_ROLES, PRIVILEGED_ROLES, ROLE_LABELS, Role } from '../../../core/au
 
 const ROLE_HELP: Record<Role, string> = {
   USER: 'Every account. Always kept.',
-  PREMIUM_USER: 'Premium entitlements (manual override).',
   MODERATOR: 'Moderation areas of the admin console.',
   ADMIN: 'The whole admin console.',
-  SUPER_ADMIN: 'Admin plus feature flags, plans and role grants.',
+  SUPER_ADMIN: 'Admin plus feature flags, usage limits and role grants.',
 };
 
 /** Why a role checkbox is locked, or null when it can be changed. */
@@ -84,17 +83,17 @@ export function roleLockReason(
     }
     .roles__row {
       display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: var(--spacing-2);
+      flex-direction: column;
+      gap: 2px;
+      padding: 6px 0 10px;
       border-bottom: 1px solid var(--color-border);
     }
     .roles__row:last-child {
       border-bottom: 0;
     }
     .roles__help {
-      color: var(--color-text-muted);
+      padding-left: 40px;
+      color: var(--color-text-secondary);
       font-size: var(--font-size-sm);
     }
     .roles__actions {

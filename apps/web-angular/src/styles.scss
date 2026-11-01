@@ -18,6 +18,9 @@ $typography: (
 
 html {
   height: 100%;
+  // One M3 theme for structure (typography, density, shape and the per-component tokens). Every
+  // colour of it is remapped to the design tokens below, so the tokens (light, dark, and the
+  // system preference, tokens.css) decide every Material colour and no second theme is emitted.
   @include mat.theme(
     (
       color: (
@@ -29,48 +32,267 @@ html {
       density: 0,
     )
   );
-}
 
-// Explicit dark mode (ThemeService sets html[data-theme]).
-[data-theme='dark'] {
-  @include mat.theme(
+  // Material's system colours, mapped to the design tokens (web redesign WA, spec 2.7).
+  --mat-sys-background: var(--color-background);
+  --mat-sys-on-background: var(--color-ink);
+  --mat-sys-surface: var(--color-background);
+  --mat-sys-surface-dim: var(--color-background);
+  --mat-sys-surface-bright: var(--color-surface);
+  --mat-sys-surface-container-lowest: var(--color-surface);
+  --mat-sys-surface-container-low: var(--color-surface);
+  --mat-sys-surface-container: var(--color-surface-elevated);
+  --mat-sys-surface-container-high: var(--color-surface);
+  --mat-sys-surface-container-highest: var(--color-surface-variant);
+  --mat-sys-surface-variant: var(--color-surface-variant);
+  --mat-sys-surface-tint: transparent;
+  --mat-sys-on-surface: var(--color-ink);
+  --mat-sys-on-surface-variant: var(--color-text-muted);
+  --mat-sys-inverse-surface: var(--color-ink);
+  --mat-sys-inverse-on-surface: var(--color-background);
+  --mat-sys-inverse-primary: var(--color-primary);
+  --mat-sys-outline: var(--color-border-strong);
+  --mat-sys-outline-variant: var(--color-border);
+  --mat-sys-primary: var(--color-primary);
+  --mat-sys-on-primary: var(--color-on-primary);
+  --mat-sys-primary-container: var(--color-primary-container);
+  --mat-sys-on-primary-container: var(--color-on-primary-container);
+  --mat-sys-primary-fixed: var(--color-primary-container);
+  --mat-sys-primary-fixed-dim: var(--color-primary);
+  --mat-sys-on-primary-fixed: var(--color-on-primary-container);
+  --mat-sys-on-primary-fixed-variant: var(--color-on-primary-container);
+  // Tonal buttons and selected controls: the orange tint (spec 2.4).
+  --mat-sys-secondary: var(--color-primary);
+  --mat-sys-on-secondary: var(--color-on-primary);
+  --mat-sys-secondary-container: var(--color-primary-tint);
+  --mat-sys-on-secondary-container: var(--color-on-primary-container);
+  --mat-sys-secondary-fixed: var(--color-primary-tint);
+  --mat-sys-secondary-fixed-dim: var(--color-primary-tint);
+  --mat-sys-on-secondary-fixed: var(--color-on-primary-container);
+  --mat-sys-on-secondary-fixed-variant: var(--color-on-primary-container);
+  --mat-sys-tertiary: var(--color-accent);
+  --mat-sys-on-tertiary: var(--color-on-accent);
+  --mat-sys-tertiary-container: var(--color-accent-container);
+  --mat-sys-on-tertiary-container: var(--color-on-accent-container);
+  --mat-sys-tertiary-fixed: var(--color-accent-container);
+  --mat-sys-tertiary-fixed-dim: var(--color-accent);
+  --mat-sys-on-tertiary-fixed: var(--color-on-accent-container);
+  --mat-sys-on-tertiary-fixed-variant: var(--color-on-accent-container);
+  --mat-sys-error: var(--color-danger);
+  --mat-sys-on-error: var(--color-background);
+  --mat-sys-error-container: color-mix(in srgb, var(--color-danger) 14%, var(--color-surface));
+  --mat-sys-on-error-container: var(--color-danger);
+  --mat-sys-scrim: var(--color-overlay);
+  --mat-sys-shadow: transparent;
+  // No Material elevation (spec 1.4 and 2.3): surfaces are separated by borders.
+  --mat-sys-level0: none;
+  --mat-sys-level1: none;
+  --mat-sys-level2: none;
+  --mat-sys-level3: none;
+  --mat-sys-level4: none;
+  --mat-sys-level5: none;
+
+  // Orange as text or as a thin state indicator (spec 2.6): the token in dark; in light, where
+  // #F4761A is 2.7:1 on the canvas, a darker tone of it (60% primary, 40% ink: 5.8:1 on surface,
+  // 5.1:1 on surfaceVariant; contrast.spec.ts). Orange fills keep the token, with ink onPrimary.
+  --app-primary-text: light-dark(
+    color-mix(in srgb, var(--color-primary) 60%, var(--color-ink)),
+    var(--color-primary)
+  );
+  // Status tones as text (the admin console's chips, counts and states; web WH1 review fix 1):
+  // the tokens in dark; in light, where amber, green, red and teal text on their own tints fall
+  // under 4.5:1, darker tones (app/features/admin/console/console-tones.ts, tested).
+  --app-warning-text: light-dark(#92400e, var(--color-warning));
+  --app-success-text: light-dark(#166534, var(--color-success));
+  --app-danger-text: light-dark(#b91c1c, var(--color-danger));
+  --app-accent-text: light-dark(#115e59, var(--color-accent));
+
+  // Per-component overrides: the phone's controls sized for a pointer (spec 2.4 and 4.8).
+  // Text buttons in the orange text tone; outline buttons in ink in light (board W30).
+  @include mat.button-overrides(
     (
-      color: (
-        primary: brand.$primary-palette,
-        tertiary: brand.$tertiary-palette,
-        theme-type: dark,
-      ),
-      typography: $typography,
-      density: 0,
+      text-label-text-color: var(--app-primary-text),
+      outlined-label-text-color: light-dark(var(--color-ink), var(--color-primary)),
+    )
+  );
+  @include mat.tabs-overrides(
+    (
+      active-label-text-color: var(--app-primary-text),
+      active-focus-label-text-color: var(--app-primary-text),
+      active-hover-label-text-color: var(--app-primary-text),
+      active-indicator-color: var(--app-primary-text),
+      active-focus-indicator-color: var(--app-primary-text),
+      active-hover-indicator-color: var(--app-primary-text),
+    )
+  );
+  @include mat.option-overrides(
+    (
+      selected-state-label-text-color: var(--app-primary-text),
+    )
+  );
+  @include mat.dialog-overrides(
+    (
+      container-shape: var(--radius-dialog),
+      container-color: var(--color-surface),
+      subhead-font: var(--font-display),
+    )
+  );
+  @include mat.menu-overrides(
+    (
+      container-color: var(--color-surface-elevated),
+      container-shape: var(--radius-row),
+      container-elevation-shadow: var(--elevation-menu),
+      item-label-text-size: var(--font-size-sm),
+    )
+  );
+  @include mat.select-overrides(
+    (
+      panel-background-color: var(--color-surface-elevated),
+      container-elevation-shadow: var(--elevation-menu),
+    )
+  );
+  @include mat.autocomplete-overrides(
+    (
+      background-color: var(--color-surface-elevated),
+      container-elevation-shadow: var(--elevation-menu),
+    )
+  );
+  @include mat.form-field-overrides(
+    (
+      outlined-container-shape: var(--radius-input),
+      outlined-outline-color: var(--color-border-input),
+      outlined-hover-outline-color: var(--color-border-strong),
+      outlined-focus-outline-color: var(--app-primary-text),
+      outlined-focus-label-text-color: var(--app-primary-text),
+      filled-focus-label-text-color: var(--app-primary-text),
+    )
+  );
+  @include mat.tooltip-overrides(
+    (
+      container-shape: var(--radius-sm),
+    )
+  );
+  // A switch turned off: its outline and handle in textMuted, at least 3:1 against the surface and
+  // the track in both themes (borderStrong was 1.5:1; SC 1.4.11, WE review A8).
+  @include mat.slide-toggle-overrides(
+    (
+      track-outline-color: var(--color-text-muted),
+      unselected-handle-color: var(--color-text-muted),
+      unselected-hover-handle-color: var(--color-text-secondary),
+      unselected-focus-handle-color: var(--color-text-secondary),
+      unselected-pressed-handle-color: var(--color-text-secondary),
     )
   );
 }
 
-// System dark mode when the user has not chosen a theme.
-@media (prefers-color-scheme: dark) {
-  html:not([data-theme='light']) {
-    @include mat.theme(
-      (
-        color: (
-          primary: brand.$primary-palette,
-          tertiary: brand.$tertiary-palette,
-          theme-type: dark,
-        ),
-        typography: $typography,
-        density: 0,
-      )
-    );
+// The welcome's controls (spec 2.4 and 14, WG review R1-1), as its other steps; Settings keeps
+// Material's outlined fields and its switch.
+// The 40x24 switch: Material's slide toggle at the phone's size (knob 18 on, 12 inside the
+// outlined track off; with `hideIcon`, as the mockup's plain knob).
+.app-switch-40 {
+  @include mat.slide-toggle-overrides(
+    (
+      track-width: 40px,
+      track-height: 24px,
+      selected-handle-size: 18px,
+      unselected-handle-size: 12px,
+      with-icon-handle-size: 18px,
+      pressed-handle-size: 20px,
+      selected-handle-horizontal-margin: 0 19px,
+      unselected-handle-horizontal-margin: 0 6px,
+      selected-with-icon-handle-horizontal-margin: 0 19px,
+      unselected-with-icon-handle-horizontal-margin: 0 3px,
+      selected-pressed-handle-horizontal-margin: 0 18px,
+      unselected-pressed-handle-horizontal-margin: 0 2px,
+      selected-icon-size: 12px,
+      unselected-icon-size: 12px,
+      state-layer-size: 32px,
+    )
+  );
+}
+// A select as a token field (48 tall, radius 12, borderInput, its label above it): Material's
+// mat-select without a form field, so its panel, keyboard and ARIA stay Material's.
+.app-token-select.mat-mdc-select {
+  display: block;
+  box-sizing: border-box;
+  height: 48px;
+  border: 1px solid var(--color-border-input);
+  border-radius: 12px;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 15px;
+  // The page's tracking, as the other fields (Material's select spaces its letters 0.5 px).
+  letter-spacing: inherit;
+  --mat-select-placeholder-text-color: var(--color-text-muted);
+
+  .mat-mdc-select-trigger {
+    height: 100%;
+    padding: 0 12px 0 14px;
+  }
+
+  &:hover:not(.mat-mdc-select-disabled) {
+    border-color: var(--color-border-strong);
+  }
+
+  &:focus-visible {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+
+  // The field an error names (WG review R2-3): the danger border, as the token text fields.
+  &[aria-invalid='true'] {
+    border-color: var(--color-danger);
   }
 }
 
-// Keep Material's system surface/text in step with the brand tokens (warm neutrals).
+// Focused controls are never hidden under the sticky top bar (64 at every width) or, below 960,
+// the tab bar (64 plus the safe area) (WCAG 2.4.11).
 html {
-  --mat-sys-background: var(--color-background);
-  --mat-sys-surface: var(--color-background);
-  --mat-sys-on-surface: var(--color-ink);
-  --mat-sys-on-background: var(--color-ink);
-  --mat-sys-outline-variant: var(--color-border);
-  --mat-sys-outline: var(--color-border-strong);
+  scroll-padding-top: 72px;
+}
+// Home: the bar and its sticky toolbar (64 + 56, with a 12 fade), and the "New posts · Show" pill
+// under them when it shows: a control reached with Shift+Tab stops below them (WE review A1).
+html:has(.home__toolbar) {
+  scroll-padding-top: 148px;
+}
+html:has(.home__newer-row) {
+  scroll-padding-top: 176px;
+}
+@media (max-width: 959.98px) {
+  html {
+    scroll-padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+}
+
+// Material's own controls get the 2 px focusRing too, not only their faint state layer (spec 2.4);
+// buttons (matButton, matIconButton) too, 2 px outside their edge (WB review, A4).
+.mat-mdc-checkbox,
+.mat-mdc-slide-toggle,
+.mat-mdc-radio-button,
+.mat-button-toggle,
+.mat-mdc-menu-item,
+.mat-mdc-option,
+.mat-mdc-button-base {
+  --mat-focus-indicator-display: block;
+  --mat-focus-indicator-border-color: var(--color-focus-ring);
+  --mat-focus-indicator-border-width: var(--focus-width);
+  --mat-focus-indicator-border-style: solid;
+}
+.mat-mdc-button-base > .mat-focus-indicator::before {
+  margin: calc((var(--focus-width) + 2px) * -1);
+}
+
+// Popovers and menus: surfaceElevated with a 1 px borderStrong and the menu shadow (spec 2.3).
+.mat-mdc-menu-panel,
+.mat-mdc-select-panel,
+.mat-mdc-autocomplete-panel {
+  border: 1px solid var(--color-border-strong);
+}
+
+// The overlay scrim of dialogs and drawers.
+.cdk-overlay-dark-backdrop {
+  background: var(--color-overlay);
 }
 
 *,

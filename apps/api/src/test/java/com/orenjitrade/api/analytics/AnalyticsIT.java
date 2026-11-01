@@ -156,8 +156,12 @@ class AnalyticsIT extends AbstractIntegrationTest {
                     .doesNotContain(viewerId.toString())
                     .doesNotContain(ownerId.toString())
                     .doesNotContain(viewerEmail);
-            if (!event.path("event_type").asString().startsWith("search_")) {
-                assertThat(text).as("views carry hashes, not handles").doesNotContain(handle);
+            // Views carry hashes, not handles; searches carry no text at all (stage R5).
+            assertThat(text).as("no handle in %s", text).doesNotContain(handle);
+            if (event.path("event_type").asString().startsWith("search_")) {
+                assertThat(event.path("payload").has("query"))
+                        .as("the search text never enters an event: %s", text)
+                        .isFalse();
             }
             assertThat(DECIMAL.matcher(text).find()).as("decimal number in %s", text).isFalse();
             assertThat(EMAIL.matcher(text).find()).as("e-mail in %s", text).isFalse();
@@ -177,9 +181,8 @@ class AnalyticsIT extends AbstractIntegrationTest {
         assertThat(sawViewer).as("the viewer's events carry the actor hash").isTrue();
 
         JsonNode noResults = first(events, "search_no_results");
-        assertThat(noResults.path("payload").path("query").asString())
-                .contains("[email]")
-                .contains("[number]");
+        assertThat(noResults.path("payload").has("query")).isFalse();
+        assertThat(noResults.path("payload").path("query_length").asInt()).isPositive();
         assertThat(noResults.path("payload").path("surface").asString()).isEqualTo("search");
         assertThat(noResults.path("region_code").asString()).isEqualTo("americas-north");
         JsonNode holders = firstWhere(events, "search_performed", "card_holders");
@@ -238,7 +241,7 @@ class AnalyticsIT extends AbstractIntegrationTest {
                 201);
         callJson(
                 HttpMethod.POST,
-                "/api/v1/community/channels/general/posts",
+                "/api/v1/community/channels/americas-north-yugioh/posts",
                 sender,
                 Map.of("body", "Public question about card sleeves " + UUID.randomUUID()),
                 201);
@@ -264,7 +267,8 @@ class AnalyticsIT extends AbstractIntegrationTest {
         assertThat(sent.path("payload").path("recipient_hash").asString())
                 .isEqualTo(actorHasher.hash(recipientId));
         JsonNode posted = first(mine, "community_post_created");
-        assertThat(posted.path("payload").path("channel").asString()).isEqualTo("general");
+        assertThat(posted.path("payload").path("channel").asString())
+                .isEqualTo("americas-north-yugioh");
         for (JsonNode event : mine) {
             assertThat(event.toString())
                     .doesNotContain("Secret meeting")
@@ -541,6 +545,42 @@ class AnalyticsIT extends AbstractIntegrationTest {
     }
 
     /** Analytics lines logged since the test started, waiting for the asynchronous transport. */
+    /**
+     * Stage R15: what a guest reads (Home's feed, a region's binders, card holders, the unified
+     * search) emits its events without an actor and without a device: no account, no device id, no
+     * address.
+     */
+    @Test
+    void guestReadsEmitEventsWithoutAnActorOrADevice(CapturedOutput output)
+            throws InterruptedException {
+        Instant start = Instant.now().minusSeconds(1);
+        UUID printingId = InventoryTestSupport.printing(testUsers, "ygo-p001a");
+        get(null, "/api/v1/feed?game=yugioh");
+        get(null, "/api/v1/regions/americas-north/binders?game=yugioh");
+        get(null, "/api/v1/search/card-holders?printingId={id}&region=americas-north", printingId);
+        get(null, "/api/v1/search?q={q}&region=americas-north", "AZR-EN001");
+
+        Instant deadline = Instant.now().plus(Duration.ofSeconds(15));
+        List<JsonNode> events = List.of();
+        while (Instant.now().isBefore(deadline)) {
+            events = parse(output.getAll(), start);
+            long searches =
+                    events.stream()
+                            .filter(e -> "search_performed".equals(e.path("event_type").asString()))
+                            .count();
+            if (searches >= 3) {
+                break;
+            }
+            Thread.sleep(200);
+        }
+        assertThat(events).as("the guest's search events").hasSizeGreaterThanOrEqualTo(3);
+        for (JsonNode event : events) {
+            assertThat(event.path("actor_hash").isNull()).as("no actor in %s", event).isTrue();
+            String text = event.toString();
+            assertThat(text).doesNotContain("device").doesNotContain("127.0.0.1");
+        }
+    }
+
     private List<JsonNode> awaitEvents(CapturedOutput output, Instant start)
             throws InterruptedException {
         Instant deadline = Instant.now().plus(Duration.ofSeconds(15));

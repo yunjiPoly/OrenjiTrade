@@ -5,12 +5,14 @@ import com.orenjitrade.api.profiles.domain.MemberCard;
 import com.orenjitrade.api.ratings.domain.InteractionKind;
 import com.orenjitrade.api.ratings.domain.RatingModerationState;
 import com.orenjitrade.api.ratings.domain.RatingRow;
+import com.orenjitrade.api.ratings.domain.RatingService.AdminRatingView;
 import com.orenjitrade.api.ratings.domain.RatingService.CollectorRatings;
 import com.orenjitrade.api.ratings.domain.RatingService.Eligibility;
 import com.orenjitrade.api.ratings.domain.RatingService.EligibleInteraction;
 import com.orenjitrade.api.ratings.domain.RatingService.RatingSummaryView;
 import com.orenjitrade.api.ratings.domain.RatingService.RatingView;
 import com.orenjitrade.api.ratings.domain.ReferenceRow;
+import com.orenjitrade.api.ratings.domain.ReferenceService.AdminReferenceView;
 import com.orenjitrade.api.ratings.domain.ReferenceService.ReferenceView;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
@@ -138,14 +140,33 @@ public final class RatingResponses {
             @Schema(requiredMode = RequiredMode.REQUIRED) UUID id,
             @Schema(requiredMode = RequiredMode.REQUIRED) InteractionKind kind,
             @Schema(requiredMode = RequiredMode.REQUIRED) Instant occurredAt,
-            @Schema(requiredMode = RequiredMode.REQUIRED) boolean alreadyRated) {
+            @Schema(requiredMode = RequiredMode.REQUIRED) boolean alreadyRated,
+            @Schema(
+                            nullable = true,
+                            description =
+                                    "A sale's card or deck core as named when it was marked sold"
+                                            + " (stage R14: the rating form names the deal); null"
+                                            + " for other kinds",
+                            example = "Ash Blossom & Joyous Spring")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable String dealName,
+            @Schema(
+                            nullable = true,
+                            description =
+                                    "A sale: true when the caller bought it (\"sold to you\"),"
+                                            + " false when the caller sold it; null for other"
+                                            + " kinds")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable Boolean soldToYou) {
 
         static EligibleInteractionResponse from(EligibleInteraction interaction) {
             return new EligibleInteractionResponse(
                     interaction.id(),
                     interaction.kind(),
                     interaction.occurredAt(),
-                    interaction.alreadyRated());
+                    interaction.alreadyRated(),
+                    interaction.dealName(),
+                    interaction.soldToYou());
         }
     }
 
@@ -181,9 +202,17 @@ public final class RatingResponses {
             @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
                     @Nullable UUID hiddenBy,
             @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
-                    @Nullable Instant hiddenAt) {
+                    @Nullable Instant hiddenAt,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            description = "The rated collector by name (web stage WH1)")
+                    AuthorResponse ratee,
+            @Schema(nullable = true, description = "The handle of the staff member who hid it")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable String hiddenByHandle) {
 
-        static AdminRatingResponse from(RatingView view) {
+        static AdminRatingResponse from(AdminRatingView admin) {
+            RatingView view = admin.rating();
             RatingRow row = view.row();
             return new AdminRatingResponse(
                     RatingResponse.from(view),
@@ -193,7 +222,9 @@ public final class RatingResponses {
                     row.moderationState(),
                     row.hiddenReason(),
                     row.hiddenBy(),
-                    row.hiddenAt());
+                    row.hiddenAt(),
+                    AuthorResponse.of(admin.ratee()),
+                    admin.hiddenBy() == null ? null : admin.hiddenBy().handle());
         }
     }
 
@@ -220,16 +251,29 @@ public final class RatingResponses {
             @Schema(requiredMode = RequiredMode.REQUIRED) UUID subjectId,
             @Schema(requiredMode = RequiredMode.REQUIRED) RatingModerationState moderationState,
             @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
-                    @Nullable String hiddenReason) {
+                    @Nullable String hiddenReason,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            description = "The collector it is about, by name (web stage WH1)")
+                    AuthorResponse subject,
+            @Schema(nullable = true, description = "The handle of the staff member who hid it")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable String hiddenByHandle,
+            @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable Instant hiddenAt) {
 
-        static AdminReferenceResponse from(ReferenceView view) {
+        static AdminReferenceResponse from(AdminReferenceView admin) {
+            ReferenceView view = admin.reference();
             ReferenceRow row = view.row();
             return new AdminReferenceResponse(
                     ReferenceResponse.from(view),
                     row.authorId(),
                     row.subjectId(),
                     row.moderationState(),
-                    row.hiddenReason());
+                    row.hiddenReason(),
+                    AuthorResponse.of(admin.subject()),
+                    admin.hiddenBy() == null ? null : admin.hiddenBy().handle(),
+                    row.hiddenAt());
         }
     }
 }

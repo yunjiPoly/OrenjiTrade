@@ -44,8 +44,11 @@ class TagIT extends AbstractIntegrationTest {
                 .contains("pokemon");
         assertThat(slugs(callJson(HttpMethod.GET, "/api/v1/tags?query=pokemon", uid, null, 200)))
                 .contains("pokemon");
+        assertThat(slugs(callJson(HttpMethod.GET, "/api/v1/tags?query=ship", uid, null, 200)))
+                .contains("shipping");
+        // Deals ship by mail (ADR 0018): the meetup tag is hidden (V115), never offered.
         assertThat(slugs(callJson(HttpMethod.GET, "/api/v1/tags?query=local meet", uid, null, 200)))
-                .contains("local-meetups");
+                .doesNotContain("local-meetups");
 
         JsonNode languages =
                 callJson(HttpMethod.GET, "/api/v1/tags?category=LANGUAGE&limit=50", uid, null, 200);
@@ -76,11 +79,11 @@ class TagIT extends AbstractIntegrationTest {
                         HttpMethod.PUT,
                         "/api/v1/me/profile/tags",
                         uid,
-                        tagsBody(List.of(tagId("trader"), tagId("local-meetups")), List.of(custom)),
+                        tagsBody(List.of(tagId("trader"), tagId("shipping")), List.of(custom)),
                         200);
 
         assertThat(tags.size()).isEqualTo(3);
-        assertThat(slugs(tags)).contains("trader", "local-meetups");
+        assertThat(slugs(tags)).contains("trader", "shipping");
         JsonNode created = null;
         for (JsonNode tag : tags) {
             if (tag.path("category").asString().equals("CUSTOM")) {
@@ -244,6 +247,67 @@ class TagIT extends AbstractIntegrationTest {
                 null,
                 tagsBody(List.of(), List.of()),
                 401);
+    }
+
+    /**
+     * V115 hid the meetup tag (ADR 0018). A collector who carried it no longer sees it on their own
+     * profile nor on their public one, and saving what their profile lists keeps working (the
+     * hidden link goes with that save; the usage counts stay right).
+     */
+    @Test
+    void theHiddenMeetupTagLeavesTheOwnProfileAndTheNextSaveWorks() {
+        String uid = uniqueUid("tag-meetup");
+        provisionCompliant(uid);
+        assertThat(
+                        testUsers
+                                .query("SELECT status FROM tag WHERE slug = 'local-meetups'")
+                                .get(0)
+                                .get("status"))
+                .isEqualTo("HIDDEN");
+        callJson(
+                HttpMethod.PUT,
+                "/api/v1/me/profile/tags",
+                uid,
+                tagsBody(List.of(tagId("trader")), List.of()),
+                200);
+        UUID userId = UUID.fromString(me(uid).path("id").asString());
+        int meetupBefore = usage("local-meetups");
+        // What a collector tagged before V115 still holds.
+        testUsers.update(
+                "INSERT INTO profile_tag (profile_user_id, tag_id) VALUES (?, ?)",
+                userId,
+                tagId("local-meetups"));
+        testUsers.update(
+                "UPDATE tag SET usage_count = usage_count + 1 WHERE slug = 'local-meetups'");
+
+        JsonNode mine = callJson(HttpMethod.GET, "/api/v1/me/profile", uid, null, 200);
+        assertThat(slugs(mine.path("tags"))).containsExactly("trader");
+
+        List<UUID> listed = new ArrayList<>();
+        mine.path("tags").forEach(tag -> listed.add(UUID.fromString(tag.path("id").asString())));
+        JsonNode saved =
+                callJson(
+                        HttpMethod.PUT,
+                        "/api/v1/me/profile/tags",
+                        uid,
+                        tagsBody(listed, List.of()),
+                        200);
+        assertThat(slugs(saved)).containsExactly("trader");
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM profile_tag WHERE profile_user_id = ? AND"
+                                        + " tag_id = ?",
+                                userId,
+                                tagId("local-meetups")))
+                .isZero();
+        assertThat(usage("local-meetups")).isEqualTo(meetupBefore);
+        // Still never selectable on purpose.
+        callJson(
+                HttpMethod.PUT,
+                "/api/v1/me/profile/tags",
+                uid,
+                tagsBody(List.of(tagId("local-meetups")), List.of()),
+                400);
     }
 
     private static List<String> slugs(JsonNode tags) {

@@ -18,14 +18,15 @@ import {
 /**
  * Launch readiness (2026-10-05) against the real local E2E stack: a visitor signs up with the
  * 18+ checkbox, becomes discoverable from the onboarding flow, opens a first conversation from a
- * collector profile and sees the dismissible trading safety notice (links to "Trading safely",
- * Report and Block), dismisses it once, and can block / unblock from the profile. A second test
+ * collector profile (the chat drawer, then Messages) and reads the chat's shield tip (web stage WC:
+ * the dismissible notice of 2026-10-05 became the tip, with Report and Block in the chat's menu),
+ * then the Trading safely page, and can block / unblock from the profile. A second test
  * reads the legal pages in French (French browser, EN/FR switch, `?lang=`) and in English.
  */
 test.describe('launch readiness: trading safety and French legal pages', () => {
   requireStack();
 
-  test('sign up with the 18+ checkbox, become discoverable, see the safety notice in a first conversation', async ({
+  test('sign up with the 18+ checkbox, become discoverable, read the chat safety tip in a first conversation', async ({
     page,
     request,
   }) => {
@@ -40,10 +41,11 @@ test.describe('launch readiness: trading safety and French legal pages', () => {
 
     // --- Sign up: the 18+ checkbox is explicit and unticked ---------------------------------
     await page.goto('/auth/sign-up');
+    await page.getByLabel('Display name').fill('E2E Safety Tester');
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password', { exact: true }).fill(TEST_PASSWORD);
     await page.getByRole('checkbox', { name: 'Accept all' }).check();
-    const ageBox = page.getByRole('checkbox', { name: /I confirm I am 18 years of age or older/ });
+    const ageBox = page.getByRole('checkbox', { name: 'I confirm I am 18 years of age or older' });
     await expect(ageBox).not.toBeChecked();
     await ageBox.check();
     await page.getByRole('button', { name: 'Create account' }).click();
@@ -54,21 +56,21 @@ test.describe('launch readiness: trading safety and French legal pages', () => {
     // --- Onboarding: profile, interests, location with "Show me on the map" ---------------------
     await expect(page).toHaveURL(/\/onboarding/, { timeout: 20_000 });
     await page.getByLabel('Handle').fill(handle);
-    await page.getByLabel('Display name').fill('E2E Safety Tester');
+    await expect(page.getByLabel('Display name')).toHaveValue('E2E Safety Tester');
     const next = page.getByRole('button', { name: 'Continue', exact: true });
-    await next.filter({ visible: true }).click();
+    await next.click();
     await expect(page.getByRole('heading', { name: 'What do you collect?' })).toBeVisible();
     await page
       .getByRole('group', { name: 'Games you collect or play' })
       .getByRole('button', { name: 'Pokémon' })
       .click();
-    await next.filter({ visible: true }).click();
-    await expect(page.getByRole('heading', { name: 'Where are you?' })).toBeVisible();
+    await next.click();
+    await expect(page.getByRole('heading', { name: 'Where do you ship from?' })).toBeVisible();
     await chooseOption(page, 'Country', 'Canada');
     await chooseOption(page, 'State or province', 'Quebec');
     await page.getByRole('switch', { name: 'Show me on the map' }).click();
     await page.getByRole('button', { name: 'Finish' }).click();
-    await expect(page).toHaveURL(/\/map(\?region=[a-z-]+)?$/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/:\d+\/(\?region=[a-z-]+(&game=[a-z-]+)?)?$/, { timeout: 20_000 });
     await expect(page.getByText('Welcome to OrenjiTrade! Your profile is ready.')).toBeVisible();
 
     // The API confirms the account is discoverable (the age gate let the switch through) and
@@ -93,79 +95,74 @@ test.describe('launch readiness: trading safety and French legal pages', () => {
     );
     expect(new Set(consents.map((c) => c.language))).toEqual(new Set(['en']));
 
-    // --- First conversation from the collector profile: the safety notice --------------------
+    // --- First conversation from the collector profile: the chat's safety words -------------
+    // Web stage WC (spec 10.3, 10.4 and 20): the dismissible notice became the shield tip of the
+    // chat, Trading safely beside a buyer's chat, and Report / Block in the "⋯" menu.
     await page.goto(`/collectors/${other.handle}`);
     await expect(page.getByRole('heading', { level: 1, name: other.displayName })).toBeVisible();
-    await page.getByRole('button', { name: `Message ${other.displayName}` }).click();
+    await page.getByRole('button', { name: `Message ${other.handle}` }).click();
+    const drawer = page.getByTestId('chat-drawer');
+    await expect(drawer).toBeVisible();
+    await drawer.getByTestId('open-in-messages').click();
     await expect(page).toHaveURL(/\/messages\/[0-9a-f-]{36}$/);
-    const thread = page.getByRole('region', { name: `Conversation with ${other.displayName}` });
-    const notice = thread.getByTestId('safety-notice');
-    await expect(notice).toBeVisible();
-    await expect(notice).toHaveAttribute('role', 'note');
-    await expect(notice).toContainText('Trade safely');
-    await expect(notice).toContainText('never share your home address');
-    await expect(notice.getByTestId('safety-guide')).toHaveAttribute(
-      'href',
-      '/legal/trading-safely',
-    );
+    const thread = page.getByRole('region', { name: `Chat with ${other.handle}` });
+    const tip = thread.getByTestId('chat-tip');
+    await expect(tip).toBeVisible();
+    // The phone's words (ADR 0018: shipped by mail, e-Transfer outside the app; no meetups).
+    await expect(tip).toContainText('OrenjiTrade never holds the money.');
+    await expect(tip).not.toContainText(/meet|public place/i);
 
-    // Report and Block are one click away from the notice; both dialogs can be cancelled.
-    await notice.getByRole('button', { name: `Report ${other.displayName}` }).click();
-    const report = page.getByRole('dialog', { name: 'Report collector' });
+    // Report and Block are in the chat's menu; both dialogs can be cancelled.
+    await thread.getByRole('button', { name: `More for ${other.handle}` }).click();
+    await page.getByRole('menuitem', { name: `Report ${other.handle}` }).click();
+    const report = page.getByRole('dialog', { name: /^Report / });
     await expect(report).toBeVisible();
     await report.getByRole('button', { name: 'Cancel' }).click();
     await expect(report).toBeHidden();
-    await notice.getByRole('button', { name: `Block ${other.displayName}` }).click();
-    const confirm = page.getByRole('dialog', { name: `Block ${other.displayName}?` });
+    await thread.getByRole('button', { name: `More for ${other.handle}` }).click();
+    await page.getByRole('menuitem', { name: `Block ${other.handle}` }).click();
+    const confirm = page.getByRole('dialog', { name: `Block ${other.handle}?` });
     await expect(confirm).toBeVisible();
     await confirm.getByRole('button', { name: 'Cancel' }).click();
     await expect(confirm).toBeHidden();
 
-    // The notice never blocks messaging.
+    // The tip never blocks messaging.
     const composer = thread.getByRole('textbox', { name: 'Message' });
-    await composer.fill('Hi! Shall we meet at the library?');
+    await composer.fill('Hi! Do you ship with tracking?');
     await composer.press('Enter');
-    await expect(
-      thread.getByRole('log', { name: `Messages with ${other.displayName}` }),
-    ).toContainText('Shall we meet at the library?');
-
-    // Dismissed once (keyboard), it stays dismissed after a reload. The composer takes the
-    // focus back once the send settles (its value resets), so wait for that first.
+    await expect(thread.getByRole('log', { name: `Messages with ${other.handle}` })).toContainText(
+      'Do you ship with tracking?',
+    );
     await expect(composer).toHaveValue('');
-    const dismiss = notice.getByRole('button', { name: 'Dismiss the safety notice' });
-    await dismiss.focus();
-    await expect(dismiss).toBeFocused();
-    await page.keyboard.press('Enter');
-    await expect(notice).toBeHidden();
-    await page.reload();
-    await expect(
-      page.getByRole('region', { name: `Conversation with ${other.displayName}` }),
-    ).toBeVisible();
-    await expect(page.getByTestId('safety-notice')).toHaveCount(0);
 
     // The link lands on the Trading safely page (English browser: English text).
     await page.goto('/legal/trading-safely');
     await expect(page.getByRole('heading', { level: 1, name: 'Trading safely' })).toBeVisible();
-    await expect(page.getByText('safe exchange zones')).toBeVisible();
+    await expect(page.getByText('the cards ship by mail')).toBeVisible();
 
     // --- Block and unblock from the collector profile ----------------------------------------
+    // Web stage WE (board W23): Report and Block in the profile's "⋯" menu, named by the handle.
     await page.goto(`/collectors/${other.handle}`);
-    await page.getByRole('button', { name: `Block ${other.displayName}` }).click();
+    await page.getByRole('button', { name: `More for ${other.handle}` }).click();
+    await page.getByRole('menuitem', { name: `Block ${other.handle}` }).click();
     await page
-      .getByRole('dialog', { name: `Block ${other.displayName}?` })
+      .getByRole('dialog', { name: `Block ${other.handle}?` })
       .getByRole('button', { name: 'Block' })
       .click();
-    await expect(page.getByText(`${other.displayName} is blocked.`)).toBeVisible();
-    await expect(page.getByRole('button', { name: `Unblock ${other.displayName}` })).toBeVisible();
+    await expect(page.getByText(`You blocked ${other.handle}.`)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Unblock' })).toBeVisible();
     const me = await apiMe(request, token);
     const refused = await request.post(`${API_URL}/api/v1/conversations`, {
       headers: authHeader(other.idToken),
       data: { recipientId: me.id },
     });
     expect(refused.status()).toBe(403);
-    await page.getByRole('button', { name: `Unblock ${other.displayName}` }).click();
-    await expect(page.getByText(`${other.displayName} is unblocked.`)).toBeVisible();
-    await expect(page.getByRole('button', { name: `Block ${other.displayName}` })).toBeVisible();
+    await page.getByRole('button', { name: 'Unblock' }).click();
+    await expect(page.getByText(`${other.handle} is unblocked.`)).toBeVisible();
+    await expect(page.getByText(`You blocked ${other.handle}.`)).toHaveCount(0);
+    await page.getByRole('button', { name: `More for ${other.handle}` }).click();
+    await expect(page.getByRole('menuitem', { name: `Block ${other.handle}` })).toBeVisible();
+    await page.keyboard.press('Escape');
   });
 
   test('legal pages in French for a French browser, with the EN/FR switch, and in English otherwise', async ({
@@ -200,7 +197,9 @@ test.describe('launch readiness: trading safety and French legal pages', () => {
     await expect(
       french.getByRole('heading', { level: 1, name: 'Échanger en toute sécurité' }),
     ).toBeVisible();
-    await expect(french.getByText('zones d’échange sécuritaires')).toBeVisible();
+    await expect(
+      french.getByText('Vous concluez la transaction dans la conversation'),
+    ).toBeVisible();
     await expect(french.getByText('Signaler et bloquer').first()).toBeVisible();
     await french.goto('/legal');
     await expect(french.getByRole('heading', { level: 1, name: 'Mentions légales' })).toBeVisible();
@@ -234,7 +233,7 @@ test.describe('launch readiness: trading safety and French legal pages', () => {
       .click();
     await expect(page).toHaveURL(/\/legal\/trading-safely$/);
     await expect(page.getByRole('heading', { level: 1, name: 'Trading safely' })).toBeVisible();
-    await expect(page.getByText('Bring someone along when the cards are valuable')).toBeVisible();
+    await expect(page.getByText('Share your address only in the chat')).toBeVisible();
     await expect(page.getByText('Report and block').first()).toBeVisible();
   });
 });

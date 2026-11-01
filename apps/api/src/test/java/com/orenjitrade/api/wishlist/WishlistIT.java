@@ -3,7 +3,7 @@ package com.orenjitrade.api.wishlist;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.orenjitrade.api.auth.domain.Role;
-import com.orenjitrade.api.billing.domain.PlanService;
+import com.orenjitrade.api.limits.domain.UsageLimitService;
 import com.orenjitrade.api.wishlist.domain.WishlistSettings;
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
@@ -26,7 +26,7 @@ import tools.jackson.databind.JsonNode;
  */
 class WishlistIT extends AbstractWishlistIT {
 
-    @Autowired private PlanService planService;
+    @Autowired private UsageLimitService usageLimits;
     @Autowired private WishlistSettings wishlistSettings;
 
     @Test
@@ -401,20 +401,18 @@ class WishlistIT extends AbstractWishlistIT {
     }
 
     @Test
-    void itemsAreLimitedByThePlan() {
+    void itemsAreLimitedTheSameForEveryone() {
         Collector owner = collector("wl-limits", americasNorth());
         UUID azure = printing(AZURE);
         UUID french = printing(AZURE_FR);
         UUID card = cardOf(azure);
         String id = createWish(owner, wish(azure, true)).path("id").asString();
 
-        Collector premium = collector("wl-premium", americasNorth());
-        testUsers.update(
-                "UPDATE user_account SET plan_code = 'PREMIUM' WHERE id = ?", premium.id());
-        createWish(premium, wish(azure, true));
+        Collector other = collector("wl-limits-other", americasNorth());
+        createWish(other, wish(azure, true));
 
-        // wishlist.items.max (FREE 20 by default; lowered to 2 for the test).
-        setFreeItemsMax(2);
+        // wishlist.items.max (20 for everyone by default; lowered to 2 for the test).
+        setItemsMax(2);
         try {
             createWish(owner, wish(french, true));
             JsonNode limit =
@@ -428,17 +426,17 @@ class WishlistIT extends AbstractWishlistIT {
             assertThat(limit.path("limitKey").asString()).isEqualTo("wishlist.items.max");
             assertThat(limit.path("limit").asInt()).isEqualTo(2);
             assertThat(limit.path("used").asInt()).isEqualTo(2);
-            assertThat(limit.path("planCode").asString()).isEqualTo("FREE");
+            assertThat(limit.has("planCode")).isFalse();
 
             // Deleting one frees a slot.
             callJson(HttpMethod.DELETE, "/api/v1/wishlist/" + id, owner.uid(), null, 204);
             createWish(owner, wish(card, false));
 
-            // PREMIUM: 500.
-            createWish(premium, wish(french, true));
-            createWish(premium, wish(card, false));
+            // The same limit for the other collector: a second wish fits, a third does not.
+            createWish(other, wish(french, true));
+            callJson(HttpMethod.POST, "/api/v1/wishlist", other.uid(), wish(card, false), 429);
         } finally {
-            setFreeItemsMax(20);
+            setItemsMax(20);
         }
     }
 
@@ -569,11 +567,9 @@ class WishlistIT extends AbstractWishlistIT {
         return copy;
     }
 
-    private void setFreeItemsMax(int max) {
+    private void setItemsMax(int max) {
         testUsers.update(
-                "UPDATE usage_limit l SET max_value = ? FROM plan p WHERE p.id = l.plan_id AND"
-                        + " p.code = 'FREE' AND l.limit_key = 'wishlist.items.max'",
-                max);
-        planService.invalidate();
+                "UPDATE usage_limit SET max_value = ? WHERE limit_key = 'wishlist.items.max'", max);
+        usageLimits.invalidate();
     }
 }

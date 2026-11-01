@@ -15,6 +15,9 @@ import {
   snackbar,
 } from './support/stack';
 
+/** The state of the run's collectors (UY-MO), as a wishlist alert's row names it (stage R9). */
+const PROVINCE = 'Montevideo';
+
 /**
  * Mobile wishlist and wishlist alerts (stage S2 of the 2026-10-08 product change) against the
  * real, isolated stack with two fresh fictional collectors of Americas (South) (no other mobile
@@ -68,22 +71,34 @@ test.describe('mobile wishlist and notifications', () => {
     const printingId = await printingIdOf(request, hal.idToken, WISHED_PRINTING);
 
     await signInThroughUi(page, wren.email, wren.password);
-    await openTab(page, 'Wishlist');
-    const wishlist = screen(page, 'wishlist');
-    await expect(wishlist.getByTestId('wishlist-empty')).toContainText('Your wishlist is empty', {
+    // Search › Wishlist (the old Wishlist tab, stage R5).
+    await openTab(page, 'Search');
+    const wishlist = screen(page, 'search');
+    await wishlist.getByRole('tab', { name: /^Wishlist/ }).click({ timeout: 30_000 });
+    await expect(wishlist.getByTestId('wishlist-empty')).toContainText('No wishes yet', {
       timeout: 30_000,
     });
-    // With a location: alerts can arrive, no prompt. The visibility switch is explained.
+    // With a location: alerts can arrive, no prompt; the alert switch is on (the default).
     await expect(wishlist.getByTestId('wishlist-location-prompt')).toHaveCount(0);
-    await expect(wishlist.getByTestId('wishlist-visible')).toContainText(
-      'Let others see what you want'
-    );
-    await wishlist.getByRole('button', { name: 'Add a card' }).click();
+    await expect(wishlist.getByRole('switch', { name: 'Wishlist alerts' })).toBeChecked({
+      timeout: 30_000,
+    });
+    // "Let others see what you want" lives in Settings › Privacy since stage R5.
+    await expect(wishlist.getByText('Let others see what you want')).toHaveCount(0);
+    await wishlist.getByRole('button', { name: 'Add a wish' }).click();
 
-    // The wish: card autocomplete, then the note, Near Mint only, a term and one printing.
+    // The wish (stage R14): "Add a wish" opens Search's card search; the card picked opens the
+    // form, then the note, Near Mint only, a price chip and one printing.
+    const finder = screen(page, 'wish-search');
+    await expect(finder.getByText('Which card are you looking for?', { exact: false })).toBeVisible(
+      {
+        timeout: 30_000,
+      }
+    );
+    await finder.getByTestId('search-input').fill('Emberfang');
+    const wished = await cardOfPrinting(request, wren.idToken, WISHED_PRINTING);
+    await finder.getByTestId(`search-result-${wished.cardId}`).click({ timeout: 30_000 });
     const editor = screen(page, 'wish-new');
-    await editor.getByLabel('Card name or printing code').fill('Emberfang');
-    await editor.getByTestId(`suggestion-CARD-${WISHED_PRINTING}`).click();
     await expect(editor.getByTestId('wish-card')).toContainText(WISHED_CARD, { timeout: 30_000 });
     await expect(editor.getByTestId('wish-copy')).toContainText('Any printing');
     // Nothing of the old form.
@@ -100,8 +115,14 @@ test.describe('mobile wishlist and notifications', () => {
     await editor.getByTestId('wish-near-mint').click();
     await editor.getByTestId('wish-copy').click();
     await page.getByTestId(`wish-copy-option-${printingId}`).click();
-    await expect(editor.getByTestId('wish-term-85')).toContainText(/85% TCG ≈ 0\.\d\d CAD/);
+    // The chips are the terms alone; the chosen term's amount is in the sentence under them
+    // (R14 review fix 1, U7).
+    await expect(editor.getByTestId('wish-term-85')).toContainText('85% TCG');
+    await expect(editor.getByTestId('wish-term-85')).not.toContainText('≈');
     await editor.getByTestId('wish-term-85').click();
+    await expect(editor.getByTestId('wish-terms-source')).toContainText(
+      /^85% TCG ≈ 0\.\d\d CAD for this printing\./
+    );
     await editor.getByRole('button', { name: 'Add to wishlist' }).click();
     await expect(snackbar(page)).toContainText(`${WISHED_CARD} is on your wishlist`);
 
@@ -132,32 +153,46 @@ test.describe('mobile wishlist and notifications', () => {
       expect(wish).not.toHaveProperty(removed);
     }
     await expect(wishlist.getByTestId(`wish-${wish.id}`)).toBeVisible();
-    await expect(wishlist.getByTestId(`wish-copy-${wish.id}`)).toContainText(
-      `${WISHED_PRINTING} · Common`
+    await expect(wishlist.getByTestId(`wish-${wish.id}-terms`)).toHaveText(
+      `${WISHED_PRINTING} · NM only · 85% TCG`
     );
-    await expect(wishlist.getByTestId(`wish-note-${wish.id}`)).toContainText(
-      'Fictional mobile E2E wish.'
-    );
-    await expect(wishlist.getByTestId(`wish-chips-${wish.id}`)).toContainText('Near Mint only');
-    await expect(wishlist.getByTestId(`wish-chips-${wish.id}`)).toContainText('85% TCG');
+    // ("None yet" or "Available": other specs list the same seed card in this region.)
     await expect(wishlist.getByText(/match/i)).toHaveCount(0);
-    const bell = page.getByTestId('notification-bell-wishlist');
+    await expect(wishlist.getByRole('tab', { name: 'Wishlist, 1' })).toBeVisible();
+    const bell = page.getByTestId('notification-bell-search');
     await expect(bell).toHaveAttribute('aria-label', 'Notifications');
 
-    // Hal lists the card (Near Mint) in the region: one alert reaches Wren live.
+    // Hal lists the card (Near Mint) in the region: one alert reaches Wren live, and the wish
+    // reads "Available" (it opens Who has this card on the wished printing).
     await apiListCopy(request, hal, binderId, printingId, 12);
-    await expect(page.getByTestId('notification-bell-wishlist-badge')).toHaveText('1', {
+    // Stage R9: an orange dot, and the bell says how many are new.
+    await expect(page.getByTestId('notification-bell-search-dot')).toBeVisible({
       timeout: 60_000,
     });
+    await expect(bell).toHaveAttribute('aria-label', 'Notifications, 1 new');
+    const available = wishlist.getByTestId(`wish-${wish.id}-available`);
+    await expect(available).toHaveText('Available', { timeout: 30_000 });
+    await available.click();
+    await expect(page).toHaveURL(new RegExp(`/cards/[\\w-]+\\?printing=${printingId}`), {
+      timeout: 30_000,
+    });
+    await expect(
+      screen(page, 'card').getByTestId(`holders-group-${PLACES.montevideo.subdivisionCode}`)
+    ).toHaveText('Montevideo · your province', { timeout: 30_000 });
+    await page.goBack();
 
-    // The notification centre, then the card page.
+    // Notifications (stage R9): the alert under New names the province and the lister, then
+    // opens the card page.
     await bell.click();
     const centre = screen(page, 'notifications');
-    const entry = centre.getByRole('link', { name: new RegExp(`Wishlist alert: ${WISHED_CARD}`) });
+    await expect(centre.getByRole('heading', { name: 'New' })).toBeVisible({ timeout: 30_000 });
+    const entry = centre.getByRole('link', {
+      name: new RegExp(`^${WISHED_CARD} from your wishlist was listed in ${PROVINCE}\\.`),
+    });
     await expect(entry).toBeVisible({ timeout: 30_000 });
-    await expect(entry).toContainText(
-      `was just listed by @${hal.handle} in ${PLACE_LABELS.montevideo}.`
-    );
+    await expect(entry).toContainText(`from your wishlist was listed in ${PROVINCE}`);
+    await expect(entry).toContainText(hal.handle);
+    await expect(entry).not.toContainText(PLACE_LABELS.montevideo);
     await expect(entry).not.toContainText('Zqhalcity');
     await expect(entry).not.toContainText(/\bkm\b/);
     await expect(centre.getByTestId('notification-unread-dot')).toHaveCount(1);
@@ -179,7 +214,13 @@ test.describe('mobile wishlist and notifications', () => {
       location: PLACES.montevideo,
       discoverable: true,
     });
-    const binderId = await apiPublicBinder(request, hal, `Mobile any-printing binder ${suffix()}`);
+    // The shared code is a Yu-Gi-Oh! card: a binder holds the cards of one game (stage G).
+    const binderId = await apiPublicBinder(
+      request,
+      hal,
+      `Mobile any-printing binder ${suffix()}`,
+      'yugioh'
+    );
     // The two printings that share the code: the catalog lists the 1st Edition first.
     const { cardId } = await cardOfPrinting(request, hal.idToken, SHARED_CODE);
     const card = await request.get(`${API_URL}/api/v1/cards/${cardId}`, {
@@ -195,18 +236,28 @@ test.describe('mobile wishlist and notifications', () => {
     const unlimited = sharing.find((printing) => printing.edition === 'UNLIMITED')!;
 
     await signInThroughUi(page, wren.email, wren.password);
-    await openTab(page, 'Wishlist');
-    const wishlist = screen(page, 'wishlist');
-    await expect(wishlist.getByTestId('wishlist-empty')).toContainText('Your wishlist is empty', {
+    await openTab(page, 'Search');
+    const wishlist = screen(page, 'search');
+    await wishlist.getByRole('tab', { name: /^Wishlist/ }).click({ timeout: 30_000 });
+    await expect(wishlist.getByTestId('wishlist-empty')).toContainText('No wishes yet', {
       timeout: 30_000,
     });
-    await wishlist.getByRole('button', { name: 'Add a card' }).click();
+    // Stage G: Ana browses Pokémon (her profile game); the codes are Yu-Gi-Oh! cards, and "Add a
+    // wish" offers the browsed game's cards only (review fix 1, U1): she switches to Yu-Gi-Oh!.
+    await wishlist.getByRole('button', { name: 'Game: Pokémon. Change game' }).click();
+    await page.getByRole('radio', { name: 'Yu-Gi-Oh!' }).click();
+    await expect(
+      wishlist.getByRole('button', { name: 'Game: Yu-Gi-Oh!. Change game' })
+    ).toBeVisible();
+    await wishlist.getByRole('button', { name: 'Add a wish' }).click();
 
     // A code only one printing has preselects that printing (written out in full).
-    const editor = screen(page, 'wish-new');
-    const search = editor.getByLabel('Card name or printing code');
+    const finder = screen(page, 'wish-search');
+    const search = finder.getByTestId('search-input');
     await search.fill(SINGLE_CODE);
-    await editor.getByTestId(`suggestion-PRINTING-${SINGLE_CODE}`).click();
+    const single = await cardOfPrinting(request, wren.idToken, SINGLE_CODE);
+    await finder.getByTestId(`search-result-${single.cardId}`).click({ timeout: 30_000 });
+    const editor = screen(page, 'wish-new');
     await expect(editor.getByTestId('wish-card')).toContainText(SINGLE_CODE_CARD, {
       timeout: 30_000,
     });
@@ -214,14 +265,16 @@ test.describe('mobile wishlist and notifications', () => {
     await expect(editor.getByTestId('wish-copy-hint')).toContainText(
       `Only ${SINGLE_CODE} · Ultra Rare · Azure Dawn · 1st Edition · English`
     );
+    // "Change" goes back to the card search, which kept the text.
     await editor.getByTestId('wish-change-card').click();
+    await expect(search).toHaveValue(SINGLE_CODE, { timeout: 30_000 });
 
-    // A typed code that two printings share: one suggestion for the code, and the wish starts on
+    // A typed code that two printings share: one card for the code, and the wish starts on
     // "Any printing". Neither printing is picked; "Which copy" names both in full.
     await search.fill(SHARED_CODE);
-    const suggestion = editor.getByTestId(`suggestion-PRINTING-${SHARED_CODE}`);
-    await expect(suggestion).toHaveCount(1);
-    await suggestion.click();
+    const found = finder.getByTestId(`search-result-${cardId}`);
+    await expect(found).toHaveCount(1, { timeout: 30_000 });
+    await found.click();
     await expect(editor.getByTestId('wish-card')).toContainText(SHARED_CODE_CARD, {
       timeout: 30_000,
     });
@@ -247,49 +300,36 @@ test.describe('mobile wishlist and notifications', () => {
     )[0];
     expect(wish?.printing ?? null, 'the wish is for any printing').toBeNull();
     expect(wish?.rarity ?? null).toBeNull();
-    await expect(wishlist.getByTestId(`wish-copy-${wish!.id}`)).toHaveText('Any printing');
+    // On Yu-Gi-Oh!, the game she browses now, the Wishlist shows it.
+    await expect(wishlist.getByTestId(`wish-${wish!.id}-terms`)).toHaveText('Any printing', {
+      timeout: 30_000,
+    });
 
     // Hal lists the Unlimited copy: the alert for the "Any printing" wish opens the card screen
     // on "Any printing". No printing is selected for Wren, none is checked, no price is shown
     // (the catalog's first printing is the 1st Edition, which nobody listed).
     await apiListCopy(request, hal, binderId, unlimited.id, 12.5);
-    await expect(page.getByTestId('notification-bell-wishlist-badge')).toHaveText('1', {
+    await expect(page.getByTestId('notification-bell-search-dot')).toBeVisible({
       timeout: 60_000,
     });
-    await page.getByTestId('notification-bell-wishlist').click();
+    await page.getByTestId('notification-bell-search').click();
     const centre = screen(page, 'notifications');
     const entry = centre.getByRole('link', {
-      name: new RegExp(`Wishlist alert: ${SHARED_CODE_CARD}`),
+      name: new RegExp(`^${SHARED_CODE_CARD} from your wishlist was listed in ${PROVINCE}\\.`),
     });
-    await expect(entry).toContainText(
-      `${SHARED_CODE_CARD} ${SHARED_CODE} Super Rare was just listed by @${hal.handle} in ${PLACE_LABELS.montevideo}.`,
-      { timeout: 30_000 }
-    );
+    await expect(entry).toContainText(`${hal.handle} · $12.50`, { timeout: 30_000 });
     await entry.click();
     const cardScreen = screen(page, 'card');
     await expect(cardScreen.getByTestId('card-name')).toHaveText(SHARED_CODE_CARD, {
       timeout: 30_000,
     });
     await expect(page).toHaveURL(/[?&]printing=any(&|$)/);
-    await expect(cardScreen.getByTestId('card-selected-any')).toContainText('Any printing');
-    await expect(cardScreen.getByTestId('card-selected-any')).toContainText(
-      '2 printings of this card: any of them fits.'
-    );
-    await expect(cardScreen.getByTestId('card-selected-printing')).toHaveCount(0);
-    await expect(cardScreen.getByTestId('card-price')).toHaveCount(0);
-    for (const printing of sharing) {
-      await expect(cardScreen.getByTestId(`printing-${printing.id}`)).toHaveAttribute(
-        'aria-checked',
-        'false'
-      );
-    }
-    // Choosing a printing replaces "any": that printing, and only then, is selected.
-    await cardScreen.getByTestId(`printing-${unlimited.id}`).click();
-    await expect(cardScreen.getByTestId('card-selected-printing')).toBeVisible();
-    await expect(cardScreen.getByTestId('card-selected-any')).toHaveCount(0);
-    await expect(cardScreen.getByTestId(`printing-${unlimited.id}`)).toHaveAttribute(
-      'aria-checked',
-      'true'
-    );
+    // Who has this card on "Any printing": no printing is picked for Wren; the Unlimited copy is
+    // one of the rows, and the sheet lets her choose one printing.
+    await expect(cardScreen.getByTestId('card-printing')).toContainText('Any printing');
+    await expect(cardScreen.getByTestId('holders-group-UY-MO')).toBeVisible({ timeout: 30_000 });
+    await cardScreen.getByTestId('card-printing').click();
+    await page.getByTestId(`card-printing-${unlimited.id}`).click();
+    await expect(cardScreen.getByTestId('card-printing')).toContainText(SHARED_CODE);
   });
 });

@@ -1,10 +1,4 @@
-import {
-  APIRequestContext,
-  Page,
-  expect,
-  request as playwrightRequest,
-  test,
-} from '@playwright/test';
+import { APIRequestContext, expect, request as playwrightRequest, test } from '@playwright/test';
 import {
   apiCreateBinder,
   apiCreateItem,
@@ -27,25 +21,21 @@ import {
 } from './support/stack';
 
 /**
- * Launch configuration (2026-10-05): OrenjiTrade launches as "discovery + messaging only". This
- * spec switches every money flag off on the real E2E stack — the state a production database has
- * after the migrations (V105) — and checks that no screen offers to pay, subscribe, buy credits or
- * donate, that the money routes refuse with the feature-disabled Problem Details, and that the
- * ordinary journey (map, public binder, an offer as a plain proposal, the agreed trade) still
+ * Launch configuration (2026-10-05): OrenjiTrade launches as "discovery + messaging only"; since
+ * stage F1 (2026-10-14) Premium, credits, donations and ads are gone altogether. This spec
+ * switches the remaining money flag off on the real E2E stack — the state a production database
+ * has after the migrations (V105) — and checks that no screen offers to pay, subscribe, buy credits
+ * or donate, that the removed paid pages and routes do not exist, that protected payments refuse
+ * with the feature-disabled Problem Details, and that the ordinary journey (map, public binder, an offer as a plain proposal, the agreed trade) still
  * works. It changes shared state, so it is its own Playwright project (`launch-config`) that runs
  * alone after the `chromium` project; the flags are restored afterwards. Run it on its own with
  * `npm run test:e2e -- e2e/launch-config.spec.ts --no-deps`.
  */
 
 const SUPER_ADMIN = 'superadmin@orenjitrade.test';
-const MONEY_FLAGS = [
-  'protectedPayments',
-  'premiumPlans',
-  'credits',
-  'donations',
-  'advertising',
-  'mlScanning',
-] as const;
+const MONEY_FLAGS = ['protectedPayments', 'mlScanning'] as const;
+/** The flags of the paid features removed by stage F1 (migrations V120 to V123). */
+const REMOVED_FLAGS = ['premiumPlans', 'credits', 'donations', 'advertising'] as const;
 
 interface FeatureFlag {
   key: string;
@@ -73,7 +63,7 @@ function suffix(): string {
 /** A discoverable seller with a published trade binder holding one card that accepts offers. */
 async function sellerWithListing(
   api: APIRequestContext,
-): Promise<{ collector: OnboardedCollector; binderId: string; card: string }> {
+): Promise<{ collector: OnboardedCollector; binderId: string; card: string; itemId: string }> {
   const collector = await createOnboardedCollector(api, 'launchsell', {
     location: { countryCode: 'CA', subdivisionCode: 'CA-QC', city: 'Saguenay' },
     displayName: `Lou Launch ${suffix()}`,
@@ -96,7 +86,7 @@ async function sellerWithListing(
     askingPrice: 45,
     publicNotes: 'Fictional listing for the launch configuration E2E spec.',
   });
-  return { collector, binderId: binder.id, card: item.card.name };
+  return { collector, binderId: binder.id, card: item.card.name, itemId: item.id };
 }
 
 async function expectFeatureDisabled(
@@ -117,12 +107,6 @@ async function expectFeatureDisabled(
   expect(problem.errorCode, path).toBe('FEATURE_DISABLED');
   expect(problem.feature, path).toBe(feature);
   expect(problem.requestId, `requestId of ${path}`).toBeTruthy();
-}
-
-async function expectRedirectedAway(page: Page, path: string, label: string, to: RegExp) {
-  await page.goto(path);
-  await expect(page).toHaveURL(to);
-  await expect(page.getByText(`${label} is not available right now.`)).toBeVisible();
 }
 
 test.describe.configure({ mode: 'serial' });
@@ -169,8 +153,11 @@ test.describe('launch configuration: every money flag off', () => {
     for (const key of MONEY_FLAGS) {
       expect(flags[key], `public flag ${key}`).toBe(false);
     }
+    for (const key of REMOVED_FLAGS) {
+      expect(key in flags, `removed flag ${key}`).toBe(false);
+    }
 
-    const { collector: seller, binderId, card } = await sellerWithListing(request);
+    const { collector: seller, binderId, card, itemId } = await sellerWithListing(request);
     const buyer = await createOnboardedCollector(request, 'launchbuy', {
       displayName: `Bo Launch ${suffix()}`,
     });
@@ -178,9 +165,10 @@ test.describe('launch configuration: every money flag off', () => {
     await stubCardImages(page);
     await signInThroughUi(page, buyer.email, buyer.password);
 
-    // --- Map: no radius exists any more (ADR 0017), nothing is sold, no sponsored placement -----
-    await expect(page).toHaveURL(/\/map/);
-    await expect(page.getByTestId('boundary-map')).toBeVisible();
+    // --- Home (web stage WE: the feed and its map card): no radius exists any more (ADR 0017),
+    // nothing is sold, no sponsored place ---
+    await expect(page).toHaveURL(/:\d+\/(\?region=[a-z-]+(&game=[a-z-]+)?)?$/);
+    await expect(page.getByTestId('home-map-card')).toBeVisible();
     await expect(page.getByTestId('radius-cap')).toHaveCount(0);
     await expect(page.getByRole('main')).not.toContainText(/\bkm\b/);
     await expect(page.locator('a[href="/premium"]')).toHaveCount(0);
@@ -193,73 +181,74 @@ test.describe('launch configuration: every money flag off', () => {
       await expect(page.getByRole('menuitem', { name })).toHaveCount(0);
     }
     await page.keyboard.press('Escape');
+    // The footer ends reading pages (spec 4.10): Home is a workspace page without one.
+    await page.goto('/legal');
     const footer = page.getByRole('contentinfo');
     await expect(footer.getByRole('link', { name: 'Trading safely' })).toBeVisible();
     await expect(footer.getByRole('link', { name: 'Premium' })).toHaveCount(0);
     await expect(page.getByTestId('footer-support')).toHaveCount(0);
 
-    // --- The premium page sells nothing; credits, support and payouts are unreachable -----------
-    await page.goto('/premium');
-    await expect(page.getByRole('heading', { level: 1, name: 'Premium' })).toBeVisible();
-    await expect(page.getByText('Premium is not available yet')).toBeVisible();
-    await expect(page.getByRole('button', { name: /Upgrade/ })).toHaveCount(0);
-    await expectRedirectedAway(page, '/credits', 'Credits', /\/map/);
-    await expectRedirectedAway(page, '/support', 'Donations', /\/map/);
-    await expectRedirectedAway(page, '/settings/payouts', 'Payouts', /\/settings\/profile$/);
+    // --- Legal hides the payment policies while protectedPayments is off (decision 23) ---------
+    await expect(page.getByRole('link', { name: /Terms of Service/ })).toBeVisible();
+    await expect(page.getByRole('link', { name: /^Payment Protection Policy/ })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /^Refund and Dispute Policy/ })).toHaveCount(0);
+
+    // --- Premium, credits and support do not exist any more; payouts are unreachable -----------
+    for (const path of ['/premium', '/credits', '/support']) {
+      await page.goto(path);
+      await expect(page.getByRole('heading', { level: 1, name: 'Page not found' })).toBeVisible();
+    }
+    // Offers and payouts left the web (decision 2): the old settings pages lead to Settings.
+    for (const path of ['/settings/payouts', '/settings/offers']) {
+      await page.goto(path);
+      await expect(page).toHaveURL(/\/settings\/profile$/);
+    }
     await expect(
       page.getByRole('navigation', { name: 'Settings sections' }).getByRole('link', {
-        name: 'Payouts',
+        name: /Payouts|Offers/,
       }),
     ).toHaveCount(0);
 
-    // --- An offer is a plain proposal: no payment protection to tick ---------------------------
+    // --- No offer on the web any more (decision 2): no button, no chip, old links to Messages ---
     await page.goto(`/binders/${binderId}`);
-    const listing = page.getByRole('article', { name: card });
-    await listing.getByRole('button', { name: `Make an offer on ${card}` }).click();
-    const dialog = page.getByRole('dialog', { name: 'Make an offer' });
-    await expect(dialog).toContainText('Asking $45.00');
-    await expect(dialog.getByRole('checkbox', { name: /payment protection/i })).toHaveCount(0);
-    await dialog.getByRole('spinbutton', { name: 'Amount' }).fill('40');
-    await dialog.getByRole('button', { name: 'Send offer' }).click();
-    await expect(dialog).toBeHidden();
-    await expect(page.getByText(`Offer sent to ${seller.displayName}.`)).toBeVisible();
+    // The binder page's cards (web stage WD, board W9).
+    const listing = page.getByTestId('binder-card').filter({ hasText: card });
+    await expect(listing).toBeVisible();
+    await expect(listing.getByRole('button', { name: /Make an offer/ })).toHaveCount(0);
+    await expect(listing).not.toContainText(/Accepting offers|Make an offer/);
 
-    await page.goto('/offers?tab=sent');
-    await page.getByRole('link', { name: new RegExp(`^Offer on ${card} to `) }).click();
-    await expect(page).toHaveURL(/\/offers\/[\w-]+$/);
-    const offerId = /\/offers\/([\w-]+)/.exec(page.url())![1];
-
-    // The seller accepts (API): the trade opens as AGREED, nothing to pay, safety notice shown.
+    // An offer the API still records (the paused web's server modules stay, ADR 0018): its old
+    // links land in Messages with the toast.
+    const created = await request.post(`${API_URL}/api/v1/offers`, {
+      headers: authHeader(buyer.idToken),
+      data: { itemId, kind: 'CASH', cashAmount: 40, currency: 'CAD' },
+    });
+    expect(created.ok(), 'POST /offers').toBeTruthy();
+    const offerId = ((await created.json()) as { id: string }).id;
     const accepted = await request.post(`${API_URL}/api/v1/offers/${offerId}/accept`, {
       headers: authHeader(seller.idToken),
     });
     expect(accepted.ok(), 'POST /offers/{id}/accept').toBeTruthy();
     const tradeId = ((await accepted.json()) as { tradeId: string }).tradeId;
-    await page.goto(`/trades/${tradeId}`);
-    await expect(page.getByTestId('next-action')).toContainText('meet and exchange the cards');
-    await expect(page.getByRole('button', { name: /^Pay /i })).toHaveCount(0);
-    await expect(page.getByTestId('safety-notice')).toBeVisible();
+    for (const path of [`/offers/${offerId}`, `/trades/${tradeId}`]) {
+      await page.goto(path);
+      await expect(page).toHaveURL(/\/messages$/);
+      await expect(
+        page.getByText('Offers are no longer available. Deals happen in the chat.'),
+      ).toBeVisible();
+    }
     await expect(page.locator('a[href="/premium"]')).toHaveCount(0);
 
-    // --- The money routes refuse with the existing Problem Details ----------------------------
-    await expectFeatureDisabled(
-      request,
-      buyer.idToken,
-      'post',
-      '/api/v1/me/subscription/checkout',
-      'premiumPlans',
-      { planCode: 'PREMIUM' },
-    );
-    await expectFeatureDisabled(request, buyer.idToken, 'get', '/api/v1/me/credits', 'credits');
-    await expectFeatureDisabled(request, buyer.idToken, 'get', '/api/v1/me/referrals', 'credits');
-    await expectFeatureDisabled(
-      request,
-      buyer.idToken,
-      'post',
-      '/api/v1/donations/checkout',
-      'donations',
-      { amount: 5, currency: 'CAD' },
-    );
+    // --- The removed paid routes are gone; protected payments refuse with the Problem Details ---
+    for (const path of [
+      '/api/v1/me/plan',
+      '/api/v1/me/credits',
+      '/api/v1/me/referrals',
+      '/api/v1/ads',
+    ]) {
+      const gone = await request.get(`${API_URL}${path}`, { headers: authHeader(buyer.idToken) });
+      expect(gone.status(), `GET ${path}`).toBe(404);
+    }
     await expectFeatureDisabled(
       request,
       seller.idToken,
@@ -274,8 +263,5 @@ test.describe('launch configuration: every money flag off', () => {
       `/api/v1/trades/${tradeId}/pay`,
       'protectedPayments',
     );
-    const ads = await request.get(`${API_URL}/api/v1/ads?placement=MAP_PANEL`);
-    expect(ads.status()).toBe(200);
-    expect(await ads.json()).toEqual([]);
   });
 });

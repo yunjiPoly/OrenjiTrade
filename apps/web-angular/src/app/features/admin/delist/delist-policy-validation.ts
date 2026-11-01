@@ -106,3 +106,31 @@ export function freshnessStages(value: DelistPolicyValue): FreshnessStage[] {
     { key: 'HIDDEN', label: 'Hidden', range: `${hidden}+ days`, share: 20 },
   ];
 }
+
+/**
+ * Board A17's sentence under the timeline ("A listing nobody confirms is aging after 14 days, stale
+ * after 30 and hidden after 45. …"), and the reminder's day; `null` until the thresholds are
+ * valid.
+ */
+export function freshnessSentence(
+  value: DelistPolicyValue,
+): { sentence: string; reminderDay: number | null } | null {
+  const { agingAfterDays: aging, staleAfterDays: stale, hiddenAfterDays: hidden } = value;
+  if (freshnessStages(value).length === 0 || hidden === null) {
+    return null;
+  }
+  const warn = value.warnBeforeHiddenDays;
+  const reminderDay = whole(warn) && warn > 0 && warn < hidden ? hidden - warn : null;
+  const reminder =
+    reminderDay === null
+      ? ''
+      : ` Its owner gets a reminder on day ${reminderDay}, ${warn} ${
+          warn === 1 ? 'day' : 'days'
+        } before it is hidden.`;
+  return {
+    sentence:
+      `A listing nobody confirms is aging after ${aging} days, stale after ${stale} and hidden ` +
+      `after ${hidden}.${reminder} Confirming it makes it fresh again.`,
+    reminderDay,
+  };
+}

@@ -152,8 +152,8 @@ public class OfferSeedContributor implements SeedContributor {
                         null,
                         "ACCEPTED",
                         "SELLER",
-                        "My spare Magic rare for your Yu-Gi-Oh! single? Happy to meet at a"
-                                + " game store.",
+                        "My spare Magic rare for your Yu-Gi-Oh! single? We can both ship"
+                                + " with tracking.",
                         created1,
                         accepted1,
                         accepted1,
@@ -228,8 +228,8 @@ public class OfferSeedContributor implements SeedContributor {
                         "CAD",
                         "OPEN",
                         "SELLER",
-                        "Would you take 40 for the Azure-Eyes? I can meet at Berri-UQAM after"
-                                + " work.",
+                        "Would you take 40 for the Azure-Eyes? I can pay by e-Transfer, shipped"
+                                + " with tracking.",
                         created3,
                         created3,
                         null,

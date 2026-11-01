@@ -12,10 +12,7 @@ import {
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { GameRequest, GameRequestStatusEnum, GameResponse } from '@orenji/api-client';
 import { map, startWith } from 'rxjs';
 import { GameSchemaPreviewComponent } from './game-schema-preview.component';
@@ -25,63 +22,141 @@ import {
   validateGameSchemaJson,
 } from './game-schema-validation';
 
+/** The API's slug rule: lower-case letters and digits separated by dashes. */
+const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
 /**
  * Edit form of one game: names, publisher, status (HIDDEN removes it everywhere public), display
  * order and its `GameSchema` as JSON with live validation and a preview. The slug never changes.
  */
 @Component({
   selector: 'app-game-editor',
-  imports: [
-    ReactiveFormsModule,
-    MatButtonModule,
-    MatFormFieldModule,
-    MatIconModule,
-    MatInputModule,
-    MatSelectModule,
-    GameSchemaPreviewComponent,
-  ],
+  imports: [ReactiveFormsModule, MatButtonModule, MatIconModule, GameSchemaPreviewComponent],
+  styleUrls: ['../console/console-form.scss'],
   template: `
     <form class="editor" [formGroup]="form" (ngSubmit)="submit()" novalidate>
-      <div class="editor__row">
-        <mat-form-field appearance="outline">
-          <mat-label>Name</mat-label>
-          <input matInput formControlName="name" maxlength="120" />
-          @if (form.controls.name.hasError('required')) {
-            <mat-error>A name is required.</mat-error>
+      @if (creating()) {
+        <div class="cf">
+          <div class="cf__top">
+            <label class="cf__label" for="game-slug">Slug</label>
+            <span class="cf__count" aria-hidden="true"
+              >{{ form.controls.slug.value.length }} / 32</span
+            >
+          </div>
+          <input
+            id="game-slug"
+            class="cf__control mono"
+            formControlName="slug"
+            maxlength="32"
+            autocomplete="off"
+            [attr.aria-invalid]="!!slugError()"
+            aria-describedby="game-slug-help"
+          />
+          @if (slugError(); as error) {
+            <p class="cf__error" id="game-slug-help">{{ error }}</p>
+          } @else {
+            <p class="cf__help" id="game-slug-help">
+              Lower-case letters and digits with dashes, like lorcana. It never changes.
+            </p>
           }
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Short name</mat-label>
-          <input matInput formControlName="shortName" maxlength="40" />
-          @if (form.controls.shortName.hasError('required')) {
-            <mat-error>A short name is required.</mat-error>
+        </div>
+      }
+      <div class="cf-row">
+        <div class="cf">
+          <div class="cf__top">
+            <label class="cf__label" for="game-name">Name</label>
+            <span class="cf__count" aria-hidden="true"
+              >{{ form.controls.name.value.length }} / 120</span
+            >
+          </div>
+          <input
+            id="game-name"
+            class="cf__control"
+            formControlName="name"
+            maxlength="120"
+            [attr.aria-invalid]="shows('name')"
+            [attr.aria-describedby]="shows('name') ? 'game-name-error' : null"
+          />
+          @if (shows('name')) {
+            <p class="cf__error" id="game-name-error">A name is required.</p>
           }
-        </mat-form-field>
+        </div>
+        <div class="cf">
+          <div class="cf__top">
+            <label class="cf__label" for="game-short">Short name</label>
+            <span class="cf__count" aria-hidden="true"
+              >{{ form.controls.shortName.value.length }} / 40</span
+            >
+          </div>
+          <input
+            id="game-short"
+            class="cf__control"
+            formControlName="shortName"
+            maxlength="40"
+            [attr.aria-invalid]="shows('shortName')"
+            aria-describedby="game-short-help"
+          />
+          @if (shows('shortName')) {
+            <p class="cf__error" id="game-short-help">A short name is required.</p>
+          } @else {
+            <p class="cf__help" id="game-short-help">Shown on tiles, chips and filters.</p>
+          }
+        </div>
+        <div class="cf">
+          <div class="cf__top">
+            <label class="cf__label" for="game-publisher">Publisher</label>
+            <span class="cf__count" aria-hidden="true"
+              >{{ form.controls.publisher.value.length }} / 120</span
+            >
+          </div>
+          <input
+            id="game-publisher"
+            class="cf__control"
+            formControlName="publisher"
+            maxlength="120"
+            [attr.aria-invalid]="shows('publisher')"
+            [attr.aria-describedby]="shows('publisher') ? 'game-publisher-error' : null"
+          />
+          @if (shows('publisher')) {
+            <p class="cf__error" id="game-publisher-error">A publisher is required.</p>
+          }
+        </div>
       </div>
-      <div class="editor__row">
-        <mat-form-field appearance="outline">
-          <mat-label>Publisher</mat-label>
-          <input matInput formControlName="publisher" maxlength="120" />
-          @if (form.controls.publisher.hasError('required')) {
-            <mat-error>A publisher is required.</mat-error>
-          }
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Status</mat-label>
-          <mat-select formControlName="status">
-            <mat-option value="ACTIVE">Active</mat-option>
-            <mat-option value="HIDDEN">Hidden</mat-option>
-          </mat-select>
-          <mat-hint>Hidden games disappear from the catalog and profile choices.</mat-hint>
-        </mat-form-field>
-        <mat-form-field appearance="outline" class="editor__order">
-          <mat-label>Display order</mat-label>
-          <input matInput type="number" formControlName="sortOrder" min="0" step="1" />
-          @if (form.controls.sortOrder.invalid) {
-            <mat-error>Use a whole number from 0.</mat-error>
-          }
-        </mat-form-field>
+      <div class="cf editor__order">
+        <label class="cf__label" for="game-order">Display order</label>
+        <input
+          id="game-order"
+          class="cf__control"
+          type="number"
+          formControlName="sortOrder"
+          min="0"
+          step="1"
+          [attr.aria-invalid]="shows('sortOrder')"
+          aria-describedby="game-order-help"
+        />
+        @if (shows('sortOrder')) {
+          <p class="cf__error" id="game-order-help">Use a whole number from 0.</p>
+        } @else {
+          <p class="cf__help" id="game-order-help">Lower comes first in every game picker.</p>
+        }
       </div>
+      <fieldset class="cf-choices">
+        <legend>Status</legend>
+        <label class="cf-choice" [class.cf-choice--on]="form.controls.status.value === 'ACTIVE'">
+          <input type="radio" formControlName="status" value="ACTIVE" />
+          <span>
+            <strong>Active</strong>
+            <span class="cf__help">Shown in the catalog and profile choices.</span>
+          </span>
+        </label>
+        <label class="cf-choice" [class.cf-choice--on]="form.controls.status.value === 'HIDDEN'">
+          <input type="radio" formControlName="status" value="HIDDEN" />
+          <span>
+            <strong>Hidden</strong>
+            <span class="cf__help">Disappears from the catalog and profile choices.</span>
+          </span>
+        </label>
+      </fieldset>
 
       <div class="editor__schema">
         <div class="editor__schema-head">
@@ -128,7 +203,7 @@ import {
         </button>
         <button matButton="filled" type="submit" [disabled]="saving()">
           <mat-icon aria-hidden="true">save</mat-icon>
-          {{ saving() ? 'Saving…' : 'Save game' }}
+          {{ saving() ? 'Saving…' : creating() ? 'Create game' : 'Save game' }}
         </button>
       </div>
     </form>
@@ -140,18 +215,10 @@ import {
     .editor {
       display: flex;
       flex-direction: column;
-      gap: var(--spacing-2);
-    }
-    .editor__row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: var(--spacing-3);
-    }
-    .editor__row mat-form-field {
-      flex: 1 1 200px;
+      gap: 18px;
     }
     .editor__order {
-      max-width: 160px;
+      max-width: 240px;
     }
     .editor__schema-head {
       display: flex;
@@ -205,11 +272,14 @@ import {
 export class GameEditorComponent {
   readonly game = input.required<GameResponse>();
   readonly saving = input(false, { transform: booleanAttribute });
+  /** "New game" (`POST /admin/games`, board A13): a slug field and "Create game". */
+  readonly creating = input(false, { transform: booleanAttribute });
   /** Field errors from the API (`VALIDATION_FAILED`), by field path. */
   readonly serverErrors = input<Record<string, string>>({});
   readonly save = output<GameRequest>();
 
   protected readonly form = inject(FormBuilder).nonNullable.group({
+    slug: ['', [Validators.minLength(2), Validators.maxLength(32), Validators.pattern(SLUG)]],
     name: ['', [Validators.required, Validators.maxLength(120)]],
     shortName: ['', [Validators.required, Validators.maxLength(40)]],
     publisher: ['', [Validators.required, Validators.maxLength(120)]],
@@ -235,11 +305,36 @@ export class GameEditorComponent {
     return [...this.validation().errors, ...server];
   });
 
+  /** Statuses (touched or a save tried), so each field's error shows as Material's did. */
+  private readonly statuses = toSignal(this.form.events.pipe(map(() => this.form.value)), {
+    initialValue: null,
+  });
+
   constructor() {
     effect(() => {
       const game = this.game();
       untracked(() => this.fill(game));
     });
+  }
+
+  /** A field's error shows once it was touched or a save was tried. */
+  protected shows(name: 'name' | 'shortName' | 'publisher' | 'sortOrder'): boolean {
+    this.statuses();
+    const control = this.form.controls[name];
+    return control.invalid && control.touched;
+  }
+
+  /** The slug's error, its rule first, then the API's answer (New game). */
+  protected slugError(): string | null {
+    this.statuses();
+    const slug = this.form.controls.slug;
+    if (slug.touched && slug.hasError('required')) {
+      return 'A slug is required.';
+    }
+    if (slug.touched && slug.invalid) {
+      return 'Use 2 to 32 lower-case letters and digits separated by dashes.';
+    }
+    return this.serverErrors()['slug'] ?? null;
   }
 
   protected reset(): void {
@@ -256,12 +351,17 @@ export class GameEditorComponent {
 
   protected submit(): void {
     this.form.markAllAsTouched();
+    if (this.creating() && !this.form.controls.slug.value.trim()) {
+      // A new game needs a slug (the other fields' errors show at the same time).
+      this.form.controls.slug.setErrors({ required: true });
+    }
     const { schema } = validateGameSchemaJson(this.form.controls.schema.value);
     if (this.form.invalid || !schema) {
       return;
     }
     const value = this.form.getRawValue();
     this.save.emit({
+      ...(this.creating() ? { slug: value.slug.trim() } : {}),
       name: value.name.trim(),
       shortName: value.shortName.trim(),
       publisher: value.publisher.trim(),
@@ -273,6 +373,7 @@ export class GameEditorComponent {
 
   private fill(game: GameResponse): void {
     this.form.reset({
+      slug: game.slug ?? '',
       name: game.name ?? '',
       shortName: game.shortName ?? '',
       publisher: game.publisher ?? '',

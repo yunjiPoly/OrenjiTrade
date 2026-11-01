@@ -1,5 +1,6 @@
 package com.orenjitrade.api.delisting.api;
 
+import com.orenjitrade.api.auth.domain.AccountNames;
 import com.orenjitrade.api.auth.domain.AuthenticatedUser;
 import com.orenjitrade.api.delisting.domain.DelistPolicyService;
 import com.orenjitrade.api.delisting.domain.DelistPolicyService.PolicyChange;
@@ -24,9 +25,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminDelistPolicyController {
 
     private final DelistPolicyService delistPolicyService;
+    private final AccountNames accountNames;
 
-    public AdminDelistPolicyController(DelistPolicyService delistPolicyService) {
+    public AdminDelistPolicyController(
+            DelistPolicyService delistPolicyService, AccountNames accountNames) {
         this.delistPolicyService = delistPolicyService;
+        this.accountNames = accountNames;
     }
 
     @GetMapping
@@ -35,7 +39,9 @@ public class AdminDelistPolicyController {
             summary = "List delist policies (ADMIN)",
             description = "Freshness thresholds in days since the last owner confirmation.")
     public List<DelistPolicyResponse> list() {
-        return delistPolicyService.all().stream().map(DelistPolicyResponse::from).toList();
+        return delistPolicyService.all().stream()
+                .map(view -> DelistPolicyResponse.from(view, accountNames))
+                .toList();
     }
 
     @PutMapping(path = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -63,6 +69,7 @@ public class AdminDelistPolicyController {
                                 body.hiddenAfterDays(),
                                 body.warnBeforeHiddenDays(),
                                 body.maxStrikes(),
-                                body.unansweredAfterHours())));
+                                body.unansweredAfterHours())),
+                accountNames);
     }
 }

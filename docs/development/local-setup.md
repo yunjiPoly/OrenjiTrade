@@ -128,8 +128,8 @@ git-ignored.
 
 - **Seed data is applied automatically** every time the API starts with the `local` profile
   (`SeedDataRunner`, idempotent): the twelve fictional accounts (database rows + emulator users),
-  the four-game catalog, binders, conversations, offers, ratings, reports, wishlists, plans and
-  feature flags. Restarting the API re-applies it without duplicating anything.
+  the four-game catalog, binders, conversations, offers, ratings, reports, wishlists and feature
+  flags. Restarting the API re-applies it without duplicating anything.
 - **Clean slate:** `npm run infra:reset` (or `npm run infra:reset -- --yes`) runs
   `docker compose down -v` for this project only (volumes `orenjitrade_postgres-data`,
   `orenjitrade_redis-data`, `orenjitrade_firebase-data`, `orenjitrade_api-media`), deletes
@@ -165,7 +165,7 @@ curl -s -X POST "http://localhost:9099/identitytoolkit.googleapis.com/v1/account
 | `npm run test:mobile:e2e` | Playwright (`apps/mobile/e2e`) against the Expo **web** build and an isolated stack | see [Mobile app](#mobile-app-expo); never touches the developer database, files or ports 8080/4200 |
 | `npm run test:mobile:maestro` | Maestro flows (`apps/mobile/.maestro`) in Expo Go on a running Android emulator or on the iOS simulator (`-- --platform android\|ios`), same isolated stack | needs the Maestro CLI (`MAESTRO_BIN`) and either a booted Android emulator or a Mac with Xcode (the harness creates and boots its own simulator); not part of `test:all` or CI |
 | `npm run test:e2e` | the whole Playwright suite (`apps/web-angular/e2e`) on its **own isolated stack**, next to a running `npm run dev` | runs the isolation guard tests, checks the shared containers (healthy ones are never touched or restarted; `docker compose up` only when they are down), **drops and recreates `orenjitrade_e2e`** (Flyway + local seed, mock catalog only, never YGOPRODeck), builds the API jar (`gradlew bootJar`) and starts it on :8180 (Redis db 2, own realtime channels, media and card image cache under `.local-dev/e2e/`, `CARD_IMAGE_ON_DEMAND_ENABLED=false`, YGOPRODeck disabled), `ng serve --configuration e2e` on :4300, installs Chromium if missing, runs every spec with one retry (CI uses two; a spec that only passes on retry is listed as *flaky*), deletes the run's Auth emulator accounts, then stops what it started. The developer database, Redis db 0, files and ports 8080/4200 are never used. Options: see [E2E test data](#e2e-test-data-and-the-purge). Extra args go to Playwright: `npm run test:e2e -- e2e/map.spec.ts --headed`, `-- --retries=0`. The `launch-config` project (`e2e/launch-config.spec.ts`, every money flag off) runs alone after the `chromium` project; `-- e2e/launch-config.spec.ts --no-deps` runs it by itself |
-| `npm run test:scripts` | `node --test scripts/lib/*.test.mjs` | unit tests of the E2E isolation guards and the purge rules (also run at the start of every `test:e2e`) |
+| `npm run test:scripts` | `node --test scripts/lib/*.test.mjs` | unit tests of the E2E isolation guards (also run at the start of every `test:e2e`), the purge rules and the parity of the web E2E CI job's API environment with the harness's |
 | `npm run test:all` | scripts, api, web, mobile, e2e, mobile:e2e in sequence, then a summary with durations | exits non-zero when any suite fails (all suites still run) |
 | `npm run test:ml` | `pytest` in `apps/ml` with `apps/ml/.venv` when present | optional; Phase 11 is on hold, this only runs the existing skeleton tests |
 | `npm run infra:validate` | Terraform format + validate | optional; needs Terraform |
@@ -182,6 +182,15 @@ when the stack is reused), `test:mobile:maestro` about 50 min (24 flows on the
 while Expo CLI installs Expo Go). On the iOS simulator of a Mac mini (Apple M6, 2026-10-10):
 `test:mobile:maestro -- --platform ios` 33 min 28 s for the 24 flows from a cold start (the
 simulator created, the API jar built, Expo Go installed), `test:mobile:e2e` 1 min 14 s (52 specs).
+Latest (2026-10-13/14, stage S6, the same Mac mini): `test:api` 3 min 5 s to 3 min 23 s (974 tests in
+170 classes plus 12 catalog tests), `test:web` 142 files / 678 tests, `test:e2e` 74 specs in about
+1 min 30 s, `test:mobile` about 20 s (jest 89 suites / 922 tests + 28 guard tests),
+`test:mobile:e2e` 60 specs in about 1 min 20 s, `test:mobile:maestro -- --platform ios` 30 flows in
+about 48 min on the owner's iPhone 18 Pro simulator. After stage R1 of the phone redesign
+(2026-10-14): `test:api` 3 min 30 s (978 tests in 171 classes plus 12 catalog tests), `test:web` 142
+files / 681 tests, `test:e2e` 74 specs in 1 min 36 s, `test:mobile` jest 89 suites / 895 tests,
+`test:mobile:e2e` 57 specs in about 1 min 15 s, `test:mobile:maestro -- --platform ios` 30 flows
+in about 48 min.
 
 E2E logs: `.local-dev/logs/e2e-api.log` and `.local-dev/logs/e2e-web.log`; Playwright traces and
 screenshots of failures under `apps/web-angular/test-results/`.
@@ -209,6 +218,16 @@ left hundreds of discoverable test collectors on the developer's map. Now:
   equals the developer one) and run before every `test:e2e`. Playwright's global setup refuses any
   API without the `orenjiWebE2e` identity block, so a bare `npx playwright test` can no longer hit
   the developer API.
+- **The same API in CI.** The E2E job of `.github/workflows/e2e.yml` starts its API by hand; it
+  must give it every variable `e2eApiEnv` (`scripts/lib/web-e2e-guard.mjs`) gives the local one,
+  with the same value: the mock catalog, `SEED_IMPORT_FIXTURES=true` (the deck import's fictional
+  passcodes), `STORAGE_PUBLIC_BASE_URL` empty, and the suite's budgets
+  (`RATE_LIMIT_ANONYMOUS_PER_MINUTE=600`, `RATE_LIMIT_GUEST_DISCOVERY_PER_10S=1000`,
+  `RATE_LIMIT_DEFAULT_PER_MINUTE=1200`: the workers call from one address, and a spec file's
+  collector serves every test one worker runs). Only the paths under the work directory differ
+  (`$RUNNER_TEMP/e2e` there). `scripts/lib/web-e2e-ci-parity.test.mjs` (`npm run test:scripts`,
+  run by both E2E CI jobs) fails on a variable missing from either side or a different value;
+  `E2E_WORKFLOW_FILE=<copy> node --test scripts/lib/web-e2e-ci-parity.test.mjs` checks a copy.
 - **Options.** `npm run test:e2e -- --keep-running` leaves the E2E API and web server running after
   the run (state in `.local-dev/e2e/state.json`); `-- --stack-only` starts them without running
   Playwright; `-- --reuse-running [specs]` reuses **only** such a kept E2E stack (same instance id
@@ -256,36 +275,48 @@ The Expo app (`apps/mobile`, details in [apps/mobile/README.md](../../apps/mobil
 against the same local stack. Phase 1 (accounts, onboarding, profile, settings) and Phases 2–3
 (the Search tab and card detail; the Inventory tab with adding, editing and deleting cards;
 binders, their publication and the public binder view) and Phase 4 ("Who has this in my region"
-and the collector profile; since ADR 0017 the Map tab is a placeholder that names the home region
-until it draws the web's boundary map) and Phases 5–6 (the Messages tab with the inbox,
+and the collector profile; since stage M9 (2026-10-12) the Map tab draws the region map of the
+web's boundaries, shaded by public binders, with a list of states and provinces and the binders of
+each) and Phases 5–6 (the Messages tab with the inbox,
 conversations and the community channels, live over the realtime channel; the Wishlist tab
 (stage S2: which copy, a public note, Near Mint only, a price term, wishlist alerts from the
 region; no matches); the notification centre with a live bell) and Phases 7–8 (reporting a
-collector and My reports; rating a collector and writing a reference after an interaction;
-"Make an offer", the offers inbox, one offer with accept / counter / decline / withdraw; trades
-with the meetup, confirming the exchange, cancelling, and rating once completed) and Phases 9–10
-(payment protection on the trade: pay on the app's fake checkout, ship, confirm receipt, disputes
-with statements and photos, Settings → Payouts; Premium through the fake billing checkout, credits
-with referrals and day unlocks, voluntary donations through the fake donation checkout,
-"Sponsored" placements) are implemented on the same API and the same local fake providers as the
-web; the admin consoles stay on the web. Stage M7 (2026-10-06) closes the web parity gaps:
+collector and My reports; rating a collector and writing a reference after a deal or a
+conversation) are implemented on the same API as the web; the admin consoles stay on the web.
+Offers and trades (Phase 8) and payment protection, disputes and Settings → Payouts (Phase 9)
+were on the phone from stages M5 and M6 until stage R1 of the phone redesign (2026-10-14) removed
+them: deals happen in the chat and cards ship by mail
+([ADR 0018](../architecture/adr/0018-deals-happen-in-the-chat.md)). Since R1 they are web-only
+(the API keeps them for the paused web); on the phone an old offer reads "Offer (no longer
+available)" and an old offer, trade or dispute notification or link says that deals happen in
+the chat. Premium, credits, donations and the sponsored placements of Phase 10 (on the phone since
+stage M6) left the app, the API and the web with stage F1 on 2026-10-14
+([ADR 0019](../architecture/adr/0019-free-for-all-no-paid-features.md)): an old link to one opens
+the Profile tab and says that the app is free. Stage M7 (2026-10-06) closes the web parity gaps:
 Google sign-in and sign-up (against the Auth emulator a simulated Google account chosen in the
 app, no OAuth client needed; see `apps/mobile/README.md`), the Search tab's Collectors and Binders
 segments, the card holders list with the web's filters, "Looking for" on profiles, Settings →
 Blocked users, owner photos and bulk actions in the inventory, binder reordering, set pages. Stage M8 (2026-10-06, launch readiness on
 mobile) adds the 18+ confirmation (the bilingual checkbox at sign-up and on the consent screen, a
-first onboarding "Age" step for existing accounts: seed accounts see it once), the French legal
+first onboarding "Age" step for existing accounts; existing accounts confirm their age once on
+Review our terms, with the age line alone (the phone since R12, the web since WG)), the French legal
 pages with an EN / FR switch (French by default on a French device, `npm run sync:legal` copies
 both web files), consents recorded with the language shown, the dismissible "Trade safely"
-notice in conversations and on offers / trades (dismissal kept on the device), Block / Unblock
-on collector profiles, and no Premium pitch while the money flags are off. Locally the catalog is the fictional mock catalog of the seed (the real
+notice in conversations and on offers / trades (since stage R1: a shipping-first safety tip at
+the start of every chat, which opens "Trading safely"), Block / Unblock on collector profiles.
+Locally the catalog is the fictional mock catalog of the seed (the real
 Yu-Gi-Oh! catalog only after an explicit `npm run catalog:import`, see below), and every card
 picture comes from the API (`/api/v1/public/card-images/{id}` or a placeholder), never from a
 provider. The location is declared like on the web (ADR 0017): region, country, state or
 province and an optional city, with pickers fed by `GET /api/v1/regions`; there is no map picker,
-no GPS and no location permission. Region-scoped calls (search, card holders, ads) send the
-collector's home region (`americas-north` without a location). The seed collectors are spread
-over the three platform regions (see [test-accounts.md](test-accounts.md)).
+no GPS and no location permission. Region-scoped calls (search, card holders, the map) send
+the browsed region: the region switcher on the Map and Search tabs and in the card holders' header,
+the collector's home region by default (`americas-north` without a location). The seed collectors
+are spread over the three platform regions (see [test-accounts.md](test-accounts.md)). Stage S5
+(2026-10-13) adds "Import" on the Inventory tab: a Yu-Gi-Oh! deck file (.ydk) or a Collectr CSV
+export, chosen or pasted, previewed, edited and committed into private cards (the phone is its only
+client; contract `docs/api/contracts/s5-inventory-import.md`). The phone is the client of new work
+since 2026-10-12 (the web app is paused).
 
 ```bash
 npm run infra:up && npm run api:dev     # the developer stack (API on :8080)
@@ -298,14 +329,9 @@ Defaults need no `.env`: the Android emulator reaches the host at `10.0.2.2` (AP
 (`EXPO_PUBLIC_API_BASE_URL`, `EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST`; see `.env.example`, public
 values only). Sign in with any seed account, e.g. `collector1@orenjitrade.test` / `LocalDev!2026`
 (collector1 and collector2 share a seed conversation; collector2 has seed wishes and a wishlist alert about collector1's listing;
-collector1 has collector5's open offer waiting for an answer and completed trades: Profile tab →
-Offers / Trades; collector1 also sells a protected trade waiting for collector8's receipt, has
-payouts set up, 300 credits and the referral code `COLLECTOR1`; collector5's protected trade with
-collector2 is disputed: Trades → the trade → "View the dispute"; `premium_user` has a live fake
-Premium subscription). The app's checkouts (`checkout/fake/…`, `checkout/fake-billing/…`,
-`checkout/fake-donation/…`) are the local fake providers: a "Local test payment" banner, no card,
-no money; whether a store build may sell Premium or take donations at all is an open owner
-question (in-app purchase rules, ADR 0011).
+the seed's offers, trades, payouts and dispute show on the web only since stage R1). The phone
+has no checkout and sells nothing (stages R1 and F1). A reached usage limit is explained plainly
+(the same limits for every collector, nothing to buy: the `limit-reached.yaml` flow).
 The realtime channel is the API's `/ws` (STOMP over a plain WebSocket): the app connects while a
 collector is signed in and shows "Live" on the Messages tab; on Android it reaches
 `ws://10.0.2.2:8080/ws` with the ID token in the handshake's `Authorization` header (the web build
@@ -360,17 +386,19 @@ same flows; the harness gives them Expo Go's app id and the project URL of the p
   `expo start` with the app pointed at `localhost:8090`, and Expo Go is installed on that simulator
   by Expo CLI's installer (`scripts/lib/expo-go-ios.mjs`), whatever else is booted.
   `ORENJI_IOS_SIMULATOR_NAME`, `ORENJI_IOS_SIMULATOR_TYPE` and `ORENJI_IOS_SIMULATOR_UDID` choose
-  another simulator (`apps/mobile/README.md`).
+  another simulator (`apps/mobile/README.md`). **On the owner's Mac** (owner order of 2026-10-12)
+  every run sets `ORENJI_IOS_SIMULATOR_UDID` to the iPhone simulator the owner keeps booted, and
+  nothing boots, creates, erases or shuts down a simulator (each boot makes the desktop app ask the
+  owner); see [claude-handoff.md](claude-handoff.md).
 
 Maestro is found on `PATH` or in `~/.maestro/bin`; set `MAESTRO_BIN=<path to maestro(.bat)>` when
 it is somewhere else (on Windows, for example `D:/maestro/bin/maestro.bat`; on macOS and Linux,
 for example `$HOME/tools/maestro/bin/maestro`). A kept Metro serves one platform (the API address is
 inlined into the bundle): `-- --stop` before switching platforms. Flows that need data create it on the
 host through the isolated API (`.maestro/scripts/create-collector.js`, `add-card.js`; the
-second collector of the messaging, wishlist, offer and report flows comes from `messaging.js`,
-`wishlist.js` and `offers.js`, the seller of the payment-protection flow and the member of the
-Premium flow from `payments.js`; `offers.js` and `payments.js` post `{}` to body-less endpoints
-because Maestro's `http.post` needs a body)
+second collector of the messaging, wishlist and report flows comes from `messaging.js`,
+`wishlist.js` and `reports.js`, the collector at the binders limit of the usage-limit flow from
+`limits.js`)
 and check the result there (`check-location.js`, `check-inventory.js`, `community.js`; the collectors,
 listings and block checks of the stage M7 flows come from `parity.js`); they refuse the developer API on :8080
 and only touch the run's `@mobile-e2e.test` accounts. Edit nothing in the repository while flows
@@ -428,6 +456,36 @@ npm run catalog:import -- --game yugioh --provider ygoprodeck --images reference
   `CARD_IMAGE_STORAGE_PROVIDER`, `CARD_IMAGE_GCS_BUCKET` and `CARD_IMAGE_OBJECT_PREFIX` are
   cloud-only settings that stay empty locally.
 
+### Magic and Pokémon (stage R10, ADR 0021)
+
+Magic comes from Scryfall's daily bulk file "Unique Artwork" ([provider notes](../providers/scryfall.md))
+and Pokémon from TCGdex's card database on GitHub ([provider notes](../providers/tcgdex.md)), English
+cards only, imported the same way (the owner's step; agents never run a real import):
+
+```bash
+npm run catalog:import -- --game mtg --provider scryfall --images all       # about 1.9 GB of pictures
+npm run catalog:import -- --game pokemon --provider tcgdex --images all     # about 0.85 GB of pictures
+npm run card-images:status
+```
+
+- The first Magic run asks `GET /bulk-data` once, downloads the bulk file once and keeps it under
+  `apps/api/.local-dev/provider-data/scryfall/<updated_at>/`; for 24 hours later runs reuse it
+  without any call (Scryfall refreshes its files at most daily). The first Pokémon run asks GitHub
+  for the newest commit once and downloads the repository archive once
+  (`provider-data/tcgdex/<sha>/`, with the repository's MIT `LICENSE` beside it), reused the same
+  way. `SCRYFALL_SNAPSHOT_ONLY=true` / `TCGDEX_SNAPSHOT_ONLY=true` import the stored copy offline.
+- One picture per Magic artwork and one per Pokémon printing, 320 px, in the same 5 GB cache (the
+  five games together are expected at about 3.5 to 4.2 GB). Every picture is served by
+  `/api/v1/public/card-images/{id}`; no Scryfall or TCGdex URL reaches the phone or the browser.
+- After the first import `GET /api/v1/games` answers `hasCards: true` for the game, and the phone no
+  longer dims it in "Choose a game". In a local database the fictional Magic and Pokémon cards of the
+  seed stay beside the real ones (as the fictional Yu-Gi-Oh! cards do); a real set whose code is one
+  of the fictional codes (`TDX`, `EVD`, `KRH`, `SKF`, `SVX`, `PFT`, `TWL`, `EMB`) is reported in
+  `warnings` and skipped.
+- The report's `warnings` count the rows left out on purpose (non-English, digital-only, art series,
+  tokens, emblems, oversized; Pokémon TCG Pocket; data files that could not be read): read them after
+  the first real import.
+
 The command polls the run and prints its report:
 
 | Field | Meaning |
@@ -465,8 +523,6 @@ blocks the IP for an hour above it (OrenjiTrade paces at 5/s). Tests and CI neve
 | Area | Local implementation | Selected by | Where to see it |
 | --- | --- | --- | --- |
 | Protected payments | `FakePaymentProvider` (no money moves) | `PAYMENT_PROVIDER=fake` | the web shows the fake checkout page `/checkout/fake/<ref>` (approve / decline), the mobile app the same checkout as its screen `checkout/fake/[ref]`; synthetic webhooks are signed with a local HMAC key and logged at DEBUG (`Synthetic fake webhook`) |
-| Premium subscriptions | `FakeBillingProvider` | `BILLING_PROVIDER=fake` | fake checkout page `/checkout/fake-billing/<ref>` (mobile: `checkout/fake-billing/[ref]`); state in the admin console (Billing) |
-| Donations | `FakeDonationProvider` | `DONATION_PROVIDER=fake` | fake checkout page `/checkout/fake-donation/<ref>` (mobile: `checkout/fake-donation/[ref]`); admin console (Donations) |
 | Push notifications | `LogPushProvider` | `PUSH_PROVIDER=log` | API log lines from logger `orenji.push`: `push (log provider) notification=... type=... title="..."` |
 | E-mail | `LogEmailProvider` | `EMAIL_PROVIDER=log` | logger `orenji.email`: `email (log provider) ... to=c***@orenjitrade.test subject="..."` (recipient masked) |
 | Analytics events | `LogAnalyticsTransport` | `EVENTS_TRANSPORT=local` | logger `orenji.analytics`: `analytics {"name":...}` (pseudonymous actor hash, no amounts or text) |

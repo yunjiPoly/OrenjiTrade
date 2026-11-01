@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useCardSuggestions } from '@/src/api/hooks/catalog';
 import type { CardSuggestion } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
 import { CardImage } from '@/src/components/ui/CardImage';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
+import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
 import { QUERY_MAX_LENGTH, SUGGEST_DEBOUNCE_MS, SUGGEST_MIN_CHARS } from '@/src/lib/catalog';
 import { gameLabel } from '@/src/lib/profile';
@@ -13,6 +14,12 @@ import { fontFamily, fontWeight, radius, spacing, textStyle, useTheme } from '@/
 
 export interface CardPickerProps {
   onPick: (suggestion: CardSuggestion) => void;
+  /**
+   * Only this game's cards (`game=` on `GET /cards/suggest`), named in the field: "Add a wish"
+   * from Search › Wishlist offers the browsed game (stage G, review fix 1, U1). Every game
+   * without it.
+   */
+  game?: { slug: string; name: string } | null;
 }
 
 /**
@@ -20,7 +27,7 @@ export interface CardPickerProps {
  * (debounced, two letters at least): card names and printing codes; a printing suggestion
  * preselects that printing.
  */
-export function CardPicker({ onPick }: CardPickerProps) {
+export function CardPicker({ onPick, game = null }: CardPickerProps) {
   const { palette } = useTheme();
   const [text, setText] = useState('');
   const [query, setQuery] = useState('');
@@ -30,14 +37,16 @@ export function CardPicker({ onPick }: CardPickerProps) {
     return () => clearTimeout(timer);
   }, [text]);
 
-  const suggestions = useCardSuggestions(query);
+  const suggestions = useCardSuggestions(query, 10, false, game?.slug);
   const tooShort = query.length < SUGGEST_MIN_CHARS;
 
   let results;
   if (tooShort) {
     results = (
       <Text testID="card-picker-hint" style={[textStyle('sm'), { color: palette.textMuted }]}>
-        Type at least two letters of the name, or a printing code like AZR-EN001.
+        {game && game.slug !== 'yugioh'
+          ? 'Type at least two letters of the name, or a printing code.'
+          : 'Type at least two letters of the name, or a printing code like AZR-EN001.'}
       </Text>
     );
   } else if (suggestions.error && !suggestions.data) {
@@ -54,7 +63,7 @@ export function CardPicker({ onPick }: CardPickerProps) {
   } else if (suggestions.data.length === 0) {
     results = (
       <Text testID="card-picker-empty" style={[textStyle('sm'), { color: palette.textMuted }]}>
-        No cards match “{query}”.
+        {game ? `No ${game.name} cards match “${query}”.` : `No cards match “${query}”.`}
       </Text>
     );
   } else {
@@ -78,7 +87,7 @@ export function CardPicker({ onPick }: CardPickerProps) {
   return (
     <View style={styles.root}>
       <TextField
-        label="Card name or printing code"
+        label={game ? `${game.name} card name or printing code` : 'Card name or printing code'}
         value={text}
         onChangeText={setText}
         autoCapitalize="none"

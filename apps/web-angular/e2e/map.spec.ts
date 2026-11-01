@@ -19,12 +19,14 @@ import {
   signInThroughUi,
   stubCardImages,
 } from './support/stack';
+import { clickState } from './support/map';
 
 /**
  * The region map and region-scoped search (ADR 0017) against the real local stack: a collector
- * publishes a binder in a state; another collector of the same region finds it on /map (the state
+ * publishes a binder in a state; another collector of the same region finds it on Home (the state
  * is shaded, the list and the map open the same panel, the URL keeps region and state), opens the
- * binder; card search lists the holders of the browsed region only. Every JSON document the page
+ * binder; Search › Cards leads to Who has this card, which lists the holders of the browsed region
+ * only (web stage WD). Every JSON document the page
  * receives is checked: no `lat`/`lng` at all, no distance, no map provider or tile server called.
  *
  * Sellers sit in sparsely used states (Yukon, Nunavut) and the assertions are about their own
@@ -33,10 +35,6 @@ import {
 
 function suffix(): string {
   return Math.random().toString(36).slice(2, 7);
-}
-
-function escape(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 interface Seller {
@@ -137,56 +135,59 @@ test.describe('region map and search', () => {
     expect(yukon).toBeGreaterThanOrEqual(1);
 
     await signInThroughUi(page, viewer.email, viewer.password);
-    await page.goto('/map');
-    // Signed in: the home region (from GET /me) is browsed and written to the URL.
-    await expect(page).toHaveURL(/\/map\?region=americas-north$/);
-    await expect(page.getByTestId('region-switcher')).toContainText('Americas (North)');
-    await expect(page.getByTestId('map-status')).toContainText(
-      /public binders? in Americas \(North\)/,
-    );
-    // The state is drawn and shaded (it holds at least the seller's binder).
+    // Web stage WE: Home is the feed (its map card is a static picture); the map and the states'
+    // list are Search › Binders (spec 6.3 and 6.4).
+    await page.goto('/search?tab=binders');
+    await expect(page).toHaveURL(/region=americas-north/);
+    await expect(page.getByTestId('region-pill')).toContainText('Americas (North)');
+    // The state is drawn and shaded with a map step (it holds at least the seller's binder).
     const shape = page.locator('.leaflet-overlay-pane path[data-code="CA-YT"]');
     await expect(shape).toBeAttached();
-    await expect.poll(async () => Number(await shape.getAttribute('fill-opacity'))).toBeLessThan(1);
+    const empty = await page.evaluate(() =>
+      getComputedStyle(document.documentElement).getPropertyValue('--color-map-step0').trim(),
+    );
+    await expect
+      .poll(async () => (await shape.getAttribute('fill'))?.toLowerCase())
+      .not.toBe(empty.toLowerCase());
 
-    // The accessible list: filter, keyboard, the same panel as the map.
-    await page.getByTestId('subdivision-filter').fill('yukon');
-    const entry = page.locator('[data-code="CA-YT"]').filter({ hasText: 'Yukon' });
-    await expect(entry).toContainText(String(yukon));
+    // The accessible list: the state's row, then its binders.
+    const entry = page.locator('.sl__row[data-code="CA-YT"]');
     await entry.focus();
     await page.keyboard.press('Enter');
-    await expect(page).toHaveURL(/\/map\?region=americas-north&subdivision=CA-YT$/);
-    const panel = page.getByTestId('subdivision-panel');
-    await expect(panel.getByRole('heading', { name: 'Yukon, Canada' })).toBeFocused();
-    const card = panel.getByRole('listitem').filter({ hasText: seller.binder.name });
-    await expect(card).toContainText(`@${a.handle}`);
-    await expect(card.getByTestId('binder-owner-place')).toContainText('Yukon, Canada');
+    await expect(page).toHaveURL(/state=CA-YT/);
+    const chip = page.getByTestId('state-chip');
+    await expect(chip).toBeFocused();
+    const row = page.getByTestId('binder-row').filter({ hasText: seller.binder.name });
+    await expect(row).toContainText(`${a.handle} · Yukon`);
     // The city is never shown outside the owner's profile.
-    await expect(panel).not.toContainText('Zqcity');
-    await panel.getByRole('button', { name: 'Back to the list' }).click();
-    await expect(page).toHaveURL(/\/map\?region=americas-north$/);
+    await expect(page.locator('.bp')).not.toContainText('Zqcity');
+    await chip.click();
+    await expect(page).not.toHaveURL(/state=/);
 
-    // A click on the state on the map opens it too.
-    await shape.dispatchEvent('click');
-    await expect(page).toHaveURL(/subdivision=CA-YT/);
-    await expect(panel.getByRole('heading', { name: 'Yukon, Canada' })).toBeVisible();
+    // A real mouse click on the state on the map opens it too (never a synthetic event).
+    await clickState(page, 'CA-YT');
+    await expect(page).toHaveURL(/state=CA-YT/);
+    await expect(row).toBeVisible();
     await expectNoGeography(page, watcher, providers);
 
     // The binder, then its owner's profile (state and city on their own profile only).
-    await panel.getByRole('link', { name: seller.binder.name }).click();
-    await expect(page).toHaveURL(new RegExp(`/binders/${seller.binder.id}$`));
+    await page.goto(`/binders/${seller.binder.id}`);
     await expect(page.getByRole('heading', { level: 1, name: seller.binder.name })).toBeVisible();
-    await expect(page.getByTestId('owner-public-label')).toContainText('Yukon, Canada');
+    // The owner row: the province (spec 8.2), never the city.
+    await expect(page.getByTestId('owner-public-label')).toContainText('Yukon');
     await expect(page.getByRole('main')).not.toContainText('Zqcity');
     await page.goto(`/collectors/${a.handle}`);
     await expect(page.getByTestId('collector-city')).toHaveText(/^Zqcity/);
 
-    // A shared link opens another region with its state; the switcher follows.
+    // An old shared map link opens Search › Binders in another region with its state; the region
+    // pill follows (spec 4.11).
     await page.goto('/map?region=europe&subdivision=FR-IDF');
-    await expect(page.getByTestId('region-switcher')).toContainText('Europe');
-    await expect(
-      page.getByTestId('subdivision-panel').getByRole('heading', { name: 'Île-de-France, France' }),
-    ).toBeVisible();
+    await expect(page).toHaveURL(/\/search\?tab=binders&region=europe&state=FR-IDF/);
+    await expect(page.getByTestId('region-pill')).toContainText('Europe');
+    await expect(page.getByTestId('state-chip')).toHaveAttribute(
+      'aria-label',
+      'Showing Île-de-France. Back to the list of states',
+    );
   });
 
   test('card search lists the holders of the browsed region only', async ({ page, request }) => {
@@ -202,81 +203,53 @@ test.describe('region map and search', () => {
     const providers = await forbidMapProviders(page);
     await signInThroughUi(page, viewer.email, viewer.password);
 
-    // The map's unified search: choosing a card opens its holders.
-    await page.goto('/map');
-    const search = page.getByRole('combobox', { name: 'Search cards, collectors and binders' });
+    // Search › Cards (spec 6.2): the field is focused on arrival; choosing a card opens Who has
+    // this card (spec 7).
+    await page.goto('/search');
+    const search = page.getByRole('combobox', { name: 'Search Yu-Gi-Oh! cards by name or code' });
+    await expect(search).toBeFocused();
     await search.fill('lantern');
     const option = page.getByRole('option', { name: /Lantern Fox Spirit/ }).first();
     await expect(option).toBeVisible();
-    await expect(option).toContainText('Card');
     await option.click();
-    await expect(page).toHaveURL(/\/search\?card=[0-9a-f-]{36}$/);
+    await expect(page).toHaveURL(/\/cards\/[0-9a-f-]{36}/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Lantern Fox Spirit' })).toBeVisible();
     await expect(
-      page.getByRole('heading', { level: 1, name: 'Who has Lantern Fox Spirit' }),
+      page.getByRole('heading', { level: 2, name: /Who has this card in Americas \(North\)/ }),
     ).toBeVisible();
-    await expect(
-      page.getByText('Collectors in Americas (North), freshest listings first.'),
-    ).toBeVisible();
-    const results = page.getByRole('list', { name: 'Card holders in your region' });
-    const sellerRow = results.getByRole('article', {
-      name: new RegExp(`^${escape(a.displayName)}`),
-    });
+    // Grouped by province (Nunavut), the price as typed, a Message pill; no count, no distance.
+    const group = page.getByRole('region', { name: /^Nunavut/ });
+    const sellerRow = group.getByTestId('holder-row').filter({ hasText: a.handle });
     await expect(sellerRow).toContainText('$12.00');
-    await expect(sellerRow).toContainText('Nunavut, Canada');
+    await expect(sellerRow).toContainText('AZR-EN011');
     await expect(sellerRow).not.toContainText(/\bkm\b/);
-    await expect(sellerRow.getByRole('link', { name: 'View binder' })).toHaveAttribute(
-      'href',
-      `/binders/${seller.binder.id}`,
+    await expect(sellerRow.getByTestId('holder-message')).toHaveAttribute(
+      'aria-label',
+      `Message ${a.handle} about Lantern Fox Spirit`,
     );
-
-    // An inverted price range is explained inline; a max price below the listing hides it.
-    await page.getByLabel('Min price').fill('20');
-    await page.getByLabel('Max price').fill('5');
-    await page.getByLabel('Max price').blur();
-    await expect(page.getByText('The minimum price must not be above the maximum.')).toBeVisible();
-    await page.getByLabel('Min price').fill('');
-    await expect(page).toHaveURL(/maxPrice=5/);
-    await expect(sellerRow).toBeHidden();
-    await page.getByLabel('Max price').fill('15');
-    await expect(page).toHaveURL(/maxPrice=15/);
-    await expect(sellerRow).toBeVisible();
-    // Keyboard: the filters are native-feeling selects; no "closest first" sort exists.
-    await page.getByRole('combobox', { name: 'Availability' }).focus();
-    await page.keyboard.press('Enter');
-    await page.getByRole('option', { name: 'For trade' }).click();
-    await expect(page).toHaveURL(/availability=TRADE/);
-    await expect(sellerRow).toBeHidden();
-    await page
-      .getByRole('button', { name: /Clear filters/ })
-      .first()
-      .click();
-    await expect(sellerRow).toBeVisible();
+    await expect(page.getByRole('main')).not.toContainText(/\d+ (listings|holders|results)/);
 
     // Another region: the holders of Americas (North) are gone.
-    await page.getByTestId('region-switcher').click();
-    await page.getByRole('menuitemradio', { name: 'Europe' }).click();
-    await expect(page.getByText('Collectors in Europe, freshest listings first.')).toBeVisible();
+    await page.getByTestId('region-pill').click();
+    await page.getByRole('radio', { name: /^Europe/ }).click();
+    await expect(
+      page.getByRole('heading', { level: 2, name: /Who has this card in Europe/ }),
+    ).toBeVisible();
     await expect(sellerRow).toBeHidden();
-    await page.getByTestId('region-switcher').click();
-    await page.getByRole('menuitemradio', { name: /Americas \(North\)/ }).click();
+    await page.getByTestId('region-pill').click();
+    await page.getByRole('radio', { name: /^Americas \(North\)/ }).click();
     await expect(sellerRow).toBeVisible();
 
-    // Unified search by printing code: the resolved card lists the holders of the region.
-    await page.goto('/search?q=AZR-EN011');
-    await expect(page.getByRole('heading', { name: /Who has Lantern Fox Spirit/ })).toBeVisible();
+    // A typed printing code (top bar's search from another page) opens that printing.
+    await page.goto('/cards');
+    const top = page.getByRole('banner').getByRole('combobox', { name: /^Search Yu-Gi-Oh! cards/ });
+    await top.fill('AZR-EN011');
     await expect(
-      page
-        .getByRole('list', { name: 'Holders in your region' })
-        .getByRole('link', { name: a.displayName }),
+      page.getByRole('option', { name: /Lantern Fox Spirit, AZR-EN011/ }).first(),
     ).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Cards for “AZR-EN011”' })).toBeVisible();
-    await page.getByRole('tab', { name: /Collectors/ }).click();
-    await expect(page).toHaveURL(/tab=collectors/);
-    await expect(
-      page
-        .getByRole('list', { name: 'Matching collectors' })
-        .getByRole('link', { name: a.displayName }),
-    ).toBeVisible();
+    await top.press('Enter');
+    await expect(page).toHaveURL(/\/cards\/[0-9a-f-]{36}\?printing=/);
+    await expect(page.getByTestId('holder-row').filter({ hasText: a.handle })).toBeVisible();
 
     await expectNoGeography(page, watcher, providers);
   });

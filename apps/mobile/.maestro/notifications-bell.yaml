@@ -1,0 +1,106 @@
+# Notifications and the bell, stage R9 of the phone redesign (owner prompt of 2026-10-19, section
+# R9; mockup v50 screen 31): a seed collector (collector3, Buenos Aires City; the seed's freshness
+# reminder for "Vintage Yu-Gi-Oh! singles", unread) lands on Home: the bell has its orange dot and
+# says "Notifications, {n} new". It opens Notifications: New with "Mark all as read", which empties
+# New into Earlier; the reminder is answered in place there ("Still have them" confirms the binder,
+# then the teal check "Confirmed. They stay in search."). Back on Home the bell has no dot and says
+# "Notifications". collector3 is in no other flow and the run's database is new each run: the
+# confirm and the reads change only this seed collector's own reminder.
+appId: ${APP_ID}
+name: The bell from Home, Mark all as read, Still have them
+tags:
+  - mobile-r9
+  - notifications
+---
+- runScript:
+    file: scripts/confirm-age.js
+    env:
+      EMAIL: 'collector3@orenjitrade.test'
+      PASSWORD: ${SEED_PASSWORD}
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: 'collector3@orenjitrade.test'
+      PASSWORD: ${SEED_PASSWORD}
+- extendedWaitUntil:
+    visible:
+      id: 'screen-home'
+    timeout: 60000
+
+# The bell on Home: an orange dot while anything is unread, its name says how many.
+- extendedWaitUntil:
+    visible:
+      id: 'notification-bell-home-dot'
+    timeout: 60000
+- assertVisible:
+    id: 'notification-bell-home'
+    text: 'Notifications, [0-9]+ new'
+- takeScreenshot: notifications-bell-home
+- tapOn:
+    id: 'notification-bell-home'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-notifications'
+    timeout: 60000
+
+# New, with the seed's reminder and "Mark all as read"; the gear and the reminder's buttons.
+- extendedWaitUntil:
+    visible:
+      id: 'notifications-section-fresh'
+    timeout: 60000
+- assertVisible:
+    id: 'notifications-settings'
+- assertVisible:
+    id: 'notification-00000000-0000-4000-9a00-000000000301'
+    text: 'Vintage Yu-Gi-Oh! singles: do you still have these cards\? Confirm them, or they leave search on .*, unread'
+- assertVisible:
+    id: 'notification-still-have-00000000-0000-4000-9a00-000000000301'
+- assertVisible:
+    id: 'notification-review-00000000-0000-4000-9a00-000000000301'
+- assertNotVisible: '.*New message from.*'
+- takeScreenshot: notifications-new
+
+# "Mark all as read": New empties into Earlier, where the reminder stays answerable.
+- tapOn:
+    id: 'notifications-mark-all'
+- extendedWaitUntil:
+    notVisible:
+      id: 'notifications-section-fresh'
+    timeout: 30000
+- assertVisible:
+    id: 'notifications-section-earlier'
+- assertNotVisible:
+    id: 'notifications-mark-all'
+- assertVisible:
+    id: 'notification-00000000-0000-4000-9a00-000000000301'
+    text: 'Vintage Yu-Gi-Oh! singles: do you still have these cards\? .*'
+- assertNotVisible:
+    text: '.*, unread'
+
+# "Still have them": the binder is confirmed, the row shows the teal check.
+- tapOn:
+    id: 'notification-still-have-00000000-0000-4000-9a00-000000000301'
+- extendedWaitUntil:
+    visible:
+      id: 'notification-confirmed-00000000-0000-4000-9a00-000000000301'
+    timeout: 30000
+- assertVisible: 'Confirmed. They stay in search.'
+- assertNotVisible:
+    id: 'notification-still-have-00000000-0000-4000-9a00-000000000301'
+- takeScreenshot: notifications-confirmed
+
+# Back on Home: nothing unread, no dot.
+- tapOn:
+    id: 'BackButton'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-home'
+    timeout: 30000
+- extendedWaitUntil:
+    notVisible:
+      id: 'notification-bell-home-dot'
+    timeout: 30000
+- assertVisible:
+    id: 'notification-bell-home'
+    text: 'Notifications'

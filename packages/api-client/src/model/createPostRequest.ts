@@ -19,5 +19,9 @@ export interface CreatePostRequest {
      * Optional shared public binder
      */
     binderId?: string;
+    /**
+     * Stage R11: up to 4 photos, the uploadIds of POST /uploads/images?kind=COMMUNITY (yours, within 1 h), in order
+     */
+    photoUploadIds?: Array<string>;
 }
 

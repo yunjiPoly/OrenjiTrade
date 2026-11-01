@@ -28,6 +28,8 @@ export class RegionMapStore {
   private readonly api = inject(MapService);
 
   private readonly regionState = signal<string | null>(null);
+  /** The browsed game (stage G's `game=`; web stage WD): only its binders count and list. */
+  private readonly gameState = signal<string | null>(null);
   private readonly countsState = signal<RegionBinderCounts | null>(null);
   private readonly countsLoadingState = signal(false);
   private readonly countsErrorState = signal<ApiError | null>(null);
@@ -36,6 +38,7 @@ export class RegionMapStore {
   private bindersRequest = 0;
 
   readonly region = this.regionState.asReadonly();
+  readonly game = this.gameState.asReadonly();
   readonly counts = this.countsState.asReadonly();
   readonly countsLoading = this.countsLoadingState.asReadonly();
   readonly countsError = this.countsErrorState.asReadonly();
@@ -49,14 +52,25 @@ export class RegionMapStore {
     }
     return byCode;
   });
+  /** Public deck cores per subdivision code (absent = none). */
+  readonly deckCoreByCode = computed(() => {
+    const byCode = new Map<string, number>();
+    for (const entry of this.countsState()?.subdivisions ?? []) {
+      if (entry.deckCoreCount) {
+        byCode.set(entry.code, entry.deckCoreCount);
+      }
+    }
+    return byCode;
+  });
   readonly total = computed(() => this.countsState()?.total ?? 0);
 
-  /** Shows another region: reloads the counts and closes the state panel. */
-  setRegion(region: string): void {
-    if (this.regionState() === region) {
+  /** Shows another region or game: reloads the counts and closes the state panel. */
+  setRegion(region: string, game: string | null = this.gameState()): void {
+    if (this.regionState() === region && this.gameState() === game) {
       return;
     }
     this.regionState.set(region);
+    this.gameState.set(game);
     this.countsState.set(null);
     this.closeSubdivision();
     void this.loadCounts();
@@ -72,7 +86,12 @@ export class RegionMapStore {
     this.countsErrorState.set(null);
     try {
       const counts = await firstValueFrom(
-        this.api.getRegionBinderCounts({ region }, 'body', false, { context: silentErrors() }),
+        this.api.getRegionBinderCounts(
+          { region, ...(this.gameState() ? { game: this.gameState() as string } : {}) },
+          'body',
+          false,
+          { context: silentErrors() },
+        ),
       );
       if (request === this.countsRequest) {
         this.countsState.set(counts);
@@ -137,7 +156,13 @@ export class RegionMapStore {
     try {
       const page = await firstValueFrom(
         this.api.listSubdivisionBinders(
-          { region, code, limit: SUBDIVISION_PAGE_SIZE, ...(cursor ? { cursor } : {}) },
+          {
+            region,
+            code,
+            limit: SUBDIVISION_PAGE_SIZE,
+            ...(this.gameState() ? { game: this.gameState() as string } : {}),
+            ...(cursor ? { cursor } : {}),
+          },
           'body',
           false,
           { context: silentErrors() },

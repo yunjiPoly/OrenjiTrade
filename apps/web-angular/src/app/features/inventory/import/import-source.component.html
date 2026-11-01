@@ -1,0 +1,109 @@
+<aside class="src" aria-labelledby="src-title">
+  <h2 id="src-title" class="src__title">Your file</h2>
+  <app-segmented
+    block
+    size="sm"
+    label="Source"
+    [options]="sources"
+    [value]="choice()"
+    [disabled]="busy()"
+    (valueChange)="chooseSource.emit($event)"
+  />
+  <p class="muted small">{{ info[choice()].description }}</p>
+  @if (choice() === 'COLLECTR_CSV') {
+    <label class="src__game">
+      <span>Game of rows that name none</span>
+      <select [value]="csvGame()" (change)="csvGameChange.emit($any($event.target).value)">
+        <option value="">Any game</option>
+        @for (g of games(); track g.slug) {
+          @if (g.hasCards !== false) {
+            <option [value]="g.slug">{{ g.name }}</option>
+          }
+        }
+      </select>
+    </label>
+  }
+  <div
+    class="drop"
+    [class.drop--over]="over()"
+    [class.drop--file]="!!fileName()"
+    (dragover)="onDragOver($event)"
+    (dragleave)="over.set(false)"
+    (drop)="onDrop($event)"
+    data-testid="import-drop"
+  >
+    <span class="drop__icon" aria-hidden="true"
+      ><mat-icon>{{ fileName() ? 'description' : 'upload_file' }}</mat-icon></span
+    >
+    @if (fileName(); as name) {
+      <span class="drop__name">{{ name }}</span>
+      <span class="muted small">{{ fileMeta() }}</span>
+      <button matButton="outlined" type="button" (click)="pickFile()" [disabled]="busy()">
+        <mat-icon aria-hidden="true">upload</mat-icon> Choose another file
+      </button>
+      <span class="muted small">or drop a new file here</span>
+    } @else {
+      <span class="drop__text">Drop the file here, or</span>
+      <button matButton="outlined" type="button" (click)="pickFile()" data-testid="import-choose">
+        Choose a file
+      </button>
+    }
+    <input
+      #fileInput
+      class="visually-hidden"
+      type="file"
+      tabindex="-1"
+      aria-hidden="true"
+      [accept]="choice() === 'YDK' ? '.ydk,text/plain' : '.csv,text/csv'"
+      (change)="onFile($event)"
+      data-testid="import-file"
+    />
+  </div>
+  <p class="src__limits small" data-testid="import-limits">
+    <mat-icon aria-hidden="true">info</mat-icon>
+    @if (limitsText(); as text) {
+      {{ text }}
+    } @else if (limitsError()) {
+      The limits could not load.
+      <button type="button" class="link" (click)="retryLimits.emit()">Try again</button>
+    } @else {
+      Reading the limits…
+    }
+  </p>
+  <button
+    type="button"
+    class="link src__paste"
+    [attr.aria-expanded]="pasteOpen()"
+    aria-controls="paste-box"
+    (click)="pasteOpen.set(!pasteOpen())"
+  >
+    Paste the text of the file instead
+    <mat-icon aria-hidden="true">{{ pasteOpen() ? 'expand_less' : 'expand_more' }}</mat-icon>
+  </button>
+  @if (pasteOpen()) {
+    <div id="paste-box" class="paste">
+      <textarea
+        rows="12"
+        class="mono"
+        aria-label="Text of the file"
+        [placeholder]="
+          choice() === 'YDK' ? '#main\n89631139\n…' : 'Product Name,Set,Card Number,Quantity\n…'
+        "
+        [value]="pasted()"
+        (input)="pasted.set($any($event.target).value)"
+        data-testid="import-paste"
+      ></textarea>
+      <button
+        matButton="outlined"
+        type="button"
+        (click)="pasteText.emit(pasted())"
+        [disabled]="busy()"
+      >
+        Check these cards
+      </button>
+    </div>
+  }
+  <p class="muted small src__kept">
+    <mat-icon aria-hidden="true">schedule</mat-icon> {{ keptText() }}
+  </p>
+</aside>

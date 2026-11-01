@@ -11,6 +11,11 @@ import { LEGAL_DOCUMENTS, deletionFixture } from '../support/fixtures';
 describe('friendly API errors (web wording)', () => {
   it('maps the codes collectors can meet', () => {
     expect(friendlyError(ApiError.network(new Error('x'))).title).toBe('You seem to be offline');
+    // A request the app gave up after waiting is not "offline": the device may be online.
+    expect(friendlyError(ApiError.timeout(20_000))).toEqual({
+      title: 'No answer from OrenjiTrade',
+      message: 'This is taking too long. Check your connection and try again.',
+    });
     expect(
       friendlyMessage(
         ApiError.fromProblem(429, {

@@ -71,4 +71,12 @@ class RatingRulesTest {
         assertThat(InteractionKind.CONVERSATION_QUALIFIED.subjectType())
                 .isEqualTo(InteractionSubjectType.CONVERSATION);
     }
+
+    @Test
+    void aSaleIsSoldToTheCallerOnlyWhenTheCallerBoughtIt() {
+        UUID me = UUID.randomUUID();
+        assertThat(RatingRules.soldTo(me, me)).isTrue();
+        assertThat(RatingRules.soldTo(UUID.randomUUID(), me)).isFalse();
+        assertThat(RatingRules.soldTo(null, me)).isNull();
+    }
 }

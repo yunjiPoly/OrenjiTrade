@@ -15,6 +15,10 @@ export interface HistoryReport {
     status: HistoryReportStatusEnum;
     createdAt: string;
     resolutionAction?: HistoryReportResolutionActionEnum | null;
+    /**
+     * Short number (V135)
+     */
+    number: number;
 }
 export enum HistoryReportReasonEnum {
     Scam = 'SCAM',

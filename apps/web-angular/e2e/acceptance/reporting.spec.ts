@@ -30,13 +30,15 @@ test.describe('acceptance: collector reporting', () => {
     await signIn(page, reporter);
     await page.goto(`/collectors/${reported.handle}`);
     await expect(page.getByRole('heading', { level: 1, name: reported.displayName })).toBeVisible();
-    await page.getByRole('button', { name: `Report ${reported.displayName}` }).click();
-    const dialog = await dialogReady(page.getByRole('dialog', { name: 'Report collector' }));
-    await expect(dialog.getByText('Why are you reporting this user?')).toBeVisible();
-    const confirm = dialog.getByRole('button', { name: 'Confirm' });
+    // Board W23: Report is in the profile's "⋯" menu, named by the handle.
+    await page.getByRole('button', { name: `More for ${reported.handle}` }).click();
+    await page.getByRole('menuitem', { name: `Report ${reported.handle}` }).click();
+    const dialog = await dialogReady(page.getByRole('dialog', { name: /^Report / }));
+    await expect(dialog.getByText('Why are you reporting them?')).toBeVisible();
+    const confirm = dialog.getByRole('button', { name: 'Send report' });
     await expect(confirm).toBeDisabled();
     await dialog
-      .getByRole('radiogroup', { name: 'Why are you reporting this user?' })
+      .getByRole('radiogroup', { name: 'Why are you reporting them?' })
       .getByRole('radio', { name: 'Scam or fraud' })
       .check();
     await expect(confirm).toBeEnabled();
@@ -54,14 +56,15 @@ test.describe('acceptance: collector reporting', () => {
       .getByRole('navigation', { name: 'Admin sections' })
       .getByRole('link', { name: 'Reports' })
       .click();
-    await expect(staff.getByRole('heading', { level: 1, name: 'Collector reports' })).toBeVisible();
+    // Reports is one split view (web stage WH1): the row opens the report beside the list.
+    await expect(staff.getByRole('heading', { level: 1, name: 'Reports' })).toBeVisible();
     await staff
       .getByRole('link', {
-        name: new RegExp(`^Report about ${escapeRegExp(reported.displayName)}`),
+        name: new RegExp(`^@${escapeRegExp(reported.handle)}\\b.*Report #\\d+`),
       })
       .click();
     await expect(staff.getByTestId('report-status')).toHaveText('Open');
-    await expect(staff.getByTestId('report-details')).toHaveText(details);
+    await expect(staff.getByTestId('report-details')).toContainText(details);
     await expect(staff.getByRole('region', { name: 'Reporter' })).toContainText(
       `@${reporter.handle}`,
     );
@@ -69,26 +72,26 @@ test.describe('acceptance: collector reporting', () => {
     // --- Admin action: assign, then resolve with a warning -----------------------------------------
     await staff.getByRole('button', { name: 'Assign to me' }).click();
     await expect(staff.getByTestId('report-status')).toHaveText('Under review');
-    await staff.getByRole('button', { name: 'Resolve', exact: true }).click();
+    await staff.getByRole('button', { name: 'Resolve…' }).click();
     const resolve = await dialogReady(
       staff.getByRole('dialog', {
-        name: `Resolve report about @${reported.handle}`,
+        name: new RegExp(`^Resolve report #\\d+ about @${escapeRegExp(reported.handle)}$`),
       }),
     );
-    await resolve.getByRole('radio', { name: 'Send a warning' }).check();
+    await resolve.getByRole('radio', { name: /^Send a warning/ }).check();
     await resolve
-      .getByRole('textbox', { name: 'Resolution note' })
+      .getByRole('textbox', { name: /^Resolution note/ })
       .fill('Off-platform payment request; warned.');
-    await resolve.getByRole('button', { name: 'Resolve report' }).click();
-    await expect(staff.getByText('Report resolved. The action is in the audit log.')).toBeVisible();
+    await resolve.getByRole('button', { name: 'Warn and resolve' }).click();
+    await expect(staff.getByText(/^Report #\d+ resolved: warning\.$/)).toBeVisible();
     await expect(staff.getByTestId('report-status')).toHaveText('Action taken');
     const reportId = staff.url().split('/').pop() as string;
 
     // --- Audit log ------------------------------------------------------------------------------
-    await staff.getByRole('link', { name: 'Audit log', exact: true }).click();
+    await staff.getByRole('main').getByRole('link', { name: 'Audit log', exact: true }).click();
     await expect(staff).toHaveURL(new RegExp(`/admin/audit-logs\\?.*targetId=${reportId}`));
     const entries = staff.getByRole('table', { name: 'Audit entries' });
-    await expect(entries.getByText('Resolved a collector report')).toBeVisible();
+    await expect(entries.getByText('Resolved a report')).toBeVisible();
     await expect(entries.getByText('REPORT_RESOLVED', { exact: true })).toBeVisible();
     await expect(entries.getByText('report.assign', { exact: true })).toBeVisible();
     await expect(entries.getByText(`@${admin.handle}`).first()).toBeVisible();

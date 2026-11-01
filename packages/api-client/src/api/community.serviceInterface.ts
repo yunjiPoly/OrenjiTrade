@@ -72,7 +72,7 @@ export interface CommunityServiceInterface {
 
     /**
      * Post in a channel
-     * &#x60;body&#x60; 1-2000 characters, optional &#x60;cardPrintingId&#x60; and public &#x60;binderId&#x60; links. 409 DUPLICATE_POST when the caller posted the same text in the last 24 hours; 429 RATE_LIMITED above the channel\&#39;s postRateLimitPerHour (default 10) or the moderation rate rule; 422 POST_BLOCKED for text the moderation rules refuse (FLAG rules store the post as FLAGGED for review).
+     * &#x60;body&#x60; 1-2000 characters, optional &#x60;cardPrintingId&#x60; and public &#x60;binderId&#x60; links, and up to 4 &#x60;photoUploadIds&#x60; (stage R11: COMMUNITY uploads of the caller from the last hour, each used once; 400 otherwise). 409 DUPLICATE_POST when the caller posted the same text in the last 24 hours; 429 RATE_LIMITED above the channel\&#39;s postRateLimitPerHour (default 10) or the moderation rate rule; 422 POST_BLOCKED for text the moderation rules refuse (FLAG rules store the post as FLAGGED for review). Posts never notify anyone.
      * @endpoint post /api/v1/community/channels/{slug}/posts
 * @param requestParameters
      */
@@ -88,7 +88,7 @@ export interface CommunityServiceInterface {
 
     /**
      * Delete a post (author or MODERATOR+)
-     * Soft delete; a moderator deleting another member\&#39;s post is audited.
+     * Soft delete; its photos and their files are deleted. A moderator deleting another member\&#39;s post is audited.
      * @endpoint delete /api/v1/community/posts/{id}
 * @param requestParameters
      */
@@ -104,7 +104,7 @@ export interface CommunityServiceInterface {
 
     /**
      * Community channels
-     * Active channels ordered for display. &#x60;game&#x60; filters by game slug, &#x60;region&#x60; by platform region code (the region channels, ADR 0017). 404 FEATURE_DISABLED while the publicChat flag is off.
+     * Active channels ordered for display. &#x60;game&#x60; filters by game slug, &#x60;region&#x60; by platform region code (the region channels, ADR 0017). Since stage R11 the active channels are the rooms, one per platform region and game, each with the newest post the caller may see (&#x60;lastPost&#x60;). 404 FEATURE_DISABLED while the publicChat flag is off.
      * @endpoint get /api/v1/community/channels
 * @param requestParameters
      */
@@ -112,7 +112,7 @@ export interface CommunityServiceInterface {
 
     /**
      * Posts of a channel (newest first)
-     * Cursor-paginated. Posts of collectors blocked in either direction, of suspended or deleted accounts, deleted and removed posts are not served. 404 for unknown or archived channels.
+     * Cursor-paginated. Posts of collectors blocked in either direction, of suspended or deleted accounts, deleted and removed posts are not served. Each post carries its photos and its author\&#39;s state or province (&#x60;place&#x60;, discoverable authors only; never a city). 404 for unknown or archived channels.
      * @endpoint get /api/v1/community/channels/{slug}/posts
 * @param requestParameters
      */

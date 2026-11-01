@@ -40,7 +40,8 @@ export interface ConfirmDialogData {
       color: var(--color-text-muted);
     }
     .confirm__danger {
-      --mat-button-filled-container-color: var(--color-danger);
+      /* dangerFill: #DC2626 in both themes, white 4.8:1 (spec 2.4 and 4.8). */
+      --mat-button-filled-container-color: var(--color-danger-fill);
       --mat-button-filled-label-text-color: #fff;
     }
   `,

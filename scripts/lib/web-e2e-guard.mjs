@@ -38,6 +38,7 @@ export const RESERVED_PORTS = Object.freeze({
  * 1 the mobile E2E harness's.
  */
 export const E2E_REDIS_DB = 2;
+
 /**
  * Prefix of the E2E API's realtime fan-out channels. Redis pub/sub ignores the logical database,
  * so without it a push for a seed account (same id in every database) would reach the developer's
@@ -84,6 +85,47 @@ export function isLocalUrl(url) {
   } catch {
     return false;
   }
+}
+
+/**
+ * Every real card provider off (ADR 0015, ADR 0021): YGOPRODeck, Scryfall and TCGdex, with their
+ * addresses on a closed local port, so even an unexpected call never leaves the machine. Tests
+ * and the end-to-end APIs use the mock catalog only.
+ */
+export const NO_CARD_PROVIDERS = Object.freeze({
+  YGOPRODECK_ENABLED: 'false',
+  YGOPRODECK_API_BASE_URL: 'http://127.0.0.1:9/api/v7/',
+  YGOPRODECK_IMAGE_BASE_URL: 'http://127.0.0.1:9/images/cards/',
+  SCRYFALL_ENABLED: 'false',
+  SCRYFALL_API_BASE_URL: 'http://127.0.0.1:9/scryfall-api/',
+  SCRYFALL_BULK_BASE_URL: 'http://127.0.0.1:9/scryfall-data/',
+  SCRYFALL_IMAGE_BASE_URL: 'http://127.0.0.1:9/scryfall-images/',
+  TCGDEX_ENABLED: 'false',
+  TCGDEX_REPOSITORY_API_URL: 'http://127.0.0.1:9/github/',
+  TCGDEX_ARCHIVE_BASE_URL: 'http://127.0.0.1:9/codeload/',
+  TCGDEX_ASSET_BASE_URL: 'http://127.0.0.1:9/tcgdex-assets/',
+});
+
+const CARD_PROVIDER_NAMES = Object.freeze({
+  YGOPRODECK_ENABLED: 'YGOPRODeck',
+  SCRYFALL_ENABLED: 'Scryfall',
+  TCGDEX_ENABLED: 'TCGdex',
+});
+
+/** Why `env` could reach a real card provider (empty when every provider is off and local). */
+export function cardProviderProblems(env) {
+  const problems = [];
+  for (const [flag, provider] of Object.entries(CARD_PROVIDER_NAMES)) {
+    if (String(env[flag]) !== 'false') {
+      problems.push(`${flag} must be false (tests never call ${provider}; mock catalog only).`);
+    }
+  }
+  for (const name of Object.keys(NO_CARD_PROVIDERS).filter((key) => !key.endsWith('_ENABLED'))) {
+    if (!isLocalUrl(env[name])) {
+      problems.push(`${name} must point at a closed local port, not "${env[name] ?? ''}".`);
+    }
+  }
+  return problems;
 }
 
 /** Port of an http(s) URL (80/443 when implicit), null when unparsable. */
@@ -256,25 +298,31 @@ export function e2eApiEnv(base, { apiPort, webPort, workDir }) {
     STORAGE_PUBLIC_BASE_URL: '',
     CARD_IMAGE_CACHE_DIR: path.join(workDir, 'card-images'),
     PROVIDER_DATA_DIR: path.join(workDir, 'provider-data'),
-    // Mock catalog only: no card image downloads, no YGOPRODeck call (ADR 0015).
+    // Mock catalog only: no card image downloads, no card provider call (ADR 0015, ADR 0021).
     CARD_IMAGE_ON_DEMAND_ENABLED: 'false',
-    YGOPRODECK_ENABLED: 'false',
-    YGOPRODECK_API_BASE_URL: 'http://127.0.0.1:9/api/v7/',
-    YGOPRODECK_IMAGE_BASE_URL: 'http://127.0.0.1:9/images/cards/',
+    ...NO_CARD_PROVIDERS,
+    // Web stage WB imports a deck file (.ydk) end to end: its passcodes are the three fictional
+    // ones of ImportFixtureSeedContributor (910000001 to 910000003), as in the phone's isolated
+    // database. The contributor refuses to run while the real provider is enabled.
+    SEED_IMPORT_FIXTURES: 'true',
     CORS_ALLOWED_ORIGINS: `http://localhost:${webPort}`,
-    ADS_WEB_BASE_URL: `http://localhost:${webPort}`,
     FIREBASE_PROJECT_ID: 'orenjitrade-local',
     FIREBASE_AUTH_EMULATOR_HOST: valueOf(base, 'FIREBASE_AUTH_EMULATOR_HOST') ?? 'localhost:9099',
     EVENTS_TRANSPORT: 'local',
     PAYMENT_PROVIDER: 'fake',
-    BILLING_PROVIDER: 'fake',
-    DONATION_PROVIDER: 'fake',
     PUSH_PROVIDER: 'log',
     EMAIL_PROVIDER: 'log',
     // Every worker of the suite calls from one address: on a fast machine the signed-out specs
     // alone exceed the anonymous budget of 60 a minute, and the 429 then fails an unrelated spec.
     // The limits themselves are proven by the API's integration tests, not by this suite.
     RATE_LIMIT_ANONYMOUS_PER_MINUTE: '600',
+    // The same for the short window of signed-out discovery reads (stage R15): every signed-out
+    // spec searches, opens card holders and binders from the one address.
+    RATE_LIMIT_GUEST_DISCOVERY_PER_10S: '1000',
+    // And for a signed-in collector (default 120 a minute): a spec file's collector serves every
+    // test one worker runs (beforeAll), and each page load makes 10 to 40 calls. With CI's two
+    // workers one collector of shell.spec.ts passed 120 within a minute and its search got 429.
+    RATE_LIMIT_DEFAULT_PER_MINUTE: '1200',
   };
 }
 
@@ -336,14 +384,7 @@ export function isolationProblems(env, { workDir, devDirs }) {
   if (String(env.CARD_IMAGE_ON_DEMAND_ENABLED) !== 'false') {
     problems.push('CARD_IMAGE_ON_DEMAND_ENABLED must be false (no card image downloads during tests).');
   }
-  if (String(env.YGOPRODECK_ENABLED) !== 'false') {
-    problems.push('YGOPRODECK_ENABLED must be false (tests never call YGOPRODeck; mock catalog only).');
-  }
-  for (const name of ['YGOPRODECK_API_BASE_URL', 'YGOPRODECK_IMAGE_BASE_URL']) {
-    if (!isLocalUrl(env[name])) {
-      problems.push(`${name} must point at a closed local port, not "${env[name] ?? ''}".`);
-    }
-  }
+  problems.push(...cardProviderProblems(env));
   return problems;
 }
 

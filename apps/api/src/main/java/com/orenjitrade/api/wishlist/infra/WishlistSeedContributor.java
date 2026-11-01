@@ -7,6 +7,7 @@ import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -52,6 +53,16 @@ public class WishlistSeedContributor implements SeedContributor {
     static final UUID WISH_AZURE = UUID.fromString("00000000-0000-4000-8f00-000000000201");
     static final UUID WISH_PROMO = UUID.fromString("00000000-0000-4000-8f00-000000000202");
     static final UUID WISH_MAGIC = UUID.fromString("00000000-0000-4000-8f00-000000000203");
+    static final UUID COLLECTOR5 = UUID.fromString("00000000-0000-4000-8000-000000000005");
+    static final UUID WISH_OBSIDIAN = UUID.fromString("00000000-0000-4000-8f00-000000000501");
+    static final UUID WISH_GRAVEHOLLOW = UUID.fromString("00000000-0000-4000-8f00-000000000502");
+
+    /**
+     * The wishes Home's feed shows (stage R7) and how long ago each was made, in minutes: dated
+     * relative to now at every start, so the feed has a wish today, this week and this month.
+     */
+    static final Map<UUID, Integer> FEED_WISHES =
+            Map.of(WISH_AZURE, 60, WISH_OBSIDIAN, 2 * 24 * 60, WISH_GRAVEHOLLOW, 12 * 24 * 60);
 
     private static final Logger log = LoggerFactory.getLogger(WishlistSeedContributor.class);
 
@@ -89,13 +100,23 @@ public class WishlistSeedContributor implements SeedContributor {
         Optional<Printing> azure = printing("ygo-p001a");
         if (azure.isPresent()) {
             String note = "Looking for a clean copy for my Azure-Eyes deck.";
-            inserted += insert(WISH_AZURE, azure.get(), true, note, true, "90% TCG", created);
+            inserted +=
+                    insert(
+                            COLLECTOR2,
+                            WISH_AZURE,
+                            azure.get(),
+                            true,
+                            note,
+                            true,
+                            "90% TCG",
+                            created);
             upgraded += fillMigrated(WISH_AZURE, note, true, "90% TCG");
         }
         Optional<Printing> promo = printing("pkm-p002a");
         if (promo.isPresent()) {
             inserted +=
                     insert(
+                            COLLECTOR2,
                             WISH_PROMO,
                             promo.get(),
                             true,
@@ -109,6 +130,7 @@ public class WishlistSeedContributor implements SeedContributor {
             String note = "Any printing is fine.";
             inserted +=
                     insert(
+                            COLLECTOR2,
                             WISH_MAGIC,
                             magic.get(),
                             false,
@@ -128,11 +150,77 @@ public class WishlistSeedContributor implements SeedContributor {
         if (!alreadyAlerted()) {
             alerts.alertForPublishedItem(COLLECTOR1_AZURE_ITEM);
         }
-        if (inserted > 0 || upgraded > 0) {
+        int feedWishes = seedCollector5(created);
+        dateFeedWishes();
+        if (inserted > 0 || upgraded > 0 || feedWishes > 0) {
             log.info(
-                    "Seeded {} wishlist items for collector2 ({} migrated ones filled in)",
+                    "Seeded {} wishlist items for collector2 ({} migrated ones filled in) and {}"
+                            + " for collector5",
                     inserted,
-                    upgraded);
+                    upgraded,
+                    feedWishes);
+        }
+    }
+
+    /**
+     * collector5's two Yu-Gi-Oh! wishes (stage R7, for Home's feed): Obsidian Magician Adept, any
+     * printing, Near Mint only, "85% TCG"; Gravehollow Fiend AZR-EN021, Near Mint only, "100% TCG".
+     * The first run also makes collector5's wishlist visible on their profile.
+     */
+    private int seedCollector5(Instant created) {
+        if (!isActive(COLLECTOR5)) {
+            return 0;
+        }
+        int inserted = 0;
+        Optional<Printing> obsidian = printing("ygo-p002a");
+        if (obsidian.isPresent()) {
+            inserted +=
+                    insert(
+                            COLLECTOR5,
+                            WISH_OBSIDIAN,
+                            obsidian.get(),
+                            false,
+                            "",
+                            true,
+                            "85% TCG",
+                            created);
+        }
+        Optional<Printing> gravehollow = printing("ygo-p009a");
+        if (gravehollow.isPresent()) {
+            inserted +=
+                    insert(
+                            COLLECTOR5,
+                            WISH_GRAVEHOLLOW,
+                            gravehollow.get(),
+                            true,
+                            "",
+                            true,
+                            "100% TCG",
+                            created);
+        }
+        if (inserted > 0) {
+            jdbc.sql(
+                            "UPDATE privacy_settings SET wishlist_visible = true, updated_at ="
+                                    + " now() WHERE user_id = :id AND NOT wishlist_visible")
+                    .param("id", COLLECTOR5)
+                    .update();
+        }
+        return inserted;
+    }
+
+    /**
+     * Dates the wishes Home's feed shows ({@link #FEED_WISHES}) relative to now, at every start
+     * (only the time they were made: nothing else of a wish is written).
+     */
+    private void dateFeedWishes() {
+        Instant now = timeProvider.now().truncatedTo(ChronoUnit.SECONDS);
+        for (Map.Entry<UUID, Integer> wish : FEED_WISHES.entrySet()) {
+            jdbc.sql(
+                            "UPDATE wishlist_item SET created_at = :at, updated_at ="
+                                    + " GREATEST(updated_at, :at) WHERE id = :id")
+                    .param("id", wish.getKey())
+                    .param("at", Timestamp.from(now.minus(Duration.ofMinutes(wish.getValue()))))
+                    .update();
         }
     }
 
@@ -171,6 +259,7 @@ public class WishlistSeedContributor implements SeedContributor {
     }
 
     private int insert(
+            UUID owner,
             UUID id,
             Printing printing,
             boolean exactPrinting,
@@ -187,7 +276,7 @@ public class WishlistSeedContributor implements SeedContributor {
                         ON CONFLICT DO NOTHING
                         """)
                 .param("id", id)
-                .param("owner", COLLECTOR2)
+                .param("owner", owner)
                 .param("game", printing.game())
                 .param("cardId", printing.cardId())
                 .param("printingId", exactPrinting ? printing.id() : null, java.sql.Types.OTHER)

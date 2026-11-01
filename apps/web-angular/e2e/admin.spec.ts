@@ -1,11 +1,22 @@
-import { expect, test } from '@playwright/test';
+import { APIRequestContext, expect, test } from '@playwright/test';
 import {
   SEED_PASSWORD,
+  apiAcceptConsents,
   createOnboardedCollector,
+  emulatorSignIn,
   openAccountMenu,
   requireStack,
   signInThroughUi,
 } from './support/stack';
+
+/**
+ * A seed account of the fresh E2E database never confirmed being 18 or older: since web stage
+ * WG it reads Review our terms first (an account state, as the phone), so the specs that click
+ * through as a seed account confirm it through the API before.
+ */
+async function readySeed(request: APIRequestContext, email: string): Promise<void> {
+  await apiAcceptConsents(request, await emulatorSignIn(request, email, SEED_PASSWORD));
+}
 
 /**
  * Admin console against the real local stack: the seed admin suspends and unsuspends a fresh
@@ -21,11 +32,15 @@ test.describe('admin console', () => {
     test.setTimeout(120_000);
     const target = await createOnboardedCollector(request, 'suspend');
 
+    await readySeed(request, 'admin@orenjitrade.test');
     await signInThroughUi(page, 'admin@orenjitrade.test', SEED_PASSWORD);
+    // The seed admin's welcome is unfinished and the welcome is a page of its own (web WG):
+    // the account menu is on any page of the shell, Legal here.
+    await page.goto('/legal');
     await openAccountMenu(page);
-    await page.getByRole('menuitem', { name: 'Admin' }).click();
+    await page.getByRole('menuitem', { name: 'Admin console' }).click();
     await expect(page).toHaveURL(/\/admin$/);
-    await expect(page.getByRole('heading', { level: 1, name: 'Admin dashboard' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Overview' })).toBeVisible();
 
     await page
       .getByRole('navigation', { name: 'Admin sections' })
@@ -61,7 +76,7 @@ test.describe('admin console', () => {
     // --- Audit log -------------------------------------------------------------------------
     await page.getByRole('link', { name: 'Full audit log' }).click();
     await expect(page).toHaveURL(new RegExp(`/admin/audit-logs\\?.*targetId=${target.id}`));
-    await expect(page.getByRole('heading', { level: 1, name: 'Audit logs' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Audit log' })).toBeVisible();
     const entries = page.getByRole('table', { name: 'Audit entries' });
     await expect(entries.getByText('Suspended an account')).toBeVisible();
     await expect(entries.getByText('Lifted a suspension')).toBeVisible();
@@ -70,15 +85,17 @@ test.describe('admin console', () => {
     await expect(entries.getByText('@admin').first()).toBeVisible();
 
     // Filtering by action narrows the list.
-    await page.getByLabel('Action', { exact: true }).click();
-    await page.getByRole('option', { name: 'Lifted a suspension' }).click();
+    await page
+      .getByRole('combobox', { name: /^Action/ })
+      .selectOption({ label: 'Lifted a suspension' });
     await page.getByRole('button', { name: 'Apply' }).click();
     await expect(page).toHaveURL(/action=user\.unsuspend/);
     await expect(entries.getByText('Lifted a suspension')).toBeVisible();
     await expect(entries.getByText('Suspended an account')).toHaveCount(0);
   });
 
-  test('collectors cannot open the admin console', async ({ page }) => {
+  test('collectors cannot open the admin console', async ({ page, request }) => {
+    await readySeed(request, 'collector3@orenjitrade.test');
     await signInThroughUi(page, 'collector3@orenjitrade.test', SEED_PASSWORD);
     // The guard's notice is a 5 s snack bar: look for it from the moment the navigation commits
     // (waiting for the full page load can outlast the snack bar under a loaded parallel run).
@@ -86,12 +103,12 @@ test.describe('admin console', () => {
     await expect(page.getByText('The admin console is limited to staff accounts.')).toBeVisible({
       timeout: 20_000,
     });
-    // The guard sends collectors to /map; a seed collector that has not confirmed being 18+ yet
-    // (every seed account in the fresh E2E database) continues to the onboarding age step.
-    await expect(page).toHaveURL(/\/(map|onboarding)/);
+    // The guard sends collectors Home (a seed collector's unfinished welcome after it).
+    await expect(page).toHaveURL(/:\d+\/(\?|onboarding|$)/);
   });
 
-  test('moderators only see the moderation areas', async ({ page }) => {
+  test('moderators only see the moderation areas', async ({ page, request }) => {
+    await readySeed(request, 'moderator@orenjitrade.test');
     await signInThroughUi(page, 'moderator@orenjitrade.test', SEED_PASSWORD);
     // The guard's 5 s snack bar first (from the navigation commit), then the redirect target.
     await page.goto('/admin/users', { waitUntil: 'commit' });
@@ -108,9 +125,11 @@ test.describe('admin console', () => {
 test.describe('admin console entry', () => {
   requireStack();
 
-  test('the account menu offers Admin to administrators only', async ({ page }) => {
+  test('the account menu offers Admin to administrators only', async ({ page, request }) => {
+    await readySeed(request, 'superadmin@orenjitrade.test');
     await signInThroughUi(page, 'superadmin@orenjitrade.test', SEED_PASSWORD);
+    await page.goto('/legal');
     await openAccountMenu(page);
-    await expect(page.getByRole('menuitem', { name: 'Admin' })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'Admin console' })).toBeVisible();
   });
 });

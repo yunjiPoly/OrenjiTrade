@@ -2,15 +2,17 @@
   "binders": [
     {
       "id": "00000000-0000-4000-8b00-000000000101",
+      "listedMinutesAgo": 12960,
       "owner": "01",
+      "game": "yugioh",
       "name": "Yu-Gi-Oh! trade binder",
-      "description": "Duplicates and trade bait. Happy to meet at a public place on weekends.",
+      "description": "Duplicates and trade bait. I ship with tracking; payment by e-Transfer.",
       "kind": "TRADE",
       "visibility": "PUBLIC",
       "confirmedDaysAgo": 1,
       "sortOrder": 0,
       "items": [
-        { "id": "00000000-0000-4000-8c00-000000010101", "printing": "ygo-p001a", "quantity": 1, "condition": "NEAR_MINT", "price": "45.00", "availability": "TRADE_OR_SALE", "acceptsOffers": true, "publicNotes": "Pack fresh, sleeved since opening.", "notes": "Pulled at the spring locals." },
+        { "id": "00000000-0000-4000-8c00-000000010101", "printing": "ygo-p001a", "quantity": 1, "condition": "NEAR_MINT", "price": "45.00", "availability": "TRADE_OR_SALE", "acceptsOffers": true, "publicNotes": "Pack fresh, sleeved since opening.", "notes": "Pulled from a booster box in the spring." },
         { "id": "00000000-0000-4000-8c00-000000010102", "printing": "ygo-p005a", "quantity": 2, "condition": "LIGHTLY_PLAYED", "price": "16.00", "availability": "TRADE", "acceptsOffers": false, "publicNotes": "Light edge wear on one copy." },
         { "id": "00000000-0000-4000-8c00-000000010103", "printing": "ygo-p014b", "quantity": 1, "condition": "NEAR_MINT", "price": "70.00", "availability": "SALE", "acceptsOffers": true },
         { "id": "00000000-0000-4000-8c00-000000010104", "printing": "ygo-p018a", "quantity": 3, "condition": "NEAR_MINT", "price": "11.50", "availability": "TRADE_OR_SALE", "acceptsOffers": false },
@@ -20,6 +22,7 @@
     {
       "id": "00000000-0000-4000-8b00-000000000102",
       "owner": "01",
+      "game": "pokemon",
       "name": "Pokémon holo binder",
       "description": "Holos and ex cards for sale. Prices in CAD, offers welcome on most.",
       "kind": "SALE",
@@ -36,6 +39,7 @@
     {
       "id": "00000000-0000-4000-8b00-000000000103",
       "owner": "01",
+      "game": "yugioh",
       "name": "Personal collection",
       "description": "Keepers. Not for trade.",
       "kind": "COLLECTION",
@@ -43,13 +47,27 @@
       "confirmedDaysAgo": 10,
       "sortOrder": 2,
       "items": [
-        { "id": "00000000-0000-4000-8c00-000000010301", "printing": "ygo-p011a", "quantity": 1, "condition": "MINT", "availability": "COLLECTION_ONLY", "acceptsOffers": false, "visibility": "PRIVATE", "notes": "Grading candidate, keep in the top loader." },
+        { "id": "00000000-0000-4000-8c00-000000010301", "printing": "ygo-p011a", "quantity": 1, "condition": "MINT", "availability": "COLLECTION_ONLY", "acceptsOffers": false, "visibility": "PRIVATE", "notes": "Grading candidate, keep in the top loader." }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8b00-000000000104",
+      "owner": "01",
+      "game": "pokemon",
+      "name": "Pokémon personal collection",
+      "description": "Keepers. Not for trade.",
+      "kind": "COLLECTION",
+      "visibility": "PRIVATE",
+      "confirmedDaysAgo": 10,
+      "sortOrder": 3,
+      "items": [
         { "id": "00000000-0000-4000-8c00-000000010302", "printing": "pkm-p020a", "quantity": 1, "condition": "NEAR_MINT", "availability": "COLLECTION_ONLY", "acceptsOffers": false, "visibility": "PRIVATE" }
       ]
     },
     {
       "id": "00000000-0000-4000-8b00-000000000201",
       "owner": "02",
+      "game": "mtg",
       "name": "Magic trades",
       "description": "Looking for playables for my playgroup. Trades first.",
       "kind": "TRADE",
@@ -64,8 +82,28 @@
       ]
     },
     {
+      "id": "00000000-0000-4000-8b00-000000000202",
+      "listedMinutesAgo": 180,
+      "owner": "02",
+      "game": "yugioh",
+      "name": "Moth Queen core",
+      "description": "Full Verdant Moth Queen engine plus 2 Mirror Maze Trap. All NM, English. Ships by mail with tracking; payment by e-Transfer.",
+      "kind": "DECK",
+      "visibility": "PUBLIC",
+      "sellsAsCore": true,
+      "askingPriceText": "$95",
+      "confirmedDaysAgo": 1,
+      "sortOrder": 1,
+      "items": [
+        { "id": "00000000-0000-4000-8c00-000000020201", "printing": "ygo-p012a", "quantity": 3, "condition": "NEAR_MINT", "availability": "TRADE_OR_SALE", "acceptsOffers": false },
+        { "id": "00000000-0000-4000-8c00-000000020202", "printing": "ygo-p019a", "quantity": 3, "condition": "NEAR_MINT", "availability": "TRADE_OR_SALE", "acceptsOffers": false },
+        { "id": "00000000-0000-4000-8c00-000000020203", "printing": "ygo-p017a", "quantity": 2, "condition": "NEAR_MINT", "availability": "TRADE_OR_SALE", "acceptsOffers": false }
+      ]
+    },
+    {
       "id": "00000000-0000-4000-8b00-000000000301",
       "owner": "03",
+      "game": "yugioh",
       "name": "Vintage Yu-Gi-Oh! singles",
       "description": "First editions from my old collection.",
       "kind": "SALE",
@@ -81,6 +119,7 @@
     {
       "id": "00000000-0000-4000-8b00-000000000401",
       "owner": "04",
+      "game": "riftbound",
       "name": "Riftbound playset for the weekend",
       "description": "Open for trades until tomorrow; bring your spare commons.",
       "kind": "TRADE",
@@ -97,8 +136,9 @@
     {
       "id": "00000000-0000-4000-8b00-000000000501",
       "owner": "05",
+      "game": "pokemon",
       "name": "Singles for sale, offers welcome",
-      "description": "Pokémon and Magic singles. Shipping or local pickup.",
+      "description": "Pokémon and Magic singles, shipped with tracking.",
       "kind": "SALE",
       "visibility": "PUBLIC",
       "confirmedDaysAgo": 5,
@@ -106,14 +146,47 @@
       "items": [
         { "id": "00000000-0000-4000-8c00-000000050101", "printing": "pkm-p019a", "quantity": 1, "condition": "NEAR_MINT", "price": "18.50", "availability": "SALE", "acceptsOffers": true },
         { "id": "00000000-0000-4000-8c00-000000050102", "printing": "pkm-p010a", "quantity": 2, "condition": "NEAR_MINT", "price": "3.00", "availability": "SALE", "acceptsOffers": true },
-        { "id": "00000000-0000-4000-8c00-000000050103", "printing": "mtg-p005b", "quantity": 1, "condition": "NEAR_MINT", "price": "5.00", "availability": "TRADE_OR_SALE", "acceptsOffers": true },
-        { "id": "00000000-0000-4000-8c00-000000050104", "printing": "mtg-p020a", "quantity": 1, "condition": "LIGHTLY_PLAYED", "price": "7.00", "availability": "SALE", "acceptsOffers": false },
         { "id": "00000000-0000-4000-8c00-000000050105", "printing": "pkm-p018a", "quantity": 1, "condition": "NEAR_MINT", "price": "2.20", "availability": "SALE", "acceptsOffers": true }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8b00-000000000502",
+      "owner": "05",
+      "game": "mtg",
+      "name": "Magic singles for sale",
+      "description": "Pokémon and Magic singles, shipped with tracking.",
+      "kind": "SALE",
+      "visibility": "PUBLIC",
+      "confirmedDaysAgo": 5,
+      "sortOrder": 1,
+      "items": [
+        { "id": "00000000-0000-4000-8c00-000000050103", "printing": "mtg-p005b", "quantity": 1, "condition": "NEAR_MINT", "price": "5.00", "availability": "TRADE_OR_SALE", "acceptsOffers": true },
+        { "id": "00000000-0000-4000-8c00-000000050104", "printing": "mtg-p020a", "quantity": 1, "condition": "LIGHTLY_PLAYED", "price": "7.00", "availability": "SALE", "acceptsOffers": false }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8b00-000000000503",
+      "owner": "05",
+      "game": "yugioh",
+      "name": "Monarch core",
+      "description": "Looking for Moth Queen pieces in trade. All NM, in sleeves.\nShips by mail with tracking.",
+      "kind": "DECK",
+      "visibility": "PUBLIC",
+      "confirmedDaysAgo": 4,
+      "listedMinutesAgo": 5760,
+      "sortOrder": 2,
+      "sellsAsCore": true,
+      "askingPriceText": "Trade only",
+      "items": [
+        { "id": "00000000-0000-4000-8c00-000000050301", "printing": "ygo-p018b", "quantity": 3, "condition": "NEAR_MINT", "availability": "TRADE_OR_SALE", "acceptsOffers": false },
+        { "id": "00000000-0000-4000-8c00-000000050302", "printing": "ygo-p019b", "quantity": 2, "condition": "NEAR_MINT", "availability": "TRADE_OR_SALE", "acceptsOffers": false },
+        { "id": "00000000-0000-4000-8c00-000000050303", "printing": "ygo-p012b", "quantity": 1, "condition": "NEAR_MINT", "availability": "TRADE_OR_SALE", "acceptsOffers": false }
       ]
     },
     {
       "id": "00000000-0000-4000-8b00-000000000601",
       "owner": "06",
+      "game": "mtg",
       "name": "High-end Magic",
       "description": "Foils and rarities. Serious offers only.",
       "kind": "SALE",
@@ -122,13 +195,27 @@
       "sortOrder": 0,
       "items": [
         { "id": "00000000-0000-4000-8c00-000000060101", "printing": "mtg-p010b", "quantity": 1, "condition": "NEAR_MINT", "price": "38.00", "availability": "SALE", "acceptsOffers": true },
-        { "id": "00000000-0000-4000-8c00-000000060102", "printing": "mtg-p001b", "quantity": 1, "condition": "NEAR_MINT", "price": "60.00", "availability": "SALE", "acceptsOffers": false },
+        { "id": "00000000-0000-4000-8c00-000000060102", "printing": "mtg-p001b", "quantity": 1, "condition": "NEAR_MINT", "price": "60.00", "availability": "SALE", "acceptsOffers": false }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8b00-000000000602",
+      "owner": "06",
+      "game": "yugioh",
+      "name": "Yu-Gi-Oh! high-end singles",
+      "description": "Foils and rarities. Serious offers only.",
+      "kind": "SALE",
+      "visibility": "PUBLIC",
+      "confirmedDaysAgo": 50,
+      "sortOrder": 1,
+      "items": [
         { "id": "00000000-0000-4000-8c00-000000060103", "printing": "ygo-p014a", "quantity": 1, "condition": "NEAR_MINT", "price": "120.00", "availability": "SALE", "acceptsOffers": true }
       ]
     },
     {
       "id": "00000000-0000-4000-8b00-000000000701",
       "owner": "07",
+      "game": "pokemon",
       "name": "My Pokémon",
       "description": "Private collection.",
       "kind": "COLLECTION",
@@ -143,36 +230,93 @@
     {
       "id": "00000000-0000-4000-8b00-000000000801",
       "owner": "08",
+      "game": "pokemon",
       "name": "Extras for trade",
-      "description": "Single copies of commons and uncommons. Trades by mail or in person.",
+      "description": "Single copies of commons and uncommons. Trades and sales by mail.",
       "kind": "TRADE",
       "visibility": "PUBLIC",
       "confirmedDaysAgo": 1,
       "sortOrder": 0,
       "items": [
-        { "id": "00000000-0000-4000-8c00-000000080101", "printing": "rb-p002a", "quantity": 1, "condition": "NEAR_MINT", "price": "0.60", "availability": "TRADE", "acceptsOffers": false },
-        { "id": "00000000-0000-4000-8c00-000000080102", "printing": "rb-p009a", "quantity": 1, "condition": "LIGHTLY_PLAYED", "price": "0.45", "availability": "TRADE", "acceptsOffers": false },
         { "id": "00000000-0000-4000-8c00-000000080103", "printing": "pkm-p012a", "quantity": 1, "condition": "NEAR_MINT", "price": "0.20", "availability": "TRADE", "acceptsOffers": false },
         { "id": "00000000-0000-4000-8c00-000000080104", "printing": "pkm-p016a", "quantity": 1, "condition": "NEAR_MINT", "price": "0.10", "availability": "TRADE", "acceptsOffers": false }
       ]
     },
     {
+      "id": "00000000-0000-4000-8b00-000000000802",
+      "owner": "08",
+      "game": "riftbound",
+      "name": "Riftbound extras",
+      "description": "Single copies of commons and uncommons. Trades and sales by mail.",
+      "kind": "TRADE",
+      "visibility": "PUBLIC",
+      "confirmedDaysAgo": 1,
+      "sortOrder": 1,
+      "items": [
+        { "id": "00000000-0000-4000-8c00-000000080101", "printing": "rb-p002a", "quantity": 1, "condition": "NEAR_MINT", "price": "0.60", "availability": "TRADE", "acceptsOffers": false },
+        { "id": "00000000-0000-4000-8c00-000000080102", "printing": "rb-p009a", "quantity": 1, "condition": "LIGHTLY_PLAYED", "price": "0.45", "availability": "TRADE", "acceptsOffers": false }
+      ]
+    },
+    {
       "id": "00000000-0000-4000-8b00-000000000901",
       "owner": "09",
-      "name": "Four-game showcase",
+      "game": "yugioh",
+      "name": "Yu-Gi-Oh! showcase",
       "description": "A few singles from every game I collect. Trades or offers.",
       "kind": "TRADE",
       "visibility": "PUBLIC",
       "confirmedDaysAgo": 2,
       "sortOrder": 0,
       "items": [
-        { "id": "00000000-0000-4000-8c00-000000090101", "printing": "ygo-p007a", "quantity": 1, "condition": "NEAR_MINT", "price": "12.00", "availability": "TRADE_OR_SALE", "acceptsOffers": true },
-        { "id": "00000000-0000-4000-8c00-000000090102", "printing": "pkm-p004a", "quantity": 1, "condition": "NEAR_MINT", "price": "8.50", "availability": "TRADE_OR_SALE", "acceptsOffers": true },
+        { "id": "00000000-0000-4000-8c00-000000090101", "printing": "ygo-p007a", "quantity": 1, "condition": "NEAR_MINT", "price": "12.00", "availability": "TRADE_OR_SALE", "acceptsOffers": true }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8b00-000000000902",
+      "owner": "09",
+      "game": "pokemon",
+      "name": "Pokémon showcase",
+      "description": "A few singles from every game I collect. Trades or offers.",
+      "kind": "TRADE",
+      "visibility": "PUBLIC",
+      "confirmedDaysAgo": 2,
+      "sortOrder": 1,
+      "items": [
+        { "id": "00000000-0000-4000-8c00-000000090102", "printing": "pkm-p004a", "quantity": 1, "condition": "NEAR_MINT", "price": "8.50", "availability": "TRADE_OR_SALE", "acceptsOffers": true }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8b00-000000000903",
+      "owner": "09",
+      "game": "mtg",
+      "name": "Magic showcase",
+      "description": "A few singles from every game I collect. Trades or offers.",
+      "kind": "TRADE",
+      "visibility": "PUBLIC",
+      "confirmedDaysAgo": 2,
+      "sortOrder": 2,
+      "items": [
         { "id": "00000000-0000-4000-8c00-000000090103", "printing": "mtg-p003a", "quantity": 1, "condition": "LIGHTLY_PLAYED", "price": "6.00", "availability": "TRADE", "acceptsOffers": true }
       ]
     }
   ],
   "unfiled": [
-    { "id": "00000000-0000-4000-8c00-000000010001", "owner": "01", "printing": "pkm-p002a", "quantity": 6, "condition": "NEAR_MINT", "availability": "COLLECTION_ONLY", "acceptsOffers": false, "confirmedDaysAgo": 7, "notes": "Bulk from the prerelease." }
+    { "id": "00000000-0000-4000-8c00-000000010001", "owner": "01", "printing": "pkm-p002a", "quantity": 6, "condition": "NEAR_MINT", "availability": "COLLECTION_ONLY", "acceptsOffers": false, "confirmedDaysAgo": 7, "notes": "Bulk from the prerelease." },
+    { "id": "00000000-0000-4000-8c00-000000050012", "owner": "05", "printing": "ygo-p018b", "quantity": 1, "condition": "NEAR_MINT", "priceText": "$11.50", "availability": "TRADE_OR_SALE", "acceptsOffers": false, "visibility": "PUBLIC", "confirmedDaysAgo": 0, "listedMinutesAgo": 5 },
+    { "id": "00000000-0000-4000-8c00-000000050011", "owner": "05", "printing": "ygo-p016a", "quantity": 1, "condition": "NEAR_MINT", "priceText": "90% TCG", "availability": "TRADE_OR_SALE", "acceptsOffers": false, "visibility": "PUBLIC", "confirmedDaysAgo": 0, "listedMinutesAgo": 5 },
+    { "id": "00000000-0000-4000-8c00-000000050010", "owner": "05", "printing": "ygo-p017a", "quantity": 1, "condition": "NEAR_MINT", "priceText": "$3.00", "availability": "TRADE_OR_SALE", "acceptsOffers": false, "visibility": "PUBLIC", "confirmedDaysAgo": 0, "listedMinutesAgo": 5 },
+    { "id": "00000000-0000-4000-8c00-000000050009", "owner": "05", "printing": "ygo-p019a", "quantity": 1, "condition": "NEAR_MINT", "priceText": "$6.00", "availability": "TRADE_OR_SALE", "acceptsOffers": false, "visibility": "PUBLIC", "confirmedDaysAgo": 0, "listedMinutesAgo": 5 },
+    { "id": "00000000-0000-4000-8c00-000000050008", "owner": "05", "printing": "ygo-p012a", "quantity": 1, "condition": "NEAR_MINT", "priceText": "$0.50", "availability": "TRADE_OR_SALE", "acceptsOffers": false, "visibility": "PUBLIC", "confirmedDaysAgo": 0, "listedMinutesAgo": 5 },
+    { "id": "00000000-0000-4000-8c00-000000050007", "owner": "05", "printing": "ygo-p014a", "quantity": 1, "condition": "NEAR_MINT", "priceText": "85% TCG", "availability": "TRADE_OR_SALE", "acceptsOffers": false, "visibility": "PUBLIC", "confirmedDaysAgo": 0, "listedMinutesAgo": 5 },
+    { "id": "00000000-0000-4000-8c00-000000050006", "owner": "05", "printing": "ygo-p020a", "quantity": 1, "condition": "NEAR_MINT", "priceText": "$2.25", "availability": "TRADE_OR_SALE", "acceptsOffers": false, "visibility": "PUBLIC", "confirmedDaysAgo": 0, "listedMinutesAgo": 5 },
+    { "id": "00000000-0000-4000-8c00-000000050005", "owner": "05", "printing": "ygo-p017b", "quantity": 1, "condition": "NEAR_MINT", "priceText": "$1.00", "availability": "TRADE_OR_SALE", "acceptsOffers": false, "visibility": "PUBLIC", "confirmedDaysAgo": 0, "listedMinutesAgo": 5 },
+    { "id": "00000000-0000-4000-8c00-000000050004", "owner": "05", "printing": "ygo-p019b", "quantity": 1, "condition": "NEAR_MINT", "priceText": "$7.50", "availability": "TRADE_OR_SALE", "acceptsOffers": false, "visibility": "PUBLIC", "confirmedDaysAgo": 0, "listedMinutesAgo": 5 },
+    { "id": "00000000-0000-4000-8c00-000000050003", "owner": "05", "printing": "ygo-p012b", "quantity": 1, "condition": "NEAR_MINT", "priceText": "$14.00", "availability": "TRADE_OR_SALE", "acceptsOffers": false, "visibility": "PUBLIC", "confirmedDaysAgo": 0, "listedMinutesAgo": 5 },
+    { "id": "00000000-0000-4000-8c00-000000050002", "owner": "05", "printing": "ygo-p014b", "quantity": 1, "condition": "NEAR_MINT", "priceText": "$9.00", "availability": "TRADE_OR_SALE", "acceptsOffers": false, "visibility": "PUBLIC", "confirmedDaysAgo": 0, "listedMinutesAgo": 5 },
+    { "id": "00000000-0000-4000-8c00-000000050001", "owner": "05", "printing": "ygo-p018a", "quantity": 1, "condition": "NEAR_MINT", "priceText": "80% TCG", "availability": "TRADE_OR_SALE", "acceptsOffers": false, "visibility": "PUBLIC", "confirmedDaysAgo": 0, "listedMinutesAgo": 5 },
+    { "id": "00000000-0000-4000-8c00-000000050013", "owner": "05", "printing": "ygo-p020b", "quantity": 1, "condition": "NEAR_MINT", "priceText": "$24.00", "availability": "TRADE_OR_SALE", "acceptsOffers": false, "visibility": "PUBLIC", "confirmedDaysAgo": 0, "listedMinutesAgo": 360 },
+    { "id": "00000000-0000-4000-8c00-000000020003", "owner": "02", "printing": "ygo-p016a", "quantity": 1, "condition": "NEAR_MINT", "priceText": "$4.50", "availability": "TRADE_OR_SALE", "acceptsOffers": false, "visibility": "PUBLIC", "confirmedDaysAgo": 0, "listedMinutesAgo": 4320 },
+    { "id": "00000000-0000-4000-8c00-000000020002", "owner": "02", "printing": "ygo-p014b", "quantity": 1, "condition": "NEAR_MINT", "priceText": "80% TCG", "availability": "TRADE_OR_SALE", "acceptsOffers": false, "visibility": "PUBLIC", "confirmedDaysAgo": 0, "listedMinutesAgo": 4320 },
+    { "id": "00000000-0000-4000-8c00-000000020001", "owner": "02", "printing": "ygo-p020a", "quantity": 1, "condition": "NEAR_MINT", "priceText": "$6.00", "availability": "TRADE_OR_SALE", "acceptsOffers": false, "visibility": "PUBLIC", "confirmedDaysAgo": 0, "listedMinutesAgo": 4320 }
   ]
 }

@@ -1,14 +1,12 @@
 package com.orenjitrade.api.notifications.domain;
 
-import com.orenjitrade.api.billing.domain.LimitDecision;
-import com.orenjitrade.api.billing.domain.LimitReachedException;
-import com.orenjitrade.api.billing.domain.Limits;
 import com.orenjitrade.api.common.ApiException;
 import com.orenjitrade.api.common.CursorPage;
 import com.orenjitrade.api.common.TimeCursor;
 import com.orenjitrade.api.common.TimeProvider;
-import com.orenjitrade.api.featureflags.domain.FeatureFlagKeys;
-import com.orenjitrade.api.featureflags.domain.FeatureFlags;
+import com.orenjitrade.api.limits.domain.LimitDecision;
+import com.orenjitrade.api.limits.domain.LimitReachedException;
+import com.orenjitrade.api.limits.domain.Limits;
 import com.orenjitrade.api.notifications.domain.ChannelPlan.DeliveryState;
 import com.orenjitrade.api.notifications.events.NotificationCreated;
 import com.orenjitrade.api.notifications.infra.NotificationRepository;
@@ -21,10 +19,13 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -41,10 +42,10 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * <p>{@link #notify} is the single entry point of other modules: it is idempotent per dedup key,
  * applies the recipient's preferences (master and category switches, quiet hours for push), the
- * per-type daily limit of the recipient's plan ({@link NotificationType#dailyLimitKey()}, e.g.
- * {@code wishlist.alerts.per_day}; beyond it a single "upgrade" notice per day and type), stores
- * the row and publishes {@link NotificationCreated}, which the dispatcher fans out after commit
- * (in-app realtime queue, push, email). It joins the caller's transaction.
+ * per-type daily usage limit ({@link NotificationType#dailyLimitKey()}, e.g. {@code
+ * wishlist.alerts.per_day}, the same for every collector; beyond it a single "limit reached" notice
+ * per day and type), stores the row and publishes {@link NotificationCreated}, which the dispatcher
+ * fans out after commit (in-app realtime queue, push, email). It joins the caller's transaction.
  */
 @Service
 public class NotificationService {
@@ -57,13 +58,21 @@ public class NotificationService {
     static final String NOT_FOUND = "Notification not found";
 
     private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
+
+    /** How a deleted account reads everywhere (the users module's anonymised display name). */
+    static final String DELETED_COLLECTOR = "Deleted collector";
+
+    /**
+     * The start of a RATING_RECEIVED title ("New rating from {name}", the ratings module's words).
+     */
+    static final String RATING_TITLE_PREFIX = "New rating from ";
+
     private static final TypeReference<Map<String, Object>> MAP = new TypeReference<>() {};
 
     private final NotificationRepository repository;
     private final NotificationPreferencesService preferences;
     private final Limits limits;
     private final UserAccountService accounts;
-    private final FeatureFlags featureFlags;
     private final ApplicationEventPublisher events;
     private final TimeProvider timeProvider;
     private final JsonMapper jsonMapper;
@@ -73,7 +82,6 @@ public class NotificationService {
             NotificationPreferencesService preferences,
             Limits limits,
             UserAccountService accounts,
-            FeatureFlags featureFlags,
             ApplicationEventPublisher events,
             TimeProvider timeProvider,
             JsonMapper jsonMapper) {
@@ -81,7 +89,6 @@ public class NotificationService {
         this.preferences = preferences;
         this.limits = limits;
         this.accounts = accounts;
-        this.featureFlags = featureFlags;
         this.events = events;
         this.timeProvider = timeProvider;
         this.jsonMapper = jsonMapper;
@@ -139,10 +146,9 @@ public class NotificationService {
 
     /**
      * The single notice of the day telling the collector that more notifications of {@code type}
-     * were held back by their plan (dedup key {@code limit:<user>:<type>:<UTC day>}). The
-     * invitation to upgrade (sentence, {@code upgradeUrl}, {@code deepLink}) is only part of it
-     * while the {@code premiumPlans} flag is on for the collector: with the flag off nothing in the
-     * product offers a subscription (launch configuration).
+     * were held back by the daily limit (dedup key {@code limit:<user>:<type>:<UTC day>}). The
+     * limit is the same for every collector and nothing is sold to lift it (ADR 0019): the notice
+     * says when it resets and links to nothing else.
      */
     private void limitNotice(
             NotificationRequest request,
@@ -163,18 +169,11 @@ public class NotificationService {
         if (!plan.wanted()) {
             return;
         }
-        boolean premiumOffered =
-                featureFlags.isEnabled(FeatureFlagKeys.PREMIUM_PLANS, request.userId());
         Map<String, @Nullable Object> data = new LinkedHashMap<>();
         data.put("kind", "LIMIT_REACHED");
         data.put("notificationType", request.type().name());
         data.put("limitKey", decision.key());
         data.put("limit", decision.limit());
-        data.put("planCode", decision.planCode());
-        if (premiumOffered) {
-            data.put("upgradeUrl", decision.upgradeUrl());
-            data.put("deepLink", decision.upgradeUrl());
-        }
         String title;
         String body;
         if (request.type() == NotificationType.WISHLIST_ALERT) {
@@ -182,20 +181,14 @@ public class NotificationService {
             body =
                     "You reached today's limit of "
                             + decision.limit()
-                            + " wishlist alerts on your plan. New listings still show on the card"
-                            + " pages"
-                            + (premiumOffered
-                                    ? "; upgrade to Premium for unlimited alerts."
-                                    : ". The limit resets tomorrow.");
+                            + " wishlist alerts. New listings still show on the card pages. The"
+                            + " limit resets tomorrow.";
         } else {
             title = "More notifications are waiting";
             body =
                     "You reached today's limit of "
                             + decision.limit()
-                            + " notifications of this kind on your plan."
-                            + (premiumOffered
-                                    ? " Upgrade to Premium for unlimited alerts."
-                                    : " The limit resets tomorrow.");
+                            + " notifications of this kind. The limit resets tomorrow.";
         }
         store(request.userId(), NotificationType.SYSTEM, title, body, data, key, plan, now);
     }
@@ -262,12 +255,20 @@ public class NotificationService {
     // Notification centre (the recipient)
     // ---------------------------------------------------------------------------------------
 
-    /** {@code GET /notifications}: in-app notifications, newest first, cursor-paginated. */
+    /**
+     * {@code GET /notifications}: in-app notifications, newest first, cursor-paginated, without the
+     * {@code excludeTypes} (stage R9: the phone leaves chats out; none = every type).
+     */
     @Transactional(readOnly = true)
     public CursorPage<NotificationView> list(
-            UUID userId, @Nullable String cursor, boolean unreadOnly, int limit) {
+            UUID userId,
+            @Nullable String cursor,
+            boolean unreadOnly,
+            int limit,
+            Collection<NotificationType> excludeTypes) {
         @Nullable TimeCursor after = TimeCursor.decode(cursor);
-        List<Row> rows = repository.page(userId, after, unreadOnly, limit + 1);
+        List<Row> rows =
+                repository.page(userId, after, unreadOnly, typeNames(excludeTypes), limit + 1);
         boolean more = rows.size() > limit;
         List<Row> slice = more ? rows.subList(0, limit) : rows;
         List<NotificationView> views = new ArrayList<>();
@@ -281,9 +282,19 @@ public class NotificationService {
         return CursorPage.of(views, new TimeCursor(last.createdAt(), last.id()).encode());
     }
 
+    /** {@code GET /notifications/unread-count}: unread in-app notifications not excluded. */
     @Transactional(readOnly = true)
-    public long unreadCount(UUID userId) {
-        return repository.unreadCount(userId);
+    public long unreadCount(UUID userId, Collection<NotificationType> excludeTypes) {
+        return repository.unreadCount(userId, typeNames(excludeTypes));
+    }
+
+    /** The stored names of the types, without repeats ({@code type} is a text column). */
+    static Set<String> typeNames(Collection<NotificationType> types) {
+        Set<String> names = new TreeSet<>();
+        for (NotificationType type : types) {
+            names.add(type.name());
+        }
+        return names;
     }
 
     /** {@code POST /notifications/{id}/read}: idempotent; 404 for other users' notifications. */
@@ -305,6 +316,17 @@ public class NotificationService {
     @Transactional
     public int markConversationRead(UUID userId, UUID conversationId) {
         return repository.markConversationRead(userId, conversationId, timeProvider.now());
+    }
+
+    /**
+     * Withdraws a notification by its dedup key (the undo of a sale withdraws the buyer's notice,
+     * stage R4); nothing happens when none has the key.
+     *
+     * @return whether one was deleted
+     */
+    @Transactional
+    public boolean withdraw(String dedupKey) {
+        return repository.deleteByDedupKey(dedupKey) > 0;
     }
 
     /** One stored notification (dispatcher). */
@@ -331,9 +353,51 @@ public class NotificationService {
         return result;
     }
 
+    /**
+     * The account deletion job without the account's handle: {@link #purge(UUID, String)} without
+     * the older rows that name it by its handle only.
+     */
     @Transactional
     public void purge(UUID userId) {
+        purge(userId, null);
+    }
+
+    /**
+     * The account deletion job: the account's own notifications go, and the other collectors' rows
+     * that name it say "Deleted collector" as the chat does (a message's title and body, a wishlist
+     * alert's handle; WC review V3-1), and so do a rating's title, body and {@code raterHandle} and
+     * a sale's title and {@code sellerHandle} (WE review P2). Those two are found by the account's
+     * id ({@code raterId}, {@code sellerId}, written since stage WF; WE review R2-2: handles can be
+     * changed and taken again); an older row without an id is found by the account's {@code handle}
+     * (taken before the account was anonymised) when it was written once the account existed. Such
+     * an older row of another collector who held the handle meanwhile would lose its name too: that
+     * hides a name, where the other way round would keep a deleted collector's handle in front of
+     * others.
+     */
+    @Transactional
+    public void purge(UUID userId, @Nullable String handle) {
         repository.deleteByUser(userId);
+        repository.renameMessageSender(
+                userId,
+                ActivityNotifications.messageTitle(DELETED_COLLECTOR),
+                DELETED_COLLECTOR,
+                ActivityNotifications.MESSAGE_PHRASES,
+                ActivityNotifications.PLAIN_MESSAGE_PHRASE);
+        repository.renameWishlistCollector(userId, DELETED_COLLECTOR);
+        @Nullable String legacyHandle = handle == null || handle.isBlank() ? null : handle;
+        @Nullable Instant since =
+                legacyHandle == null
+                        ? null
+                        : accounts.findSnapshot(userId)
+                                .map(UserAccountSnapshot::createdAt)
+                                .orElse(null);
+        repository.renameRater(
+                userId,
+                legacyHandle,
+                since,
+                RATING_TITLE_PREFIX + DELETED_COLLECTOR,
+                DELETED_COLLECTOR);
+        repository.renameSeller(userId, legacyHandle, since, DELETED_COLLECTOR);
     }
 
     NotificationView view(Row row) {

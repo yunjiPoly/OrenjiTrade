@@ -1,5 +1,10 @@
 import type { BinderResponse, Freshness, PrivacySettings } from '@orenji/api-client';
-import { binderVisibilityStatus, itemVisibilityStatus, ownerIsVisible } from './visibility-status';
+import {
+  binderVisibilityStatus,
+  itemVisibilityStatus,
+  notVisibleBanner,
+  ownerIsVisible,
+} from './visibility-status';
 
 const NOW = Date.parse('2026-09-29T12:00:00Z');
 const fresh: Freshness = {
@@ -125,5 +130,19 @@ describe('visibility status', () => {
         ownerVisible: false,
       }),
     ).toMatchObject({ pending: true, label: 'Public · not visible' });
+  });
+
+  it('words the banner of public cards nobody sees by its real cause (F3)', () => {
+    expect(notVisibleBanner(0, true)).toBeNull();
+    // A collector hidden from the map with a profile that is not public (the default).
+    expect(notVisibleBanner(4, false)).toEqual({
+      text: "4 public cards aren't visible yet. You are hidden from the map and your profile is not public, so collectors can't see your binders.",
+      privacyLink: true,
+    });
+    expect(notVisibleBanner(1, true)).toEqual({
+      text: "1 public card isn't visible yet. Put them in a public binder or choose your province.",
+      privacyLink: false,
+    });
+    expect(notVisibleBanner(2, null)?.privacyLink).toBe(false);
   });
 });

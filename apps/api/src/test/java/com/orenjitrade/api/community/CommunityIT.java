@@ -14,6 +14,7 @@ import com.orenjitrade.api.moderation.domain.ModerationService;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,7 +32,30 @@ import tools.jackson.databind.JsonNode;
  */
 class CommunityIT extends AbstractIntegrationTest {
 
-    static final List<String> SEEDED =
+    /** The room most tests post in (stage R11: one room per platform region and game, V134). */
+    static final String ROOM = "americas-north-yugioh";
+
+    /** The 15 rooms of V134, in their order. */
+    static final List<String> ROOMS =
+            List.of(
+                    "americas-north-yugioh",
+                    "americas-north-pokemon",
+                    "americas-north-mtg",
+                    "americas-north-onepiece",
+                    "americas-north-riftbound",
+                    "americas-south-yugioh",
+                    "americas-south-pokemon",
+                    "americas-south-mtg",
+                    "americas-south-onepiece",
+                    "americas-south-riftbound",
+                    "europe-yugioh",
+                    "europe-pokemon",
+                    "europe-mtg",
+                    "europe-onepiece",
+                    "europe-riftbound");
+
+    /** The channels of V041 and V110 that V134 archived. */
+    static final List<String> ARCHIVED =
             List.of(
                     "americas-north",
                     "americas-south",
@@ -83,23 +107,29 @@ class CommunityIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void theLaunchChannelsAreListedAndFilterable() {
+    void theFifteenRoomsAreListedAndFilterableAndTheOldChannelsAreGone() {
         Member viewer = member("chan-view");
         JsonNode channels =
                 callJson(HttpMethod.GET, "/api/v1/community/channels", viewer.uid(), null, 200);
         List<String> slugs = new ArrayList<>();
         channels.forEach(channel -> slugs.add(channel.path("slug").asString()));
-        assertThat(slugs).containsSubsequence(SEEDED);
-        assertThat(slugs).doesNotContain("montreal-pokemon");
-        JsonNode north = channels.get(slugs.indexOf("americas-north"));
-        assertThat(north.path("name").asString()).isEqualTo("Americas (North)");
+        assertThat(slugs).containsSubsequence(ROOMS);
+        assertThat(slugs).doesNotContainAnyElementsOf(ARCHIVED).doesNotContain("montreal-pokemon");
+        JsonNode north = channels.get(slugs.indexOf("americas-north-yugioh"));
+        assertThat(north.path("name").asString()).isEqualTo("Yu-Gi-Oh!");
         assertThat(north.path("kind").asString()).isEqualTo("REGION");
-        assertThat(north.path("game").isNull()).isTrue();
+        assertThat(north.path("game").asString()).isEqualTo("yugioh");
         assertThat(north.path("regionLabel").asString()).isEqualTo("americas-north");
+        assertThat(north.path("description").asString())
+                .isEqualTo("Yu-Gi-Oh! collectors in Americas (North): trades and sales by mail.");
         assertThat(north.path("postCount24h").isInt()).isTrue();
-        JsonNode general = channels.get(slugs.indexOf("general"));
-        assertThat(general.path("kind").asString()).isEqualTo("GENERAL");
-        assertThat(general.path("game").isNull()).isTrue();
+        assertThat(north.has("lastPost")).isTrue();
+        JsonNode magic = channels.get(slugs.indexOf("europe-mtg"));
+        assertThat(magic.path("name").asString()).isEqualTo("Magic: The Gathering");
+        assertThat(magic.path("description").asString())
+                .isEqualTo("Magic: The Gathering collectors in Europe: trades and sales by mail.");
+        assertThat(channels.get(slugs.indexOf("americas-south-onepiece")).path("name").asString())
+                .isEqualTo("One Piece");
 
         JsonNode byGame =
                 callJson(
@@ -108,7 +138,10 @@ class CommunityIT extends AbstractIntegrationTest {
                         viewer.uid(),
                         null,
                         200);
-        byGame.forEach(channel -> assertThat(channel.path("game").asString()).isEqualTo("yugioh"));
+        List<String> yugioh = new ArrayList<>();
+        byGame.forEach(channel -> yugioh.add(channel.path("slug").asString()));
+        assertThat(yugioh)
+                .containsExactly("americas-north-yugioh", "americas-south-yugioh", "europe-yugioh");
         JsonNode byRegion =
                 callJson(
                         HttpMethod.GET,
@@ -118,7 +151,24 @@ class CommunityIT extends AbstractIntegrationTest {
                         200);
         List<String> regional = new ArrayList<>();
         byRegion.forEach(channel -> regional.add(channel.path("slug").asString()));
-        assertThat(regional).containsExactly("americas-south");
+        assertThat(regional)
+                .containsExactly(
+                        "americas-south-yugioh",
+                        "americas-south-pokemon",
+                        "americas-south-mtg",
+                        "americas-south-onepiece",
+                        "americas-south-riftbound");
+        for (String archived : ARCHIVED) {
+            assertThat(post(viewer, archived, "Hello " + archived, 404).path("status").asInt())
+                    .as("posting in the archived %s", archived)
+                    .isEqualTo(404);
+            callJson(
+                    HttpMethod.GET,
+                    "/api/v1/community/channels/" + archived + "/posts",
+                    viewer.uid(),
+                    null,
+                    404);
+        }
         assertThat(
                         call(HttpMethod.GET, "/api/v1/community/channels", null, null)
                                 .getStatus()
@@ -139,12 +189,12 @@ class CommunityIT extends AbstractIntegrationTest {
         JsonNode created =
                 callJson(
                         HttpMethod.POST,
-                        "/api/v1/community/channels/general/posts",
+                        "/api/v1/community/channels/" + ROOM + "/posts",
                         author.uid(),
                         body,
                         201);
         String postId = created.path("id").asString();
-        assertThat(created.path("channelSlug").asString()).isEqualTo("general");
+        assertThat(created.path("channelSlug").asString()).isEqualTo(ROOM);
         assertThat(created.path("author").path("handle").asString()).isEqualTo(author.handle());
         assertThat(created.path("author").has("location")).isFalse();
         assertThat(created.path("payload").path("card").path("id").asString())
@@ -160,12 +210,12 @@ class CommunityIT extends AbstractIntegrationTest {
                                 CommunityPostCreated.class,
                                 event -> event.postId().toString().equals(postId)))
                 .singleElement()
-                .satisfies(event -> assertThat(event.channelSlug()).isEqualTo("general"));
+                .satisfies(event -> assertThat(event.channelSlug()).isEqualTo(ROOM));
 
         JsonNode seenByOther =
                 callJson(
                         HttpMethod.GET,
-                        "/api/v1/community/channels/general/posts?limit=50",
+                        "/api/v1/community/channels/" + ROOM + "/posts?limit=50",
                         other.uid(),
                         null,
                         200);
@@ -195,7 +245,7 @@ class CommunityIT extends AbstractIntegrationTest {
                 find(
                         callJson(
                                 HttpMethod.GET,
-                                "/api/v1/community/channels/general/posts?limit=50",
+                                "/api/v1/community/channels/" + ROOM + "/posts?limit=50",
                                 author.uid(),
                                 null,
                                 200),
@@ -237,7 +287,9 @@ class CommunityIT extends AbstractIntegrationTest {
                         find(
                                         callJson(
                                                 HttpMethod.GET,
-                                                "/api/v1/community/channels/general/posts?limit=50",
+                                                "/api/v1/community/channels/"
+                                                        + ROOM
+                                                        + "/posts?limit=50",
                                                 author.uid(),
                                                 null,
                                                 200),
@@ -246,7 +298,7 @@ class CommunityIT extends AbstractIntegrationTest {
                                 .asInt())
                 .isZero();
         callJson(HttpMethod.DELETE, "/api/v1/community/posts/" + postId, author.uid(), null, 204);
-        assertThat(postIds(author, "general")).doesNotContain(postId);
+        assertThat(postIds(author, ROOM)).doesNotContain(postId);
         callJson(
                 HttpMethod.GET,
                 "/api/v1/community/posts/" + postId + "/replies",
@@ -261,8 +313,8 @@ class CommunityIT extends AbstractIntegrationTest {
                 .as("an author deleting their own post is not an admin action")
                 .isZero();
 
-        post(author, "general", "   ", 400);
-        post(author, "general", "x".repeat(2001), 400);
+        post(author, ROOM, "   ", 400);
+        post(author, ROOM, "x".repeat(2001), 400);
         post(author, "no-such-channel", "Hello", 404);
         callJson(
                 HttpMethod.POST,
@@ -284,7 +336,7 @@ class CommunityIT extends AbstractIntegrationTest {
                         .asString());
         callJson(
                 HttpMethod.POST,
-                "/api/v1/community/channels/general/posts",
+                "/api/v1/community/channels/" + ROOM + "/posts",
                 author.uid(),
                 privateBinder,
                 400);
@@ -300,11 +352,11 @@ class CommunityIT extends AbstractIntegrationTest {
                     callJson(HttpMethod.GET, "/api/v1/community/channels", member.uid(), null, 404);
             assertThat(problem.path("errorCode").asString()).isEqualTo("FEATURE_DISABLED");
             assertThat(problem.path("feature").asString()).isEqualTo("publicChat");
-            assertThat(post(member, "general", "Anyone?", 404).path("errorCode").asString())
+            assertThat(post(member, ROOM, "Anyone?", 404).path("errorCode").asString())
                     .isEqualTo("FEATURE_DISABLED");
             callJson(
                     HttpMethod.GET,
-                    "/api/v1/community/channels/general/posts",
+                    "/api/v1/community/channels/" + ROOM + "/posts",
                     member.uid(),
                     null,
                     404);
@@ -318,14 +370,47 @@ class CommunityIT extends AbstractIntegrationTest {
     @Test
     void duplicatesAre409AndTheChannelRateLimitIs429() {
         Member author = member("dup-author");
-        post(author, "general", "Selling a sealed booster box, DM me", 201);
-        JsonNode duplicate = post(author, "trades", "selling a SEALED booster   box, dm me", 409);
+        post(author, ROOM, "Selling a sealed booster box, DM me", 201);
+        JsonNode duplicate =
+                post(author, "europe-pokemon", "selling a SEALED booster   box, dm me", 409);
         assertThat(duplicate.path("errorCode").asString()).isEqualTo("DUPLICATE_POST");
         // Another member may say the same thing.
-        post(member("dup-other"), "general", "Selling a sealed booster box, DM me", 201);
+        post(member("dup-other"), ROOM, "Selling a sealed booster box, DM me", 201);
 
         Member moderator = member("rate-mod", Role.MODERATOR);
-        String slug = "rate-test-" + UUID.randomUUID().toString().substring(0, 8);
+        String slug = rateChannel(moderator, "rate-test-");
+        String other = rateChannel(moderator, "rate-other-");
+        Member poster = member("rate-poster");
+        post(poster, slug, "First post in the channel", 201);
+        post(poster, slug, "Second post in the channel", 201);
+        JsonNode limited = post(poster, slug, "Third post in the channel", 429);
+        assertThat(limited.path("errorCode").asString()).isEqualTo("RATE_LIMITED");
+        assertThat(limited.path("retryAfterSeconds").asInt()).isEqualTo(3600);
+        // The limit is per channel ("up to 10 times an hour in each room"): another channel with
+        // the same limit takes its own two posts, then refuses the third (review fix 1, F3).
+        post(poster, other, "First post in the other channel", 201);
+        post(poster, other, "Second post in the other channel", 201);
+        post(poster, other, "Third post in the other channel", 429);
+        post(poster, ROOM, "Posting elsewhere is fine", 201);
+        for (String archived : List.of(slug, other)) {
+            callJson(
+                    HttpMethod.PATCH,
+                    "/api/v1/admin/community/channels/"
+                            + testUsers
+                                    .query(
+                                            "SELECT id FROM community_channel WHERE slug = ?",
+                                            archived)
+                                    .get(0)
+                                    .get("id"),
+                    moderator.uid(),
+                    Map.of("status", "ARCHIVED"),
+                    200);
+        }
+    }
+
+    /** A new GENERAL channel that takes 2 posts an hour per author; returns its slug. */
+    private String rateChannel(Member moderator, String prefix) {
+        String slug = prefix + UUID.randomUUID().toString().substring(0, 8);
         Map<String, Object> channel = new LinkedHashMap<>();
         channel.put("slug", slug);
         channel.put("name", "Rate test");
@@ -333,21 +418,14 @@ class CommunityIT extends AbstractIntegrationTest {
         channel.put("postRateLimitPerHour", 2);
         callJson(
                 HttpMethod.POST, "/api/v1/admin/community/channels", moderator.uid(), channel, 201);
-        Member poster = member("rate-poster");
-        post(poster, slug, "First post in the channel", 201);
-        post(poster, slug, "Second post in the channel", 201);
-        JsonNode limited = post(poster, slug, "Third post in the channel", 429);
-        assertThat(limited.path("errorCode").asString()).isEqualTo("RATE_LIMITED");
-        assertThat(limited.path("retryAfterSeconds").asInt()).isEqualTo(3600);
-        // The limit is per channel.
-        post(poster, "general", "Posting elsewhere is fine", 201);
+        return slug;
     }
 
     @Test
     void moderationBlocksFlagsAndModeratorsRemoveWithAnAudit() {
         Member author = member("mod-author");
         Member moderator = member("mod-mod", Role.MODERATOR);
-        JsonNode blocked = post(author, "general", "Cheap cards at ZÖRBLAX dot shop", 422);
+        JsonNode blocked = post(author, ROOM, "Cheap cards at ZÖRBLAX dot shop", 422);
         assertThat(blocked.path("errorCode").asString()).isEqualTo("POST_BLOCKED");
         assertThat(
                         testUsers.count(
@@ -355,7 +433,7 @@ class CommunityIT extends AbstractIntegrationTest {
                                 author.id()))
                 .isZero();
 
-        JsonNode flagged = post(author, "general", "Visit fnordpromo for binder deals", 201);
+        JsonNode flagged = post(author, ROOM, "Visit fnordpromo for binder deals", 201);
         String postId = flagged.path("id").asString();
         assertThat(flagged.path("moderationState").asString()).isEqualTo("FLAGGED");
         assertThat(
@@ -370,6 +448,30 @@ class CommunityIT extends AbstractIntegrationTest {
                             assertThat(row.get("reason")).isEqualTo("BANNED_TERM");
                             assertThat(row.get("rule_id")).isNotNull();
                         });
+        // The console's Flags and rules page reads the room and the text (web stage WH1).
+        JsonNode communityFlag = null;
+        for (JsonNode item :
+                callJson(
+                                HttpMethod.GET,
+                                "/api/v1/admin/moderation/flags?subjectType=COMMUNITY_POST&size=100",
+                                moderator.uid(),
+                                null,
+                                200)
+                        .path("items")) {
+            if (item.path("subjectId").asString().equals(postId)) {
+                communityFlag = item;
+            }
+        }
+        assertThat(communityFlag).as("the post's flag").isNotNull();
+        JsonNode content = communityFlag.path("community");
+        assertThat(content.path("postId").asString()).isEqualTo(postId);
+        assertThat(content.path("roomSlug").asString()).isEqualTo(ROOM);
+        assertThat(content.path("roomName").asString()).isEqualTo("Yu-Gi-Oh!");
+        assertThat(content.path("regionCode").asString()).isEqualTo("americas-north");
+        assertThat(content.path("game").asString()).isEqualTo("yugioh");
+        assertThat(content.path("text").asString()).isEqualTo("Visit fnordpromo for binder deals");
+        assertThat(content.path("removed").asBoolean()).isFalse();
+        assertThat(communityFlag.path("authorDisplayName").asString()).isNotBlank();
         callJson(
                 HttpMethod.POST,
                 "/api/v1/community/posts/" + postId + "/replies",
@@ -395,7 +497,7 @@ class CommunityIT extends AbstractIntegrationTest {
                 moderator.uid(),
                 Map.of("reason", "Advertising"),
                 204);
-        assertThat(postIds(author, "general")).doesNotContain(postId);
+        assertThat(postIds(author, ROOM)).doesNotContain(postId);
         assertThat(
                         testUsers.count(
                                 "SELECT count(*) FROM moderation_flag WHERE subject_id = ?::uuid"
@@ -431,9 +533,7 @@ class CommunityIT extends AbstractIntegrationTest {
 
         // Replies can be removed as well.
         String visible =
-                post(author, "general", "A normal question about sleeves", 201)
-                        .path("id")
-                        .asString();
+                post(author, ROOM, "A normal question about sleeves", 201).path("id").asString();
         String replyId =
                 callJson(
                                 HttpMethod.POST,
@@ -465,13 +565,13 @@ class CommunityIT extends AbstractIntegrationTest {
         Member a = member("cblock-a");
         Member b = member("cblock-b");
         Member c = member("cblock-c");
-        String postOfB = post(b, "general", "Post of B about binders", 201).path("id").asString();
-        String postOfA = post(a, "general", "Post of A about sleeves", 201).path("id").asString();
+        String postOfB = post(b, ROOM, "Post of B about binders", 201).path("id").asString();
+        String postOfA = post(a, ROOM, "Post of A about sleeves", 201).path("id").asString();
         callJson(HttpMethod.POST, "/api/v1/users/" + b.id() + "/block", a.uid(), null, 200);
 
-        assertThat(postIds(a, "general")).doesNotContain(postOfB).contains(postOfA);
-        assertThat(postIds(b, "general")).doesNotContain(postOfA).contains(postOfB);
-        assertThat(postIds(c, "general")).contains(postOfA, postOfB);
+        assertThat(postIds(a, ROOM)).doesNotContain(postOfB).contains(postOfA);
+        assertThat(postIds(b, ROOM)).doesNotContain(postOfA).contains(postOfB);
+        assertThat(postIds(c, ROOM)).contains(postOfA, postOfB);
         callJson(
                 HttpMethod.GET,
                 "/api/v1/community/posts/" + postOfB + "/replies",
@@ -577,6 +677,147 @@ class CommunityIT extends AbstractIntegrationTest {
                 .containsExactly("community.channel.create", "community.channel.update");
     }
 
+    /**
+     * An archived channel of the old model named after a city (V041's "Montréal / Yu-Gi-Oh!") is
+     * never named to staff (spec 15.2, ADR 0017; web stage WH1 review fixes 1 and 2): a flag on one
+     * of its posts carries no room slug, name or region, the console's channel list neither its
+     * city label nor its slug, name or description, the author's history reads "archived-channel"
+     * for a post removed there, and the channel cannot be restored.
+     */
+    @Test
+    void anArchivedCityChannelIsNeverNamedToStaff() {
+        Member author = member("city-author");
+        Member moderator = member("city-mod", Role.MODERATOR);
+        String montreal = "00000000-0000-4000-8e00-000000000001";
+        String postId = UUID.randomUUID().toString();
+        testUsers.update(
+                "INSERT INTO community_post (id, channel_id, author_id, body, body_hash,"
+                        + " moderation_state) VALUES (?::uuid, ?::uuid, ?, ?,"
+                        + " encode(sha256(convert_to(?, 'UTF8')), 'hex'), 'FLAGGED')",
+                postId,
+                montreal,
+                author.id(),
+                "An old post about binder deals",
+                "zq-city-" + postId);
+        testUsers.update(
+                "INSERT INTO moderation_flag (subject_type, subject_id, reason, author_id) VALUES"
+                        + " ('COMMUNITY_POST', ?::uuid, 'BANNED_TERM', ?)",
+                postId,
+                author.id());
+
+        JsonNode flags =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/admin/moderation/flags?subjectType=COMMUNITY_POST&size=100",
+                        moderator.uid(),
+                        null,
+                        200);
+        JsonNode flag = null;
+        for (JsonNode item : flags.path("items")) {
+            if (item.path("subjectId").asString().equals(postId)) {
+                flag = item;
+            }
+        }
+        assertThat(flag).as("the flag on the city channel's post").isNotNull();
+        JsonNode content = flag.path("community");
+        assertThat(content.path("postId").asString()).isEqualTo(postId);
+        assertThat(content.path("roomSlug").isNull()).as("no slug").isTrue();
+        assertThat(content.path("roomName").isNull()).as("no name").isTrue();
+        assertThat(content.path("regionCode").isNull()).as("no region").isTrue();
+        assertThat(content.path("game").asString()).isEqualTo("yugioh");
+        assertThat(content.path("text").asString()).isEqualTo("An old post about binder deals");
+        assertThat(flags.toString().toLowerCase(Locale.ROOT)).doesNotContain("montr");
+
+        JsonNode channels =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/admin/community/channels",
+                        moderator.uid(),
+                        null,
+                        200);
+        boolean seen = false;
+        for (JsonNode channel : channels) {
+            String label =
+                    channel.path("regionLabel").isNull()
+                            ? null
+                            : channel.path("regionLabel").asString();
+            assertThat(label)
+                    .as("%s's region label", channel.path("slug").asString())
+                    .isIn(null, "americas-north", "americas-south", "europe");
+            if (channel.path("id").asString().equals(montreal)) {
+                seen = true;
+                assertThat(channel.path("regionLabel").isNull()).isTrue();
+                assertThat(channel.path("cityChannel").asBoolean()).isTrue();
+                // Review fix 2: its slug, name and description carry the city too.
+                assertThat(channel.path("slug").asString()).isEqualTo("archived-channel");
+                assertThat(channel.path("name").asString()).isEqualTo("Archived channel");
+                assertThat(channel.path("description").asString()).isEmpty();
+                assertThat(channel.path("game").asString()).isEqualTo("yugioh");
+            } else if (channel.path("slug").asString().equals(ROOM)) {
+                assertThat(channel.path("cityChannel").asBoolean()).isFalse();
+                assertThat(channel.path("name").asString()).isNotEqualTo("Archived channel");
+                assertThat(channel.path("description").asString()).isNotEmpty();
+            }
+        }
+        assertThat(seen).as("the archived city channel is listed").isTrue();
+        assertThat(channels.toString().toLowerCase(Locale.ROOT))
+                .as("no city in the console's channel list")
+                .doesNotContain("montr");
+
+        // The author's history: a post removed in the city channel reads "archived-channel", one
+        // removed in a room keeps the room's slug (review fix 2).
+        String roomPost =
+                post(author, ROOM, "A room post about binder deals", 201).path("id").asString();
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/admin/community/posts/" + postId + "/remove",
+                moderator.uid(),
+                Map.of("reason", "Old city channel"),
+                204);
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/admin/community/posts/" + roomPost + "/remove",
+                moderator.uid(),
+                Map.of("reason", "Advertising"),
+                204);
+        Member admin = member("city-admin", Role.ADMIN);
+        JsonNode history =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/admin/users/" + author.id() + "/history",
+                        admin.uid(),
+                        null,
+                        200);
+        Map<String, String> removedSlugs = new LinkedHashMap<>();
+        history.path("recentPostsRemoved")
+                .forEach(
+                        item ->
+                                removedSlugs.put(
+                                        item.path("id").asString(),
+                                        item.path("channelSlug").asString()));
+        assertThat(removedSlugs)
+                .containsEntry(postId, "archived-channel")
+                .containsEntry(roomPost, ROOM);
+        assertThat(history.toString().toLowerCase(Locale.ROOT))
+                .as("no city in the author's history")
+                .doesNotContain("montr");
+
+        JsonNode refused =
+                callJson(
+                        HttpMethod.PATCH,
+                        "/api/v1/admin/community/channels/" + montreal,
+                        moderator.uid(),
+                        Map.of("status", "ACTIVE"),
+                        400);
+        assertThat(refused.toString()).contains("status");
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM community_channel WHERE id = ?::uuid AND"
+                                        + " status = 'ARCHIVED'",
+                                montreal))
+                .isEqualTo(1);
+    }
+
     @Test
     void regionChannelsAreThePlatformRegionsAndLocationsCreateNone() {
         int regionChannels =
@@ -598,6 +839,15 @@ class CommunityIT extends AbstractIntegrationTest {
                                         + " 'montreal-%' AND status = 'ARCHIVED'"))
                 .as("the old city channels are archived, not deleted")
                 .isEqualTo(4);
+        for (String slug : ARCHIVED) {
+            assertThat(
+                            testUsers.count(
+                                    "SELECT count(*) FROM community_channel WHERE slug = ? AND"
+                                            + " status = 'ARCHIVED'",
+                                    slug))
+                    .as("%s is archived, not deleted (V134)", slug)
+                    .isEqualTo(1);
+        }
         JsonNode channels =
                 callJson(
                         HttpMethod.GET,
@@ -605,14 +855,20 @@ class CommunityIT extends AbstractIntegrationTest {
                         collector.uid(),
                         null,
                         200);
-        assertThat(channels)
-                .singleElement()
-                .satisfies(
-                        channel -> {
-                            assertThat(channel.path("slug").asString()).isEqualTo("europe");
-                            assertThat(channel.path("name").asString()).isEqualTo("Europe");
-                            assertThat(channel.path("kind").asString()).isEqualTo("REGION");
-                        });
+        List<String> europe = new ArrayList<>();
+        channels.forEach(
+                channel -> {
+                    europe.add(channel.path("slug").asString());
+                    assertThat(channel.path("kind").asString()).isEqualTo("REGION");
+                    assertThat(channel.path("regionLabel").asString()).isEqualTo("europe");
+                });
+        assertThat(europe)
+                .containsExactly(
+                        "europe-yugioh",
+                        "europe-pokemon",
+                        "europe-mtg",
+                        "europe-onepiece",
+                        "europe-riftbound");
     }
 
     private static JsonNode find(JsonNode page, String id) {

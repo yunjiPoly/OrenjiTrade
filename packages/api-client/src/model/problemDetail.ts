@@ -61,37 +61,33 @@ export interface ProblemDetail {
      */
     resetsAt?: string;
     /**
-     * The caller\'s plan (LIMIT_REACHED), e.g. FREE
-     */
-    planCode?: string;
-    /**
-     * Where to send the user to upgrade (LIMIT_REACHED): /premium
-     */
-    upgradeUrl?: string;
-    /**
      * Feature flag that is off for the caller (FEATURE_DISABLED)
      */
     feature?: string;
     /**
-     * Current status of the resource when a state conflicts (INVALID_STATE_TRANSITION, CONFLICT, ALREADY_SUBSCRIBED)
+     * Current status of the resource when a state conflicts (INVALID_STATE_TRANSITION, CONFLICT, IMPORT_ALREADY_COMMITTED)
      */
     currentStatus?: string;
     /**
-     * The caller\'s live subscription (ALREADY_SUBSCRIBED)
-     */
-    subscriptionId?: string;
-    /**
-     * The caller\'s credit balance (INSUFFICIENT_CREDITS)
-     */
-    balance?: number;
-    /**
-     * Credits the action needs (INSUFFICIENT_CREDITS)
-     */
-    cost?: number;
-    /**
-     * Why a referral code cannot be redeemed (REFERRAL_NOT_ALLOWED): SELF, ALREADY_REDEEMED, ACCOUNT_TOO_OLD, REFERRER_LIMIT
+     * Why an inventory import file was refused (POST /inventory/imports): TOO_LARGE, NOT_TEXT, EMPTY_FILE, TOO_MANY_LINES, TOO_MANY_ROWS, MISSING_COLUMNS, MALFORMED, NO_CARDS
      */
     reason?: string;
+    /**
+     * The limit an inventory import file passed: bytes (reason TOO_LARGE), lines (TOO_MANY_LINES) or rows (TOO_MANY_ROWS)
+     */
+    fileLimit?: number;
+    /**
+     * The columns an inventory import file lacks (reason MISSING_COLUMNS), e.g. card name
+     */
+    missingColumns?: Array<string>;
+    /**
+     * Rows of an inventory import that still need a printing (IMPORT_ROWS_UNRESOLVED)
+     */
+    unresolved?: number;
+    /**
+     * New inventory items an import would add (LIMIT_REACHED with limitKey inventory.items.max)
+     */
+    requested?: number;
 }
 export enum ProblemDetailErrorCodeEnum {
     ValidationFailed = 'VALIDATION_FAILED',
@@ -108,6 +104,13 @@ export enum ProblemDetailErrorCodeEnum {
     RatingNotEligible = 'RATING_NOT_ELIGIBLE',
     AlreadyRated = 'ALREADY_RATED',
     RatingEditWindowClosed = 'RATING_EDIT_WINDOW_CLOSED',
+    RestoreWindowClosed = 'RESTORE_WINDOW_CLOSED',
+    NothingLeftToSell = 'NOTHING_LEFT_TO_SELL',
+    SaleUndoClosed = 'SALE_UNDO_CLOSED',
+    SaleAlreadyRated = 'SALE_ALREADY_RATED',
+    SubjectChanged = 'SUBJECT_CHANGED',
+    BinderGameLocked = 'BINDER_GAME_LOCKED',
+    BinderGameMismatch = 'BINDER_GAME_MISMATCH',
     ReportAlreadyOpen = 'REPORT_ALREADY_OPEN',
     CannotReportSelf = 'CANNOT_REPORT_SELF',
     OffersNotAccepted = 'OFFERS_NOT_ACCEPTED',
@@ -121,9 +124,10 @@ export enum ProblemDetailErrorCodeEnum {
     DisputeWindowClosed = 'DISPUTE_WINDOW_CLOSED',
     EvidenceLimitReached = 'EVIDENCE_LIMIT_REACHED',
     WebhookSignatureInvalid = 'WEBHOOK_SIGNATURE_INVALID',
-    AlreadySubscribed = 'ALREADY_SUBSCRIBED',
-    InsufficientCredits = 'INSUFFICIENT_CREDITS',
-    ReferralNotAllowed = 'REFERRAL_NOT_ALLOWED',
+    ImportExpired = 'IMPORT_EXPIRED',
+    ImportAlreadyCommitted = 'IMPORT_ALREADY_COMMITTED',
+    ImportRowsUnresolved = 'IMPORT_ROWS_UNRESOLVED',
+    ImportEmpty = 'IMPORT_EMPTY',
     Conflict = 'CONFLICT',
     HandleTaken = 'HANDLE_TAKEN',
     DeletionBlocked = 'DELETION_BLOCKED',

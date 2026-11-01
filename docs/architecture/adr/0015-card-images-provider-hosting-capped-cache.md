@@ -1,7 +1,8 @@
 # ADR 0015 — Card images: provider hosting policies and a capped local image cache
 
 **Status:** Accepted · **Date:** 2026-10-01 · **Amended:** 2026-10-04 (cache cap 500 MB → 5 GB),
-2026-10-05 (renditions behind `ObjectStorage`: local files or the media bucket) ·
+2026-10-05 (renditions behind `ObjectStorage`: local files or the media bucket), 2026-10-21 (never
+hotlink provider images, for every provider: Scryfall and TCGdex join, ADR 0021) ·
 Extends [ADR 0005](0005-multi-tcg-data-model.md)
 
 ## Context
@@ -147,6 +148,22 @@ storage stays the primary bean):
   is repaired and refilled, deduplication and eviction on objects, the cap with objects +
   temporary files + reservations, fresh unreferenced objects kept and counted),
   `CardImageCacheIT.reconciliationKeepsFreshUnreferencedFilesUntilTheyAge`.
+
+## Amendment 2026-10-21 — never hotlink provider images, for every provider (ADR 0021)
+
+Stage R10 adds two sources ([ADR 0021](0021-five-games-and-their-card-sources.md)): Scryfall for
+Magic (the "Unique Artwork" bulk file, one image per artwork) and TCGdex for Pokémon (the
+repository archive, English only, one image per printing). The rule is now general: **never hotlink
+provider images**. Every provider is `REHOST_REQUIRED` (`HOTLINK_ALLOWED` stays in the code but no
+provider uses it); browsers only ever receive `/api/v1/public/card-images/{id}`; provider URLs stay
+in `card_image.source_url`; each adapter downloads only image URLs of its own configured host. The
+same 5 GB cache holds every game: Magic about 1.9 GB, Pokémon about 0.85 GB, the five games about
+3.5 to 4.2 GB. Point 2 gains one case: a printing may point at its own provider artwork through
+`card_printing.image_id` (a card-level row of the printing's card; Magic and Pokémon), and the
+printing lists show it; a card's primary artwork is its earliest printing's. Etiquette per provider
+(point 5): Scryfall at most 10 requests a second (default 8), the bulk file refreshed at most
+daily; TCGdex one commit call and one archive per new commit, reused for a day; YGOPRODeck
+unchanged.
 
 ## Consequences
 

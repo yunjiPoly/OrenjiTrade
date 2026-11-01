@@ -1,59 +1,159 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { usePublicBinder, usePublicBinderItems } from '@/src/api/hooks/binders';
-import { FEATURE, useFeature } from '@/src/api/hooks/featureFlags';
-import type { InventoryAvailability, PublicBinderResponse } from '@/src/api/types';
-import { Avatar } from '@/src/components/ui/Avatar';
-import { Badge } from '@/src/components/ui/Badge';
-import { Button } from '@/src/components/ui/Button';
+import type { PublicBinderResponse } from '@/src/api/types';
+import { BackBar } from '@/src/components/ui/BackBar';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { ListFooter } from '@/src/components/ui/ListFooter';
-import { SelectSheet } from '@/src/components/ui/SelectSheet';
+import { PillButton } from '@/src/components/ui/PillButton';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
-import { TextField } from '@/src/components/ui/TextField';
+import { Text, TextInput } from '@/src/components/ui/Text';
 import { ItemRow } from '@/src/features/inventory/ItemRow';
-import { MakeOfferButton } from '@/src/features/offers/MakeOfferButton';
-import { offerTargetFromItem, type OfferSeller } from '@/src/features/offers/offerTarget';
+import { useMessageCollector } from '@/src/features/messages/useMessageCollector';
 import { reportParams } from '@/src/features/reports/reportLabels';
+import { searchMapTarget } from '@/src/features/search/searchLinks';
 import { boundedQuery, QUERY_MAX_LENGTH, SEARCH_DEBOUNCE_MS } from '@/src/lib/catalog';
-import {
-  AVAILABILITIES,
-  AVAILABILITY_LABELS,
-  badgeFreshness,
-  binderKindLabel,
-  cardCount,
-  endsLabel,
-} from '@/src/lib/inventory';
+import { endsLabel } from '@/src/lib/inventory';
 import { isLimitReached, limitReachedInfo, limitReachedMessage } from '@/src/lib/limits';
-import { GENERIC_PLACE_LABEL, placeLabel } from '@/src/lib/place';
-import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import { gameLabel } from '@/src/lib/profile';
+import {
+  fontFamily,
+  fontWeight,
+  PINNED_MAX_FONT_SCALE,
+  spacing,
+  TITLE_MAX_FONT_SCALE,
+  useTheme,
+} from '@/src/theme';
+import { useGuestAction } from '@/src/account/guestAction';
+import { GUEST_COPY } from '@/src/features/guest/guestCopy';
 
-const ANY = '__any__';
+import { DECK_CORE_COPY, PUBLIC_BINDER_COPY } from './binderCopy';
+import { DeckCorePage } from './DeckCorePage';
+import { SellerRow } from './SellerRow';
 
 export interface PublicBinderViewProps {
   id: string;
 }
 
 /**
- * A public binder (web: `/binders/:id`, `GET /public/binders/{id}` + its public cards): only what
- * the owner made public, never private notes, never coordinates (the owner block carries a region
- * state or province). Search and availability filters, "Make an offer" on the cards
- * that accept one, "Report" the owner (BINDER context); 404 when it is not public, and the plan's
- * daily binder views explained when they run out.
+ * A public binder (`GET /public/binders/{id}`): a deck core opens its own page (screen 16); a
+ * plain binder keeps the public binder screen, restyled to the look of the redesign (spec
+ * 2026-10-14, section 7): its name, its cards and games, the seller row, the note, "Search this
+ * binder", its public cards, "Report" and "Message {handle}". Never a private note or a city (the
+ * owner block carries a state or province); 404 when it is not public, and the daily binder views
+ * explained when they run out.
  */
 export function PublicBinderView({ id }: PublicBinderViewProps) {
-  const { palette } = useTheme();
   const router = useRouter();
-  const premium = useFeature(FEATURE.premiumPlans);
   const binder = usePublicBinder(id);
+  const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
+
+  if (!binder.data) {
+    const error = binder.error;
+    let content;
+    if (error && (error.status === 404 || error.errorCode === 'VALIDATION_FAILED')) {
+      content = (
+        <EmptyState
+          testID="public-binder-not-found"
+          icon="book-open-page-variant-outline"
+          title={DECK_CORE_COPY.notFoundTitle}
+          description={DECK_CORE_COPY.notFoundBody}
+          actionLabel={DECK_CORE_COPY.notFoundAction}
+          onAction={() => router.navigate(searchMapTarget())}
+        />
+      );
+    } else if (error && isLimitReached(error)) {
+      content = (
+        <EmptyState
+          testID="public-binder-limit"
+          icon="speedometer"
+          title={DECK_CORE_COPY.limitTitle}
+          description={limitReachedMessage(limitReachedInfo(error))}
+        />
+      );
+    } else if (error) {
+      content = (
+        <ErrorState
+          testID="public-binder-error"
+          error={error}
+          title={DECK_CORE_COPY.loadError}
+          onRetry={() => void binder.refetch()}
+        />
+      );
+    } else {
+      content = <SkeletonList rows={4} rowHeight={88} testID="public-binder-loading" />;
+    }
+    return <Frame onBack={back}>{content}</Frame>;
+  }
+
+  if (binder.data.sellsAsCore) {
+    return (
+      <DeckCorePage
+        binder={binder.data}
+        refreshing={binder.isRefetching}
+        onRefresh={() => void binder.refetch()}
+      />
+    );
+  }
+  return (
+    <PlainBinder
+      binder={binder.data}
+      onBack={back}
+      refreshing={binder.isRefetching}
+      onRefresh={() => void binder.refetch()}
+    />
+  );
+}
+
+/** The screen's own top row (the redesign's back bar) over a loading, empty or error state. */
+function Frame({ onBack, children }: { onBack: () => void; children: ReactNode }) {
+  const { palette } = useTheme();
+  const insets = useSafeAreaInsets();
+  return (
+    <View
+      testID="public-binder-frame"
+      style={[styles.fill, { backgroundColor: palette.background, paddingTop: insets.top }]}
+    >
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={styles.top}>
+        <BackBar
+          label=""
+          backLabel={PUBLIC_BINDER_COPY.backLabel}
+          onBack={onBack}
+          testID="BackButton"
+        />
+      </View>
+      <View style={styles.frameBody}>{children}</View>
+    </View>
+  );
+}
+
+function PlainBinder({
+  binder,
+  onBack,
+  refreshing,
+  onRefresh,
+}: {
+  binder: PublicBinderResponse;
+  onBack: () => void;
+  refreshing: boolean;
+  onRefresh: () => void;
+}) {
+  const { palette } = useTheme();
+  const insets = useSafeAreaInsets();
   const [text, setText] = useState('');
   const [q, setQ] = useState('');
-  const [availability, setAvailability] = useState<InventoryAvailability | null>(null);
-  const items = usePublicBinderItems(id, { q, availability, game: null }, !!binder.data);
+  const items = usePublicBinderItems(binder.id, { q, availability: null, game: null });
+  const selfId = useAccount().me?.id ?? null;
+  const { message, startingId } = useMessageCollector();
+  // Never "own" for a guest: they read no owner id (stage R15).
+  const own = selfId !== null && binder.owner.id === selfId;
 
   useEffect(() => {
     const timer = setTimeout(() => setQ(boundedQuery(text)), SEARCH_DEBOUNCE_MS);
@@ -65,119 +165,49 @@ export function PublicBinderView({ id }: PublicBinderViewProps) {
     [items.data]
   );
 
-  if (!binder.data) {
-    const error = binder.error;
-    if (error && (error.status === 404 || error.errorCode === 'VALIDATION_FAILED')) {
-      return (
-        <EmptyState
-          testID="public-binder-not-found"
-          icon="book-open-page-variant-outline"
-          title="This binder is not available"
-          description="It does not exist, is private, its publication ended, or its owner has to confirm it is still up to date."
-          actionLabel="Back to the map"
-          onAction={() => router.navigate('/')}
-        />
-      );
-    }
-    if (error && isLimitReached(error)) {
-      return (
-        <EmptyState
-          testID="public-binder-limit"
-          icon="speedometer"
-          title="You reached today's binder views"
-          description={limitReachedMessage(limitReachedInfo(error))}
-          actionLabel={premium.enabled ? 'See Premium' : undefined}
-          onAction={premium.enabled ? () => router.push('/premium') : undefined}
-        />
-      );
-    }
-    if (error) {
-      return (
-        <ErrorState
-          testID="public-binder-error"
-          error={error}
-          title="This binder could not load"
-          onRetry={() => void binder.refetch()}
-        />
-      );
-    }
-    return <SkeletonList rows={4} rowHeight={88} testID="public-binder-loading" />;
-  }
-
-  const current = binder.data;
-  const seller: OfferSeller = {
-    id: current.owner.id,
-    displayName: current.owner.displayName,
-    handle: current.owner.handle,
-    avatarUrl: current.owner.avatarUrl ?? null,
-    placeLabel: placeLabel(current.owner.place),
-  };
   return (
-    <>
-      <Stack.Screen options={{ title: current.name }} />
+    <View
+      testID="public-binder"
+      style={[styles.fill, { backgroundColor: palette.background, paddingTop: insets.top }]}
+    >
+      <Stack.Screen options={{ headerShown: false, title: binder.name }} />
+      <View style={styles.top}>
+        <BackBar
+          label={binder.name}
+          backLabel={PUBLIC_BINDER_COPY.backLabel}
+          onBack={onBack}
+          // The id of the navigation header's back button: the flows go back the same way.
+          testID="BackButton"
+        />
+      </View>
       <FlatList
         testID="public-binder-items"
         data={list}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <ItemRow
-            item={item}
-            footer={<MakeOfferButton inCard target={offerTargetFromItem(item, seller)} />}
-          />
-        )}
+        renderItem={({ item }) => <ItemRow item={item} />}
         ItemSeparatorComponent={Separator}
         ListHeaderComponent={
-          <View style={styles.header}>
-            <PublicBinderHeader binder={current} />
-            <TextField
-              label="Search this binder"
-              value={text}
-              onChangeText={setText}
-              autoCapitalize="none"
-              autoCorrect={false}
-              maxLength={QUERY_MAX_LENGTH}
-              testID="public-binder-search"
-            />
-            <View style={styles.filters}>
-              <SelectSheet
-                compact
-                label="Availability"
-                options={[
-                  { value: ANY, label: 'Any availability' },
-                  ...AVAILABILITIES.map((value) => ({ value, label: AVAILABILITY_LABELS[value] })),
-                ]}
-                value={availability ?? ANY}
-                onChange={(value) =>
-                  setAvailability(value === ANY ? null : (value as InventoryAvailability))
-                }
-                testID="public-binder-availability"
-              />
-            </View>
-            {items.data ? (
-              <Text
-                testID="public-binder-count"
-                accessibilityLiveRegion="polite"
-                style={[textStyle('sm'), { color: palette.textMuted }]}
-              >
-                {cardCount(items.data.pages[0]?.totalItems ?? 0)}
-              </Text>
-            ) : null}
-          </View>
+          <PlainHeader
+            binder={binder}
+            text={text}
+            onText={setText}
+            count={items.data?.pages[0]?.totalItems ?? null}
+          />
         }
         ListEmptyComponent={
           items.data ? (
             <EmptyState
               testID="public-binder-empty"
               icon="magnify-close"
-              title="No cards match"
-              description="Try another availability or search."
+              title={PUBLIC_BINDER_COPY.emptyTitle}
+              description={PUBLIC_BINDER_COPY.emptyBody}
             />
           ) : items.error ? (
             <ErrorState
               compact
               testID="public-binder-items-error"
               error={items.error}
-              title="The cards could not load"
+              title={PUBLIC_BINDER_COPY.cardsLoadError}
               onRetry={() => void items.refetch()}
             />
           ) : (
@@ -185,11 +215,14 @@ export function PublicBinderView({ id }: PublicBinderViewProps) {
           )
         }
         ListFooterComponent={
-          <ListFooter
-            loading={items.isFetchingNextPage}
-            failed={!!items.error && items.hasNextPage}
-            onRetry={() => void items.fetchNextPage()}
-          />
+          <View style={styles.footer}>
+            <ListFooter
+              loading={items.isFetchingNextPage}
+              failed={!!items.error && items.hasNextPage}
+              onRetry={() => void items.fetchNextPage()}
+            />
+            {own ? null : <ReportLink binder={binder} />}
+          </View>
         }
         onEndReached={() => {
           if (items.hasNextPage && !items.isFetchingNextPage && !items.error) {
@@ -198,92 +231,165 @@ export function PublicBinderView({ id }: PublicBinderViewProps) {
         }}
         onEndReachedThreshold={0.5}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         refreshControl={
           <RefreshControl
-            refreshing={binder.isRefetching}
+            refreshing={refreshing}
             onRefresh={() => {
-              void binder.refetch();
+              onRefresh();
               void items.refetch();
             }}
           />
         }
         contentContainerStyle={styles.content}
       />
-    </>
+      {own ? null : (
+        <View
+          style={[
+            styles.bar,
+            {
+              borderTopColor: palette.border,
+              paddingBottom: Math.max(insets.bottom, spacing[4]),
+            },
+          ]}
+        >
+          <PillButton
+            label={
+              binder.owner.handle
+                ? DECK_CORE_COPY.message(binder.owner.handle)
+                : GUEST_COPY.messageButton
+            }
+            // A handle stays on one line, capped (owner decision of 2026-10-28).
+            handleInLabel={!!binder.owner.handle}
+            accessibilityHint={binder.owner.id ? undefined : GUEST_COPY.needsAccount}
+            icon="message-outline"
+            loading={!!binder.owner.id && startingId === binder.owner.id}
+            onPress={() => {
+              const ownerId = binder.owner.id;
+              if (!ownerId) {
+                // A guest is asked to sign in; the chat with its owner opens after, found by
+                // this binder and, as for a member, about nothing: only a deck core can be a
+                // chat's subject (R15, review fix 1).
+                useGuestAction
+                  .getState()
+                  .open({ kind: 'message', listing: { binderId: binder.id }, pin: false });
+                return;
+              }
+              void message(ownerId);
+            }}
+            maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+            testID="public-binder-message"
+          />
+        </View>
+      )}
+    </View>
   );
 }
 
-function PublicBinderHeader({ binder }: { binder: PublicBinderResponse }) {
+function PlainHeader({
+  binder,
+  text,
+  onText,
+  count,
+}: {
+  binder: PublicBinderResponse;
+  text: string;
+  onText: (text: string) => void;
+  count: number | null;
+}) {
   const { palette } = useTheme();
-  const router = useRouter();
-  const selfId = useAccount().me?.id ?? null;
-  const owner = binder.owner;
+  const games = binder.games.map(gameLabel).join(', ');
   const ends = endsLabel(binder.publicUntil);
   return (
-    <View style={styles.headerBlock}>
+    <View style={styles.header}>
       <View style={styles.titleBlock}>
         <Text
           accessibilityRole="header"
+          maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
           testID="public-binder-title"
-          style={[textStyle('2xl', 'heading'), styles.title, { color: palette.ink }]}
+          style={[styles.title, { color: palette.ink }]}
         >
           {binder.name}
         </Text>
-        <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
-          {binderKindLabel(binder.kind)} · {cardCount(binder.itemCount)} public
-          {ends ? ` · ${ends}` : ''}
+        <Text testID="public-binder-line" style={[styles.line, { color: palette.textMuted }]}>
+          {PUBLIC_BINDER_COPY.cardsLine(binder.itemCount, games)}
+          {ends ? PUBLIC_BINDER_COPY.ends(ends) : ''}
+          {` · ${binder.freshness.label}`}
         </Text>
-        <View style={styles.row}>
-          <Badge variant="freshness" value={badgeFreshness(binder.freshness.state)} />
-          <Text style={[textStyle('xs'), { color: palette.textMuted }]}>
-            {binder.freshness.label}
-          </Text>
-        </View>
-        {binder.description ? (
-          <Text style={[textStyle('md'), { color: palette.ink }]}>{binder.description}</Text>
-        ) : null}
       </View>
-      <Pressable
-        accessibilityRole="link"
-        accessibilityLabel={`${owner.displayName}, @${owner.handle}. Opens their profile.`}
-        onPress={() => router.push({ pathname: '/collectors/[id]', params: { id: owner.handle } })}
+      <SellerRow
+        owner={binder.owner}
+        binderId={binder.id}
+        publicBinders={binder.ownerPublicBinderCount ?? 1}
         testID="public-binder-owner"
-        style={({ pressed }) => [
-          styles.owner,
-          { backgroundColor: palette.surface, borderColor: palette.border },
-          pressed && styles.pressed,
-        ]}
+      />
+      {binder.description ? (
+        <Text style={[styles.note, { color: palette.ink }]}>{binder.description}</Text>
+      ) : null}
+      <View
+        style={[styles.search, { backgroundColor: palette.surface, borderColor: palette.border }]}
       >
-        <Avatar src={owner.avatarUrl} name={owner.displayName} size={44} />
-        <View style={styles.grow}>
-          <Text style={[textStyle('md'), styles.title, { color: palette.ink }]}>
-            {owner.displayName}
-          </Text>
-          <Text style={[textStyle('sm'), { color: palette.textMuted }]}>@{owner.handle}</Text>
-          <Text
-            testID="public-binder-owner-area"
-            style={[textStyle('xs'), { color: palette.textMuted }]}
-          >
-            {placeLabel(owner.place) ?? GENERIC_PLACE_LABEL}
-          </Text>
-        </View>
-      </Pressable>
-      {owner.id !== selfId ? (
-        <Button
-          label="Report"
-          icon="flag-outline"
-          variant="ghost"
-          accessibilityLabel={`Report ${owner.displayName}`}
-          onPress={() =>
-            router.push({
-              pathname: '/report',
-              params: reportParams(owner, { source: 'BINDER', binderId: binder.id }),
-            })
-          }
-          testID="public-binder-report"
+        <MaterialCommunityIcons name="magnify" size={18} color={palette.textMuted} />
+        <TextInput
+          value={text}
+          onChangeText={onText}
+          placeholder={PUBLIC_BINDER_COPY.search}
+          placeholderTextColor={palette.textMuted}
+          accessibilityLabel={PUBLIC_BINDER_COPY.search}
+          autoCapitalize="none"
+          autoCorrect={false}
+          maxLength={QUERY_MAX_LENGTH}
+          returnKeyType="search"
+          maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+          testID="public-binder-search"
+          style={[styles.searchInput, { color: palette.ink }]}
         />
+      </View>
+      {count !== null ? (
+        <Text
+          testID="public-binder-count"
+          accessibilityLiveRegion="polite"
+          style={[styles.line, { color: palette.textMuted }]}
+        >
+          {PUBLIC_BINDER_COPY.count(count)}
+        </Text>
       ) : null}
     </View>
+  );
+}
+
+function ReportLink({ binder }: { binder: PublicBinderResponse }) {
+  const { palette } = useTheme();
+  const router = useRouter();
+  const owner = binder.owner;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={DECK_CORE_COPY.reportLabel(
+        owner.displayName || owner.handle || GUEST_COPY.aCollector
+      )}
+      onPress={() => {
+        const ownerId = owner.id;
+        if (!ownerId) {
+          useGuestAction.getState().open({ kind: 'report', binderId: binder.id });
+          return;
+        }
+        router.push({
+          pathname: '/report',
+          params: reportParams(
+            { id: ownerId, displayName: owner.displayName ?? '', handle: owner.handle },
+            { source: 'BINDER', binderId: binder.id }
+          ),
+        });
+      }}
+      testID="public-binder-report"
+      style={({ pressed }) => [styles.report, pressed && styles.pressed]}
+    >
+      <MaterialCommunityIcons name="flag-outline" size={16} color={palette.textMuted} />
+      <Text style={[styles.reportLabel, { color: palette.textMuted }]}>
+        {DECK_CORE_COPY.report}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -292,22 +398,45 @@ function Separator() {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: spacing[4], paddingBottom: spacing[8] },
-  header: { gap: spacing[3], marginBottom: spacing[3] },
-  headerBlock: { gap: spacing[3] },
-  titleBlock: { gap: spacing[1] },
-  title: { fontWeight: fontWeight.semibold },
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
-  filters: { flexDirection: 'row', gap: spacing[2] },
-  owner: {
+  fill: { flex: 1 },
+  top: { paddingHorizontal: spacing[4], paddingTop: spacing[2] },
+  frameBody: { flex: 1, padding: spacing[4] },
+  content: { paddingHorizontal: spacing[4], paddingBottom: spacing[6] },
+  header: { gap: 14, paddingTop: spacing[2], marginBottom: spacing[3] },
+  titleBlock: { gap: 4 },
+  title: {
+    fontFamily: fontFamily.display,
+    fontSize: 24,
+    lineHeight: 30,
+    fontWeight: fontWeight.bold,
+    letterSpacing: -0.3,
+  },
+  line: { fontSize: 13, lineHeight: 18 },
+  note: { fontSize: 15, lineHeight: 22 },
+  search: {
+    minHeight: 44,
+    borderRadius: 12,
+    borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[3],
-    padding: spacing[3],
-    borderRadius: radius.md,
-    borderWidth: 1,
+    gap: spacing[2],
+    paddingHorizontal: spacing[3],
   },
-  grow: { flex: 1, gap: 2 },
-  pressed: { opacity: 0.8 },
+  searchInput: { flex: 1, minHeight: 42, fontSize: 15, paddingVertical: 0 },
   separator: { height: spacing[2] },
+  footer: { gap: spacing[2] },
+  report: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minHeight: 44,
+    alignSelf: 'flex-start',
+  },
+  reportLabel: { fontSize: 13, lineHeight: 18, fontWeight: fontWeight.semibold },
+  bar: {
+    paddingHorizontal: spacing[4],
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  pressed: { opacity: 0.8 },
 });

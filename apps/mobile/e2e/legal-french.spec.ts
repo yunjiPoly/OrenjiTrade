@@ -43,21 +43,32 @@ test.describe('mobile legal pages in French', () => {
 
       await index.getByTestId('legal-link-trading-safely').click();
       const document = screen(page, 'legal-document');
-      await expect(
-        document.getByRole('heading', { name: 'Échanger en toute sécurité' })
-      ).toBeVisible({ timeout: 30_000 });
+      // The page's title (the top bar names the document too, stage R13).
+      await expect(document.getByTestId('legal-document-title')).toHaveText(
+        'Échanger en toute sécurité',
+        { timeout: 30_000 }
+      );
       await expect(document.getByText(/Date d’entrée en vigueur/)).toBeVisible();
       await expect(document.getByTestId('legal-translation-notice')).toBeVisible();
       await expect(document.getByText('Nous joindre')).toBeVisible();
+      // Deals ship by mail (stage R1, ADR 0018): no meetup advice any more.
+      await expect(
+        document.getByText('Comment se concluent les transactions').first()
+      ).toBeVisible();
+      await expect(document.getByText(/par virement Interac/)).toBeVisible();
+      await expect(document.getByText(/Avant la rencontre|lieu public/)).toHaveCount(0);
 
       // EN: the same page in English, the translation marking gone, the draft banner kept.
       await document.getByRole('radio', { name: 'English' }).click();
-      await expect(document.getByRole('heading', { name: 'Trading safely' })).toBeVisible();
+      await expect(document.getByTestId('legal-document-title')).toHaveText('Trading safely');
       await expect(document.getByTestId('legal-draft-banner')).toContainText(
-        'Draft — requires review'
+        'Draft. Requires review'
       );
       await expect(document.getByTestId('legal-translation-notice')).toHaveCount(0);
       await expect(document.getByText(/Effective date:/)).toBeVisible();
+      await expect(document.getByText('How deals work').first()).toBeVisible();
+      await expect(document.getByText(/for example by Interac e-Transfer/)).toBeVisible();
+      await expect(document.getByText(/Before you meet|public place/)).toHaveCount(0);
 
       // The explicit choice wins over the French device, and survives a reload.
       await page.goBack();
@@ -80,7 +91,7 @@ test.describe('mobile legal pages in French', () => {
     await page.goto('/legal');
     const index = screen(page, 'legal');
     await expect(index.getByRole('heading', { name: 'Legal' })).toBeVisible({ timeout: 30_000 });
-    await expect(index.getByTestId('legal-draft-banner')).toContainText('Draft — requires review');
+    await expect(index.getByTestId('legal-draft-banner')).toContainText('Draft. Requires review');
     await expect(index.getByTestId('legal-translation-notice')).toHaveCount(0);
     await expect(index.getByRole('radio', { name: 'English' })).toHaveAttribute(
       'aria-checked',
@@ -88,7 +99,7 @@ test.describe('mobile legal pages in French', () => {
     );
     await index.getByTestId('legal-link-trading-safely').click();
     const document = screen(page, 'legal-document');
-    await expect(document.getByRole('heading', { name: 'Trading safely' })).toBeVisible({
+    await expect(document.getByTestId('legal-document-title')).toHaveText('Trading safely', {
       timeout: 30_000,
     });
     await document.getByRole('radio', { name: 'Français' }).click();

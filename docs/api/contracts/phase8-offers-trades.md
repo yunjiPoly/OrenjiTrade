@@ -32,5 +32,9 @@ via `version` (`409 STALE_OFFER`). Every transition appends `offer_event`.
 
 Item detail (public binder) → "Make an offer" dialog (cash / trade picker from own inventory /
 mixed) → offer page with history timeline and Counter / Accept / Decline actions; Offers inbox
-(sent / received tabs); trade page with next-action banner. Mobile equivalents under Messages
-(Offers segment) and Profile → Trades.
+(sent / received tabs); trade page with next-action banner. Web only since 2026-10-14: offers,
+trades, protected payments and disputes left the phone ([ADR 0018](../../architecture/adr/0018-deals-happen-in-the-chat.md),
+"Deals happen in the chat"; stage R1 of the phone redesign). The endpoints above stay unchanged
+for the paused web; the phone never calls them, shows old OFFER_LINK and offer or trade SYSTEM
+messages as "Offer (no longer available)" and opens nothing for old offer and trade
+notifications.

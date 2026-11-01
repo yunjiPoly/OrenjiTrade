@@ -7,11 +7,10 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
-import { MatSnackBar } from '@angular/material/snack-bar';
 import {
+  AdminAuditService,
   AdminNotificationsService,
   BroadcastRequest,
   NotificationResponse,
@@ -23,10 +22,12 @@ import { ApiError, toApiError } from '../../../core/http/api-error';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
 import { silentErrors } from '../../../core/http/http-context';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
-import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
-import { confirmAdminAction, runAdminAction } from '../shared/admin-actions';
-import { BroadcastFormComponent } from './broadcast-form.component';
+import { confirmAdminAction } from '../shared/admin-actions';
+import { ToastService } from '../../../core/feedback/toast.service';
+import { RECORDED, runConsoleAction } from '../console/console-actions';
+import { shareWords } from '../console/console-labels';
+import { BroadcastFormComponent, LastBroadcast } from './broadcast-form.component';
 
 const PERIODS = [1, 7, 30] as const;
 const CHANNEL_LABELS: Record<string, string> = {
@@ -45,53 +46,67 @@ const CHANNEL_LABELS: Record<string, string> = {
   selector: 'app-admin-notifications-page',
   imports: [
     DatePipe,
-    MatButtonToggleModule,
     MatIconModule,
     BroadcastFormComponent,
     ErrorStateComponent,
-    PageHeaderComponent,
     SkeletonComponent,
   ],
   template: `
-    <div class="admin-page">
-      <app-page-header
-        title="Notifications"
-        subtitle="What reached collectors in-app, by push and by e-mail (local log providers), and announcements to everyone."
-      >
-        <mat-button-toggle-group
-          actions
-          [value]="days()"
-          aria-label="Period"
-          (change)="setDays($event.value)"
-        >
-          @for (period of periods; track period) {
-            <mat-button-toggle [value]="period">{{
-              period === 1 ? '24 h' : period + ' days'
-            }}</mat-button-toggle>
-          }
-        </mat-button-toggle-group>
-      </app-page-header>
+    <div class="cp">
+      <header class="cp__head">
+        <div class="cp__heading">
+          <p class="cp__eyebrow">System</p>
+          <h1 class="cp__title">Notifications</h1>
+          <p class="cp__sub">
+            What reached collectors in the app, by push and by email, and announcements to everyone.
+          </p>
+        </div>
+        <div class="cp__actions">
+          <div class="cp-seg" role="group" aria-label="Period">
+            @for (period of periods; track period) {
+              <button
+                type="button"
+                class="cp-seg__btn"
+                [attr.aria-pressed]="days() === period"
+                (click)="setDays(period)"
+              >
+                {{ period === 1 ? '24 h' : period + ' days' }}
+              </button>
+            }
+          </div>
+        </div>
+      </header>
 
       @if (error(); as error) {
         <app-error-state
           title="Statistics could not load"
+          retryLabel="Try again"
           [message]="message(error)"
           [requestId]="error.requestId"
           (retry)="load()"
         />
       } @else if (stats(); as s) {
+        <p class="cp-count">
+          {{ s.from | date: 'MMM d' }} – {{ s.to | date: 'mediumDate' }} ·
+          {{ days() === 1 ? 'the last 24 hours' : 'the last ' + days() + ' days' }}
+        </p>
         <ul class="tiles" aria-label="Notification totals">
           <li class="tile">
             <span class="tile__label">Sent</span>
-            <span class="tile__value">{{ s.total }}</span>
+            <span class="tile__value">{{ s.total.toLocaleString('en-US') }}</span>
+            <span class="tile__hint">Notices created in the period</span>
           </li>
           <li class="tile">
             <span class="tile__label">Unread</span>
-            <span class="tile__value">{{ s.unread }}</span>
+            <span class="tile__value">{{ s.unread.toLocaleString('en-US') }}</span>
+            <span class="tile__hint">{{ unreadLine(s.unread, s.total) }}</span>
           </li>
           <li class="tile" [class.tile--alert]="s.failedLast24h > 0">
             <span class="tile__label">Failed (24 h)</span>
             <span class="tile__value">{{ s.failedLast24h }}</span>
+            <span class="tile__hint">{{
+              s.failedLast24h > 0 ? 'Push or email sends that failed' : 'Every notice was delivered'
+            }}</span>
           </li>
           <li class="tile">
             <span class="tile__label">Push devices</span>
@@ -99,13 +114,15 @@ const CHANNEL_LABELS: Record<string, string> = {
             <span class="tile__hint">{{ s.pushTokens['invalid'] ?? 0 }} invalid</span>
           </li>
         </ul>
-        <p class="admin-muted">
-          {{ s.from | date: 'mediumDate' }} – {{ s.to | date: 'mediumDate' }}
-        </p>
 
         <div class="grid">
           <section class="admin-card" aria-labelledby="notif-types">
             <h2 id="notif-types">By type</h2>
+            @if (types().length > 0) {
+              <p class="admin-muted notif__total">
+                {{ typeTotal().toLocaleString('en-US') }} notices
+              </p>
+            }
             @if (types().length === 0) {
               <p class="admin-muted">No notifications in this period.</p>
             } @else {
@@ -120,6 +137,7 @@ const CHANNEL_LABELS: Record<string, string> = {
                       <span class="bar__fill" [style.width.%]="type.percent"></span>
                     </span>
                     <span class="bar__value">{{ type.count }}</span>
+                    <span class="bar__share">{{ type.share }}</span>
                   </li>
                 }
               </ul>
@@ -161,13 +179,19 @@ const CHANNEL_LABELS: Record<string, string> = {
       }
 
       <section class="admin-card broadcast" aria-labelledby="notif-broadcast">
-        <h2 id="notif-broadcast">Broadcast an announcement</h2>
+        <div class="broadcast__head">
+          <h2 id="notif-broadcast">Send an announcement</h2>
+          <span class="cp-chip cp-chip--accent">Super admins</span>
+        </div>
         @if (session.isSuperAdmin()) {
-          <p class="admin-muted">
-            One notice per reachable account (their notification preferences apply). Try it on staff
-            first.
+          <p class="admin-muted broadcast__lead">
+            A notice for every collector. Send it to staff first to see how it reads.
           </p>
-          <app-broadcast-form [busy]="sending()" (send)="broadcast($event)" />
+          <app-broadcast-form
+            [busy]="sending()"
+            [lastSent]="lastSent()"
+            (send)="broadcast($event)"
+          />
         } @else {
           <p class="admin-muted">
             <mat-icon aria-hidden="true" class="inline-icon">lock</mat-icon>
@@ -177,8 +201,24 @@ const CHANNEL_LABELS: Record<string, string> = {
       </section>
     </div>
   `,
-  styleUrls: ['../shared/admin-page.scss'],
+  styleUrls: [
+    '../shared/admin-page.scss',
+    '../console/console-page.scss',
+    '../console/console-controls.scss',
+  ],
   styles: `
+    .broadcast__lead {
+      margin: 0 0 18px;
+    }
+    .broadcast__head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+    .broadcast__head h2 {
+      margin: 0;
+    }
     .tiles {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -214,6 +254,9 @@ const CHANNEL_LABELS: Record<string, string> = {
       gap: var(--spacing-4);
       margin: var(--spacing-4) 0;
     }
+    .notif__total {
+      margin: 0 0 var(--spacing-3);
+    }
     .bars {
       display: flex;
       flex-direction: column;
@@ -224,7 +267,7 @@ const CHANNEL_LABELS: Record<string, string> = {
     }
     .bar {
       display: grid;
-      grid-template-columns: minmax(150px, auto) 1fr 3em;
+      grid-template-columns: minmax(150px, auto) 1fr 3em 3em;
       align-items: center;
       gap: var(--spacing-2);
       font-size: var(--font-size-sm);
@@ -256,6 +299,10 @@ const CHANNEL_LABELS: Record<string, string> = {
       font-weight: var(--font-weight-semibold);
       text-align: right;
     }
+    .bar__share {
+      color: var(--color-text-secondary);
+      text-align: right;
+    }
     .channels {
       width: 100%;
       border-collapse: collapse;
@@ -284,8 +331,9 @@ const CHANNEL_LABELS: Record<string, string> = {
 })
 export class AdminNotificationsPageComponent {
   private readonly api = inject(AdminNotificationsService);
+  private readonly auditApi = inject(AdminAuditService);
   private readonly dialog = inject(MatDialog);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly toasts = inject(ToastService);
   private readonly form = viewChild(BroadcastFormComponent);
   protected readonly session = inject(SessionService);
 
@@ -294,16 +342,29 @@ export class AdminNotificationsPageComponent {
   protected readonly stats = signal<NotificationStats | null>(null);
   protected readonly error = signal<ApiError | null>(null);
   protected readonly sending = signal(false);
+  /** The newest announcement from the audit log (board A20's "Last sent"). */
+  protected readonly lastSent = signal<LastBroadcast | null | undefined>(undefined);
 
   protected readonly types = computed(() => {
     const byType = this.stats()?.byType ?? {};
     const entries = Object.entries(byType).sort((a, b) => b[1] - a[1]);
     const max = Math.max(1, ...entries.map(([, count]) => count));
+    const total = entries.reduce((sum, [, count]) => sum + count, 0);
     return entries.map(([key, count]) => {
       const kind = notificationKind({ type: key as NotificationResponse['type'], data: {} });
-      return { key, count, label: kind.label, icon: kind.icon, percent: (count / max) * 100 };
+      return {
+        key,
+        count,
+        label: kind.label,
+        icon: kind.icon,
+        percent: (count / max) * 100,
+        share: shareWords(count, total),
+      };
     });
   });
+  protected readonly typeTotal = computed(() =>
+    this.types().reduce((sum, type) => sum + type.count, 0),
+  );
   protected readonly channels = computed(() =>
     Object.entries(this.stats()?.channels ?? {}).map(([name, counts]) => ({ name, counts })),
   );
@@ -317,6 +378,41 @@ export class AdminNotificationsPageComponent {
 
   constructor() {
     this.load();
+    if (this.session.isSuperAdmin()) {
+      this.loadLastSent();
+    }
+  }
+
+  /** `notification.broadcast`'s newest audit entry: when, and its audience. */
+  private loadLastSent(): void {
+    this.auditApi
+      .listAuditLogs({ action: 'notification.broadcast', page: 0, size: 1 }, 'body', false, {
+        context: silentErrors(),
+      })
+      .subscribe({
+        next: (page) => {
+          const entry = page.items?.[0];
+          const audience = (entry?.details as Record<string, unknown> | undefined)?.['audience'];
+          this.lastSent.set(
+            entry
+              ? {
+                  at: entry.occurredAt,
+                  audience: audience === 'ALL' || audience === 'STAFF' ? audience : null,
+                }
+              : null,
+          );
+        },
+        error: () => this.lastSent.set(undefined),
+      });
+  }
+
+  /** "16% of them not opened yet" (board A20). */
+  protected unreadLine(unread: number, total: number): string {
+    if (!total) {
+      return 'Nothing sent yet';
+    }
+    const percent = Math.round((unread / total) * 100);
+    return `${percent}% of them not opened yet`;
   }
 
   protected setDays(days: number): void {
@@ -354,31 +450,31 @@ export class AdminNotificationsPageComponent {
       message: `“${request.title}” goes out as a notification to ${
         everyone ? 'every reachable account' : 'moderators and administrators'
       }. It cannot be recalled.`,
-      confirmLabel: 'Send broadcast',
+      confirmLabel: 'Send announcement',
       tone: everyone ? 'danger' : 'default',
     });
     if (!confirmed) {
       return;
     }
     this.sending.set(true);
-    const result = await runAdminAction(
-      this.snackBar,
+    const result = await runConsoleAction(
+      this.toasts,
       this.api.broadcastNotification({ broadcastRequest: request }, 'body', false, {
         context: silentErrors(),
       }),
-      'Broadcast sent.',
+      'Announcement sent.',
     );
     this.sending.set(false);
     if (result) {
-      this.snackBar.open(
-        `Broadcast sent to ${result.recipients} ${result.recipients === 1 ? 'account' : 'accounts'}` +
-          (result.skipped ? ` (${result.skipped} skipped by their preferences).` : '.') +
-          ' The action is in the audit log.',
-        'OK',
-        { duration: 6000 },
-      );
+      this.toasts.show({
+        title:
+          `Announcement sent to ${result.recipients} ${result.recipients === 1 ? 'account' : 'accounts'}` +
+          (result.skipped ? ` (${result.skipped} skipped by their preferences).` : '.'),
+        sub: RECORDED,
+      });
       this.form()?.reset();
       this.load();
+      this.loadLastSent();
     }
   }
 }

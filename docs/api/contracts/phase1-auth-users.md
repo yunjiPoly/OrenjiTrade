@@ -23,8 +23,9 @@ unless stated. Auth: `Authorization: Bearer <Firebase ID token>` for everything 
   "plan": "FREE"
 }
 ```
-First authenticated call provisions the account (role USER, status ACTIVE, handle derived from
-email local part + suffix until the user picks one). `403 ACCOUNT_SUSPENDED` when suspended.
+First authenticated call provisions the account (role USER, status ACTIVE, a random first handle
+`collector_` and six characters until the user picks one; never a part of the email since stage
+R12's review fix 2, so the handle check cannot tell whether an address has an account). `403 ACCOUNT_SUSPENDED` when suspended.
 `428 TERMS_ACCEPTANCE_REQUIRED` on every non-exempt route while `requiredConsents` is non-empty
 (exempt: `/me`, `/me/consents`, `/public/**`, `/meta`, `/me/deletion-requests`).
 
@@ -57,8 +58,9 @@ extension naming the document to record):
 - `POST /offers` and `POST /offers/{id}/counter` (accepting, declining or withdrawing an
   existing offer is not gated).
 
-Clients show the sign-up checkbox (never ticked by default) and, for existing accounts, the
-onboarding "Age" step before anything else. Self-declaration only: no identity verification.
+Clients show the sign-up checkbox (never ticked by default) and, for existing accounts, the age
+line alone on Review our terms (the phone since R12, the web since WG) before anything else.
+Self-declaration only: no identity verification.
 
 ## Profile
 
@@ -69,6 +71,9 @@ onboarding "Age" step before anything else. Self-declaration only: no identity v
 ```
 Handle: 3–24 chars `[a-z0-9_]`, unique (case-insensitive), reserved list rejected; `409 HANDLE_TAKEN`.
 Games are game slugs from the `games` module seed (`yugioh`, `pokemon`, `mtg`, `riftbound`).
+Stage R13 ([r13-settings.md](r13-settings.md)): an optional `"tags": { "tagIds": [...],
+"customLabels": [...] }` in the same body replaces the profile tags in the same transaction (the
+rules of `PUT /me/profile/tags`; a refused field or tag saves nothing); left out, the tags stay.
 
 `POST /me/profile/avatar` multipart `file` (jpeg/png/webp ≤ 5 MB) → `{ "avatarUrl": "…" }`.
 Server re-encodes to WebP 512×512, strips metadata, stores through `ObjectStorage`.
@@ -88,7 +93,8 @@ total; custom labels 2–24 chars, banned-term check; created with category CUST
   "rating": { "average": null, "count": 0 }, "publicBinderCount": 0,
   "canMessage": true, "isBlocked": false }
 ```
-`404` when the profile is PRIVATE to the requester or the user is deleted/suspended.
+`404` when the profile is PRIVATE to the requester or the user is deleted/suspended, and (owner
+decision of 2026-10-28) when the user blocked the requester: the unknown handle's answer.
 `location` is `null` when the collector is not discoverable. `distanceBucket` requires the
 requester to have a trading area and the target to allow distance display.
 
@@ -134,7 +140,8 @@ inventory hidden (participants), collector removed from map.
 `POST /internal/jobs/account-deletion` (service token / OIDC; also `@Scheduled` under `local`)
 processes due requests: anonymise account (`deleted+<id>@anonymized.invalid`, display name
 "Deleted collector"), delete profile/tags/location/settings/avatar, call every
-`DeletionParticipant.purge(userId)`, delete Firebase user, keep consents/audit/ledger, write
+`DeletionParticipant.purge(userId, handle)` (the handle before anonymising; by default
+`purge(userId)`), delete Firebase user, keep consents/audit/ledger, write
 audit entry, status COMPLETED.
 
 ## Admin (ADMIN, SUPER_ADMIN; audit every write)
@@ -142,8 +149,10 @@ audit entry, status COMPLETED.
 `GET /admin/users?query=&status=&role=&page=&size=` → `PageResponse<AdminUserSummary>`
 `GET /admin/users/{id}` → `AdminUserDetail` (account, roles, consents, location label only —
 never coordinates —, deletion request, recent audit entries).
-`POST /admin/users/{id}/suspend` body `{ "reason": "…", "until": "…|null" }` → 204
-`POST /admin/users/{id}/unsuspend` → 204
+`POST /admin/users/{id}/suspend` body `{ "reason": "…", "until": "…|null" }` → 204 (the
+Firebase user stays enabled since the owner decision of 2026-10-28: the collector can sign in and
+sees the suspension; every non-public request answers `403 ACCOUNT_SUSPENDED`)
+`POST /admin/users/{id}/unsuspend` → 204 (enables the Firebase user)
 `PUT /admin/users/{id}/roles` body `{ "roles": ["USER","MODERATOR"] }` (SUPER_ADMIN only for
 ADMIN/SUPER_ADMIN grants) → 204
 `GET /admin/audit-logs?actorId=&targetType=&targetId=&action=&from=&to=&page=&size=` →
@@ -158,5 +167,6 @@ ADMIN/SUPER_ADMIN grants) → 204
 | `POST /me/profile/avatar`, `/me/export` | 10 / hour / user |
 | `/me/deletion-requests` | 5 / day / user |
 | `/tags` search | 60 / min / user |
+| `GET /me/profile/handle-availability` (stage R12, [r12-sign-in-welcome.md](r12-sign-in-welcome.md)) | 60 / 10 min / user |
 
 Responses carry `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `Retry-After`.

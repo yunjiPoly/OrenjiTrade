@@ -105,8 +105,9 @@ Leaflet vector map (Leaflet 1.9.4, lazy-loaded) of the bundled Natural Earth bou
 accessible list beside it. There are **no tiles and no map provider**: `GoogleMapsAdapter`,
 `LeafletAdapter`, the `MapAdapter` contract, `@angular/google-maps`, `GOOGLE_MAPS_API_KEY`, the Map
 ID, the OpenStreetMap tiles, the zoom caps and approximate-area circles of the amendments above are
-removed, and the CSP allows no map or tile host. The mobile Map tab is a placeholder until it
-draws the same boundaries (follow-up); `react-native-maps` stays installed (its config plugin runs
-without a key) and the mobile Leaflet WebView page, `mapEngine` and
-`EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` are removed.
+removed, and the CSP allows no map or tile host. The mobile Leaflet WebView page, `mapEngine` and
+`EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` are removed. Since mobile stage M9 (2026-10-12) the mobile Map
+tab draws the same boundaries itself, with `react-native-svg` from files of the app
+(ADR 0017, "Map rendering"), and `react-native-maps` and `react-native-webview` are no longer
+installed.
 

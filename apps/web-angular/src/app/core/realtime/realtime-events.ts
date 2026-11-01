@@ -35,8 +35,15 @@ export const REALTIME_DESTINATIONS = {
   presence: '/user/queue/presence',
   /** Phase 6: every new in-app notification (payload = `NotificationResponse`). */
   notifications: '/user/queue/notifications',
+  /** Stage R4: a chat's subject was pinned (payload `{conversationId}`): read it again. */
+  conversations: '/user/queue/conversations',
   sendTyping: '/app/typing',
 } as const;
+
+/** A chat whose pinned card or deck core changed (`/user/queue/conversations`, stage R4). */
+export interface ConversationNotice {
+  conversationId: string;
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object';
@@ -64,4 +71,8 @@ export function isNotificationResponse(value: unknown): value is NotificationRes
     hasStrings(value, ['id', 'type', 'title', 'body', 'createdAt']) &&
     isRecord((value as Record<string, unknown>)['data'])
   );
+}
+
+export function isConversationNotice(value: unknown): value is ConversationNotice {
+  return isRecord(value) && typeof value['conversationId'] === 'string';
 }

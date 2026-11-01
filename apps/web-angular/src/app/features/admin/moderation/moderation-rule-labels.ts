@@ -123,3 +123,20 @@ export function ruleErrors(value: {
   }
   return errors;
 }
+
+/**
+ * Board A4's line under a pattern that is a rule in other places too (WH1's R2-2): "The same
+ * pattern is a separate rule for private messages and profiles and ratings.", so an edit is not
+ * expected to cover both; `null` when the pattern is in one place only.
+ */
+export function twinsLine(
+  rule: { id: string; kind: string; pattern: string },
+  rules: readonly { id: string; kind: string; pattern: string; scope: string }[],
+): string | null {
+  const twins = rules
+    .filter(
+      (other) => other.id !== rule.id && other.kind === rule.kind && other.pattern === rule.pattern,
+    )
+    .map((other) => ruleScopeLabel(other.scope).toLowerCase());
+  return twins.length ? `The same pattern is a separate rule for ${twins.join(' and ')}.` : null;
+}

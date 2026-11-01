@@ -61,15 +61,15 @@ describe('FeatureFlagsService', () => {
   afterEach(() => backend.verify());
 
   it('reports every flag off until the first answer, then the server values', async () => {
-    expect(flags.isEnabled('premiumPlans')).toBe(false);
-    const premium = flags.enabled('premiumPlans');
+    expect(flags.isEnabled('protectedPayments')).toBe(false);
+    const payments = flags.enabled('protectedPayments');
     const loading = flags.load();
     await settle();
-    backend.expectOne(FLAGS_URL).flush({ premiumPlans: true, mlScanning: false });
+    backend.expectOne(FLAGS_URL).flush({ protectedPayments: true, mlScanning: false });
     await loading;
 
     expect(flags.status()).toBe('ready');
-    expect(premium()).toBe(true);
+    expect(payments()).toBe(true);
     expect(flags.isEnabled('mlScanning')).toBe(false);
     expect(flags.isEnabled('unknownFlag')).toBe(false);
   });
@@ -96,23 +96,23 @@ describe('FeatureFlagsService', () => {
     const a = flags.load();
     const b = flags.load();
     await settle();
-    backend.expectOne(FLAGS_URL).flush({ credits: true });
+    backend.expectOne(FLAGS_URL).flush({ mlScanning: true });
     await Promise.all([a, b]);
-    expect(flags.isEnabled('credits')).toBe(true);
+    expect(flags.isEnabled('mlScanning')).toBe(true);
   });
 
   it('evaluates again for a newly signed-in collector', async () => {
     const first = flags.load();
     await settle();
-    backend.expectOne(FLAGS_URL).flush({ premiumPlans: false });
+    backend.expectOne(FLAGS_URL).flush({ protectedPayments: false });
     await first;
 
     port.emit(fakeUser('maika@example.test'));
     await settle();
     const reload = backend.expectOne(FLAGS_URL);
-    reload.flush({ premiumPlans: true });
+    reload.flush({ protectedPayments: true });
     await settle();
-    expect(flags.isEnabled('premiumPlans')).toBe(true);
+    expect(flags.isEnabled('protectedPayments')).toBe(true);
   });
 
   it('waits on account pages and evaluates for the account once the visitor signs in', async () => {
@@ -125,9 +125,9 @@ describe('FeatureFlagsService', () => {
     port.emit(fakeUser('maika@example.test'));
     await settle();
     const req = backend.expectOne(FLAGS_URL);
-    req.flush({ premiumPlans: true });
+    req.flush({ protectedPayments: true });
     await settle();
-    expect(flags.isEnabled('premiumPlans')).toBe(true);
+    expect(flags.isEnabled('protectedPayments')).toBe(true);
   });
 
   it('loads on the first navigation outside the account pages', async () => {
@@ -147,19 +147,22 @@ describe('FeatureFlagsService', () => {
   });
 
   it('guards a flag-gated route: in when on, redirected with a message when off', async () => {
-    flags.set({ publicChat: true, donations: false });
+    flags.set({ publicChat: true, protectedPayments: false });
     const allowed = await TestBed.runInInjectionContext(() =>
       featureGuard('publicChat', 'Community')(undefined as never, undefined as never),
     );
     expect(allowed).toBe(true);
 
     const denied = await TestBed.runInInjectionContext(() =>
-      featureGuard('donations', 'Donations')(undefined as never, undefined as never),
+      featureGuard('protectedPayments', 'Protected payments')(
+        undefined as never,
+        undefined as never,
+      ),
     );
     expect(denied instanceof UrlTree).toBe(true);
-    expect(TestBed.inject(Router).serializeUrl(denied as UrlTree)).toBe('/map');
+    expect(TestBed.inject(Router).serializeUrl(denied as UrlTree)).toBe('/');
     expect(snackBar.open).toHaveBeenCalledWith(
-      'Donations is not available right now.',
+      'Protected payments is not available right now.',
       'OK',
       expect.anything(),
     );

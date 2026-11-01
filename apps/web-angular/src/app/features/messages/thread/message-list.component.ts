@@ -15,6 +15,7 @@ import {
 import type { ConversationParticipant, MessageResponse } from '@orenji/api-client';
 import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
+import { canUndoSale } from '../data/deal-rules';
 import { buildThreadItems } from '../data/thread-items';
 import { MessageBubbleComponent } from './message-bubble.component';
 
@@ -39,7 +40,7 @@ const LOAD_OLDER_PX = 200;
       role="log"
       aria-live="polite"
       aria-relevant="additions"
-      [attr.aria-label]="'Messages with ' + other().displayName"
+      [attr.aria-label]="'Messages with ' + other().handle"
       [attr.aria-busy]="loadingOlder()"
       tabindex="0"
     >
@@ -49,9 +50,7 @@ const LOAD_OLDER_PX = 200;
           <app-skeleton variant="list" lines="2" />
         </div>
       } @else if (!hasOlder() && messages().length > 0) {
-        <p class="start">
-          This is the beginning of your conversation with {{ other().displayName }}.
-        </p>
+        <p class="start">This is the beginning of your conversation with {{ other().handle }}.</p>
       }
       @for (item of items(); track item.key) {
         @if (item.kind === 'day') {
@@ -80,17 +79,19 @@ const LOAD_OLDER_PX = 200;
             }
             <span class="visually-hidden"
               >{{
-                item.message.kind === 'SYSTEM'
-                  ? 'OrenjiTrade'
-                  : item.own
-                    ? 'You'
-                    : other().displayName
+                item.message.kind === 'SYSTEM' ? 'OrenjiTrade' : item.own ? 'You' : other().handle
               }}:</span
             >
             <app-message-bubble
               [message]="item.message"
               [own]="item.own"
               [showTime]="item.lastOfGroup"
+              [selfId]="selfId()"
+              [otherHandle]="other().handle"
+              [canRate]="canRate()"
+              [undoOpen]="undoable(item.message)"
+              (rate)="rate.emit()"
+              (undo)="undo.emit($event)"
             />
           </div>
           @if (item.status) {
@@ -103,7 +104,7 @@ const LOAD_OLDER_PX = 200;
       @if (typing()) {
         <div class="typing" data-testid="typing-indicator">
           <span class="typing__dots" aria-hidden="true"><i></i><i></i><i></i></span>
-          <span>{{ other().displayName }} is typing…</span>
+          <span>{{ other().handle }} is typing…</span>
         </div>
       }
     </div>
@@ -119,7 +120,8 @@ const LOAD_OLDER_PX = 200;
       flex: 1 1 auto;
       flex-direction: column;
       gap: 2px;
-      padding: var(--spacing-3) var(--spacing-4);
+      /* The thread's content centred at max 720 (spec 10.1). */
+      padding: var(--spacing-3) max(var(--spacing-5), calc((100% - 720px) / 2));
       overflow-y: auto;
       overscroll-behavior: contain;
     }
@@ -235,7 +237,17 @@ export class MessageListComponent {
   readonly hasOlder = input(false);
   readonly loadingOlder = input(false);
   readonly typing = input(false);
+  /** The reader may rate the other collector (a sale's note offers it). */
+  readonly canRate = input(false);
+  /** The clock of the sale notes' Undo (ticks while one is open). */
+  readonly now = input(Date.now());
   readonly loadOlder = output<void>();
+  readonly rate = output<void>();
+  readonly undo = output<string>();
+
+  protected undoable(message: MessageResponse): boolean {
+    return canUndoSale(message, this.selfId(), this.now());
+  }
 
   protected readonly items = computed(() => buildThreadItems(this.messages(), this.selfId()));
   private readonly newestId = computed(() => this.messages().at(-1)?.id ?? null);

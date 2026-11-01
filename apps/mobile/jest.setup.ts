@@ -28,46 +28,22 @@ jest.mock('expo-localization', () => {
   return { __esModule: true, mockLocales, getLocales: () => mockLocales };
 });
 
-// The map renders Views carrying their props; the camera calls are jest mocks shared by every
-// instance (`require('react-native-maps').mockAnimateToRegion`), cleared before each test.
-jest.mock('react-native-maps', () => {
-  const React = require('react');
-  const { View } = require('react-native');
-  const mockAnimateToRegion = jest.fn();
-  const MockMapView = React.forwardRef(
-    (props: Record<string, unknown>, ref: React.Ref<unknown>) => {
-      React.useImperativeHandle(ref, () => ({ animateToRegion: mockAnimateToRegion }));
-      return React.createElement(View, { ...props, testID: props.testID ?? 'mock-map-view' });
-    }
-  );
-  MockMapView.displayName = 'MockMapView';
-  const MockMarker = (props: Record<string, unknown>) =>
-    React.createElement(View, { ...props, testID: props.testID ?? 'mock-map-marker' });
-  const MockCircle = (props: Record<string, unknown>) =>
-    React.createElement(View, { ...props, testID: props.testID ?? 'mock-map-circle' });
+// The phone's secure storage (saved shipping details, stage R4): an in-memory keychain per test
+// file; `require('expo-secure-store').mockStore` lets a test look inside.
+jest.mock('expo-secure-store', () => {
+  const mockStore = new Map<string, string>();
   return {
     __esModule: true,
-    default: MockMapView,
-    Marker: MockMarker,
-    Circle: MockCircle,
-    PROVIDER_DEFAULT: undefined,
-    PROVIDER_GOOGLE: 'google',
-    mockAnimateToRegion,
+    mockStore,
+    WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'WHEN_UNLOCKED_THIS_DEVICE_ONLY',
+    getItemAsync: jest.fn(async (key: string) => mockStore.get(key) ?? null),
+    setItemAsync: jest.fn(async (key: string, value: string) => {
+      mockStore.set(key, value);
+    }),
+    deleteItemAsync: jest.fn(async (key: string) => {
+      mockStore.delete(key);
+    }),
   };
-});
-
-// The WebView renders a View carrying its props; `injectJavaScript` is a jest mock shared by every
-// instance (`require('react-native-webview').mockInjectJavaScript`), reset before each test.
-jest.mock('react-native-webview', () => {
-  const React = require('react');
-  const { View } = require('react-native');
-  const mockInjectJavaScript = jest.fn();
-  const WebView = React.forwardRef((props: Record<string, unknown>, ref: React.Ref<unknown>) => {
-    React.useImperativeHandle(ref, () => ({ injectJavaScript: mockInjectJavaScript }));
-    return React.createElement(View, props);
-  });
-  WebView.displayName = 'MockWebView';
-  return { __esModule: true, default: WebView, WebView, mockInjectJavaScript };
 });
 
 // `react-native-safe-area-context` provides a jest mock (default export) with zero insets.
@@ -75,6 +51,98 @@ jest.mock(
   'react-native-safe-area-context',
   () => require('react-native-safe-area-context/jest/mock').default
 );
+
+// iOS's Modal: hidden (`visible={false}`), it reports `onDismiss` once iOS has taken it away. React
+// Native's own jest mock never does; a bottom sheet that has slid away waits for it before the
+// share sheet or the photo picker may come up (`afterModals`, modalTurns.tsx), so here it comes
+// right after the modal is hidden, as on an iPhone. `mockDismissals.count` counts them (a test reads
+// it with `require('react-native/Libraries/Modal/Modal').mockDismissals`).
+jest.mock('react-native/Libraries/Modal/Modal', () => {
+  const React = require('react') as typeof import('react');
+  const Stock = require('@react-native/jest-preset/jest/mocks/Modal').default;
+  const mockDismissals = { count: 0 };
+  function Modal(props: { visible?: boolean; onDismiss?: () => void }) {
+    const visible = props.visible !== false;
+    const wasVisible = React.useRef(visible);
+    const { onDismiss } = props;
+    React.useEffect(() => {
+      if (wasVisible.current && !visible) {
+        mockDismissals.count += 1;
+        onDismiss?.();
+      }
+      wasVisible.current = visible;
+    }, [onDismiss, visible]);
+    return React.createElement(Stock, props);
+  }
+  return { __esModule: true, default: Modal, mockDismissals };
+});
+
+// --- No long timer outlives its test file ---------------------------------------------------------
+//
+// A real timer still armed when a test file is done keeps its jest worker alive: jest then kills
+// the worker and prints "A worker process has failed to exit gracefully" at the end of the run,
+// without saying which file. The usual cause is a mocked request that never answers under real
+// timers: the read timeout of the API client (`withReadTimeout`, 20 s) stays armed behind it.
+// A file that leaves such a timer fails here, and is told where the timer was armed. The cure is
+// in the test: hold the answer back and give it before the test ends, or use fake timers.
+
+const LONG_TIMER_MS = 5_000;
+const armedTimers = new Map<unknown, { delay: number; where: string }>();
+const realSetTimeout = globalThis.setTimeout;
+const realClearTimeout = globalThis.clearTimeout;
+
+function guardedSetTimeout(
+  handler: (...given: unknown[]) => void,
+  delay?: number,
+  ...args: unknown[]
+): ReturnType<typeof setTimeout> {
+  const timer: ReturnType<typeof setTimeout> = realSetTimeout(
+    (...given: unknown[]) => {
+      armedTimers.delete(timer);
+      handler(...given);
+    },
+    delay,
+    ...args
+  );
+  if (typeof delay === 'number' && delay >= LONG_TIMER_MS) {
+    const where = (new Error().stack ?? '')
+      .split('\n')
+      .slice(2)
+      .filter((line) => !line.includes('node_modules'))
+      .slice(0, 4)
+      .join('\n');
+    armedTimers.set(timer, { delay, where });
+  }
+  return timer;
+}
+
+// Node's own properties of `setTimeout` (its promise form) stay on the guarded one.
+globalThis.setTimeout = Object.assign(guardedSetTimeout, realSetTimeout) as typeof setTimeout;
+globalThis.clearTimeout = ((timer?: Parameters<typeof clearTimeout>[0]) => {
+  armedTimers.delete(timer);
+  realClearTimeout(timer);
+}) as typeof clearTimeout;
+
+afterAll(async () => {
+  // A read that is on its way when the last test ends is answered within a few milliseconds.
+  for (let waited = 0; armedTimers.size > 0 && waited < 1_000; waited += 20) {
+    await new Promise((resolve) => realSetTimeout(resolve, 20));
+  }
+  const left = [...armedTimers.values()];
+  for (const timer of armedTimers.keys()) {
+    realClearTimeout(timer as Parameters<typeof clearTimeout>[0]);
+  }
+  armedTimers.clear();
+  if (left.length > 0) {
+    throw new Error(
+      `${left.length} timer(s) of ${LONG_TIMER_MS / 1000} s or more were still armed when this ` +
+        'test file ended (its jest worker could not have exited). A request that never ' +
+        'answers keeps the read timeout of the API client armed: answer it before the test ' +
+        'ends, or use fake timers.\n' +
+        left.map((timer) => `A timer of ${timer.delay} ms armed\n${timer.where}`).join('\n')
+    );
+  }
+});
 
 // --- Quiet known-noisy warnings ------------------------------------------------------------------
 

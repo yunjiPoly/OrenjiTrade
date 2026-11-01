@@ -15,6 +15,13 @@ export interface FriendlyError {
 export function friendlyError(error: ApiError): FriendlyError {
   switch (error.errorCode) {
     case NETWORK_ERROR_CODE:
+      if (error.isTimeout) {
+        // The device may well be online: the request left and no answer came back in time.
+        return {
+          title: 'No answer from OrenjiTrade',
+          message: 'This is taking too long. Check your connection and try again.',
+        };
+      }
       return {
         title: 'You seem to be offline',
         message: 'We could not reach OrenjiTrade. Check your connection and try again.',
@@ -29,10 +36,11 @@ export function friendlyError(error: ApiError): FriendlyError {
       };
     }
     case 'LIMIT_REACHED':
-      // No Premium pitch here: the limit notice names the upgrade only while the flag is on.
+      // The same limits for every collector, nothing to buy (stage F1): the screens that know
+      // which limit say more (`limitReachedMessage`).
       return {
-        title: 'Plan limit reached',
-        message: 'You reached a limit of your plan. It resets soon.',
+        title: 'Limit reached',
+        message: 'You reached a usage limit for this action.',
       };
     case 'FEATURE_DISABLED':
       return {
@@ -53,7 +61,7 @@ export function friendlyError(error: ApiError): FriendlyError {
       return {
         title: 'Age confirmation required',
         message:
-          'Please confirm that you are 18 years of age or older to be shown on the map, message, post or make offers. We will take you to the confirmation.',
+          'Please confirm that you are 18 years of age or older to be shown on the map, message or post. We will take you to the confirmation.',
       };
     case 'FORBIDDEN':
       return {

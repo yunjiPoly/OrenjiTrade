@@ -1,15 +1,9 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  booleanAttribute,
-  computed,
-  input,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { AvailabilityChipComponent } from '../../ui/availability-chip/availability-chip.component';
 import { ConditionChipComponent } from '../../ui/condition-chip/condition-chip.component';
 import { conditionLabel, isCardCondition, isInventoryAvailability } from '../inventory-labels';
 
-/** Condition, availability and "accepts offers" chips of an inventory item. */
+/** Condition and availability chips of an inventory item (offers left the web, decision 2). */
 @Component({
   selector: 'app-item-chips',
   imports: [AvailabilityChipComponent, ConditionChipComponent],
@@ -24,9 +18,6 @@ import { conditionLabel, isCardCondition, isInventoryAvailability } from '../inv
       }
       @if (knownAvailability(); as availability) {
         <app-availability-chip [availability]="availability" />
-      }
-      @if (acceptsOffers()) {
-        <app-availability-chip availability="ACCEPTING_OFFERS" />
       }
     </span>
   `,
@@ -52,7 +43,6 @@ import { conditionLabel, isCardCondition, isInventoryAvailability } from '../inv
 export class ItemChipsComponent {
   readonly condition = input<string | null | undefined>(null);
   readonly availability = input<string | null | undefined>(null);
-  readonly acceptsOffers = input(false, { transform: booleanAttribute });
 
   protected readonly knownCondition = computed(() => {
     const value = this.condition();

@@ -1,35 +1,41 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { isApiError } from '@/src/api/ApiError';
 import { newRequestId } from '@/src/api/client';
 import { useReportCollector, useReportReasons } from '@/src/api/hooks/reports';
 import type { ReportConfirmation, ReportReason } from '@/src/api/types';
-import { Avatar } from '@/src/components/ui/Avatar';
-import { Button } from '@/src/components/ui/Button';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ErrorState } from '@/src/components/ui/ErrorState';
-import { FormMessage, RadioGroup } from '@/src/components/ui/FormControls';
-import { Screen } from '@/src/components/ui/Screen';
+import { PillButton } from '@/src/components/ui/PillButton';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
+import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
+import { StatusActions, StatusBody, StatusText } from '@/src/features/account/StatusPage';
+import { PersonHeader } from '@/src/features/collectors/PersonHeader';
+import { REPORT_COPY as COPY } from '@/src/features/reports/reportCopy';
 import {
   REPORT_DETAILS_MAX,
   parseReportParams,
   reportProblem,
   type ReportProblem,
 } from '@/src/features/reports/reportLabels';
-import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import { SettingsRadios } from '@/src/features/settings/SettingsList';
+import { BarMessage, SettingsPage } from '@/src/features/settings/SettingsPage';
+import { PINNED_MAX_FONT_SCALE, useTheme } from '@/src/theme';
 
 /**
- * "Report collector" (the web's report dialog, product spec § 23), opened from a profile, the map
- * preview, a conversation, a community post or a public binder (`?userId=&name=&source=` plus
- * the conversation, post or binder id). "Why are you reporting this user?" with the server's
- * reasons in their order, optional details (≤ 1000), Confirm once a reason is chosen: sent with
- * an `Idempotency-Key` fixed for the screen. Refusals (409 already open, 422 self, 404, 429 five
- * a day) are explained; success turns into a confirmation that links to My reports.
+ * Report a collector (mockup v50 screen 60, stage R14; the web's report dialog, product spec
+ * § 23), opened from the "⋯" of a profile, a chat or a community post (and a public binder or
+ * deck core): `?userId=&name=&handle=&source=` plus the conversation, post or binder id. The
+ * collector with their picture and "@handle · {province}", the server's reasons as radio rows with
+ * their line (`GET /public/report-reasons`, dialog order), Details (≤ 1000), the confidentiality
+ * note and "Send report", grey with "Choose a reason first." until a reason is chosen; sent with an
+ * `Idempotency-Key` fixed for the screen. Refusals (409 already open, 422 self, 404, 429 five a
+ * day) are explained in place; a sent report turns the screen into "Report sent" with "Done" and
+ * "Follow it in My reports".
  */
 export default function ReportCollectorScreen() {
   const { palette } = useTheme();
@@ -45,64 +51,51 @@ export default function ReportCollectorScreen() {
   const [sent, setSent] = useState<ReportConfirmation | null>(null);
 
   const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
+  const myReports = () => router.replace('/settings/reports');
 
   if (!parsed) {
     return (
-      <Screen testID="screen-report">
+      <SettingsPage title={COPY.title} onBack={close} testID="screen-report">
         <EmptyState
           testID="report-invalid"
           icon="flag-off-outline"
-          title="Nobody to report here"
-          description="Open the collector's profile and report them from there."
-          actionLabel="Back"
+          title={COPY.invalidTitle}
+          description={COPY.invalidBody}
+          actionLabel={COPY.back}
           onAction={close}
         />
-      </Screen>
+      </SettingsPage>
     );
   }
   const { target, context } = parsed;
 
   if (sent) {
     return (
-      <Screen scroll safeBottom testID="screen-report">
-        <Stack.Screen options={{ title: 'Report sent' }} />
-        <View style={styles.done} testID="report-sent" accessibilityLiveRegion="polite">
-          <View style={[styles.doneIcon, { backgroundColor: palette.surfaceVariant }]}>
-            <MaterialCommunityIcons name="shield-check-outline" size={32} color={palette.success} />
-          </View>
-          <Text
-            accessibilityRole="header"
-            style={[textStyle('xl', 'heading'), styles.center, { color: palette.ink }]}
-          >
-            Report sent
-          </Text>
-          <Text style={[textStyle('md'), styles.center, { color: palette.ink }]}>
-            Thank you. Our moderation team will review your report about {target.displayName}. They
-            are not told who reported them.
-          </Text>
-          <Text style={[textStyle('sm'), styles.center, { color: palette.textMuted }]}>
-            You will get a notification once the review is complete. Follow it any time in Settings
-            → My reports.
-          </Text>
-          <Button label="Done" onPress={close} testID="report-done" />
-          <Button
-            label="My reports"
-            variant="secondary"
-            icon="flag-outline"
-            onPress={() => router.replace('/settings/reports')}
-            testID="report-my-reports"
-          />
+      <SettingsPage title={COPY.sentTitle} onBack={close} testID="screen-report">
+        <View style={styles.sent} testID="report-sent" accessibilityLiveRegion="polite">
+          <StatusBody icon="check" tone="accent" title={COPY.sentTitle} paddingTop={60}>
+            <StatusText>{COPY.sentBody(target.displayName)}</StatusText>
+          </StatusBody>
+          <StatusActions>
+            <PillButton label={COPY.done} onPress={close} testID="report-done" />
+            <PillButton
+              label={COPY.follow}
+              variant="outline"
+              onPress={myReports}
+              testID="report-my-reports"
+            />
+          </StatusActions>
         </View>
-      </Screen>
+      </SettingsPage>
     );
   }
 
   const blocked = problem?.alreadyOpen === true;
   const tooLong = details.length > REPORT_DETAILS_MAX;
-  const canConfirm = !!reason && !tooLong && !report.isPending && !blocked;
+  const canSend = !!reason && !tooLong && !report.isPending && !blocked;
 
   const submit = async () => {
-    if (!reason || !canConfirm) {
+    if (!reason || !canSend) {
       return;
     }
     setProblem(null);
@@ -127,7 +120,7 @@ export default function ReportCollectorScreen() {
       setProblem(
         isApiError(error)
           ? reportProblem(error, target.displayName)
-          : { message: 'The report could not be sent. Please try again.', alreadyOpen: false }
+          : { message: COPY.sendFailed, alreadyOpen: false }
       );
     }
   };
@@ -135,8 +128,8 @@ export default function ReportCollectorScreen() {
   let reasonList;
   if (reasons.data) {
     reasonList = (
-      <RadioGroup<string>
-        label="Why are you reporting this user?"
+      <SettingsRadios<string>
+        title={COPY.reasonsTitle}
         options={reasons.data.map((option) => ({
           value: option.code,
           label: option.label,
@@ -154,119 +147,114 @@ export default function ReportCollectorScreen() {
         compact
         testID="report-reasons-error"
         error={reasons.error}
-        title="The reasons could not load"
+        title={COPY.reasonsError}
         onRetry={() => void reasons.refetch()}
       />
     );
   } else {
     reasonList = (
-      <View accessibilityLabel="Loading the reasons" aria-busy>
-        <SkeletonList rows={4} rowHeight={48} testID="report-reasons-loading" />
+      <View accessibilityLabel={COPY.reasonsLoading} aria-busy>
+        <SkeletonList rows={4} rowHeight={56} testID="report-reasons-loading" />
       </View>
     );
   }
 
-  return (
-    <Screen scroll safeBottom testID="screen-report">
-      <Stack.Screen options={{ title: 'Report collector' }} />
-      <View style={styles.form}>
-        <View style={[styles.who, { backgroundColor: palette.surfaceVariant }]}>
-          <Avatar name={target.displayName} size={40} />
-          <View style={styles.grow}>
-            <Text
-              testID="report-target"
-              style={[textStyle('md'), styles.strong, { color: palette.ink }]}
-            >
-              {target.displayName}
-            </Text>
-            {target.handle ? (
-              <Text style={[textStyle('sm'), { color: palette.textMuted }]}>@{target.handle}</Text>
-            ) : null}
-          </View>
-        </View>
-
-        <Text
-          accessibilityRole="header"
-          style={[textStyle('md'), styles.strong, { color: palette.ink }]}
-        >
-          Why are you reporting this user?
-        </Text>
-        {reasonList}
-
-        <TextField
-          label="Details (optional)"
-          value={details}
-          onChangeText={setDetails}
-          placeholder="What happened? Dates, cards or messages help the moderators."
-          multiline
-          maxLength={REPORT_DETAILS_MAX + 50}
-          editable={!report.isPending}
-          error={tooLong ? `Keep the details under ${REPORT_DETAILS_MAX} characters.` : null}
-          hint={`${details.length} / ${REPORT_DETAILS_MAX}`}
-          testID="report-details"
+  // A refusal is said in the bar, where "Send report" was pressed (the walk: at the end of the
+  // page it was under the fold, and the grey button said nothing).
+  const footer = (
+    <>
+      {problem ? (
+        <BarMessage tone={problem.alreadyOpen ? 'info' : 'error'} testID="report-error">
+          {problem.message}
+        </BarMessage>
+      ) : null}
+      {blocked ? (
+        <PillButton
+          label={COPY.myReports}
+          variant="outline"
+          onPress={myReports}
+          maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+          testID="report-open-my-reports"
         />
+      ) : null}
+      <PillButton
+        label={COPY.send}
+        loading={report.isPending}
+        loadingLabel={COPY.sending}
+        disabled={!canSend}
+        onPress={() => void submit()}
+        accessibilityHint={!reason ? COPY.chooseFirst : undefined}
+        maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+        testID="report-confirm"
+      />
+      {!reason && !blocked ? (
+        <Text
+          maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+          style={[styles.why, { color: palette.textMuted }]}
+          testID="report-choose-first"
+        >
+          {COPY.chooseFirst}
+        </Text>
+      ) : null}
+    </>
+  );
 
-        <View style={styles.privacy}>
-          <MaterialCommunityIcons name="lock-outline" size={16} color={palette.textMuted} />
-          <Text style={[textStyle('xs'), styles.grow, { color: palette.textMuted }]}>
-            Reports are confidential and reviewed by the OrenjiTrade moderation team. False reports
-            can lead to action on your own account.
-          </Text>
-        </View>
+  return (
+    <SettingsPage title={COPY.title} onBack={close} footer={footer} testID="screen-report">
+      <PersonHeader
+        displayName={target.displayName}
+        handle={target.handle}
+        nameTestID="report-target"
+        testID="report-person"
+      />
+      {reasonList}
 
-        {problem ? (
-          <FormMessage tone={problem.alreadyOpen ? 'info' : 'error'} testID="report-error">
-            {problem.message}
-          </FormMessage>
-        ) : null}
-        {blocked ? (
-          <Button
-            label="My reports"
-            variant="secondary"
-            icon="flag-outline"
-            onPress={() => router.replace('/settings/reports')}
-            testID="report-open-my-reports"
-          />
-        ) : null}
+      <TextField
+        label={COPY.details}
+        labelAside={COPY.detailsCount(details.length, REPORT_DETAILS_MAX)}
+        value={details}
+        onChangeText={setDetails}
+        placeholder={COPY.detailsPlaceholder}
+        multiline
+        maxLength={REPORT_DETAILS_MAX + 50}
+        editable={!report.isPending}
+        error={tooLong ? COPY.detailsTooLong(REPORT_DETAILS_MAX) : null}
+        inputStyle={styles.details}
+        textAlignVertical="top"
+        testID="report-details"
+      />
 
-        <View style={styles.actions}>
-          <Button label="Cancel" variant="ghost" onPress={close} style={styles.grow} />
-          <Button
-            label="Confirm"
-            loading={report.isPending}
-            loadingLabel="Sending…"
-            disabled={!canConfirm}
-            onPress={() => void submit()}
-            style={styles.grow}
-            testID="report-confirm"
-          />
-        </View>
+      <View
+        style={[styles.note, { backgroundColor: palette.surface, borderColor: palette.border }]}
+        testID="report-confidential"
+      >
+        <MaterialCommunityIcons
+          name="shield-outline"
+          size={18}
+          color={palette.textMuted}
+          style={styles.noteIcon}
+        />
+        <Text style={[styles.noteText, { color: palette.settings.segmentText }]}>
+          {COPY.confidential}
+        </Text>
       </View>
-    </Screen>
+    </SettingsPage>
   );
 }
 
 const styles = StyleSheet.create({
-  form: { gap: spacing[4] },
-  who: {
+  sent: { flexGrow: 1 },
+  details: { minHeight: 88 },
+  note: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[3],
-    padding: spacing[3],
-    borderRadius: radius.md,
+    alignItems: 'flex-start',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
   },
-  grow: { flex: 1 },
-  strong: { fontWeight: fontWeight.semibold },
-  privacy: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
-  actions: { flexDirection: 'row', gap: spacing[2] },
-  done: { gap: spacing[3], alignItems: 'stretch', paddingVertical: spacing[6] },
-  doneIcon: {
-    alignSelf: 'center',
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  center: { textAlign: 'center' },
+  noteIcon: { marginTop: 1 },
+  noteText: { flex: 1, fontSize: 13, lineHeight: 19 },
+  why: { fontSize: 12, lineHeight: 16, textAlign: 'center' },
 });

@@ -1,15 +1,16 @@
 package com.orenjitrade.api.binders.domain;
 
-import com.orenjitrade.api.billing.domain.LimitReachedException;
-import com.orenjitrade.api.billing.domain.Limits;
 import com.orenjitrade.api.binders.events.PublicBinderViewed;
 import com.orenjitrade.api.binders.infra.BinderRepository;
 import com.orenjitrade.api.binders.infra.BinderViewTracker;
 import com.orenjitrade.api.common.ApiException;
 import com.orenjitrade.api.common.TimeProvider;
+import com.orenjitrade.api.limits.domain.LimitReachedException;
+import com.orenjitrade.api.limits.domain.Limits;
 import com.orenjitrade.api.location.domain.LocationService;
 import com.orenjitrade.api.location.domain.PublicPlace;
 import com.orenjitrade.api.profiles.domain.BlockRelationProvider;
+import com.orenjitrade.api.profiles.domain.CollectorLookup;
 import com.orenjitrade.api.profiles.domain.PrivacySettingsService;
 import com.orenjitrade.api.profiles.domain.PrivacySettingsView;
 import com.orenjitrade.api.profiles.domain.ProfileService;
@@ -38,7 +39,7 @@ import org.springframework.transaction.annotation.Transactional;
  * profile is PRIVATE or who blocked (or was blocked by) the viewer does not exist publicly (404).
  *
  * <p>Signed-in visitors consume {@code binder.views.per_day} once per binder and UTC day when they
- * open another collector's binder ({@code 429 LIMIT_REACHED} beyond the plan limit).
+ * open another collector's binder ({@code 429 LIMIT_REACHED} beyond the usage limit).
  */
 @Service
 public class PublicBinderService {
@@ -49,6 +50,7 @@ public class PublicBinderService {
     private final BinderRepository repository;
     private final BinderService binderService;
     private final UserAccountService userAccountService;
+    private final CollectorLookup collectors;
     private final ProfileService profileService;
     private final PrivacySettingsService privacySettingsService;
     private final LocationService locationService;
@@ -62,6 +64,7 @@ public class PublicBinderService {
             BinderRepository repository,
             BinderService binderService,
             UserAccountService userAccountService,
+            CollectorLookup collectors,
             ProfileService profileService,
             PrivacySettingsService privacySettingsService,
             LocationService locationService,
@@ -73,6 +76,7 @@ public class PublicBinderService {
         this.repository = repository;
         this.binderService = binderService;
         this.userAccountService = userAccountService;
+        this.collectors = collectors;
         this.profileService = profileService;
         this.privacySettingsService = privacySettingsService;
         this.locationService = locationService;
@@ -89,19 +93,47 @@ public class PublicBinderService {
      */
     @Transactional(readOnly = true)
     public PublicOwner requireOwner(@Nullable UUID viewerId, String handle) {
-        Instant now = timeProvider.now();
+        // A collector who blocked the viewer is a miss of the lookup itself: the unknown handle's
+        // answer at the same cost (owner decision of 2026-10-28).
         UserAccountSnapshot account =
-                userAccountService
-                        .findByHandle(handle)
-                        .filter(candidate -> isPubliclyVisible(candidate, now))
+                collectors
+                        .visibleByHandle(viewerId, handle)
                         .orElseThrow(() -> ApiException.notFound(COLLECTOR_NOT_FOUND));
+        boolean other = !account.id().equals(viewerId);
+        // The viewer who blocked the collector (also when both did) gets the same 404.
+        if (other && isBlocked(viewerId, account.id())) {
+            throw ApiException.notFound(COLLECTOR_NOT_FOUND);
+        }
         PrivacySettingsView privacy = privacySettingsService.settingsOf(account.id());
-        if (!account.id().equals(viewerId)
-                && (privacy.profileVisibility() == ProfileVisibility.PRIVATE
-                        || isBlocked(viewerId, account.id()))) {
+        if (other && privacy.profileVisibility() == ProfileVisibility.PRIVATE) {
             throw ApiException.notFound(COLLECTOR_NOT_FOUND);
         }
         return ownerOf(account, privacy, viewerId);
+    }
+
+    /**
+     * The collector {@code accountId} as the owner of a public listing the viewer found (stage R15:
+     * a guest's action resumed after signing in names the item, binder or wish, never the
+     * collector): empty, as {@link #requireOwner} answers 404, when the account is hidden, the
+     * profile PRIVATE or a block exists; the owner always passes.
+     */
+    @Transactional(readOnly = true)
+    public Optional<PublicOwner> visibleOwner(@Nullable UUID viewerId, UUID accountId) {
+        Instant now = timeProvider.now();
+        Optional<UserAccountSnapshot> account =
+                userAccountService
+                        .findSnapshot(accountId)
+                        .filter(candidate -> isPubliclyVisible(candidate, now));
+        if (account.isEmpty()) {
+            return Optional.empty();
+        }
+        PrivacySettingsView privacy = privacySettingsService.settingsOf(accountId);
+        if (!accountId.equals(viewerId)
+                && (privacy.profileVisibility() == ProfileVisibility.PRIVATE
+                        || isBlocked(viewerId, accountId))) {
+            return Optional.empty();
+        }
+        return Optional.of(ownerOf(account.get(), privacy, viewerId));
     }
 
     /**
@@ -125,7 +157,8 @@ public class PublicBinderService {
 
     /**
      * {@code GET /collectors/{handle}/binders}: the collector's effectively public binders holding
-     * at least one effectively public item, in the owner's order.
+     * at least one effectively public item, and their public deck cores (which need no cards), in
+     * the owner's order.
      */
     @Transactional(readOnly = true)
     public List<PublicBinderSummary> bindersOf(@Nullable UUID viewerId, String handle) {
@@ -133,12 +166,17 @@ public class PublicBinderService {
         List<BinderView> binders =
                 repository.findEffectivelyPublicByOwner(owner.id(), timeProvider.now());
         return binderService.details(binders, true).stream()
-                .filter(details -> details.stats().publicItemCount() > 0)
-                .map(
-                        details ->
-                                new PublicBinderSummary(
-                                        details.binder(), details.stats(), details.coverImageUrl()))
+                .filter(PublicBinderService::shown)
+                .map(PublicBinderSummary::of)
                 .toList();
+    }
+
+    /**
+     * Whether an effectively public binder shows in public lists: it holds a public card, or it is
+     * a deck core (owner spec 2026-10-14, section 7: a deck core needs no cards).
+     */
+    static boolean shown(BinderDetails details) {
+        return details.stats().publicItemCount() > 0 || details.binder().listedWithoutCards();
     }
 
     /**
@@ -169,7 +207,13 @@ public class PublicBinderService {
                             now));
         }
         BinderDetails details = binderService.details(List.of(binder), true).get(0);
-        return new PublicBinder(binder, owner, details.stats(), details.coverImageUrl());
+        return new PublicBinder(
+                binder,
+                owner,
+                details.stats(),
+                details.coverImageUrl(),
+                details.showcase(),
+                publicBinderCount(binder.ownerId()));
     }
 
     /**
@@ -215,7 +259,8 @@ public class PublicBinderService {
     }
 
     /**
-     * Number of public binders shown on the collector profile (same rule as {@link #bindersOf}).
+     * Number of public binders shown on the collector profile (same rule as {@link #bindersOf}:
+     * deck cores included).
      */
     @Transactional(readOnly = true)
     public int publicBinderCount(UUID ownerId) {
@@ -226,14 +271,15 @@ public class PublicBinderService {
         }
         return (int)
                 binderService.details(binders, true).stream()
-                        .filter(details -> details.stats().publicItemCount() > 0)
+                        .filter(PublicBinderService::shown)
                         .count();
     }
 
     /**
      * Search results (Phase 4 unified search): the effectively public binders among {@code
-     * binderIds} that hold at least one public item and whose owner is visible to the viewer (no
-     * block), with their owner blocks, in the given order. Never counts a binder view.
+     * binderIds} that hold at least one public item or are deck cores, and whose owner is visible
+     * to the viewer (no block), with their owner blocks, in the given order. Never counts a binder
+     * view.
      */
     @Transactional(readOnly = true)
     public List<PublicBinderHit> publicBinders(@Nullable UUID viewerId, List<UUID> binderIds) {
@@ -262,7 +308,7 @@ public class PublicBinderService {
         Map<UUID, PublicOwner> owners = new LinkedHashMap<>();
         List<PublicBinderHit> hits = new ArrayList<>();
         for (BinderDetails details : binderService.details(ordered, true)) {
-            if (details.stats().publicItemCount() == 0) {
+            if (!shown(details)) {
                 continue;
             }
             UUID ownerId = details.binder().ownerId();
@@ -279,11 +325,7 @@ public class PublicBinderService {
                                 viewerId);
                 owners.put(ownerId, owner);
             }
-            hits.add(
-                    new PublicBinderHit(
-                            new PublicBinderSummary(
-                                    details.binder(), details.stats(), details.coverImageUrl()),
-                            owner));
+            hits.add(new PublicBinderHit(PublicBinderSummary.of(details), owner));
         }
         return hits;
     }
@@ -346,9 +388,19 @@ public class PublicBinderService {
      * @param binder the binder
      * @param stats public item statistics
      * @param coverImageUrl cover image
+     * @param showcase a deck core's photos and key cards, the preview pictures (stage R3)
      */
     public record PublicBinderSummary(
-            BinderView binder, BinderContents.Stats stats, @Nullable String coverImageUrl) {}
+            BinderView binder,
+            BinderContents.Stats stats,
+            @Nullable String coverImageUrl,
+            BinderShowcase showcase) {
+
+        static PublicBinderSummary of(BinderDetails details) {
+            return new PublicBinderSummary(
+                    details.binder(), details.stats(), details.coverImageUrl(), details.showcase());
+        }
+    }
 
     /**
      * A public binder found by search, with its owner.
@@ -365,10 +417,14 @@ public class PublicBinderService {
      * @param owner owner block
      * @param stats public item statistics
      * @param coverImageUrl cover image
+     * @param showcase a deck core's photos and key cards, the preview pictures (stage R3)
+     * @param ownerPublicBinderCount the owner's public binders (the seller row of a deck core)
      */
     public record PublicBinder(
             BinderView binder,
             PublicOwner owner,
             BinderContents.Stats stats,
-            @Nullable String coverImageUrl) {}
+            @Nullable String coverImageUrl,
+            BinderShowcase showcase,
+            int ownerPublicBinderCount) {}
 }

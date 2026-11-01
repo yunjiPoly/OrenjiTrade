@@ -1,18 +1,51 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
-import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatDialog } from '@angular/material/dialog';
 import { AdminRegionsService, PlatformRegion, RegionCountry } from '@orenji/api-client';
 import { firstValueFrom } from 'rxjs';
 import { ApiError, toApiError } from '../../../core/http/api-error';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
 import { silentErrors } from '../../../core/http/http-context';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
-import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
+import { ToastService } from '../../../core/feedback/toast.service';
+import { ShellLayout } from '../../../core/layout/shell-layout.service';
+import { AdminIconComponent } from '../console/admin-icon.component';
+import { runConsoleAction } from '../console/console-actions';
+import { confirmAdminAction } from '../shared/admin-actions';
+
+const COLLAPSED = 6;
+
+/** Board A19's line under each region. */
+const REGION_LINES: Readonly<Record<string, string>> = {
+  'americas-north': 'Canada, the United States, Mexico, Central America and the Caribbean.',
+  'americas-south': 'South America, the Falkland Islands and French Guiana.',
+  europe:
+    'The countries and territories of Europe. Russia, Turkey and the Caucasus are not served.',
+};
+
+function normalize(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+/** "13 provinces and territories", "50 states and DC", "32 states", "6 subdivisions". */
+export function subdivisionWords(countryCode: string, count: number): string {
+  switch (countryCode) {
+    case 'CA':
+      return `${count} provinces and territories`;
+    case 'US':
+      return count === 51 ? '50 states and DC' : `${count} states`;
+    case 'MX':
+      return `${count} states`;
+    default:
+      return `${count} ${count === 1 ? 'subdivision' : 'subdivisions'}`;
+  }
+}
 
 /** A country row with its pending (unsaved) region and active flag. */
 interface Draft {
@@ -29,79 +62,189 @@ interface Draft {
 @Component({
   selector: 'app-admin-regions-page',
   imports: [
-    MatButtonModule,
-    MatFormFieldModule,
-    MatIconModule,
-    MatSelectModule,
+    NgTemplateOutlet,
     MatSlideToggleModule,
+    AdminIconComponent,
     ErrorStateComponent,
-    PageHeaderComponent,
     SkeletonComponent,
   ],
   template: `
-    <div class="admin-page">
-      <app-page-header
-        title="Regions"
-        subtitle="Which platform region each country belongs to. Collectors browse, search and get wishlist alerts within one region."
-      />
-
+    <div class="cp">
+      <header class="cp__head">
+        <div class="cp__heading">
+          <p class="cp__eyebrow">Rules</p>
+          <h1 class="cp__title">Regions</h1>
+          <p class="cp__sub">
+            Which platform region each country belongs to. Collectors browse, search and get
+            wishlist alerts within one region; cards ship within it.
+          </p>
+        </div>
+      </header>
       @if (error(); as error) {
         <app-error-state
           title="Regions could not load"
           [message]="message(error)"
           [requestId]="error.requestId"
+          retryLabel="Try again"
           (retry)="load()"
         />
       } @else if (regions(); as list) {
+        <div class="cp-filterbar rg__filters" role="search" aria-label="Find a country">
+          <label class="cp-field cp-field--grow">
+            <span class="visually-hidden">Find a country</span>
+            <span class="cp-search">
+              <app-admin-icon name="search" [size]="16" />
+              <input
+                class="cp-input"
+                type="search"
+                placeholder="Find a country"
+                [value]="query()"
+                (input)="query.set($any($event.target).value)"
+              />
+            </span>
+          </label>
+          <p class="cp-count rg__count" aria-live="polite">
+            {{ total() }} countries in {{ list.length }} regions
+          </p>
+        </div>
         @for (region of list; track region.code) {
-          <section
-            class="admin-card regions__region"
-            [attr.aria-labelledby]="'region-' + region.code"
-          >
-            <h2 [id]="'region-' + region.code">
-              {{ region.name }}
-              <span class="mono regions__code">{{ region.code }}</span>
-              @if (region.isDefault) {
-                <span class="regions__default">Default</span>
-              }
-            </h2>
-            <p class="admin-count">{{ countLabel(region) }}</p>
-            <ul class="regions__countries">
-              @for (country of region.countries; track country.code) {
-                @let draft = draftOf(country);
-                <li class="regions__country" [attr.data-country]="country.code">
-                  <span class="regions__name">
-                    {{ country.name }}
-                    <span class="mono regions__code">{{ country.code }}</span>
-                  </span>
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                    <mat-label>Region</mat-label>
-                    <mat-select
-                      [value]="draft.regionCode"
-                      (selectionChange)="edit(country, { regionCode: $event.value })"
-                    >
-                      @for (option of list; track option.code) {
-                        <mat-option [value]="option.code">{{ option.name }}</mat-option>
+          @let rows = shown(region);
+          <section class="cp-card rg__region" [attr.aria-labelledby]="'region-' + region.code">
+            <div class="rg__head">
+              <h2 class="cp-card__title" [id]="'region-' + region.code">
+                {{ region.name }}
+                @if (region.isDefault) {
+                  <span class="cp-chip cp-chip--accent rg__default">Default</span>
+                }
+              </h2>
+              <p class="rg__desc">{{ description(region.code) }}</p>
+              <p class="rg__count-line">{{ countLabel(region) }}</p>
+            </div>
+            @if (rows.length === 0) {
+              <p class="rg__none">No country of this region matches.</p>
+            } @else {
+              <ng-template #regionSelect let-country let-draft="draft">
+                <select
+                  class="cp-select"
+                  [attr.aria-label]="'Region of ' + country.name"
+                  (change)="edit(country, { regionCode: $any($event.target).value })"
+                >
+                  @for (option of list; track option.code) {
+                    <option [value]="option.code" [selected]="draft.regionCode === option.code">
+                      {{ option.name }}
+                    </option>
+                  }
+                </select>
+              </ng-template>
+              <ng-template #activeToggle let-country let-draft="draft">
+                <mat-slide-toggle
+                  [checked]="draft.active"
+                  (change)="edit(country, { active: $event.checked })"
+                >
+                  <span class="visually-hidden">{{ country.name }} active</span>
+                </mat-slide-toggle>
+              </ng-template>
+              <ng-template #saveButton let-country>
+                <button
+                  type="button"
+                  class="cb cb--primary cb--small"
+                  [disabled]="!dirty(country) || saving() === country.code"
+                  (click)="save(country)"
+                >
+                  Save
+                </button>
+              </ng-template>
+              @if (narrow()) {
+                <!-- Below 960 each country is a stacked row: no control outside the window
+                     (web stage WH2 review fix 2, R1-5). -->
+                <ul class="cp-rows rg__list" [attr.aria-label]="region.name + ' countries'">
+                  @for (country of rows; track country.code) {
+                    @let draft = draftOf(country);
+                    <li class="rg__item" [attr.data-country]="country.code">
+                      <p class="rg__item-head">
+                        <span class="rg__name">{{ country.name }}</span>
+                        <span class="ct__sub"
+                          ><span class="cp-mono">{{ country.code }}</span> ·
+                          {{ subdivisionLabel(country) }}</span
+                        >
+                      </p>
+                      <div class="rg__item-controls">
+                        <ng-container
+                          *ngTemplateOutlet="
+                            regionSelect;
+                            context: { $implicit: country, draft: draft }
+                          "
+                        />
+                        <span class="rg__active">
+                          <ng-container
+                            *ngTemplateOutlet="
+                              activeToggle;
+                              context: { $implicit: country, draft: draft }
+                            "
+                          />
+                          <span aria-hidden="true">Active</span>
+                        </span>
+                        <ng-container
+                          *ngTemplateOutlet="saveButton; context: { $implicit: country }"
+                        />
+                      </div>
+                    </li>
+                  }
+                </ul>
+              } @else {
+                <div class="ct ct--actions">
+                  <table class="rg__table" [attr.aria-label]="region.name + ' countries'">
+                    <thead>
+                      <tr>
+                        <th scope="col">Country</th>
+                        <th scope="col">Subdivisions</th>
+                        <th scope="col">Region</th>
+                        <th scope="col">Active</th>
+                        <th scope="col"><span class="visually-hidden">Save</span></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (country of rows; track country.code) {
+                        @let draft = draftOf(country);
+                        <tr [attr.data-country]="country.code">
+                          <th scope="row">
+                            <span class="rg__name">{{ country.name }}</span>
+                            <span class="ct__sub cp-mono">{{ country.code }}</span>
+                          </th>
+                          <td>{{ subdivisionLabel(country) }}</td>
+                          <td>
+                            <ng-container
+                              *ngTemplateOutlet="
+                                regionSelect;
+                                context: { $implicit: country, draft: draft }
+                              "
+                            />
+                          </td>
+                          <td>
+                            <ng-container
+                              *ngTemplateOutlet="
+                                activeToggle;
+                                context: { $implicit: country, draft: draft }
+                              "
+                            />
+                          </td>
+                          <td class="rg__save">
+                            <ng-container
+                              *ngTemplateOutlet="saveButton; context: { $implicit: country }"
+                            />
+                          </td>
+                        </tr>
                       }
-                    </mat-select>
-                  </mat-form-field>
-                  <mat-slide-toggle
-                    [checked]="draft.active"
-                    (change)="edit(country, { active: $event.checked })"
-                  >
-                    Active
-                  </mat-slide-toggle>
-                  <button
-                    matButton="filled"
-                    type="button"
-                    [disabled]="!dirty(country) || saving() === country.code"
-                    (click)="save(country)"
-                  >
-                    Save
-                  </button>
-                </li>
+                    </tbody>
+                  </table>
+                </div>
               }
-            </ul>
+              @if (hiddenCount(region) > 0) {
+                <button type="button" class="cp-link rg__more" (click)="expand(region.code)">
+                  Show all {{ matching(region).length }} countries
+                </button>
+              }
+            }
           </section>
         }
       } @else {
@@ -112,54 +255,101 @@ interface Draft {
       }
     </div>
   `,
-  styleUrls: ['../shared/admin-page.scss'],
+  styleUrls: [
+    '../console/console-page.scss',
+    '../console/console-controls.scss',
+    '../console/console-table.scss',
+  ],
   styles: `
-    .regions__region + .regions__region {
-      margin-top: var(--spacing-5);
-    }
-    .regions__code {
-      margin-left: var(--spacing-2);
-      color: var(--color-text-muted);
-      font-size: var(--font-size-sm);
-    }
-    .regions__default {
-      margin-left: var(--spacing-2);
-      padding: 2px var(--spacing-2);
-      border-radius: var(--radius-pill);
-      background: var(--color-primary-container);
-      color: var(--color-on-primary-container);
-      font-size: var(--font-size-xs);
-    }
-    .regions__countries {
-      display: grid;
-      gap: var(--spacing-2);
-      margin: 0;
-      padding: 0;
-      list-style: none;
-    }
-    .regions__country {
-      display: grid;
-      grid-template-columns: minmax(10rem, 1fr) minmax(12rem, 16rem) auto auto;
-      gap: var(--spacing-3);
+    .rg__filters {
       align-items: center;
     }
-    @media (max-width: 719px) {
-      .regions__country {
-        grid-template-columns: 1fr;
-      }
+    .rg__count {
+      margin: 0;
+    }
+    .rg__region {
+      margin-bottom: 20px;
+      padding: 18px 20px 20px;
+    }
+    .rg__head {
+      margin-bottom: 12px;
+    }
+    .rg__default {
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+    .rg__desc {
+      margin: 4px 0 0;
+      color: var(--color-ink);
+      font-size: var(--font-size-sm);
+    }
+    .rg__count-line,
+    .rg__none {
+      margin: 4px 0 0;
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-sm);
+    }
+    .rg__table {
+      min-width: 640px;
+    }
+    .rg__name {
+      display: block;
+      color: var(--color-ink);
+      font-weight: var(--font-weight-semibold);
+    }
+    .rg__save {
+      text-align: right;
+    }
+    .rg__list {
+      margin-top: 8px;
+    }
+    .rg__item {
+      padding: 12px 0;
+    }
+    .rg__item-head {
+      margin: 0 0 8px;
+    }
+    .rg__item-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px 16px;
+    }
+    .rg__item-controls .cp-select {
+      flex: 1 1 180px;
+    }
+    .rg__active {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--color-ink);
+      font-size: var(--font-size-sm);
+    }
+    .rg__more {
+      margin-top: 10px;
+      min-height: 32px;
+      padding: 0;
+      border: 0;
+      background: none;
+      cursor: pointer;
     }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AdminRegionsPageComponent {
   private readonly api = inject(AdminRegionsService);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly toasts = inject(ToastService);
+  private readonly dialog = inject(MatDialog);
+  /** Below 960 the countries are stacked rows instead of a table (review fix 2, R1-5). */
+  protected readonly narrow = inject(ShellLayout).narrow;
 
   protected readonly regions = signal<PlatformRegion[] | null>(null);
   protected readonly error = signal<ApiError | null>(null);
   protected readonly saving = signal<string | null>(null);
   private readonly drafts = signal<ReadonlyMap<string, Draft>>(new Map());
-  private readonly total = computed(() =>
+  protected readonly query = signal('');
+  private readonly expanded = signal<ReadonlySet<string>>(new Set());
+  protected readonly total = computed(() =>
     (this.regions() ?? []).reduce((sum, region) => sum + region.countries.length, 0),
   );
 
@@ -199,28 +389,77 @@ export class AdminRegionsPageComponent {
 
   protected async save(country: RegionCountry): Promise<void> {
     const draft = this.draftOf(country);
-    this.saving.set(country.code);
-    try {
-      await firstValueFrom(
-        this.api.updateAdminRegionCountry(
-          { code: country.code, countryRegionRequest: draft },
-          'body',
-          false,
-          { context: silentErrors() },
-        ),
-      );
-      this.snackBar.open(`${country.name} saved.`, 'OK', { duration: 3000 });
-      await this.load();
-    } catch (error) {
-      this.snackBar.open(friendlyMessage(toApiError(error)), 'OK', { duration: 5000 });
-    } finally {
-      this.saving.set(null);
+    if (draft.regionCode !== country.regionCode) {
+      // Moving a country confirms first (spec 15.7): its collectors browse another region.
+      const to = this.regions()?.find((region) => region.code === draft.regionCode)?.name ?? '';
+      const confirmed = await confirmAdminAction(this.dialog, {
+        title: `Move ${country.name} to ${to}?`,
+        message:
+          `Collectors in ${country.name} browse, search and get wishlist alerts in ${to} from ` +
+          'now on. Their places stay as they declared them.',
+        confirmLabel: 'Move country',
+      });
+      if (!confirmed) {
+        return;
+      }
     }
+    this.saving.set(country.code);
+    const saved = await runConsoleAction(
+      this.toasts,
+      this.api.updateAdminRegionCountry(
+        { code: country.code, countryRegionRequest: draft },
+        'body',
+        false,
+        { context: silentErrors() },
+      ),
+      `${country.name} saved.`,
+    );
+    this.saving.set(null);
+    if (saved) {
+      await this.load();
+    }
+  }
+
+  /** The region's countries matching the search, all of them once expanded or searched. */
+  protected matching(region: PlatformRegion): RegionCountry[] {
+    const query = normalize(this.query());
+    return query
+      ? region.countries.filter(
+          (country) =>
+            normalize(country.name).includes(query) || country.code.toLowerCase() === query,
+        )
+      : region.countries;
+  }
+
+  /** Long lists collapse to their first six (spec 15.7, board A19). */
+  protected shown(region: PlatformRegion): RegionCountry[] {
+    const rows = this.matching(region);
+    return this.query().trim() || this.expanded().has(region.code)
+      ? rows
+      : rows.slice(0, COLLAPSED);
+  }
+
+  protected hiddenCount(region: PlatformRegion): number {
+    return this.matching(region).length - this.shown(region).length;
+  }
+
+  protected expand(code: string): void {
+    this.expanded.update((set) => new Set([...set, code]));
+  }
+
+  protected description(code: string): string {
+    return REGION_LINES[code] ?? '';
+  }
+
+  protected subdivisionLabel(country: RegionCountry): string {
+    return subdivisionWords(country.code, country.subdivisions?.length ?? 0);
   }
 
   protected countLabel(region: PlatformRegion): string {
     const active = region.countries.filter((country) => country.active).length;
-    return `${region.countries.length} countries (${active} active) of ${this.total()}`;
+    const n = region.countries.length;
+    const noun = n === 1 ? 'country' : 'countries';
+    return active === n ? `${n} ${noun} · all active` : `${n} ${noun} · ${active} active`;
   }
 
   protected message(error: ApiError): string {

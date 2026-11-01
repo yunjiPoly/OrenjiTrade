@@ -160,14 +160,14 @@ public class ModerationFlagRepository {
                 .update();
     }
 
-    /** Open flags of an account (subject USER), newest first. */
+    /** Open flags of an account (subject USER) or of its content (its author), newest first. */
     public List<ModerationFlagView> openForAccount(UUID userId) {
         return jdbc.sql(
                         "SELECT "
                                 + COLUMNS
-                                + " FROM moderation_flag WHERE subject_type = 'USER' AND"
-                                + " subject_id = :id AND resolved_at IS NULL ORDER BY created_at"
-                                + " DESC")
+                                + " FROM moderation_flag WHERE resolved_at IS NULL AND"
+                                + " ((subject_type = 'USER' AND subject_id = :id) OR author_id ="
+                                + " :id) ORDER BY created_at DESC")
                 .param("id", userId)
                 .query(ModerationFlagRepository::map)
                 .list();

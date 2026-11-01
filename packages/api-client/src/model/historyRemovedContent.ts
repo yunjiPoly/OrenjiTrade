@@ -12,6 +12,9 @@
 export interface HistoryRemovedContent { 
     kind: HistoryRemovedContentKindEnum;
     id: string;
+    /**
+     * The channel\'s slug; \"archived-channel\" for a channel of the old model named after a city (its own slug names the city, ADR 0017)
+     */
     channelSlug: string;
     removedAt?: string | null;
     reason?: string | null;

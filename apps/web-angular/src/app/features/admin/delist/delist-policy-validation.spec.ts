@@ -1,4 +1,9 @@
-import { DelistPolicyValue, delistPolicyErrors, freshnessStages } from './delist-policy-validation';
+import {
+  DelistPolicyValue,
+  delistPolicyErrors,
+  freshnessSentence,
+  freshnessStages,
+} from './delist-policy-validation';
 
 const VALID: DelistPolicyValue = {
   name: 'Default',
@@ -49,5 +54,24 @@ describe('delist policy validation', () => {
       'Hidden 46+ days',
     ]);
     expect(freshnessStages({ ...VALID, staleAfterDays: 10 })).toEqual([]);
+  });
+
+  it('sums the timeline up in board A17’s sentence, with the reminder’s day (review fix 1)', () => {
+    const value = {
+      name: 'Default',
+      agingAfterDays: 14,
+      staleAfterDays: 30,
+      hiddenAfterDays: 45,
+      warnBeforeHiddenDays: 7,
+      maxStrikes: 3,
+      unansweredAfterHours: 72,
+    };
+    expect(freshnessSentence(value)).toEqual({
+      sentence:
+        'A listing nobody confirms is aging after 14 days, stale after 30 and hidden after 45. Its owner gets a reminder on day 38, 7 days before it is hidden. Confirming it makes it fresh again.',
+      reminderDay: 38,
+    });
+    expect(freshnessSentence({ ...value, warnBeforeHiddenDays: 0 })?.reminderDay).toBeNull();
+    expect(freshnessSentence({ ...value, staleAfterDays: 10 })).toBeNull();
   });
 });

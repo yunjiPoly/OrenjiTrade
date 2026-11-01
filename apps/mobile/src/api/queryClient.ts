@@ -8,8 +8,21 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 
 /**
+ * Whether a failed read is tried again by itself: twice, except a 4xx (the answer would be the
+ * same) and a request the app gave up after waiting (`isTimeout`: two more waits of the same
+ * length would keep the screen on its skeleton for a minute; it shows "Try again" instead).
+ */
+export function shouldRetryQuery(failureCount: number, error: unknown): boolean {
+  if (isApiError(error) && ((error.status >= 400 && error.status < 500) || error.isTimeout)) {
+    return false;
+  }
+  return failureCount < 2;
+}
+
+/**
  * Offline-friendly defaults: cached data is shown immediately (and kept for a day), queries do
- * not spin forever when the device is offline, and 4xx responses are not retried.
+ * not spin forever when the device is offline or the server does not answer, and 4xx responses
+ * are not retried.
  */
 export function createQueryClient(): QueryClient {
   return new QueryClient({
@@ -20,12 +33,7 @@ export function createQueryClient(): QueryClient {
         networkMode: 'offlineFirst',
         refetchOnReconnect: true,
         refetchOnWindowFocus: true,
-        retry: (failureCount, error) => {
-          if (isApiError(error) && error.status >= 400 && error.status < 500) {
-            return false;
-          }
-          return failureCount < 2;
-        },
+        retry: shouldRetryQuery,
         retryDelay: (attempt) => Math.min(1_000 * 2 ** attempt, 8_000),
       },
       mutations: {

@@ -94,6 +94,12 @@ public class PresenceTracker {
         }
     }
 
+    /** The ids of the account's open sessions on this instance (a copy). */
+    public Set<String> localSessions(UUID userId) {
+        @Nullable Set<String> open = sessions.get(userId);
+        return open == null ? Set.of() : Set.copyOf(open);
+    }
+
     /** Whether this instance holds an open session of the account (tests, diagnostics). */
     public boolean hasLocalSession(UUID userId) {
         Set<String> open = sessions.get(userId);

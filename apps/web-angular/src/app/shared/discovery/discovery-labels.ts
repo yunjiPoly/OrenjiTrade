@@ -7,8 +7,12 @@ import type { Availability } from '../ui/availability-chip/availability';
  * `@orenji/api-client` enums; labels live here so the map, the lists and search word them alike.
  */
 
-/** `availability` filter of `/search/card-holders`. */
-export type AvailabilityFilter = 'TRADE' | 'SALE' | 'TRADE_OR_SALE' | 'ACCEPTS_OFFERS';
+/**
+ * `availability` filter of `/search/card-holders` as the web offers it. The API also takes
+ * ACCEPTS_OFFERS, which left the screens with offers (decision 2): an old link with it reads as
+ * no filter.
+ */
+export type AvailabilityFilter = 'TRADE' | 'SALE' | 'TRADE_OR_SALE';
 
 export const AVAILABILITY_FILTERS: readonly {
   value: AvailabilityFilter;
@@ -18,7 +22,6 @@ export const AVAILABILITY_FILTERS: readonly {
   { value: 'TRADE', label: 'For trade', icon: 'swap_horiz' },
   { value: 'SALE', label: 'For sale', icon: 'sell' },
   { value: 'TRADE_OR_SALE', label: 'Trade or sale', icon: 'sync_alt' },
-  { value: 'ACCEPTS_OFFERS', label: 'Accepts offers', icon: 'local_offer' },
 ];
 
 export function isAvailabilityFilter(value: unknown): value is AvailabilityFilter {

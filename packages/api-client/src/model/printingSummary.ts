@@ -28,5 +28,6 @@ export interface PrintingSummary {
     finish?: string;
     images?: Array<PrintingImage>;
     marketPrice?: MarketPrice;
+    setReleaseDate?: string | null;
 }
 

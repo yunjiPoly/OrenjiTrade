@@ -25,6 +25,8 @@ export interface ListAuditLogsRequestParams {
     action?: string;
     from?: string;
     to?: string;
+    actorType?: 'USER' | 'ADMIN' | 'SYSTEM';
+    target?: string;
     page?: number;
     size?: number;
 }
@@ -36,7 +38,7 @@ export interface AdminAuditServiceInterface {
 
     /**
      * List audit-log entries (ADMIN, SUPER_ADMIN)
-     * Newest first. Every filter is optional; &#x60;from&#x60; is inclusive, &#x60;to&#x60; exclusive.
+     * Newest first. Every filter is optional; &#x60;from&#x60; is inclusive, &#x60;to&#x60; exclusive. Each entry names its actor and carries a readable &#x60;targetLabel&#x60;.
      * @endpoint get /api/v1/admin/audit-logs
 * @param requestParameters
      */

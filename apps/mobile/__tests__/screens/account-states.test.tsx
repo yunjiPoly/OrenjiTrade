@@ -1,12 +1,13 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
-import { Platform } from 'react-native';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { Dimensions } from 'react-native';
 
 import ConsentScreen from '@/app/(account)/consent';
 import SuspendedScreen from '@/app/(account)/suspended';
 import AccountUnavailableScreen from '@/app/(account)/unavailable';
 import VerifyEmailScreen from '@/app/(account)/verify-email';
 import { useFlowLock } from '@/src/account/flowLock';
-import { ageConfirmationAccessibleLabel } from '@/src/features/legal/ageConfirmation';
+import { AGE_CONFIRMATION_LABEL_EN } from '@/src/features/legal/ageConfirmation';
+import { PINNED_MAX_FONT_SCALE } from '@/src/theme';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import { LEGAL_DOCUMENTS, NOT_ONBOARDED, deletionFixture, meFixture } from '../support/fixtures';
@@ -32,7 +33,7 @@ describe('Consent screen', () => {
     { documentType: 'PRIVACY' as const, version: '2026-10-01' },
   ];
 
-  it('requires every pending document, then records each acceptance', async () => {
+  it('lists each due document with its version, waits for every box, then records each', async () => {
     const api = mockApi({
       'GET /api/v1/me': [ok(meFixture({ requiredConsents: pending })), ok(meFixture())],
       'GET /api/v1/public/legal/documents': ok(LEGAL_DOCUMENTS),
@@ -40,15 +41,26 @@ describe('Consent screen', () => {
     });
     renderWithProviders(<ConsentScreen />, { port: new FakeAuthPort(testUser()) });
 
-    expect(
-      await screen.findByRole('checkbox', { name: 'I have read and accept the Terms of Service' })
-    ).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('button', { name: 'Accept and continue' }));
-    expect(screen.getByText('Please accept every document to continue.')).toBeOnTheScreen();
-    expect(api.callsTo('POST /api/v1/me/consents')).toHaveLength(0);
-
-    fireEvent.press(screen.getByRole('checkbox', { name: 'Accept all' }));
-    fireEvent.press(screen.getByRole('button', { name: 'Accept and continue' }));
+    const terms = await screen.findByRole('checkbox', {
+      name: 'I accept the Terms of Service, version 2026-10-01',
+    });
+    expect(screen.getAllByText('Version 2026-10-01')).toHaveLength(2);
+    // Two documents: no "Accept all" (mockup v50 screen 43), and each can be read.
+    expect(screen.queryByRole('checkbox', { name: 'Accept all' })).toBeNull();
+    fireEvent.press(screen.getByLabelText('Read the Privacy Policy'));
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/legal/[key]',
+      params: { key: 'privacy' },
+    });
+    const accept = () => screen.getByRole('button', { name: 'Accept and continue' });
+    expect(accept()).toBeDisabled();
+    fireEvent.press(terms);
+    expect(accept()).toBeDisabled();
+    fireEvent.press(
+      screen.getByRole('checkbox', { name: 'I accept the Privacy Policy, version 2026-10-01' })
+    );
+    expect(accept()).toBeEnabled();
+    fireEvent.press(accept());
     await waitFor(() => expect(api.callsTo('POST /api/v1/me/consents')).toHaveLength(2));
     expect(api.callsTo('POST /api/v1/me/consents')[0]?.body).toEqual({
       documentType: 'TERMS',
@@ -58,6 +70,40 @@ describe('Consent screen', () => {
     // An account that already confirmed its age (the fixture) is not asked again.
     expect(screen.queryByRole('checkbox', { name: /18 years of age/ })).toBeNull();
     expect(await screen.findByText('You have accepted every current document.')).toBeOnTheScreen();
+  });
+
+  it('offers "Accept all" once more than two documents are due, never ticking the age', async () => {
+    mockApi({
+      'GET /api/v1/me': ok(
+        meFixture({
+          // Listed by the API in another order: shown in the reading order, terms first.
+          requiredConsents: [
+            { documentType: 'COMMUNITY_GUIDELINES' as const, version: '2026-10-01' },
+            ...[...pending].reverse(),
+          ],
+          onboarding: { ...NOT_ONBOARDED, ageConfirmed: false },
+        })
+      ),
+      'GET /api/v1/public/legal/documents': ok(LEGAL_DOCUMENTS),
+    });
+    renderWithProviders(<ConsentScreen />, { port: new FakeAuthPort(testUser()) });
+    fireEvent.press(await screen.findByRole('checkbox', { name: 'Accept all' }));
+    expect(
+      screen
+        .getAllByRole('checkbox')
+        .map((box) => box.props.accessibilityLabel as string)
+        .slice(0, 4)
+    ).toEqual([
+      'Accept all',
+      'I accept the Terms of Service, version 2026-10-01',
+      'I accept the Privacy Policy, version 2026-10-01',
+      'I accept the Community Guidelines, version 2026-10-01',
+    ]);
+    expect(
+      screen.getByRole('checkbox', { name: 'I accept the Terms of Service, version 2026-10-01' })
+    ).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: AGE_CONFIRMATION_LABEL_EN })).not.toBeChecked();
+    expect(screen.getByRole('button', { name: 'Accept and continue' })).toBeDisabled();
   });
 
   it('collects the 18+ confirmation from an account that never gave it (a Google sign-up)', async () => {
@@ -76,17 +122,22 @@ describe('Consent screen', () => {
       'POST /api/v1/me/consents': noContent,
     });
     renderWithProviders(<ConsentScreen />, { port: new FakeAuthPort(testUser()) });
-    // French device: the document titles come from the French texts, the attestation is bilingual.
-    fireEvent.press(await screen.findByRole('checkbox', { name: 'Accept all' }));
-    expect(
-      screen.getByRole('checkbox', { name: 'I have read and accept the Conditions d’utilisation' })
-    ).toBeChecked();
-    const age = screen.getByRole('checkbox', { name: ageConfirmationAccessibleLabel(Platform.OS) });
+    // French device: the document titles come from the French texts (the legal language, kept
+    // as it was); the 18+ line is English only since stage R12.
+    fireEvent.press(
+      await screen.findByRole('checkbox', {
+        name: 'I accept the Conditions d’utilisation, version 2026-10-01',
+      })
+    );
+    fireEvent.press(
+      screen.getByRole('checkbox', {
+        name: 'I accept the Politique de confidentialité, version 2026-10-01',
+      })
+    );
+    const age = screen.getByRole('checkbox', { name: AGE_CONFIRMATION_LABEL_EN });
     expect(age).not.toBeChecked();
-    fireEvent.press(screen.getByRole('button', { name: 'Accept and continue' }));
-    expect(
-      screen.getByText('You must confirm that you are 18 years of age or older to use OrenjiTrade.')
-    ).toBeOnTheScreen();
+    expect(screen.queryByText(/Je confirme/)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Accept and continue' })).toBeDisabled();
     expect(api.callsTo('POST /api/v1/me/consents')).toHaveLength(0);
 
     fireEvent.press(age);
@@ -99,6 +150,53 @@ describe('Consent screen', () => {
     ]);
   });
 
+  it('asks only the age line when no document is due, then welcomes the collector back', async () => {
+    const api = mockApi({
+      'GET /api/v1/me': [
+        ok(meFixture({ onboarding: { ...NOT_ONBOARDED, ageConfirmed: false } })),
+        ok(meFixture()),
+      ],
+      'GET /api/v1/public/legal/documents': ok(LEGAL_DOCUMENTS),
+      'POST /api/v1/me/consents': noContent,
+    });
+    renderWithProviders(<ConsentScreen />, { port: new FakeAuthPort(testUser()) });
+    const age = await screen.findByRole('checkbox', { name: AGE_CONFIRMATION_LABEL_EN });
+    expect(
+      screen.getByText('Please confirm your age to keep using OrenjiTrade.')
+    ).toBeOnTheScreen();
+    expect(screen.queryByTestId('legal-consents')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Accept and continue' })).toBeDisabled();
+    fireEvent.press(age);
+    fireEvent.press(screen.getByRole('button', { name: 'Accept and continue' }));
+    await waitFor(() => expect(api.callsTo('POST /api/v1/me/consents')).toHaveLength(1));
+    expect(api.callsTo('POST /api/v1/me/consents')[0]?.body).toEqual({
+      documentType: 'AGE_CONFIRMATION',
+      version: '2026-10-05',
+      language: 'en',
+    });
+    expect(await screen.findByTestId('snackbar')).toHaveTextContent(
+      'Thanks for confirming. Welcome back!'
+    );
+  });
+
+  it('retries the confirmation when the documents cannot be loaded', async () => {
+    const api = mockApi({
+      'GET /api/v1/me': ok(meFixture({ onboarding: { ...NOT_ONBOARDED, ageConfirmed: false } })),
+      'GET /api/v1/public/legal/documents': [
+        problem(503, 'SERVICE_UNAVAILABLE', 'down'),
+        ok(LEGAL_DOCUMENTS),
+      ],
+    });
+    renderWithProviders(<ConsentScreen />, { port: new FakeAuthPort(testUser()) });
+    expect(await screen.findByText('We could not load the confirmation')).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Accept and continue' })).toBeNull();
+    fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+    expect(
+      await screen.findByRole('checkbox', { name: AGE_CONFIRMATION_LABEL_EN })
+    ).toBeOnTheScreen();
+    expect(api.callsTo('GET /api/v1/public/legal/documents')).toHaveLength(2);
+  });
+
   it('shows a failure and lets the collector sign out', async () => {
     const port = new FakeAuthPort(testUser());
     mockApi({
@@ -107,7 +205,14 @@ describe('Consent screen', () => {
       'POST /api/v1/me/consents': problem(429, 'RATE_LIMITED', 'slow down'),
     });
     renderWithProviders(<ConsentScreen />, { port });
-    fireEvent.press(await screen.findByRole('checkbox', { name: 'Accept all' }));
+    fireEvent.press(
+      await screen.findByRole('checkbox', {
+        name: 'I accept the Terms of Service, version 2026-10-01',
+      })
+    );
+    fireEvent.press(
+      screen.getByRole('checkbox', { name: 'I accept the Privacy Policy, version 2026-10-01' })
+    );
     fireEvent.press(screen.getByRole('button', { name: 'Accept and continue' }));
     expect(await screen.findByText(/Too many requests in a short time/)).toBeOnTheScreen();
     fireEvent.press(screen.getByRole('button', { name: 'Sign out' }));
@@ -135,9 +240,27 @@ describe('Account status screen', () => {
     expect(api.callsTo('DELETE /api/v1/me/deletion-requests/{id}')[0]?.path).toBe(
       '/api/v1/me/deletion-requests/00000000-0000-4000-8000-0000000000d1'
     );
-    expect(await screen.findByTestId('snackbar')).toHaveTextContent(
-      'Deletion cancelled. Welcome back!'
-    );
+    // "Deletion cancelled" shows in place while the gate waits; Continue lets it go on.
+    expect(await screen.findByRole('header', { name: 'Deletion cancelled' })).toBeOnTheScreen();
+    expect(screen.getByTestId('deletion-cancelled')).toHaveTextContent('Welcome back!');
+    expect(useFlowLock.getState().lockedBy).toBe('deletion-cancelled');
+    fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(useFlowLock.getState().lockedBy).toBeNull());
+  });
+
+  it('keeps the deletion when cancelling fails, and the gate free', async () => {
+    mockApi({
+      'GET /api/v1/me': ok(meFixture({ status: 'DELETION_REQUESTED' })),
+      'GET /api/v1/me/deletion-requests': ok([deletionFixture()]),
+      'DELETE /api/v1/me/deletion-requests/{id}': problem(503, 'SERVICE_UNAVAILABLE', 'down'),
+    });
+    renderWithProviders(<SuspendedScreen />, { port: new FakeAuthPort(testUser()) });
+    fireEvent.press(await screen.findByRole('button', { name: 'Cancel deletion' }));
+    expect(await screen.findByTestId('suspended-error')).toBeOnTheScreen();
+    expect(
+      screen.getByRole('header', { name: 'Your account is scheduled for deletion' })
+    ).toBeOnTheScreen();
+    expect(useFlowLock.getState().lockedBy).toBeNull();
   });
 
   it('downloads the data while the deletion is pending', async () => {
@@ -154,6 +277,74 @@ describe('Account status screen', () => {
     expect(await screen.findByTestId('snackbar')).toHaveTextContent(/is ready/);
   });
 
+  it('shows an open-ended suspension without an end date, with the appeal line', async () => {
+    mockApi({
+      'GET /api/v1/me': problem(403, 'ACCOUNT_SUSPENDED', 'This account is suspended'),
+    });
+    renderWithProviders(<SuspendedScreen />, { port: new FakeAuthPort(testUser()) });
+    expect(await screen.findByText('Your account is suspended')).toBeOnTheScreen();
+    // The API's general words only repeat the title: no line for them (no reason is sent).
+    expect(screen.queryByTestId('suspension-message')).toBeNull();
+    expect(screen.queryByTestId('suspension-until')).toBeNull();
+    expect(screen.getByText(/If you think this is a mistake, write to/)).toBeOnTheScreen();
+    expect(screen.getByText('support@orenjitrade.com')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Sign out' })).toBeOnTheScreen();
+  });
+
+  it('puts the end date right under the title when the API sends its general words', async () => {
+    mockApi({
+      'GET /api/v1/me': problem(403, 'ACCOUNT_SUSPENDED', 'This account is suspended', {
+        suspendedUntil: '2026-11-02T17:00:00Z',
+      }),
+    });
+    renderWithProviders(<SuspendedScreen />, { port: new FakeAuthPort(testUser()) });
+    expect(await screen.findByTestId('suspension-until')).toHaveTextContent(
+      /^The suspension ends on November 2, 2026\.$/
+    );
+    expect(screen.queryByTestId('suspension-message')).toBeNull();
+  });
+
+  it('keeps Sign out and the guidelines pinned under the lines at the largest size', async () => {
+    // Review fix 1 (U5): at the largest text sizes the page was four screens tall and Sign out,
+    // the one thing a suspended collector can do, came last.
+    const window = Dimensions.get('window');
+    act(() => {
+      Dimensions.set({
+        window: { ...window, width: 402, height: 874, fontScale: 3.1 },
+        screen: { ...window, width: 402, height: 874, fontScale: 3.1 },
+      });
+    });
+    try {
+      mockApi({
+        'GET /api/v1/me': problem(403, 'ACCOUNT_SUSPENDED', 'This account is suspended', {
+          suspendedUntil: '2026-11-02T17:00:00Z',
+        }),
+      });
+      renderWithProviders(<SuspendedScreen />, { port: new FakeAuthPort(testUser()) });
+      expect(await screen.findByTestId('suspension-until')).toBeOnTheScreen();
+      const scroll = screen.getByTestId('screen-suspended-scroll');
+      const actions = screen.getByTestId('screen-suspended-actions');
+      expect(within(scroll).getByTestId('suspension-until')).toBeOnTheScreen();
+      expect(within(scroll).queryByTestId('suspended-sign-out')).toBeNull();
+      for (const id of ['suspended-guidelines', 'suspended-sign-out']) {
+        const button = within(actions).getByTestId(id);
+        expect(button.props.accessibilityShowsLargeContentViewer).toBe(true);
+      }
+      expect(within(actions).getByText('Sign out')).toHaveProp(
+        'maxFontSizeMultiplier',
+        PINNED_MAX_FONT_SCALE
+      );
+      expect(within(actions).getByText('Community guidelines')).toHaveProp(
+        'maxFontSizeMultiplier',
+        PINNED_MAX_FONT_SCALE
+      );
+    } finally {
+      act(() => {
+        Dimensions.set({ window, screen: window });
+      });
+    }
+  });
+
   it('explains a temporary suspension from a 403 answer', async () => {
     mockApi({
       'GET /api/v1/me': problem(403, 'ACCOUNT_SUSPENDED', 'Suspended for repeated spam.', {
@@ -163,8 +354,12 @@ describe('Account status screen', () => {
     renderWithProviders(<SuspendedScreen />, { port: new FakeAuthPort(testUser()) });
     expect(await screen.findByText('Your account is suspended')).toBeOnTheScreen();
     expect(screen.getByTestId('suspension-message')).toHaveTextContent(
-      /Suspended for repeated spam\. The suspension ends on/
+      'Suspended for repeated spam.'
     );
+    expect(screen.getByTestId('suspension-until')).toHaveTextContent(
+      /^The suspension ends on October 20, 2026\.$/
+    );
+    expect(screen.getByText('support@orenjitrade.com')).toBeOnTheScreen();
     fireEvent.press(screen.getByRole('button', { name: 'Community guidelines' }));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/legal/[key]',
@@ -213,11 +408,37 @@ describe('Account unavailable screen', () => {
     });
     renderWithProviders(<AccountUnavailableScreen />, { port: new FakeAuthPort(testUser()) });
     expect(await screen.findByRole('button', { name: 'Try again' })).toBeOnTheScreen();
-    expect(screen.getByText('We could not load your account')).toBeOnTheScreen();
-    expect(screen.getByText('Please try again in a moment.')).toBeOnTheScreen();
+    expect(
+      screen.getByRole('header', { name: 'We could not load your account' })
+    ).toBeOnTheScreen();
+    // A server error: its own sentence and the support reference, never "check your
+    // connection" (stage R12's review fix 1).
+    expect(screen.getByTestId('account-error')).toHaveTextContent('Please try again in a moment.');
+    expect(screen.getByTestId('account-error-reference')).toHaveTextContent(
+      'INTERNAL_ERROR · req-test'
+    );
     expect(screen.queryByText(/SQL details/)).toBeNull();
     const before = api.callsTo('GET /api/v1/me').length;
     fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
     await waitFor(() => expect(api.callsTo('GET /api/v1/me').length).toBe(before + 1));
+  });
+
+  it("says the mockup's words when the phone is offline", async () => {
+    mockApi({
+      'GET /api/v1/me': () => {
+        throw new TypeError('Network request failed');
+      },
+    });
+    renderWithProviders(<AccountUnavailableScreen />, { port: new FakeAuthPort(testUser()) });
+    expect(
+      await screen.findByText(
+        'Check your connection, then try again. Nothing on your account changed.'
+      )
+    ).toBeOnTheScreen();
+    expect(
+      screen.getByRole('header', { name: 'We could not load your account' })
+    ).toBeOnTheScreen();
+    expect(screen.queryByTestId('account-error-reference')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Sign out' })).toBeOnTheScreen();
   });
 });

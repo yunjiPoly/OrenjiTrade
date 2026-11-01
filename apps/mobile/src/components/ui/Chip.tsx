@@ -1,6 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 
+import { Text } from '@/src/components/ui/Text';
 import { assertNever } from '@/src/lib/assertNever';
 import { fontWeight, radius, spacing, useTheme, type Palette } from '@/src/theme';
 

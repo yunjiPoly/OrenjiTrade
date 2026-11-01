@@ -17,8 +17,6 @@ profile `@Scheduled` cadences):
 | `offers-expire` | `5 * * * *` | `POST /internal/jobs/offers-expire` | hourly (phase8-offers-trades, `OfferExpiryScheduler` PT1H) |
 | `account-deletion` | `20 * * * *` | `POST /internal/jobs/account-deletion` | hourly (`AccountDeletionScheduler` PT1H, 7-day grace) |
 | `payments-auto-release` | `25 * * * *` | `POST /internal/jobs/payments-auto-release` | hourly (phase9-payments, `AutoReleaseScheduler` PT1H) |
-| `credits-reconcile` | `35 * * * *` | `POST /internal/jobs/credits-reconcile` | hourly (`CreditReconcileScheduler` PT1H) |
-| `subscriptions-period` | `40 * * * *` | `POST /internal/jobs/subscriptions-period` | hourly (`SubscriptionPeriodScheduler` PT1H) |
 | `upload-cleanup` | `2/15 * * * *` | `POST /internal/jobs/upload-cleanup` | every 15 min (`UploadCleanupScheduler` PT15M) |
 | `delist` | `30 5 * * *` | `POST /internal/jobs/delist` | daily (phase3-inventory, `DelistScheduler` P1D) |
 | `card-images-reconcile` | `45 4 * * *` | `POST /internal/jobs/card-images/reconcile` | no documented cadence; daily chosen (idempotent, also runs at start-up) |
@@ -28,8 +26,13 @@ Not scheduled on purpose (one-off, admin or probe endpoints; a validation refuse
 (`npm run catalog:import`), `GET /internal/jobs/card-images/status`,
 `POST /internal/jobs/card-images/clear` (destructive).
 
+Not scheduled either: `POST /internal/jobs/inventory-import-purge` (expired inventory import
+previews, stage S5). The API runs that job after every `freshness` job, so the hourly `freshness`
+entry above covers it and the module still has 7 jobs; the route exists for a run on request.
+
 Cloud Scheduler pricing: 3 jobs free per billing account, then US$0.10 per job per month
-(10 jobs here, about US$0.70/month).
+(7 jobs here since stage F1 removed `credits-reconcile` and `subscriptions-period`, about
+US$0.40/month).
 
 | Input | Default | Notes |
 | --- | --- | --- |

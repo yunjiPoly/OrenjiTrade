@@ -32,7 +32,7 @@ import {
   CARD_ID,
   PRINTING_A,
   locationFixture,
-  planFixture,
+  limitsFixture,
   printingFixture,
   wishFixture,
 } from '../support/fixtures';
@@ -152,7 +152,7 @@ describe('wish form', () => {
       })
     );
     expect(full.message).toBe(
-      'Your wishlist is full: your plan allows 20 wishes. Remove one or upgrade to add more.'
+      'Your wishlist is full: it holds up to 20 wishes. Remove one to add another.'
     );
     const conflict = wishSaveError(
       new ApiError({ status: 409, errorCode: 'CONFLICT', message: '' })
@@ -318,14 +318,13 @@ describe('wishlist labels', () => {
     );
   });
 
-  it('knows when alerts can arrive (a location) and reads the plan usage', () => {
+  it('knows when alerts can arrive (a location) and reads how many wishes fit', () => {
     expect(alertReadiness(undefined)).toBe('unknown');
     expect(alertReadiness(locationFixture({ location: undefined }))).toBe('no-location');
     expect(alertReadiness(locationFixture())).toBe('ready');
-    expect(wishUsage(planFixture())).toBeNull();
+    expect(wishUsage(limitsFixture())).toBeNull();
     expect(
       wishUsage({
-        plan: { code: 'FREE', name: 'Free' },
         limits: [
           {
             key: 'wishlist.items.max',
@@ -337,6 +336,6 @@ describe('wishlist labels', () => {
           },
         ],
       })
-    ).toEqual({ used: 3, limit: 20, planName: 'Free' });
+    ).toEqual({ used: 3, limit: 20 });
   });
 });

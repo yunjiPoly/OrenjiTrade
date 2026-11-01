@@ -1,0 +1,12 @@
+# After a sheet closes over a form, before a tap on the form's button: no keyboard over it. The
+# form's field lets go of the keyboard when the sheet opens (the card picker of a binder), so iOS
+# has nothing to give it back to when the sheet leaves; if a keyboard is up all the same, it is put
+# away the way a collector does it (hide-keyboard.yaml), so the tap never lands on its keys (stage
+# R5 review, F2: "Create binder" typed a space once in a full run).
+appId: ${APP_ID}
+---
+- runFlow:
+    when:
+      visible:
+        id: 'UIKeyboardLayoutStar.*'
+    file: hide-keyboard.yaml

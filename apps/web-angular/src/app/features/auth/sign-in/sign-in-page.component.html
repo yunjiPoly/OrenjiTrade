@@ -1,88 +1,99 @@
 <app-auth-layout
-  heading="Welcome back"
-  subheading="Sign in to see collectors and binders of your region."
+  heading="Sign in to OrenjiTrade"
+  hideHeading
+  lead="Find collectors in your region who own, trade or want the cards you care about."
+  closable
+  [returnUrl]="returnUrl()"
 >
   @if (!auth.available()) {
     <div class="form__alert form__alert--info" role="status">
-      <mat-icon aria-hidden="true">info</mat-icon>
+      <app-shell-icon name="info" [size]="18" />
       <p>Sign-in is not configured for this environment yet.</p>
     </div>
   }
 
   @if (error(); as message) {
     <div class="form__alert" role="alert">
-      <mat-icon aria-hidden="true">error</mat-icon>
+      <app-shell-icon name="alert" [size]="18" />
       <p>{{ message }}</p>
     </div>
   }
 
   <form class="form" [formGroup]="form" (ngSubmit)="submit()" novalidate aria-label="Sign in">
-    <mat-form-field class="form__field" appearance="outline">
-      <mat-label>Email</mat-label>
-      <input matInput type="email" formControlName="email" autocomplete="email" required />
-      <mat-icon matPrefix aria-hidden="true">mail</mat-icon>
-      @if (form.controls.email.hasError('required')) {
-        <mat-error>Enter your email address.</mat-error>
-      } @else if (form.controls.email.hasError('email')) {
-        <mat-error>That email address does not look right.</mat-error>
-      }
-    </mat-form-field>
-
-    <mat-form-field class="form__field" appearance="outline">
-      <mat-label>Password</mat-label>
+    <div class="field field--sign-in field--first">
+      <label class="field__label" for="si-email">Email</label>
       <input
-        matInput
-        [type]="hidePassword() ? 'password' : 'text'"
-        formControlName="password"
-        autocomplete="current-password"
+        id="si-email"
+        class="field__input"
+        type="email"
+        formControlName="email"
+        autocomplete="email"
         required
+        [attr.aria-invalid]="shows('email') ? 'true' : null"
+        [attr.aria-describedby]="shows('email') ? 'si-email-error' : null"
       />
-      <mat-icon matPrefix aria-hidden="true">lock</mat-icon>
-      <button
-        matIconButton
-        matSuffix
-        type="button"
-        [attr.aria-label]="hidePassword() ? 'Show password' : 'Hide password'"
-        [attr.aria-pressed]="!hidePassword()"
-        (click)="hidePassword.set(!hidePassword())"
-      >
-        <mat-icon>{{ hidePassword() ? 'visibility' : 'visibility_off' }}</mat-icon>
-      </button>
-      @if (form.controls.password.hasError('required')) {
-        <mat-error>Enter your password.</mat-error>
+      @if (shows('email')) {
+        <p class="field__error" id="si-email-error">
+          {{
+            form.controls.email.hasError('required')
+              ? 'Enter your email address.'
+              : 'That email address does not look right.'
+          }}
+        </p>
       }
-    </mat-form-field>
-
-    <div class="form__row form__row--end">
-      <a
-        routerLink="/auth/reset-password"
-        [queryParams]="{ email: form.controls.email.value || null }"
-      >
-        Forgot password?
-      </a>
     </div>
 
-    <button
-      matButton="filled"
-      type="submit"
-      class="form__submit"
-      [disabled]="submitting() || !auth.available()"
-    >
-      @if (submitting()) {
-        <mat-spinner class="form__spinner" diameter="18" aria-hidden="true" />
-        Signing in…
-      } @else {
-        Sign in
+    <div class="field field--sign-in">
+      <label class="field__label" for="si-password">Password</label>
+      <div class="field__wrap">
+        <input
+          id="si-password"
+          [type]="hidePassword() ? 'password' : 'text'"
+          formControlName="password"
+          autocomplete="current-password"
+          required
+          [attr.aria-invalid]="shows('password') ? 'true' : null"
+          [attr.aria-describedby]="shows('password') ? 'si-password-error' : null"
+        />
+        <button
+          type="button"
+          class="field__toggle"
+          [attr.aria-label]="hidePassword() ? 'Show password' : 'Hide password'"
+          (click)="hidePassword.set(!hidePassword())"
+        >
+          <app-shell-icon [name]="hidePassword() ? 'eye' : 'eyeOff'" [size]="18" />
+          {{ hidePassword() ? 'Show' : 'Hide' }}
+        </button>
+      </div>
+      @if (shows('password')) {
+        <p class="field__error" id="si-password-error">Enter your password.</p>
       }
+    </div>
+
+    <a
+      class="link link--forgot"
+      routerLink="/auth/reset-password"
+      [queryParams]="{ returnUrl: returnUrl() ?? null }"
+      [state]="{ email: form.controls.email.value || null }"
+    >
+      Forgot your password?
+    </a>
+
+    <button
+      type="submit"
+      class="btn btn--primary btn--sign-in"
+      [attr.aria-disabled]="submitting() || !auth.available() ? 'true' : null"
+    >
+      {{ submitting() ? 'Signing in…' : 'Sign in' }}
     </button>
   </form>
 
-  <p class="form__divider">or</p>
+  <p class="divider">or</p>
   <app-google-button [busy]="googleBusy()" [disabled]="!auth.available()" (pressed)="google()" />
 
-  <p class="form__footer">
+  <p class="foot">
     New to OrenjiTrade?
-    <a routerLink="/auth/sign-up" [queryParams]="{ returnUrl: returnUrl() ?? null }">
+    <a class="link" routerLink="/auth/sign-up" [queryParams]="{ returnUrl: returnUrl() ?? null }">
       Create an account
     </a>
   </p>

@@ -7,6 +7,7 @@
  * https://openapi-generator.tech
  * Do not edit the class manually.
  */
+import { UpdateProfileTagsRequest } from './updateProfileTagsRequest';
 
 
 export interface UpdateProfileRequest { 
@@ -18,5 +19,9 @@ export interface UpdateProfileRequest {
     bio?: string | null;
     games?: Array<string>;
     languages?: Array<string>;
+    /**
+     * Stage R13, optional: the profile tags, saved together with the other fields (all or nothing; the rules of PUT /me/profile/tags). Left out or null: the tags stay as they are.
+     */
+    tags?: UpdateProfileTagsRequest;
 }
 

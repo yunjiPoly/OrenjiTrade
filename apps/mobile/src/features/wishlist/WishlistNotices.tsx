@@ -1,10 +1,10 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import type { MyLocationResponse, MyPlan } from '@/src/api/types';
+import type { MyLimits, MyLocationResponse } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
-import { SwitchRow } from '@/src/components/ui/FormControls';
+import { Text } from '@/src/components/ui/Text';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 import { WISH_ITEMS_LIMIT_KEY } from './wishForm';
@@ -23,18 +23,15 @@ export function alertReadiness(location: MyLocationResponse | null | undefined):
   return location.location ? 'ready' : 'no-location';
 }
 
-/** The plan's `wishlist.items.max` for the usage line (`limit: null` = unlimited). */
+/** `wishlist.items.max` for the usage line (`limit: null` = unlimited; the same for everyone). */
 export interface WishUsage {
   used: number;
   limit: number | null;
-  planName: string | null;
 }
 
-export function wishUsage(plan: MyPlan | undefined): WishUsage | null {
-  const status = plan?.limits?.find((entry) => entry.key === WISH_ITEMS_LIMIT_KEY);
-  return status
-    ? { used: status.used ?? 0, limit: status.limit ?? null, planName: plan?.plan?.name ?? null }
-    : null;
+export function wishUsage(limits: MyLimits | undefined): WishUsage | null {
+  const status = limits?.limits?.find((entry) => entry.key === WISH_ITEMS_LIMIT_KEY);
+  return status ? { used: status.used ?? 0, limit: status.limit ?? null } : null;
 }
 
 /** Without a location no wishlist alert can arrive: says so, with the fix. */
@@ -70,68 +67,9 @@ export function AlertReadinessNotice({ readiness }: { readiness: AlertReadiness 
   );
 }
 
-/** "Let others see what you want": the `wishlistVisible` privacy setting, explained. */
-export function WishlistVisibilityRow({
-  visible,
-  onChange,
-  disabled,
-  alertsPossible = true,
-}: {
-  visible: boolean;
-  onChange: (visible: boolean) => void;
-  disabled?: boolean;
-  /** `false` while the collector has no location: no alert can arrive, so none is promised. */
-  alertsPossible?: boolean;
-}) {
-  const { palette } = useTheme();
-  return (
-    <View
-      testID="wishlist-visibility"
-      style={[styles.summary, { backgroundColor: palette.surface, borderColor: palette.border }]}
-    >
-      <SwitchRow
-        label="Let others see what you want"
-        help={`Collectors who own these cards can find you on your profile and offer them.${alertsPossible ? ' Your wishlist alerts work either way.' : ''}`}
-        value={visible}
-        onChange={onChange}
-        disabled={disabled}
-        testID="wishlist-visible"
-      />
-    </View>
-  );
-}
-
-/** The wishlist at a glance: the number of wishes and the plan usage. */
-export function WishlistSummary({ count, usage }: { count: number; usage: WishUsage | null }) {
-  const { palette } = useTheme();
-  return (
-    <View
-      testID="wishlist-summary"
-      accessibilityLabel={`Wishlist summary: ${count} ${count === 1 ? 'wish' : 'wishes'}`}
-      style={[styles.summary, { backgroundColor: palette.surface, borderColor: palette.border }]}
-    >
-      <Text
-        testID="wishlist-count"
-        style={[textStyle('md'), styles.strong, { color: palette.ink }]}
-      >
-        {count} {count === 1 ? 'wish' : 'wishes'}
-      </Text>
-      {usage ? (
-        <Text testID="wishlist-usage" style={[textStyle('xs'), { color: palette.textMuted }]}>
-          {usage.limit !== null
-            ? `${usage.used} of ${usage.limit} wishes`
-            : `${usage.used} wishes · unlimited`}
-          {usage.planName ? ` · ${usage.planName} plan` : ''}
-        </Text>
-      ) : null}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   notice: { gap: spacing[2], padding: spacing[3], borderRadius: radius.lg, borderWidth: 1 },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   grow: { flex: 1 },
   strong: { fontWeight: fontWeight.semibold },
-  summary: { gap: spacing[2], padding: spacing[3], borderRadius: radius.lg, borderWidth: 1 },
 });

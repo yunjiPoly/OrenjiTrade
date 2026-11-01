@@ -533,7 +533,7 @@ export class CatalogService extends BaseService implements CatalogServiceInterfa
 
     /**
      * Search cards (public)
-     * Full-text search on name, type and text (accent-insensitive, &#x60;simple&#x60; config) ranked with ts_rank_cd, plus trigram typo tolerance when fewer than 5 rows match. An exact printing code (&#x60;AZR-EN001&#x60;) returns that card only. Filters: &#x60;game&#x60;, &#x60;set&#x60; (id or code), printing &#x60;rarity&#x60;, &#x60;language&#x60;, &#x60;edition&#x60;, and &#x60;metadata.&lt;key&gt;&#x3D;&lt;value&gt;&#x60; for the game\&#39;s filterable GameSchema fields (requires &#x60;game&#x60;; number, string, string_list and boolean fields; repeat a string_list key to require several values). Without &#x60;query&#x60;: by name. &#x60;metadata&#x60; in the results holds the game\&#39;s summary fields.
+     * Full-text search on name, type and text (accent-insensitive, &#x60;simple&#x60; config) ranked with ts_rank_cd, plus trigram typo tolerance when fewer than 5 rows match. An exact printing code (&#x60;AZR-EN001&#x60;; typed as printed, a space for the dash and a padded number also read: &#x60;ZTK 0012&#x60; also reads as &#x60;ZTK-12&#x60;) returns that card only. Filters: &#x60;game&#x60;, &#x60;set&#x60; (id or code), printing &#x60;rarity&#x60;, &#x60;language&#x60;, &#x60;edition&#x60;, and &#x60;metadata.&lt;key&gt;&#x3D;&lt;value&gt;&#x60; for the game\&#39;s filterable GameSchema fields (requires &#x60;game&#x60;; number, string, string_list and boolean fields; repeat a string_list key to require several values). Without &#x60;query&#x60;: by name. &#x60;metadata&#x60; in the results holds the game\&#39;s summary fields.
      * @endpoint get /api/v1/cards
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -671,7 +671,7 @@ export class CatalogService extends BaseService implements CatalogServiceInterfa
 
     /**
      * Autocomplete cards and printing codes (public)
-     * Printing-code prefixes (&#x60;AZR-EN0&#x60;) first (kind PRINTING), then cards by name: prefix, substring, full text, trigram (kind CARD).
+     * Printing-code prefixes (&#x60;AZR-EN0&#x60;; a space reads as the dash) first (kind PRINTING), then cards by name: prefix, substring, full text, trigram (kind CARD). Only when no code starts as typed does a padded number read without its zeros, as the whole number: &#x60;ZTK 0012&#x60; lists &#x60;ZTK-12&#x60; (and &#x60;ZTK-12P&#x60;), never &#x60;ZTK-120&#x60;; &#x60;ZSK 001&#x60; lists &#x60;ZSK-001&#x60; alone when the catalogue holds it. Each printing is listed once.
      * @endpoint get /api/v1/cards/suggest
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.

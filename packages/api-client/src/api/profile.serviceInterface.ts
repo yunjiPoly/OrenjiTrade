@@ -12,6 +12,7 @@ import { HttpHeaders }                                       from '@angular/comm
 import { Observable }                                        from 'rxjs';
 
 import { AvatarResponse } from '../model/models';
+import { HandleAvailabilityResponse } from '../model/models';
 import { MyProfileResponse } from '../model/models';
 import { ProblemDetail } from '../model/models';
 import { TagResponse } from '../model/models';
@@ -21,6 +22,10 @@ import { UpdateProfileTagsRequest } from '../model/models';
 
 import { Configuration }                                     from '../configuration';
 
+
+export interface GetHandleAvailabilityRequestParams {
+    handle: string;
+}
 
 export interface SearchTagsRequestParams {
     query?: string;
@@ -53,6 +58,14 @@ export interface ProfileServiceInterface {
     deleteMyAvatar(extraHttpRequestParams?: any): Observable<{}>;
 
     /**
+     * Whether the caller could save a handle
+     * Stage R12: the welcome step checks the handle while the collector types. The save\&#39;s own rules (trimmed and lower-cased, 3-24 characters [a-z0-9_], unique case-insensitively, reserved words refused), nothing saved. A reserved handle reads TAKEN, as the save says. The caller\&#39;s own handle is CURRENT. Members only; rate-limited (60 per 10 minutes). The save (PUT /me/profile) still decides.
+     * @endpoint get /api/v1/me/profile/handle-availability
+* @param requestParameters
+     */
+    getHandleAvailability(requestParameters: GetHandleAvailabilityRequestParams, extraHttpRequestParams?: any): Observable<HandleAvailabilityResponse>;
+
+    /**
      * The caller\&#39;s profile
      * Returns defaults derived from the account (handle, display name) until the profile is saved for the first time.
      * @endpoint get /api/v1/me/profile
@@ -69,7 +82,7 @@ export interface ProfileServiceInterface {
 
     /**
      * Save the caller\&#39;s profile
-     * Full replacement of handle, display name, bio, games and languages. 400 for unknown games (yugioh, pokemon, mtg, riftbound), non ISO 639-1 languages or blocked terms; 409 HANDLE_TAKEN when the handle is used (case-insensitive) or reserved. The first save completes the &#x60;profileComplete&#x60; onboarding step.
+     * Full replacement of handle, display name, bio, games and languages. 400 for unknown games (yugioh, pokemon, mtg, riftbound), non ISO 639-1 languages or blocked terms; 409 HANDLE_TAKEN when the handle is used (case-insensitive) or reserved. The first save completes the &#x60;profileComplete&#x60; onboarding step. Stage R13: an optional &#x60;tags&#x60; object replaces the profile tags in the same transaction (the rules of PUT /me/profile/tags); a refused tag saves nothing.
      * @endpoint put /api/v1/me/profile
 * @param requestParameters
      */

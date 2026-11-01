@@ -14,7 +14,7 @@ import type { PrintingSelection } from '../catalog/printing-picker/printing-sele
  * language or condition.
  */
 export const WISH_NOTE_MAX = 280;
-/** The plan limit on the number of wishes. */
+/** The usage limit on the number of wishes (the same for every collector). */
 export const WISH_ITEMS_LIMIT_KEY = 'wishlist.items.max';
 
 export interface WishFormValue {

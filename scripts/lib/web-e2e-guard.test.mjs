@@ -195,6 +195,17 @@ describe('E2E API database, Redis, ports and providers', () => {
     assert.ok(
       isolationProblems(safeEnv({ YGOPRODECK_API_BASE_URL: 'https://db.ygoprodeck.com/api/v7/' }), { workDir, devDirs }).length > 0,
     );
+    assert.ok(isolationProblems(safeEnv({ SCRYFALL_ENABLED: 'true' }), { workDir, devDirs }).length > 0);
+    assert.ok(isolationProblems(safeEnv({ TCGDEX_ENABLED: 'true' }), { workDir, devDirs }).length > 0);
+    assert.ok(
+      isolationProblems(safeEnv({ SCRYFALL_API_BASE_URL: 'https://api.scryfall.com/' }), { workDir, devDirs }).length > 0,
+    );
+    assert.ok(
+      isolationProblems(safeEnv({ TCGDEX_REPOSITORY_API_URL: 'https://api.github.com/repos/tcgdex/cards-database/' }), {
+        workDir,
+        devDirs,
+      }).length > 0,
+    );
   });
 
   it('only ever recreates the E2E database', () => {
@@ -219,6 +230,13 @@ describe('E2E API database, Redis, ports and providers', () => {
     assert.equal(env.DATABASE_URL, 'jdbc:postgresql://localhost:5432/orenjitrade_e2e');
     assert.equal(env.REDIS_URL, 'redis://localhost:6379/2');
     assert.equal(env.CORS_ALLOWED_ORIGINS, 'http://localhost:4300');
+    // One address for every worker: the anonymous budgets of a single visitor are not enough.
+    assert.equal(env.RATE_LIMIT_ANONYMOUS_PER_MINUTE, '600');
+    // The deck import of web WB: the fictional passcodes, never a provider.
+    assert.equal(env.SEED_IMPORT_FIXTURES, 'true');
+    assert.equal(env.RATE_LIMIT_GUEST_DISCOVERY_PER_10S, '1000');
+    // A spec file's collector serves every test of one worker: the per-user budget is raised too.
+    assert.equal(env.RATE_LIMIT_DEFAULT_PER_MINUTE, '1200');
   });
 });
 

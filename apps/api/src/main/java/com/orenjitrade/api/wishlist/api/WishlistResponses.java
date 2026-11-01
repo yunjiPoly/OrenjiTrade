@@ -82,9 +82,15 @@ public final class WishlistResponses {
             @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
                     @Nullable PriceTermResponse priceTerm,
             @Schema(requiredMode = RequiredMode.REQUIRED) Instant createdAt,
-            @Schema(requiredMode = RequiredMode.REQUIRED) Instant updatedAt) {
+            @Schema(requiredMode = RequiredMode.REQUIRED) Instant updatedAt,
+            @Schema(
+                            description =
+                                    "At least one public holder of the caller's home region has"
+                                            + " a copy that fits (stage R5; always sent; GET"
+                                            + " /wishlist/availability answers for any region)")
+                    boolean available) {
 
-        static WishlistItemResponse from(WishlistItemView view) {
+        static WishlistItemResponse from(WishlistItemView view, boolean available) {
             WishlistItemRow row = view.row();
             return new WishlistItemResponse(
                     row.id(),
@@ -96,9 +102,21 @@ public final class WishlistResponses {
                     row.nearMintOnly(),
                     PriceTermResponse.of(row.priceTerm()),
                     row.createdAt(),
-                    row.updatedAt());
+                    row.updatedAt(),
+                    available);
         }
     }
+
+    /** {@code GET /wishlist/availability}. */
+    @Schema(
+            name = "WishlistAvailability",
+            description = "The caller's wishes a public holder of the region has right now")
+    public record WishlistAvailabilityResponse(
+            @Schema(requiredMode = RequiredMode.REQUIRED, example = "americas-north") String region,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            description = "Ids of the available wishes, newest wish first")
+                    List<UUID> available) {}
 
     /** One entry of a collector's public wishlist. */
     @Schema(
@@ -149,11 +167,25 @@ public final class WishlistResponses {
             @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
                     @Nullable UUID updatedBy,
             @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
-                    @Nullable Instant updatedAt) {
+                    @Nullable Instant updatedAt,
+            @Schema(nullable = true, description = "The last editor's handle (spec 15.8)")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable String updatedByHandle,
+            @Schema(nullable = true, description = "The last editor's display name")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable String updatedByName) {
 
-        static SettingsResponse from(WishlistSettings.Values values) {
+        static SettingsResponse from(
+                WishlistSettings.Values values,
+                com.orenjitrade.api.auth.domain.AccountNames names) {
+            com.orenjitrade.api.auth.domain.AccountNames.@Nullable AccountName editor =
+                    names.nameOf(values.updatedBy()).orElse(null);
             return new SettingsResponse(
-                    values.priceTerms(), values.updatedBy(), values.updatedAt());
+                    values.priceTerms(),
+                    values.updatedBy(),
+                    values.updatedAt(),
+                    editor == null ? null : editor.handle(),
+                    editor == null ? null : editor.displayName());
         }
     }
 }

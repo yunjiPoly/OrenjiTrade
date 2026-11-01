@@ -484,6 +484,24 @@ public class CatalogWriteRepository {
         return ids;
     }
 
+    /** Own image of every printing of a game that has one. */
+    public Map<UUID, UUID> printingImageIds(UUID gameId) {
+        Map<UUID, UUID> ids = new HashMap<>();
+        jdbc.sql(
+                        """
+                        SELECT p.id, p.image_id FROM card_printing p JOIN card c ON c.id = p.card_id
+                         WHERE c.game_id = :gameId AND p.image_id IS NOT NULL
+                        """)
+                .param("gameId", gameId)
+                .query(
+                        rs -> {
+                            ids.put(
+                                    rs.getObject("id", UUID.class),
+                                    rs.getObject("image_id", UUID.class));
+                        });
+        return ids;
+    }
+
     /** Primary image of every card of a game that has one. */
     public Map<UUID, UUID> cardImageIds(UUID gameId) {
         Map<UUID, UUID> ids = new HashMap<>();
@@ -746,6 +764,29 @@ public class CatalogWriteRepository {
                         .toArray(MapSqlParameterSource[]::new));
     }
 
+    /**
+     * Points printings at their own provider artwork (a card-level {@code card_image} row of the
+     * printing's card); returns the changed-row count per input row.
+     */
+    public int[] linkPrintingImages(List<PrintingImageLink> rows, Instant now) {
+        if (rows.isEmpty()) {
+            return new int[0];
+        }
+        return named.batchUpdate(
+                """
+                UPDATE card_printing SET image_id = CAST(:imageId AS uuid), updated_at = :now
+                 WHERE id = :printingId AND image_id IS DISTINCT FROM CAST(:imageId AS uuid)
+                """,
+                rows.stream()
+                        .map(
+                                row ->
+                                        new MapSqlParameterSource()
+                                                .addValue("printingId", row.printingId())
+                                                .addValue("imageId", row.imageId(), Types.OTHER)
+                                                .addValue("now", Timestamp.from(now)))
+                        .toArray(MapSqlParameterSource[]::new));
+    }
+
     /** Sums batch update counts (JDBC may report SUCCESS_NO_INFO as -2: counted as changed). */
     public static int changed(int[] counts) {
         int total = 0;
@@ -831,4 +872,7 @@ public class CatalogWriteRepository {
 
     /** {@code card.image_id} of a card. */
     public record CardImageLink(UUID cardId, @Nullable UUID imageId) {}
+
+    /** {@code card_printing.image_id} of a printing: its own provider artwork. */
+    public record PrintingImageLink(UUID printingId, UUID imageId) {}
 }

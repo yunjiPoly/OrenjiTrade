@@ -1,0 +1,331 @@
+<app-drawer-frame
+  titleId="add-cards-title"
+  [modal]="modal()"
+  (closeRequest)="closed.emit()"
+  (keydown)="onKey($event)"
+>
+  <div drawerHead class="hd">
+    <div class="hd__bar">
+      <h2 id="add-cards-title" class="hd__title">Add cards</h2>
+      <span class="hd__actions">
+        <kbd aria-hidden="true" title="Shortcut: n">n</kbd>
+        <button matIconButton type="button" aria-label="Close" (click)="closed.emit()">
+          <mat-icon>close</mat-icon>
+        </button>
+      </span>
+    </div>
+    <ol class="steps" aria-label="Steps">
+      <li
+        [class.steps--on]="step() === 'search'"
+        [attr.aria-current]="step() === 'search' ? 'step' : null"
+      >
+        <span class="steps__n">1</span> Card
+      </li>
+      <li class="steps__line" aria-hidden="true"></li>
+      <li
+        [class.steps--on]="step() === 'printing'"
+        [attr.aria-current]="step() === 'printing' ? 'step' : null"
+      >
+        <span class="steps__n">2</span> Printing
+      </li>
+      <li class="steps__line" aria-hidden="true"></li>
+      <li
+        [class.steps--on]="step() === 'details'"
+        [attr.aria-current]="step() === 'details' ? 'step' : null"
+      >
+        <span class="steps__n">3</span> Details
+      </li>
+    </ol>
+  </div>
+
+  @switch (step()) {
+    @case ('search') {
+      <div class="search">
+        <span class="search__field">
+          <mat-icon aria-hidden="true">search</mat-icon>
+          <input
+            #field
+            type="text"
+            role="combobox"
+            autocomplete="off"
+            aria-label="Card name or code"
+            aria-autocomplete="list"
+            aria-controls="add-options"
+            [attr.aria-expanded]="options().length > 0"
+            [attr.aria-activedescendant]="options().length ? optionId(active()) : null"
+            aria-describedby="add-search-hint"
+            placeholder="Card name or code, like LOB-EN001"
+            [value]="query()"
+            (input)="onType($event)"
+            (keydown)="onFieldKey($event)"
+            data-testid="add-search"
+          />
+          @if (query()) {
+            <button type="button" class="search__clear" aria-label="Clear" (click)="clear()">
+              <mat-icon aria-hidden="true">close</mat-icon>
+            </button>
+          }
+        </span>
+        <p id="add-search-hint" class="hint">
+          The fastest way to add one card. You pick the printing next.
+        </p>
+      </div>
+
+      @if (status() === 'loading' && options().length === 0) {
+        <p class="hint" role="status">Searching…</p>
+      }
+      <div id="add-options" role="listbox" aria-label="Cards and printings" class="results">
+        @if (cards().length) {
+          <p class="label" aria-hidden="true">Cards</p>
+          @for (suggestion of cards(); track suggestion.id; let i = $index) {
+            @let p = parts(suggestion.name);
+            <div
+              class="opt"
+              role="option"
+              [id]="optionId(i)"
+              [class.opt--active]="active() === i"
+              [attr.aria-selected]="active() === i"
+              tabindex="-1"
+              (mousedown)="$event.preventDefault()"
+              (click)="pick(suggestion)"
+              (keydown.enter)="pick(suggestion)"
+            >
+              <app-card-image
+                class="opt__art"
+                size="fill"
+                [src]="suggestion.imageUrl"
+                [game]="suggestion.game"
+                alt=""
+              />
+              <span class="opt__text">
+                <span class="opt__name"
+                  >{{ p.before }}<mark>{{ p.match }}</mark
+                  >{{ p.after }}</span
+                >
+                <span class="opt__meta">
+                  <app-game-monogram [game]="suggestion.game ?? ''" size="16" />
+                  {{ gameLabel(suggestion.game) }}
+                  @if (suggestion.printingCount) {
+                    · {{ suggestion.printingCount }}
+                    {{ suggestion.printingCount === 1 ? 'printing' : 'printings' }}
+                  }
+                  @if (ownedCards().has(suggestion.id ?? '')) {
+                    <span class="opt__own">In your inventory</span>
+                  }
+                </span>
+              </span>
+              <mat-icon class="opt__chev" aria-hidden="true">chevron_right</mat-icon>
+            </div>
+          }
+        }
+        @if (printings().length) {
+          <p class="label" aria-hidden="true">Exact printings</p>
+          @for (suggestion of printings(); track suggestion.printingId; let i = $index) {
+            <div
+              class="opt opt--printing"
+              role="option"
+              [id]="optionId(cards().length + i)"
+              [class.opt--active]="active() === cards().length + i"
+              [attr.aria-selected]="active() === cards().length + i"
+              tabindex="-1"
+              (mousedown)="$event.preventDefault()"
+              (click)="pick(suggestion)"
+              (keydown.enter)="pick(suggestion)"
+            >
+              <span class="opt__text">
+                <span class="mono opt__code">{{ suggestion.printingCode }}</span>
+                <span class="opt__meta">{{ suggestion.setName }}</span>
+                @if (suggestionVariant(suggestion); as v) {
+                  <strong class="opt__variant">{{ v }}</strong>
+                }
+              </span>
+              @if (suggestion.rarity) {
+                <span class="opt__rarity">{{ suggestion.rarity }}</span>
+              }
+            </div>
+          }
+        }
+      </div>
+      @if (status() === 'results') {
+        <p class="tip">
+          <mat-icon aria-hidden="true">info</mat-icon>
+          Click a card to pick its printing, or an exact printing to go straight to the details.
+        </p>
+      } @else if (status() === 'empty') {
+        <p class="tip" role="status">
+          No card matches “{{ query().trim() }}”. Try fewer letters, or the code printed on the
+          card, like LAVD-EN008.
+        </p>
+      } @else if (status() === 'error') {
+        <p class="tip tip--error" role="alert">
+          Cards could not load. Check your connection and type again.
+        </p>
+      }
+
+      @if (!query().trim()) {
+        <app-add-many (choose)="many.emit($event)" />
+      }
+    }
+
+    @case ('printing') {
+      @if (cardError(); as message) {
+        <div class="state" role="alert">
+          <p>This card could not load. {{ message }}</p>
+          <button matButton="outlined" type="button" (click)="retryCard()">Try again</button>
+        </div>
+      } @else if (card(); as c) {
+        <button type="button" class="back" (click)="back()">
+          <mat-icon aria-hidden="true">arrow_back</mat-icon> Back to the search
+        </button>
+        <h3 class="pick-title" tabindex="-1" data-step-focus>{{ c.name }}</h3>
+        <p class="hint">
+          {{ cardPrintings().length }}
+          {{ cardPrintings().length === 1 ? 'printing' : 'printings' }}. Pick the one on your card.
+        </p>
+        <label class="search__field search__field--sm">
+          <mat-icon aria-hidden="true">filter_list</mat-icon>
+          <span class="visually-hidden">Filter printings</span>
+          <input
+            type="text"
+            placeholder="Set code or set name"
+            [value]="filter()"
+            (input)="filter.set($any($event.target).value)"
+          />
+        </label>
+        @if (rarities().length > 1) {
+          <div class="chips" role="group" aria-label="Rarity">
+            <button
+              type="button"
+              class="chip"
+              [attr.aria-pressed]="rarity() === ''"
+              (click)="rarity.set('')"
+            >
+              All
+            </button>
+            @for (r of rarities(); track r) {
+              <button
+                type="button"
+                class="chip"
+                [attr.aria-pressed]="rarity() === r"
+                (click)="rarity.set(r)"
+              >
+                {{ r }}
+              </button>
+            }
+          </div>
+        }
+        <ul class="printings" aria-label="Printings">
+          @for (p of shownPrintings(); track p.id) {
+            <li>
+              <button type="button" class="prow" (click)="choosePrinting(p)">
+                <app-card-image
+                  class="opt__art"
+                  size="fill"
+                  [src]="image(p)"
+                  [game]="c.game"
+                  alt=""
+                />
+                <span class="opt__text">
+                  <span class="mono opt__code">{{ code(p) }}</span>
+                  <span class="opt__meta"
+                    >{{ p.setName }}
+                    @if (year(p); as y) {
+                      · {{ y }}
+                    }
+                  </span>
+                  @if (variant(p); as v) {
+                    <strong class="opt__variant">{{ v }}</strong>
+                  }
+                </span>
+                @if (p.rarity) {
+                  <span class="opt__rarity">{{ p.rarity }}</span>
+                }
+              </button>
+            </li>
+          } @empty {
+            <li class="hint">No printing matches. Try another set code or name.</li>
+          }
+        </ul>
+      } @else {
+        <div class="state" aria-busy="true">
+          <span class="visually-hidden">Loading the card</span>
+        </div>
+      }
+    }
+
+    @case ('details') {
+      @if (card(); as c) {
+        @if (printing(); as p) {
+          <button type="button" class="back" (click)="back()">
+            <mat-icon aria-hidden="true">arrow_back</mat-icon>
+            {{ cardPrintings().length > 1 ? 'Back to the printings' : 'Back to the search' }}
+          </button>
+          <div class="chosen">
+            <app-card-image
+              class="chosen__art"
+              size="fill"
+              [src]="image(p)"
+              [game]="c.game"
+              alt=""
+            />
+            <span class="opt__text">
+              <h3 class="chosen__name" tabindex="-1" data-step-focus>{{ c.name }}</h3>
+              <span class="opt__meta"
+                ><span class="mono">{{ code(p) }}</span> · {{ p.setName }}</span
+              >
+              @if (p.rarity || variant(p)) {
+                <span class="opt__meta">{{ rarityLine(p) }}</span>
+              }
+            </span>
+          </div>
+          <app-card-fields
+            prefix="add"
+            [value]="form()"
+            [errors]="errors()"
+            [game]="game()"
+            [binders]="store.binders() ?? []"
+            [regionName]="regionName()"
+            (valueChange)="change($event)"
+          />
+          <label class="keep">
+            <input
+              type="checkbox"
+              [checked]="keep()"
+              (change)="keep.set($any($event.target).checked)"
+            />
+            Keep these for the next card
+            <span class="keep__hint">(binder, who can see it, price mode)</span>
+          </label>
+          @if (error(); as message) {
+            <p class="error" role="alert">{{ message }}</p>
+          }
+          <button
+            matButton="filled"
+            type="button"
+            class="add"
+            [disabled]="saving()"
+            (click)="addToInventory()"
+            data-testid="add-submit"
+          >
+            {{ saving() ? 'Adding…' : 'Add to inventory' }}
+          </button>
+          <p class="hint hint--center">
+            Change any of this later by clicking the card in Inventory.
+          </p>
+        }
+      }
+    }
+  }
+
+  <ng-container drawerFoot>
+    <p class="foot">
+      <mat-icon aria-hidden="true">lock</mat-icon>
+      New cards start private. You choose what to publish.
+    </p>
+    @if (added() > 0) {
+      <button matButton="outlined" type="button" (click)="closed.emit()" data-testid="add-done">
+        Done
+      </button>
+    }
+  </ng-container>
+</app-drawer-frame>

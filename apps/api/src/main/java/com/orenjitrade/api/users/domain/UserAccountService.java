@@ -16,6 +16,7 @@ import com.orenjitrade.api.users.infra.LastActiveThrottle;
 import com.orenjitrade.api.users.infra.UserAccountProvisioner;
 import com.orenjitrade.api.users.infra.UserAccountRepository;
 import com.orenjitrade.api.users.infra.UserAccountSpecifications;
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -23,7 +24,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,9 +48,12 @@ public class UserAccountService {
     public static final String ACTION_HANDLE_CHANGE = "user.handle.change";
 
     static final int MAX_PROVISION_ATTEMPTS = 5;
-    static final int MAX_SEQUENTIAL_SUFFIXES = 25;
+    static final int MAX_HANDLE_DRAWS = 20;
 
     private static final Logger log = LoggerFactory.getLogger(UserAccountService.class);
+
+    /** Draws the random first handles: never derived from the e-mail (stage R12, review fix 2). */
+    private static final SecureRandom HANDLE_RANDOM = new SecureRandom();
 
     private final UserAccountRepository repository;
     private final UserAccountProvisioner provisioner;
@@ -83,9 +86,10 @@ public class UserAccountService {
 
     /**
      * Loads the account of a verified identity, provisioning it on the first call (role {@link
-     * Role#USER}, status {@link AccountStatus#ACTIVE}, handle derived from the email). Safe under
-     * concurrent first requests: the insert is {@code ON CONFLICT DO NOTHING} and the row is
-     * reloaded afterwards. Expired temporary suspensions are lifted here.
+     * Role#USER}, status {@link AccountStatus#ACTIVE}, a random first handle {@code collector_…}
+     * that reveals nothing of the email, see {@link HandleGenerator}). Safe under concurrent first
+     * requests: the insert is {@code ON CONFLICT DO NOTHING} and the row is reloaded afterwards.
+     * Expired temporary suspensions are lifted here.
      */
     public UserAccountSnapshot resolve(IdentityClaims claims) {
         Optional<UserAccountSnapshot> existing = loadAndRefresh(claims);
@@ -101,13 +105,19 @@ public class UserAccountService {
                                                 + claims.providerUid()));
     }
 
-    /** Persists {@code last_active_at} at most once per {@link LastActiveThrottle#WINDOW}. */
+    /**
+     * Persists {@code last_active_at} at most once per {@link LastActiveThrottle#WINDOW}; never for
+     * an account whose suspension is in force (its refused requests are no activity: the profile
+     * must not say "Active this week" while the phone sits on "Account suspended") nor for a
+     * deleted one.
+     */
     public void touchLastActive(UUID userId) {
         if (!lastActiveThrottle.shouldTouch(userId)) {
             return;
         }
         Instant now = timeProvider.now();
-        transaction.executeWithoutResult(status -> repository.touchLastActive(userId, now));
+        transaction.executeWithoutResult(
+                status -> repository.touchLastActive(userId, now, AccountStatus.SUSPENDED));
     }
 
     private Optional<UserAccountSnapshot> loadAndRefresh(IdentityClaims claims) {
@@ -124,7 +134,6 @@ public class UserAccountService {
                         // Anonymised: a stale token must never write personal data back.
                         return Optional.of(account.toSnapshot());
                     }
-                    account.syncIdentity(claims.email(), claims.emailVerified(), now);
                     if (account.isSuspensionExpiredAt(now)) {
                         account.unsuspend(now);
                         auditService.record(
@@ -136,14 +145,19 @@ public class UserAccountService {
                                 Map.of());
                         events.publishEvent(new UserUnsuspendedEvent(account.getId(), now));
                     }
+                    if (!account.isSuspendedAt(now)) {
+                        // A suspension leaves the login on (owner decision of 2026-10-28): the
+                        // account keeps the e-mail it was suspended with until the suspension
+                        // ends; the first request after it syncs the identity again.
+                        account.syncIdentity(claims.email(), claims.emailVerified(), now);
+                    }
                     return Optional.of(account.toSnapshot());
                 });
     }
 
     private void provision(IdentityClaims claims) {
-        String base = HandleGenerator.baseFrom(claims.email());
         for (int attempt = 1; attempt <= MAX_PROVISION_ATTEMPTS; attempt++) {
-            String handle = pickFreeHandle(base, attempt);
+            String handle = pickFreeHandle();
             try {
                 Boolean inserted =
                         transaction.execute(
@@ -182,29 +196,18 @@ public class UserAccountService {
     }
 
     /**
-     * The first free candidate: the base itself, then {@code base_2}, {@code base_3}, ...; after
-     * {@link #MAX_SEQUENTIAL_SUFFIXES} tries (or on retries after a race) a random numeric suffix.
+     * A random first handle no account holds ({@link HandleGenerator#random}); after {@link
+     * #MAX_HANDLE_DRAWS} taken draws, one more unchecked draw (the insert's unique index decides
+     * and {@link #provision} draws again on a collision).
      */
-    private String pickFreeHandle(String base, int attempt) {
-        if (attempt == 1 && isFree(base)) {
-            return base;
-        }
-        if (attempt == 1) {
-            for (int n = 2; n <= MAX_SEQUENTIAL_SUFFIXES; n++) {
-                String candidate = HandleGenerator.withSuffix(base, n);
-                if (isFree(candidate)) {
-                    return candidate;
-                }
-            }
-        }
-        for (int tries = 0; tries < 20; tries++) {
-            int random = ThreadLocalRandom.current().nextInt(1000, 1_000_000);
-            String candidate = HandleGenerator.withSuffix(base, random);
+    private String pickFreeHandle() {
+        for (int draw = 0; draw < MAX_HANDLE_DRAWS; draw++) {
+            String candidate = HandleGenerator.random(HANDLE_RANDOM);
             if (isFree(candidate)) {
                 return candidate;
             }
         }
-        return HandleGenerator.withSuffix(base, ThreadLocalRandom.current().nextInt(1_000_000));
+        return HandleGenerator.random(HANDLE_RANDOM);
     }
 
     private boolean isFree(String handle) {
@@ -226,15 +229,22 @@ public class UserAccountService {
     // Lookups
     // ---------------------------------------------------------------------------------------
 
+    /**
+     * Whether the caller could save {@code rawHandle} (stage R12): the rules of {@link
+     * #changeHandle} without saving anything. Input is trimmed and lower-cased; at most 64
+     * characters are read (a longer one is {@link HandleAvailability#INVALID} anyway).
+     */
+    @Transactional(readOnly = true)
+    public HandleAvailability handleAvailability(UUID userId, String rawHandle) {
+        String handle = HandleRules.normalise(rawHandle);
+        String current = load(userId).getHandle();
+        return HandleAvailability.of(
+                handle, current, () -> repository.existsByHandleIgnoreCaseAndIdNot(handle, userId));
+    }
+
     @Transactional(readOnly = true)
     public Optional<UserAccountSnapshot> findSnapshot(UUID userId) {
         return repository.findWithRolesById(userId).map(UserAccount::toSnapshot);
-    }
-
-    /** The plan code of an account ({@code user_account.plan_code}); empty for unknown ids. */
-    @Transactional(readOnly = true)
-    public Optional<String> findPlanCode(UUID userId) {
-        return repository.findPlanCodeById(userId);
     }
 
     /**
@@ -277,7 +287,7 @@ public class UserAccountService {
     }
 
     // ---------------------------------------------------------------------------------------
-    // Mutations (callers audit and disable the identity-provider user as appropriate)
+    // Mutations (callers audit; a ban also disables the identity-provider user)
     // ---------------------------------------------------------------------------------------
 
     @Transactional
@@ -292,7 +302,7 @@ public class UserAccountService {
     /**
      * Bans the account (Phase 7 report decision): a suspension without end plus the ban mark
      * ({@code banned_at}); an admin lifts both with {@link #unsuspend}. Callers audit and disable
-     * the identity-provider user.
+     * the identity-provider user (a plain suspension leaves it enabled).
      */
     @Transactional
     public UserAccountSnapshot ban(UUID userId, String reason) {
@@ -421,38 +431,6 @@ public class UserAccountService {
     public UserAccountSnapshot anonymise(UUID userId) {
         UserAccount account = load(userId);
         account.anonymise(timeProvider.now());
-        return account.toSnapshot();
-    }
-
-    @Transactional
-    public UserAccountSnapshot changePlan(UUID userId, String planCode) {
-        UserAccount account = load(userId);
-        account.changePlan(planCode, timeProvider.now());
-        return account.toSnapshot();
-    }
-
-    /**
-     * Applies a billing decision (Phase 10 subscriptions): sets {@code plan_code} and grants or
-     * revokes {@link Role#PREMIUM_USER}. Publishes {@link UserRolesChangedEvent} when the roles
-     * change. Callers (the billing module) record the reason in their own history.
-     */
-    @Transactional
-    public UserAccountSnapshot applyPlan(UUID userId, String planCode, boolean premiumRole) {
-        UserAccount account = load(userId);
-        Set<Role> previous = account.roleSet();
-        Instant now = timeProvider.now();
-        if (!planCode.equals(account.getPlanCode())) {
-            account.changePlan(planCode, now);
-        }
-        if (premiumRole) {
-            account.grantRole(Role.PREMIUM_USER, null, now);
-        } else {
-            account.revokeRole(Role.PREMIUM_USER, now);
-        }
-        Set<Role> current = account.roleSet();
-        if (!previous.equals(current)) {
-            events.publishEvent(new UserRolesChangedEvent(userId, previous, current, now));
-        }
         return account.toSnapshot();
     }
 

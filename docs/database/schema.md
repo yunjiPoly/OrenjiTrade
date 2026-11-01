@@ -39,12 +39,12 @@ update it in the same change.
 | `dispute.description`, `dispute_evidence.body`, `dispute_message.body`, `shipment.notes`, `shipment.tracking_number` | Free text of the two parties | The two parties and admins only (`GET /disputes/{id}`, `GET /trades/{id}`, admin dispute views); never in notifications, events, analytics or the audit log |
 | `dispute_evidence.storage_key` (files under `disputes/<disputeId>/`) | Evidence photos (re-encoded JPEG, EXIF/GPS stripped) and PDF documents | Never public: `ObjectKeys.isPublic` refuses the `disputes` namespace and PDFs on `/public/media`; served only by `GET /disputes/{id}/evidence/{evidenceId}/file` to the parties and admins (`Cache-Control: private, no-store`) |
 | `dispute_note.body`, `payment_refund.reason` | Staff free text | Admin console only; the audit log records ids, outcomes and amounts, never the text |
-| `entitlement.note` | Admin free text | Admin console only; never returned to the account owner (`GET /me/plan` omits it) nor logged |
-| `usage_counter` | Per-user usage | Owner (`GET /me/plan`) and admins only; never in analytics with the user id |
+| `usage_counter` | Per-user usage | Owner (`GET /me/limits`) and admins only; never in analytics with the user id |
 | `inventory_item.notes` | Private owner notes | Owner only (`GET /inventory/**`, `GET /me/export`); never in public responses (`PublicInventoryItem` has no such field), domain events or logs |
 | `inventory_item_image` | Owner photos | Re-encoded JPEG, EXIF/GPS stripped before storage; public only while the item is effectively public; deleted with the item or the account |
 | `inventory_freshness_event` | Owner activity trail | Owner/admin views only; purged with the account |
-| `wishlist_item.public_note` | **Public** note of a wish (there is no private wishlist note any more: V112 dropped `wishlist_item.notes` without copying it) | Public wherever the wish is visible: the owner (`GET /wishlist`, `GET /me/export`) and, when the wishlist is shown, everyone who can see it (`GET /collectors/{handle}/wishlist`; "Who wants it" in stage S3). Plain text, moderated like profile text; never in notifications, events, analytics or logs |
+| `inventory_import`, `inventory_import_row` | The preview of a file a collector uploaded (YDK deck file, Collectr CSV export) | Owner only: every other caller gets 404 (`/inventory/imports/**`), no admin view. A row keeps of the file only a passcode, or the card name, set, number and rarity as written, and the copies: **never the file, its name, a price, a note or a date of the export**. Nothing a file holds is logged at any level (ids and counts only; `InventoryImportIT.nothingOfAFileIsEverLogged`). Purged after `expires_at` (job `inventory-import-purge`, with the hourly `freshness` job) and with the account |
+| `wishlist_item.public_note` | **Public** note of a wish (there is no private wishlist note any more: V112 dropped `wishlist_item.notes` without copying it) | Public wherever the wish is visible: the owner (`GET /wishlist`, `GET /me/export`) and, when the wishlist is shown, everyone who can see it (`GET /collectors/{handle}/wishlist`; "Who wants it" only if stage S3 is built: skipped by the owner on 2026-10-13, not built). Plain text, moderated like profile text; never in notifications, events, analytics or logs |
 | `wishlist_item` (rows) | What a collector is looking for | The owner always; others see the card, which copy (printing, or any printing with its optional rarity), the public note, "Near Mint only" and the price term through `GET /collectors/{handle}/wishlist` only when `privacy_settings.wishlist_visible` and no block. Wishlist alerts work for hidden wishlists and tell the wisher only |
 | `notification.title`, `.body`, `.data` | Recipient-only content | Returned to the recipient only; never message text, private notes or coordinates; purged with the account |
 | `push_token.token` | Device secret | Never returned by the API (export lists platform and dates only), never logged (the log provider logs the device count) |
@@ -56,14 +56,6 @@ update it in the same change.
 | `offer.message`, `offer_event.reason`, `trade.cancel_reason` (and the `reason` of `trade_event.details`) | Free text of the two parties | Returned to the two parties only (`GET /offers/{id}`, `GET /trades/{id}`); never in notifications, SYSTEM messages, events or analytics; erased when their author's account is purged (the rows stay for the other party) |
 | `offer.item_snapshot`, `offer_trade_item.item_snapshot`, `offer_event.snapshot` | Public form of negotiated cards and terms | Parties only; built from the public item fields (never `inventory_item.notes`, never a location) |
 | `offer`, `trade` (rows) | Who negotiates or trades with whom | The two parties only (404 for anybody else); analytics get kinds, statuses and HMAC hashes only (`offer_created`, `offer_status_changed`, `trade_status_changed`), never amounts, ids or text |
-| `subscription.provider_ref`, `subscription.checkout_ref`, `donation.provider_ref` | Provider references | Never returned to other members; a member's own fake checkout path carries its checkout reference; admin views show statuses and amounts, never subscription ids at the provider |
-| `billing_webhook_event.payload`, `donation_webhook_event.payload` | Provider events as received | Admin detail views only; never logged |
-| `credit_ledger_entry` (rows) | Credit history | Append-only (trigger refuses UPDATE, DELETE, TRUNCATE); owner and admins only; kept with the anonymised account after a purge |
-| `credit_ledger_entry.note` | Admin free text | Admin ledger view only; never returned to the owner (`GET /me/credits` and the export omit it) |
-| `advertiser.contact_email` | Business contact | Admin console only; never in ad responses |
-| `ad_impression.user_hash`, `ad_click.user_hash`, `ad_conversion.user_hash` | Pseudonymous viewer id | HMAC of the account id (analytics actor hash); never an account id, never returned by the API; ad targeting reads the platform region and the viewer's country and subdivision codes (through the location module), never a city |
-| `donation.message` | Donor free text | Admins and the donor's own export only; never public; erased on purge |
-| `donation.public_thanks` | Opt-in | Only opted-in, active donors' display names (and month) are listed publicly; never amounts |
 | `card_image.source_url` | Provider image URL | Server-side only (ADR 0015): never returned to members or visitors for `REHOST_REQUIRED` providers such as YGOPRODeck (clients get `/api/v1/public/card-images/{id}`) |
 | Search region (not stored) | Platform region code of a scoped request | Validated against `platform_region`; never authorization; analytics get the region and subdivision codes only |
 
@@ -105,18 +97,6 @@ erDiagram
   USER_ACCOUNT ||--o| USER_RESPONSIVENESS : strikes
   USER_ACCOUNT ||--o{ COLLECTOR_REPORT : files
   USER_ACCOUNT ||--o{ NOTIFICATION : receives
-  USER_ACCOUNT ||--o{ CREDIT_LEDGER_ENTRY : has
-  USER_ACCOUNT ||--o| REFERRAL_CODE : shares
-  USER_ACCOUNT ||--o{ SUBSCRIPTION : has
-  PLAN ||--o{ SUBSCRIPTION : grants
-  SUBSCRIPTION ||--o{ SUBSCRIPTION_EVENT : history
-  ADVERTISER ||--o{ AD_CAMPAIGN : runs
-  AD_CAMPAIGN ||--o{ AD_CREATIVE : has
-  AD_CAMPAIGN ||--o{ AD_TARGETING_RULE : targets
-  AD_PLACEMENT ||--o{ AD_CREATIVE : shows
-  AD_CREATIVE ||--o{ AD_IMPRESSION : served
-  USER_ACCOUNT ||--o{ DONATION : gives
-  PLAN ||--o{ PLAN_FEATURE : defines
   USER_ACCOUNT ||--o{ AUDIT_LOG : actor
 ```
 
@@ -134,7 +114,7 @@ Detailed column lists are appended per phase below as migrations land.
 | V006 | `V006__settings.sql` | Phase 1-B: `notification_preferences` |
 | V007 | `V007__deletion.sql` | Phase 1-B: `account_deletion_request` |
 | V010 | `V010__feature_flags.sql` | Phase 2: `feature_flag` (+ 7 default flags) |
-| V011 | `V011__plans_limits.sql` | Phase 2 (Phase 10 foundation): `plan` (+ FREE, PREMIUM), `plan_feature`, `usage_limit` (+ contract limits), `usage_counter`, `entitlement`; `user_account.plan_code` → FK to `plan.code` |
+| V011 | `V011__plans_limits.sql` | Phase 2 (Phase 10 foundation): `plan` (+ FREE, PREMIUM), `plan_feature`, `usage_limit` (+ contract limits), `usage_counter`, `entitlement`; `user_account.plan_code` → FK to `plan.code` (plans, features, entitlements and `plan_code` dropped by V123; `usage_limit` and `usage_counter` stay) |
 | V012 | `V012__games.sql` | Phase 2: `game` (+ yugioh, pokemon, mtg, riftbound with their GameSchema) |
 | V013 | `V013__catalog.sql` | Phase 2: `card_set`, `card`, `card_printing`, `card_image`, `catalog_sync_run`; FTS + trigram + JSONB GIN indexes |
 | V020 | `V020__delist_policy.sql` | Phase 3: `delist_policy` (+ the single active default policy ACTIVE 0-14 / AGING 15-30 / STALE 31-45 / HIDDEN 46+ days, warn 5 days before hiding) |
@@ -154,10 +134,10 @@ Detailed column lists are appended per phase below as migrations land.
 | V071 | `V071__trades.sql` | Phase 8: `trade` (one per accepted offer), `trade_event` (timeline) |
 | V080 | `V080__payments.sql` | Phase 9: `platform_settings` (+ `payments.*`), `seller_account`, `payment`, `payment_event`, `payment_refund`, `payment_webhook_event` |
 | V081 | `V081__shipments_disputes.sql` | Phase 9: `shipment`, `dispute`, `dispute_evidence`, `dispute_event`, `dispute_message`, `dispute_note` |
-| V090 | `V090__subscriptions.sql` | Phase 10: `subscription` (one live per account), `subscription_event`, `billing_webhook_event` |
-| V091 | `V091__credits.sql` | Phase 10: append-only `credit_ledger_entry` (trigger), view `credit_balance`, `credit_product` (+ 3 products), `referral_code`, `referral_redemption`, `credits.*` settings |
-| V092 | `V092__advertising.sql` | Phase 10: `advertiser`, `ad_placement` (+ 5 placements), `ad_campaign`, `ad_creative`, `ad_targeting_rule`, `ad_impression`, `ad_click`, `ad_conversion`, `ad_campaign_daily` |
-| V093 | `V093__donations.sql` | Phase 10: `donation`, `donation_webhook_event`, `donations.*` settings |
+| V090 | `V090__subscriptions.sql` | Phase 10: `subscription` (one live per account), `subscription_event`, `billing_webhook_event` (dropped by V123) |
+| V091 | `V091__credits.sql` | Phase 10: append-only `credit_ledger_entry` (trigger), view `credit_balance`, `credit_product` (+ 3 products), `referral_code`, `referral_redemption`, `credits.*` settings (dropped by V122) |
+| V092 | `V092__advertising.sql` | Phase 10: `advertiser`, `ad_placement` (+ 5 placements), `ad_campaign`, `ad_creative`, `ad_targeting_rule`, `ad_impression`, `ad_click`, `ad_conversion`, `ad_campaign_daily` (dropped by V120) |
+| V093 | `V093__donations.sql` | Phase 10: `donation`, `donation_webhook_event`, `donations.*` settings (dropped by V121) |
 | V100 | `V100__card_image_cache.sql` | Card images (ADR 0015): `card_image` becomes one row per provider artwork (owner card/printing, provider id, server-side source URL, cache state), `card.image_id`, `card_image_cache_usage`, `card_image_cache_reservation`, `catalog_sync_run` image mode / provider version / phase / report |
 | V101 | `V101__yugioh_catalog_fields.sql` | Real Yu-Gi-Oh! catalog: the printing variant key includes the rarity (`uq_card_printing_variant` becomes a unique index); the yugioh GameSchema gains rank, link rating/arrows, pendulum scale, property, archetype, frame, the complete monster types and common rarities |
 | V102 | `V102__card_image_owner_compat.sql` | Backward compatibility: trigger `trg_card_image_fill_owner` derives `card_image.card_id` / `game_id` from `printing_id` when a writer that predates V100 omits them (older revisions during a rolling deploy, another checkout sharing the local database) |
@@ -171,6 +151,24 @@ Detailed column lists are appended per phase below as migrations land.
 | V110 | `V110__platform_region_channels.sql` | ADR 0017: the city REGION channels are archived; one REGION channel per platform region (`americas-north`, `americas-south`, `europe`) |
 | V111 | `V111__region_model_comments.sql` | ADR 0017: database comments only (`rating_summary` no longer mentions the nearby ranking) |
 | V112 | `V112__simplified_wishlist.sql` | Stage S2 (owner change of 2026-10-08, section 4): `wishlist_match` dropped with the WISHLIST_MATCH notifications and their limit notices; `wishlist_item` keeps only which copy (card, printing or any, rarity of "any printing" wishes) and gains `public_note` (≤ 280), `near_mint_only`, `price_term` (condition, edition, language, max price, currency, trade preference, private notes, `active`, `last_matched_at` dropped, data not migrated; paused wishes deleted; the selection normalised and same-selection duplicates collapsed to the oldest; `uq_wishlist_item_selection`; `ck_wishlist_item_target` dropped); `wishlist_alert_sent` (sent-alert key); `platform_settings` `wishlist.price_terms`; `notification_preferences.wishlist_alerts` (off for a collector whose `WISHLIST_MATCH` category had in-app and push off; the category key removed from `categories`); incomplete `event_publication` rows of `WishlistMatched` / `WishlistItemCreated` completed; `analytics_daily_count` rows of `wishlist_matched` deleted |
+| V113 | `V113__inventory_import.sql` | Stage S5 (owner change of 2026-10-08, section 6): `inventory_import` and `inventory_import_row` (the stored preview of a YDK deck file or a Collectr CSV export, between the upload and the commit); `platform_settings` `inventory.import.*` (file limits and the time a preview is kept); `usage_limit` `inventory.items.max` for every plan, without a number (no plan limited the inventory before; the row gives `POST /inventory/items` and the import a limit to respect) |
+| V114 | `V114__inventory_import_review_fixes.sql` | Stage S5, review fix 1: `inventory_import.chunk_new_items` (the new items each chunk of a commit will create: the room the commit reserves under `inventory.items.max` until the chunk is written) with `ix_inventory_import_committing`; `inventory_import_row.printing_choice` also takes `MOST_RECENT_ASSUMED` |
+| V115 | `V115__hide_local_meetups_tag.sql` | Stage R1 of the phone redesign (ADR 0018: deals happen in the chat, cards ship by mail): the curated `local-meetups` tag becomes `HIDDEN` (no longer offered, searched or shown; profiles keep the link until their owner next saves their tags; a tag an admin already hid or banned is left alone) |
+| V116 | `V116__region_channels_ship_by_mail.sql` | Stage R1: the descriptions of the REGION channels of V041 and V110 lose "trades, meetups, locals" for "trades and sales by mail", only where they still hold the migration's text (an admin's edit is kept) |
+| V120 | `V120__remove_advertising.sql` | Stage F1 ("free for all", ADR 0019): the `ad_*` tables and `advertiser` dropped, the `advertising` flag deleted |
+| V121 | `V121__remove_donations.sql` | Stage F1: `donation` and `donation_webhook_event` dropped, `donations.*` settings and the `donations` flag deleted, incomplete outbox rows of `DonationWebhookReceived` completed |
+| V122 | `V122__remove_credits.sql` | Stage F1: `credit_ledger_entry` (with its append-only trigger function), view `credit_balance`, `credit_product`, `referral_code`, `referral_redemption` dropped; `credits.*` settings, the `credits` flag, the entitlements bought with credits and the `credits-reconcile` job runs deleted |
+| V123 | `V123__remove_premium_plans.sql` | Stage F1: `subscription`, `subscription_event`, `billing_webhook_event`, `entitlement`, `plan_feature` and `plan` dropped; `usage_limit` keeps one row per key (the FREE value, with any admin edit; `plan_id` and `uq_usage_limit_plan_key` dropped, `uq_usage_limit_key` added; `saved_searches.max`, a Premium perk of a feature never built, deleted with its counters); `user_account.plan_code` (and `fk_user_account_plan`) dropped; `PREMIUM_USER` rows deleted and `ck_user_role_role` without it; the `premiumPlans` flag deleted; old LIMIT_REACHED notices rewritten; admin broadcasts that linked to a removed page (Premium, credits, support, their checkouts) deleted, any other link to one dropped; incomplete outbox rows of `BillingWebhookReceived` / `SubscriptionChanged` completed; `subscriptions-period` job runs deleted |
+| V125 | `V125__inventory_price_text_restore.sql` | Stage R2 of the phone redesign (inventory and adding cards; written as V117 and renumbered after F1's V120–V123 when R2 merged `main`, V124 being kept for another branch: the card scan, which took V129, so V124 stays unused): `inventory_item.asking_price_text` (≤ 40, trimmed, `ck_inventory_item_asking_price_text`; a plain amount also fills `asking_price`), `inventory_item.condition` nullable (`NULL` = not stated), `inventory_item.restorable_until` (an owner's delete can be undone until then; `ck_inventory_item_restorable_until`, partial index `ix_inventory_item_restorable`) |
+| V126 | `V126__binder_deck_cores.sql` | Stage R3 of the phone redesign (binders and deck cores; V124 was kept for another branch, the card scan, which took V129): `binder.sells_as_core` ("Sell as a deck core", default false), `binder.asking_price_text` (≤ 40, trimmed, `ck_binder_asking_price_text`; a plain amount also fills `binder.asking_price` in `binder.currency`, default `CAD`), `binder.sold_at` (a sold binder is never public; stage R4 sets it), `binder_image` (the photos of a deck core: at most 4, the rules of `inventory_item_image`), partial index `ix_binder_deck_core`; `binder.description` is the deck core's public note |
+| V127 | `V127__chat_subject_and_sales.sql` | Stage R4 of the phone redesign (messages and Mark as sold; ADR 0018, part 2): `conversation.subject_item_id` / `subject_binder_id` (FKs `ON DELETE SET NULL`, at most one: `ck_conversation_one_subject`), `subject_set_at`, `subject_set_by` (the chat's pinned card or deck core) with two partial indexes; `sale` (a card or deck core marked sold from the chat: seller, buyer, item or binder, copies, the optional tracking number, the cards a deck core took with it, `undone_at`); `interaction` kind and subject type `SALE` (`ck_interaction_kind`, `ck_interaction_subject_type` replace the unnamed checks of V060) |
+| V129 | `V129__card_text_scan_flag.sql` | Camera card scan (owner spec 2026-10-15; written as V124, the number main kept for it, and renumbered when the card scan merged `main`: above R2's V125, R3's V126 and R4's V127, V128 left to the redesign's next stage): `feature_flag` row `cardTextScan`, **on**; it guards `POST /cards/scan-match` and `POST /inventory/items/batch` (404 `FEATURE_DISABLED` when off). No table: the scan stores nothing of its own (the photos stay on the phone) |
+| V130 | `V130__one_piece_game.sql` | Stage G of the phone redesign (one game at a time, owner prompt of 2026-10-19/20): the game `onepiece` ("One Piece Card Game", short name "One Piece", Bandai, `ACTIVE`, sort order 35, between Magic and Riftbound) with its GameSchema: the six conditions, `UNLIMITED`, English only (owner order of 2026-10-20), finishes `NORMAL` / `PARALLEL` (a parallel art is a second printing of the same code), rarities `C`, `UC`, `R`, `SR`, `SEC`, `L`, `SP`, `TR`, `P`; `profile.games` comment. No card: the API answers `hasCards: false` until a catalogue holds one |
+| V131 | `V131__binder_game.sql` | Stage G: `binder.game_id` (FK `fk_binder_game` to `game`, `NOT NULL`, index `ix_binder_game`): a binder holds the cards of one game. Existing binders take the game most of their live cards belong to (a tie: the tied game first in the owner's profile games, else Yu-Gi-Oh! when tied, else the first tied game in the games' order; a binder without a live card: the owner's first profile game that is `ACTIVE` with cards, else Yu-Gi-Oh!). The cards of another game, live or deleted, leave the binder and stay in the inventory without one, keeping their visibility only from a `PUBLIC`, not `HIDDEN`, unsold binder (otherwise `PRIVATE`, no end date): nothing becomes more public. One `audit_log` row per binder that lost cards (`SYSTEM`, `binder.game.cards_moved_out`, target `BINDER`, details `binderGame`, `cards`, `deletedCards`, `migration`) and a NOTICE with the totals in the migration log. Locks: the owner locks of every collector with a binder (sorted keys), the column, then every binder and every filed card `ORDER BY id FOR NO KEY UPDATE` before any write (see "Locks of binders and inventory items"). Also `binder.game_follows_cards` (default `false`: a binder the paused web makes without a game takes its first card's game and refuses no card) |
+| V132 | `V132__binder_cover_game_and_defaults.sql` | Stage G, review fix 1: a binder that has its game (`NOT game_follows_cards`) loses a cover printing of another game (`cover_printing_id` set `NULL`; V131 had kept them; a NOTICE gives the count); `binder.game_id` defaults to `binder_placeholder_game()` (a new `STABLE` SQL function: the id of Yu-Gi-Oh!) and `binder.game_follows_cards` to `true`, so the app version before stage G, which inserts binders without a game, can still create one during a rolling update or after a rollback (such a binder follows its cards; every insert of the app and the seed names both columns). Locks: the owner locks of the collectors whose binder loses its cover (sorted keys), the defaults (`ACCESS EXCLUSIVE` on `binder`), then those binders `ORDER BY id FOR NO KEY UPDATE` before the update; no item row is written |
+| V133 | `V133__binder_core_since_and_feed_indexes.sql` | Stage R7 (Home's feed, `GET /feed`): `binder.core_since timestamptz` (nullable), when the binder last became a deck core, kept by the trigger `trg_binder_core_since` (`BEFORE INSERT OR UPDATE OF sells_as_core, core_since`: set to `now()` when `sells_as_core` turns on unless the write names it, cleared when it turns off); existing deck cores take their `created_at`. The feed dates a deck core from the later of `listing_changed_at` and `core_since`. Indexes `ix_inventory_item_listed_since` (`listing_changed_at` of `publicly_listed` live cards) and `ix_wishlist_item_created` (`created_at`). Comments on both `listing_changed_at` columns. No row lock beyond the backfill's `UPDATE` of the deck cores |
+| V134 | `V134__community_rooms_per_game.sql` | Stage R11 (Messages › Community, one simple room per game): the 15 rooms, one per platform region and game (`community_channel`, kind `REGION` with `game_slug` and `region_label`, slug `{region}-{game}`, the game's name, "{game} collectors in {region}: trades and sales by mail.", stable ids `00000000-0000-4000-8e00-0000000000{21–25, 31–35, 41–45}`, sort orders 210–234; an existing slug becomes the room); every other channel `ARCHIVED` (V041's topics, V110's three region channels, the old city channels, any admin channel; nothing deleted, posts kept); the `publicChat` flag on (`rollout_percent` 100) unless an admin set it (`updated_by`); `image_upload.kind` gains `COMMUNITY` (`ck_image_upload_kind` replaces the inline check); new table `community_post_photo` (up to 4 photos of a post, API rule). No row of `binder` or `inventory_item` is written |
+| V135 | `V135__collector_report_number.sql` | Web stage WH1 (the admin console: shell, overview and moderation; spec 15.8.1): `collector_report.report_number bigint NOT NULL` (unique index `ux_collector_report_number`), default `nextval('collector_report_number_seq')` (a `bigint` sequence from 1001, owned by the column); existing reports numbered by `created_at`, then `id`, from 1001, and the sequence set after the last one. Staff read it as "#1047" and find a report by it (`GET /admin/reports?number=`); never shown to members, no place. Additive: nothing renamed or retyped; no row of `binder` or `inventory_item` is written |
 
 (Sections for later phases are added as they are implemented.)
 
@@ -230,12 +228,12 @@ One row per identity-provider user, created on the first authenticated request
 | `provider_uid` | `text` | Firebase uid, `UNIQUE` (`uq_user_account_provider_uid`); never shown to other users |
 | `email` | `text` | PII: owner and admins only |
 | `email_verified` | `boolean` | synced from the ID token on every login |
-| `handle` | `text` | `[a-z0-9_]{3,24}` (`ck_user_account_handle`), unique case-insensitively via `uq_user_account_handle_lower` on `lower(handle)`; derived from the email local part with a numeric suffix on collision |
+| `handle` | `text` | `[a-z0-9_]{3,24}` (`ck_user_account_handle`), unique case-insensitively via `uq_user_account_handle_lower` on `lower(handle)`; a random first handle at provisioning, `collector_` and six characters of `bcdfghjkmnpqrstvwxz23456789` (never a part of the email; stage R12, review fix 2), drawn again when taken; the collector picks their own in the welcome |
 | `display_name` | `text` | initial value: provider name or the handle |
 | `status` | `text` | `ACTIVE` (default), `SUSPENDED`, `DELETION_REQUESTED`, `DELETED` |
 | `suspended_until` | `timestamptz` | null = indefinite; expired suspensions are lifted lazily on the next request |
 | `suspension_reason` | `text` | admin-provided |
-| `plan_code` | `text` | `FREE` (default) or `PREMIUM`; FK → `plan.code` since V011 (`fk_user_account_plan`, `ON UPDATE CASCADE`) |
+| `plan_code` | `text` | **dropped by V123** (stage F1: no plans). Was `FREE` (default) or `PREMIUM`, FK → `plan.code` since V011 |
 | `created_at`, `updated_at` | `timestamptz` | |
 | `last_active_at` | `timestamptz` | written at most once per 5 minutes per user (Redis `SET NX` throttle) |
 | `deleted_at` | `timestamptz` | set by the deletion job |
@@ -247,7 +245,7 @@ Indexes: `ix_user_account_email_lower`, `ix_user_account_status`, `ix_user_accou
 | Column | Type | Notes |
 | --- | --- | --- |
 | `user_id` | `uuid` | FK → `user_account.id` (cascade) |
-| `role` | `text` | `USER`, `PREMIUM_USER`, `MODERATOR`, `ADMIN`, `SUPER_ADMIN`; PK `(user_id, role)` |
+| `role` | `text` | `USER`, `MODERATOR`, `ADMIN`, `SUPER_ADMIN` (`ck_user_role_role`, V123; `PREMIUM_USER` existed until stage F1); PK `(user_id, role)` |
 | `granted_at` | `timestamptz` | |
 | `granted_by` | `uuid` | acting admin, null for provisioning/seed |
 
@@ -515,9 +513,19 @@ in `/admin > Feature flags` (`docs/deployment/runbooks.md`, "Launch configuratio
 `FeatureFlagSeedContributor` enables `protectedPayments`, `premiumPlans`, `credits`, `advertising`
 and `donations` (fake providers) unless an admin already edited them (`updated_by` set);
 `mlScanning` stays off everywhere. A disabled flag makes guarded routes answer
-`404 FEATURE_DISABLED` (extension `feature`).
+`404 FEATURE_DISABLED` (extension `feature`). **Stage F1 (2026-10-14, V120 to V123) deleted the
+`advertising`, `donations`, `credits` and `premiumPlans` rows** with their features: three flags
+remain (`mlScanning`, `protectedPayments`, `publicChat`), and the local/dev seed enables
+`protectedPayments` only. **V129 adds `cardTextScan`, on** (the camera scan reads
+the text of a card on the phone; the owner lifted the ML hold for it only, `mlScanning` stays
+off; the seed leaves it alone).
 
 ### V011 — plans, plan features, usage limits, usage counters, entitlements (ADR 0014)
+
+> **Stage F1 (2026-10-14, ADR 0019):** V123 dropped `plan`, `plan_feature` and `entitlement` and
+> `usage_limit.plan_id`. What V011 created for the limits stays: `usage_limit` (one row per key,
+> the same for every collector, see below) and `usage_counter`. The plan tables are described
+> here as V011 created them, for the history and for bringing Premium back.
 
 Foundation of the Phase 10 contract "Plans and limits" (subscriptions come with Phase 10). Rules are
 cached in Redis (`orenji:cache:plans:v1`, per-user `orenji:cache:entitlements:v1:<userId>`, 60 s) and
@@ -557,8 +565,8 @@ Seeded: FREE `filters.advanced=false`, `ads.enabled=true`; PREMIUM `filters.adva
 | Column | Type | Notes |
 | --- | --- | --- |
 | `id` | `uuid` | PK (admin edits address limits by id) |
-| `plan_id` | `uuid` | FK → `plan.id` (cascade); `UNIQUE (plan_id, limit_key)` |
-| `limit_key` | `text` | dotted lower-case key |
+| `plan_id` | `uuid` | **dropped by V123**; was FK → `plan.id` (cascade) with `UNIQUE (plan_id, limit_key)` |
+| `limit_key` | `text` | dotted lower-case key; `UNIQUE` (`uq_usage_limit_key`, V123): one limit per key, the same for every collector |
 | `kind` | `text` | `COUNTER` (consumed per window) or `CAP` (bound of a requested value, e.g. radius) |
 | `limit_window` | `text` | `DAY`, `MONTH`, `TOTAL` (the contract's `window`; renamed because `WINDOW` is reserved in PostgreSQL). DAY/MONTH start at 00:00 UTC; caps always use `TOTAL` (`ck_usage_limit_cap_window`) |
 | `max_value` | `integer` | `NULL` = unlimited; ≥ 0 (0 blocks the action) |
@@ -568,7 +576,21 @@ Seeded: FREE `filters.advanced=false`, `ads.enabled=true`; PREMIUM `filters.adva
 Index: `ix_usage_limit_key`. Seeded limits (FREE / PREMIUM): `binder.views.per_day` 30 / unlimited,
 `wishlist.alerts.per_day` 5 / unlimited, `wishlist.items.max` 20 / 500 (TOTAL),
 `binders.max` 5 / 50 (TOTAL), `saved_searches.max` 0 / 50 (TOTAL), `offers.per_day` 20 / 100
-(`map.radius.max_km` 25 / 100 (CAP) existed until V109 deleted it, ADR 0017).
+(`map.radius.max_km` 25 / 100 (CAP) existed until V109 deleted it, ADR 0017). V113 adds
+`inventory.items.max` (TOTAL: the collector's non-deleted inventory items, plus, since V114, the
+new items the collector's import commits in progress have still to write) for every plan with
+`max_value` `NULL`: nothing limited the inventory before, and nothing does until an admin gives a
+plan a number through `/admin/usage-limits`. `POST /inventory/items` and the commit of an import
+check it (the import for all the items it would add, every chunk, before the first one).
+
+Since V123 (stage F1) the table holds one row per key with the FREE value of before (an admin edit
+of a FREE row is kept; a key only another plan defined would have become unlimited — none did):
+`binder.views.per_day` 30, `wishlist.alerts.per_day` 5, `wishlist.items.max` 20,
+`binders.max` 5, `offers.per_day` 20, `inventory.items.max` unlimited. `saved_searches.max` (0 /
+50) was deleted by V123 with its counters: it limited a feature that was never built and only
+existed as a Premium perk (as `map.radius.max_km` went with the map radius in V109).
+`Limits` (module `limits`) caches the rows in Redis (`orenji:cache:usage-limits:v1`, 60 s, evicted
+after every admin write); `GET /me/limits` returns them with the caller's usage.
 
 #### `usage_counter`
 
@@ -584,8 +606,10 @@ PK `(user_id, limit_key, window_start)`; index `ix_usage_counter_window_start` (
 `Limits.consume` increments with one atomic `INSERT ... ON CONFLICT DO UPDATE ... WHERE count < max
 RETURNING count`, so concurrent requests can never pass the limit; the value is mirrored in Redis
 (`orenji:usage:<user>:<key>:<window epoch>`, TTL ≤ 10 min, written after commit) for the `check` fast
-path. TOTAL counters owned by another module (e.g. `binders.max` = number of binders) are read through
-a `LimitUsageSource` bean instead.
+path. TOTAL counters owned by another module (e.g. `binders.max` = number of binders that are not
+sold deck cores (stage R4, review fix 1: the phone neither shows nor deletes a sold core),
+`inventory.items.max` = number of non-deleted items) are read through a `LimitUsageSource` bean
+instead.
 
 #### `entitlement`
 
@@ -619,8 +643,11 @@ revoked and not expired; active entitlements beat plan values, the most generous
 
 Index: `ix_game_status_sort (status, sort_order)`. Seeded: `yugioh` (attribute, level, atk, def,
 monsterType), `pokemon` (hp, types, stage, weakness), `mtg` (manaCost, manaValue, colorIdentity,
-typeLine, power, toughness), `riftbound` (domain, energy, might, type). Cached in Redis
-(`orenji:cache:games:v1`, 60 s), evicted on admin writes (`game.create`, `game.update`).
+typeLine, power, toughness), `riftbound` (domain, energy, might, type); V130 adds `onepiece`
+(colors, category, cost, power, counter, life, attribute, types; English only). Responses carry
+`hasCards` (stage G: `EXISTS` over `card`; a game without cards is not browsed on the phone and
+holds no binder). Cached in Redis (`orenji:cache:games:v2`, 60 s; v2 since `hasCards`), evicted on
+admin writes (`game.create`, `game.update`) and after every catalogue import.
 
 ### V013 — card catalog (ADR 0005, ADR 0012)
 
@@ -731,7 +758,13 @@ Indexes: `ix_catalog_sync_run_created_at`, `ix_catalog_sync_run_game (game_id, c
 An item is public ⇔ `visibility` is `PUBLIC`, or `TEMPORARILY_PUBLIC` with `public_until > now()`
 ∧ its binder is public (or it has none) ∧ `freshness_state <> 'HIDDEN'` ∧ it is not deleted ∧ its
 game is `ACTIVE` ∧ the owner is listed. A binder is public ⇔ the same visibility/expiry rule ∧ the
-binder's `freshness_state <> 'HIDDEN'` ∧ the owner is listed. The owner is listed ⇔
+binder's `freshness_state <> 'HIDDEN'` ∧ it is not sold (`sold_at IS NULL`, V126) ∧ the owner is
+listed. Public lists (a collector's binders, search, the map) show a public binder that holds a
+public item or is a deck core (`sells_as_core`, V126: a deck core needs no cards). A live card
+(not deleted, game `ACTIVE`, not `HIDDEN`) filed in a public, unsold deck core of a listed owner
+is shown as one of its key cards whatever its own visibility (`InventoryItemRepository.IN_PUBLIC_CORE`,
+stage R3 review fix 1): the core's key cards, games, card pictures and the card names binder
+search matches; the card is listed on its own only by the item rule above. The owner is listed ⇔
 `user_account.status = 'ACTIVE'` (or `SUSPENDED` with `suspended_until <= now()`) ∧
 (`privacy_settings.discoverable` ∨ `profile_visibility = 'PUBLIC'`) ∧ `profile_visibility <>
 'PRIVATE'`. The SQL lives in `PublicVisibilityRules` (binders module) and
@@ -776,7 +809,7 @@ SQL use the same cut-offs.
 | `visibility` | `text` | `PRIVATE` (default), `PUBLIC`, `TEMPORARILY_PUBLIC`; `ck_binder_public_until`: `public_until` is set exactly for `TEMPORARILY_PUBLIC` |
 | `public_until` | `timestamptz` | end of a temporary publication (≤ 30 days ahead, checked by the API; publish modes ONE_HOUR / ONE_DAY); expired ones are turned `PRIVATE` by the freshness job (reads already treat them as private) |
 | `sort_order` | `integer` | position in the owner's list (`PUT /binders/reorder`) |
-| `cover_printing_id` | `uuid` | FK → `card_printing.id` (`ON DELETE SET NULL`); chosen cover |
+| `cover_printing_id` | `uuid` | FK → `card_printing.id` (`ON DELETE SET NULL`); chosen cover. Since V132 (stage G, review fix 1) a card of the binder's game unless the binder follows its cards (409 `BINDER_GAME_MISMATCH`) |
 | `item_count` | `integer` | ≥ 0; non-deleted items, maintained by `trg_inventory_item_binder_count` only |
 | `freshness_state` | `text` | `ACTIVE`, `AGING`, `STALE`, `HIDDEN` (derived by the freshness job); a HIDDEN binder is not public |
 | `warned_at` | `timestamptz` | pre-hide warning of the current confirmation cycle (reset by a confirmation) |
@@ -786,6 +819,12 @@ SQL use the same cut-offs.
 | `confirmed_at` | `timestamptz` | last confirmation: binder created, published or confirmed, or an item created, confirmed or moved into it |
 | `last_owner_activity_at` | `timestamptz` | last owner write on the binder or its items |
 | `search_vector` | `tsvector` | generated: name (A) + description (B), `simple` config + `unaccent_immutable` (public binder search, Phase 4) |
+| `sells_as_core` | `boolean` | V126: "Sell as a deck core" (default `false`): the binder is offered as one bundle with its photos, one price and its description as the public note; it needs no cards (public lists show it without a public card) |
+| `asking_price_text` | `varchar(40)` | V126: the deck core's price as typed ("$180", "Trade only"), trimmed, one line; kept when the switch goes off (public views show it for a deck core only) |
+| `asking_price`, `currency` | `numeric(12,2)`, `char(3)` | V126: the amount of a plain-amount text (`common/AskingPriceText`), in `currency` (default `CAD`); `NULL` for a text price |
+| `sold_at` | `timestamptz` | V126: when the deck core was sold (stage R4); a sold binder is not public, nor are the cards still filed in it (`PublicVisibilityRules.binderListed`) |
+| `game_id` | `uuid` | V131 (stage G): FK → `game.id` (`fk_binder_game`), `NOT NULL`, index `ix_binder_game`. The one game whose cards the binder holds: chosen at creation (`POST /binders` `gameId`, an `ACTIVE` game with cards), changed (`PATCH /binders/{id}` `gameId`) only while the binder holds no live card and no deleted card an undo can bring back (409 `BINDER_GAME_LOCKED`; `BinderResponse.gameLocked` says so); a card of another game is refused (409 `BINDER_GAME_MISMATCH`, or skipped by the bulk move). Discovery reads with `game=` filter on it and leave out a binder that holds a live card of another game or a cover of another game (review fix 1). Default since V132: `binder_placeholder_game()` (Yu-Gi-Oh!), for inserts that do not name it |
+| `game_follows_cards` | `boolean` | V131 (stage G), default `false`: the binder was made without `gameId` (only the paused web, which has no game picker): while it holds no card (live or undoable) the first card filed in it sets `game_id` (Yu-Gi-Oh! until then), and it refuses no card (the web's suites file several games into one binder). `false` for the phone's binders and for every binder V131 migrated; a `PATCH` of `gameId` sets it `false`. Default `true` since V132 (an insert that does not name it, the app version before stage G); the app and the seed name it |
 
 Indexes: `ix_binder_owner_sort (owner_id, sort_order, created_at)`, `ix_binder_search_vector` (GIN),
 `ix_binder_listed_owner (owner_id) WHERE publicly_listed`, `ix_binder_confirmed_at`,
@@ -793,7 +832,25 @@ Indexes: `ix_binder_owner_sort (owner_id, sort_order, created_at)`, `ix_binder_s
 
 Deleting a binder (`DELETE /binders/{id}`) unfiles its items (they keep their visibility only when
 the binder was `PUBLIC` without an end date, otherwise they become `PRIVATE`) or soft-deletes them
-with `?deleteItems=true`.
+with `?deleteItems=true`; its photos (`binder_image`, V126) go with it, their stored files after the
+commit.
+
+#### `binder_image` (V126)
+
+The photos of a binder, a deck core's (stage R3); `POST` / `DELETE /binders/{id}/images`.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `binder_id` | `uuid` | FK → `binder.id` (cascade); at most 4 per binder (API, 409 beyond) |
+| `storage_key` | `text` | `UNIQUE`; `ObjectStorage` key `binders/<owner id>/<random>.jpg`; never sent to clients |
+| `url` | `text` | URL at upload time (informational); responses give `/api/v1/public/binder-images/{id}` (stage R15 review fix 1: a URL never names the owner) |
+| `width`, `height` | `integer` | pixels of the stored rendition (≤ 1600 on the long side; EXIF and GPS stripped: the item photo processor) |
+| `sort_order` | `integer` | position |
+| `created_at` | `timestamptz` | |
+
+Index `ix_binder_image_binder (binder_id, sort_order)`. Public views show the photos of a deck core
+only (a binder whose switch was turned off keeps them for its owner).
 
 ### V022 — inventory items, photos and freshness events
 
@@ -806,9 +863,10 @@ with `?deleteItems=true`.
 | `binder_id` | `uuid` | FK → `binder.id` (`ON DELETE SET NULL`); `NULL` = unfiled |
 | `printing_id` | `uuid` | FK → `card_printing.id` (`RESTRICT`) |
 | `quantity` | `integer` | 1-9 999 |
-| `condition` | `text` | upper-case code from the game's `GameSchema.conditions` (checked by the API; default `NEAR_MINT`) |
+| `condition` | `text` | upper-case code from the game's `GameSchema.conditions` (checked by the API; default `NEAR_MINT`); nullable since V125: `NULL` = not stated (cards added on the phone; responses send `""` and `conditionStated: false`; a Near Mint only wish treats it as a possible match) |
 | `language`, `edition`, `finish` | `text` | default to the printing's values; ISO 639-1 / upper-case codes |
-| `asking_price` | `numeric(12,2)` | ≥ 0, `NULL` = no price |
+| `asking_price` | `numeric(12,2)` | ≥ 0, `NULL` = no price (or a text price that is not a plain amount) |
+| `asking_price_text` | `varchar(40)` | V125: the asking price as the owner typed it ("85% TCG", "$12.50"), trimmed, one line; a plain amount also fills `asking_price`; a web edit of `asking_price` clears it |
 | `currency` | `char(3)` | ISO 4217, default `CAD` |
 | `availability` | `text` | `COLLECTION_ONLY` (default), `TRADE`, `SALE`, `TRADE_OR_SALE`, `NOT_AVAILABLE` |
 | `accepts_offers` | `boolean` | |
@@ -824,7 +882,8 @@ with `?deleteItems=true`.
 | `created_at`, `updated_at` | `timestamptz` | `updated_at` = last owner edit |
 | `confirmed_at` | `timestamptz` | last owner confirmation (create, confirm, bulk CONFIRM, making the item public, publishing or confirming its binder) |
 | `last_owner_activity_at` | `timestamptz` | last owner write |
-| `deleted_at` | `timestamptz` | soft delete (invisible to everyone; purged with the account) |
+| `deleted_at` | `timestamptz` | soft delete (invisible to everyone; purged with the account). The row keeps its `binder_id` (until that binder is deleted), `visibility` and `public_until`: no read uses them, and the freshness job leaves the expired publication of a deleted item alone (see the locks below) |
+| `restorable_until` | `timestamptz` | V125: set by an owner's own delete (one card or a bulk delete) to `deleted_at` + 10 minutes; until then `POST /inventory/items/{id}/restore` brings the row back and its photos are kept. The job `inventory-photo-purge` (after each hourly `freshness` run) deletes the photos of the rows whose time has passed and sets it back to `NULL`; deleting the binder of such a row does the same at once. `NULL` for live rows and every other delete (a trade, a binder deleted with its cards), whose photos are deleted at once. Stage R4: a sale that takes the card's last copy (or a deck core's cards) sets it the same way, so the sale's undo restores the card with its photos |
 
 Indexes (contract): `ix_inventory_item_owner_binder (owner_id, binder_id)`,
 `ix_inventory_item_printing_public (printing_id) WHERE visibility <> 'PRIVATE' AND deleted_at IS
@@ -836,14 +895,209 @@ publicly_listed`. Also `ix_inventory_item_binder`, `ix_inventory_item_owner_upda
 Trigger `trg_inventory_item_binder_count` (`AFTER INSERT OR DELETE OR UPDATE OF binder_id,
 deleted_at`, row level) keeps `binder.item_count` equal to the binder's non-deleted items.
 
+#### Locks of binders and inventory items
+
+One advisory lock stands in front of the rows of both tables; below it the rows are taken in one
+order and in one lock mode; the freshness job stays out of it all by never waiting for a row. The
+trigger above writes the binder of an item whose `binder_id` or `deleted_at` changes, a
+confirmation or a move refreshes the binder, and the listing reconciliation writes binders before
+items: a path that took an item first deadlocked with it (`DELETE /inventory/items/{id}` answered
+500 right after a privacy change, fixed 2026-10-10).
+
+- **Owner lock** (`BinderRepository.lockOwners`: `pg_advisory_xact_lock` on
+  `hashtextextended('inventory-owner:' || owner_id, 0)`, held until the transaction ends). It is the
+  first step of every write to a collector's binders or inventory items, before any row is locked:
+  item create, update, move, delete, restore (`POST /inventory/items/{id}/restore`, the owner's
+  undo of a delete, stage R2: the owner lock, then the binder the deleted item still names, then
+  the item, through `InventoryItemRepository.lockDeleteState`), confirm, bulk actions, every chunk
+  of an import commit
+  (`InventoryImportService` takes it before the import row, `InventoryService.importLines` again
+  before the items, V113), the batch add of the camera scan (`InventoryBatchService`, one
+  transaction of at most 500 lines: the owner lock, the target binder and the binders of the items
+  it raises, then those items), admin restore, admin hide, trade
+  transfer (the locks of both collectors, in ascending key order), every `BinderService` write
+  (create, update, publish, unpublish, admin unpublish, confirm, delete, reorder), the listing
+  reconciliation of an owner (`ListingReconciler.owner`: privacy, suspension, listing pause,
+  deletion request), the account purge (the items first, which take the lock, then the import
+  previews: the order of a commit), the photos of a binder (`BinderService.addPhoto` /
+  `deletePhoto`, V126, stage R3: the owner lock, then the binder row; the file is written before
+  the transaction and deleted again when the binder refuses it), Mark as sold and its undo
+  (`InventorySales`, V127, stage R4: the seller's owner lock, then the binder of the card or the
+  deck core, then the card or every live card of the deck core, ascending; the undo takes the
+  owner lock before the `sale` row, the `interaction` it deletes and, when a later sale of the card
+  took its last copies, that later `sale` row (review fix 1, F4: case
+  `SALE_UNDO_BEFORE_LATER_SALE`)) and the two seed contributors
+  of the `local`/`dev` profiles. The writes of one collector therefore run one after the other: none reads the binder
+  of an item while another one moves it, and none waits in the middle of its work for a row that
+  another write of the same collector holds. **A new write path starts with
+  `BinderService.lockOwners`.**
+- **Row order below it:** `binder` rows first, then `inventory_item` rows, each in ascending `id`.
+  Item writes (`InventoryService.lockForWrite`) read the binders of their items under the owner
+  lock, lock those binders and the move target, then the items; binder writes start with the
+  binder they change; the owner reconciliation, reorder and the purge lock every binder of the
+  owner first; every statement that locks several rows takes them through an `ORDER BY id` locking
+  clause. With the owner lock in front, this order is the second line: a write path added later
+  that forgets the lock still cannot take an item before its binder.
+- **Row lock mode: `FOR NO KEY UPDATE`**, for binders and items alike. It is the lock an `UPDATE`
+  of these tables takes anyway (neither has a key besides `id`), and it keeps every other write of
+  the row out. The full row lock (`FOR UPDATE`) would also conflict with the key-share lock of a
+  foreign key check, and two kinds of check reach these rows from outside the owner lock:
+  - a row of another module that references an item is inserted (offers, trade lines, trades,
+    the sent wishlist alerts of `wishlist_alert_sent`; the wishlist matches did until V112). A new offer references the seller's card, then the buyer's trade cards,
+    which need not be the ascending order of the trade transfer;
+  - PostgreSQL checks the foreign keys of a row again when a transaction updates a row it has
+    already written. A second update of an item therefore takes a key-share lock on the item's
+    binder. The freshness job does that when it hides an item and then unlists it.
+
+  Only the two writes that delete rows take the full lock, as their last step on those rows: a
+  binder delete (its `DELETE`, after the binder's items were released: first the deleted items of
+  the binder that can still be restored, whose undo ends with the binder
+  (`InventoryItemRepository.endRestoreWindowsInBinder`, `ORDER BY id FOR NO KEY UPDATE`, owner
+  lock and binder held), then all of them unfiled, or the live ones soft-deleted when the items go
+  with the binder) and the account purge
+  (`InventoryItemRepository.lockAllOf`, then the deletes).
+- **The freshness job takes no lock in front of the writes** (`FreshnessService.run`, hourly, one
+  transaction). It writes binders and items of every collector in several statements, so no row
+  order keeps it out of a cycle with a write that holds one of those rows and waits for another.
+  Instead each of its eight statements (expiry, freshness, listing and warning, for binders and
+  then for items) takes its rows through `FOR NO KEY UPDATE SKIP LOCKED`: a row that another
+  transaction holds is left out. The job then waits for no binder and no item: its updates touch
+  only rows its locking clause took, its item updates do not fire the count trigger, the freshness
+  events it inserts reference rows it holds, and the foreign key re-checks of its second updates
+  pass the `FOR NO KEY UPDATE` of every write (nothing locks an account or a printing row
+  `FOR UPDATE` or changes its key). The one full row lock such a re-check could meet is that of a
+  binder delete, and it never does, for two reasons:
+  - The delete holds every live item of the binder before its `DELETE` (it unfiled or
+    soft-deleted them), so the job holds none of them and skips them from then on.
+  - An item deleted earlier keeps its `binder_id`. A binder deleted together with its items
+    (`deleteItems=true`) locks only the live ones, so its `DELETE` reaches the deleted one through
+    the foreign key (`ON DELETE SET NULL`) with the full lock of the binder in hand, and waits
+    there when the job holds the row. **The job writes a deleted item at most once per run**: it
+    clears a listed flag left on it, and its expiry, freshness and warning statements take live
+    items only. A first update that leaves `binder_id` alone does not re-check the row's foreign
+    keys, so the job does not ask for the binder. (Until 2026-10-13 the expiry statement had no
+    `deleted_at` filter: a deleted item whose temporary publication had ended and which still
+    carried a listed flag was written twice in one run, and
+    `DELETE /binders/{id}?deleteItems=true` next to it answered 500, "deadlock detected". A
+    deleted item now keeps its expired `TEMPORARILY_PUBLIC`; no read uses it.)
+
+  A transaction that waits for nothing a write holds cannot be part of a lock cycle with one. The
+  statements of the collectors' writes do not skip: they wait for a held row.
+
+  The photo purge that the same hourly trigger runs after the job (`inventory-photo-purge`, stage
+  R2: `InventoryItemRepository.closeRestoreWindows`) follows the same rule in its own
+  transaction: one statement that takes the deleted items whose restore window has passed through
+  `ORDER BY id FOR NO KEY UPDATE SKIP LOCKED`, writes only those and deletes their photo rows. An
+  item that a restore or a binder delete holds is left to the next hour (the restore checks its own
+  window; the binder delete ends the window and deletes the photos itself).
+- **References from chats (stage R4).** A chat's subject (`conversation.subject_item_id` /
+  `subject_binder_id`) and a sale (`sale.inventory_item_id` / `binder_id`) reference items and
+  binders. Pinning a subject (`POST /conversations` with a subject, a `CARD_LINK` of one's own card)
+  first holds the item or binder `FOR KEY SHARE` (`InventorySales.lockForReference`,
+  `BinderService.lockForReference`), then writes the conversation row: the key-share lock of the
+  foreign key check, taken before the row that needs it, so a binder delete or an account purge
+  that holds the item or binder (and then sets the references to `NULL`) never waits for a
+  conversation row whose transaction waits for that item or binder in turn. The lock conflicts with
+  no write of the owner (`FOR NO KEY UPDATE`). A sale inserts its row while it holds the item or
+  binder itself.
+- **Outside the owner lock:** item photos (add, delete). They lock their item row, update it once
+  and decide nothing about the listing, so they wait for nothing else. (The photos of a binder,
+  stage R3, are binder writes and take the owner lock: see above.)
+
+**V131** (stage G, a binder's game) writes binders and cards of every collector once, in one
+transaction, at start-up: it takes the owner lock of every collector who has a binder first (in
+the order of their keys, as `BinderRepository.lockOwners`), then adds the column (an `ACCESS
+EXCLUSIVE` lock on `binder` until it commits), then takes every binder and every filed card
+`ORDER BY id FOR NO KEY UPDATE` before it writes anything, so its updates only write rows it
+already holds. The rule below asks for chunks of 500 items; a migration cannot chunk: every binder
+needs its game before the column becomes `NOT NULL`. A stage-G binder update that changes the game
+reads `item_count` and the binder's undoable cards under the binder's row lock (the owner lock
+first), so no card comes in between. `InventoryLockOrderIT` covers it (`BINDER_GAME_CHANGE`) and
+the first card that sets the game of a binder made without one (`FIRST_CARD_SETS_THE_BINDER_GAME`).
+**V132** (review fix 1) writes only binders whose cover is of another game: their owners' locks
+first (sorted keys), then the column defaults, then those binders `ORDER BY id FOR NO KEY UPDATE`.
+
+**A new bulk write** (an import, a mass edit: anything that writes many binders or items of one
+collector) follows every part of the above. The rule of the final review (2026-10-13):
+
+1. One transaction per bounded chunk of at most 500 items (`InventoryService.BULK_MAX`, the size
+   of the bulk endpoint), never one transaction for the whole work. The owner lock is held until
+   the transaction ends, and every other write of that collector waits behind it.
+2. `BinderService.lockOwners` first, before any row and before any other lock.
+3. Then the binders, every target binder included, and then the existing items, each in ascending
+   `id`: through `InventoryService.lockForWrite`, the helper of every item write of that service,
+   which takes the three in that order.
+4. Never a plain multi-row `UPDATE` or `DELETE` on these two tables: it takes its rows in no
+   particular order (a test fixture of the review deadlocked with a bulk request that way). Take
+   the rows through an `ORDER BY id FOR NO KEY UPDATE` clause, then write the rows taken. Never
+   `FOR UPDATE`.
+5. Reconcile in the same transaction (`ListingReconciler.items` / `ListingReconciler.binders`).
+6. Nothing slow and no second connection while the lock is held: no remote call, no file parsing,
+   no `REQUIRES_NEW`. Parse and validate before the transaction starts.
+7. The chunks of one collector run one after the other, never in parallel.
+
+The new entry point gets its case in `InventoryLockOrderIT.everyWriteStartsWithTheOwnerLock`
+(stage R4 added `SALE`, `SALE_UNDO`, `DECK_CORE_SALE` and `DECK_CORE_SALE_UNDO`, each through the
+chat's endpoints).
+
+The first write built on this rule is the commit of an inventory import (V113, stage S5), described
+under "V113" below: its case is `IMPORT_COMMIT`, and `anImportCommitNextToTheOtherWritesNeverDeadlocks`
+runs commits next to item writes, moves, privacy changes and two job workers. The case also locks
+the collector's `inventory_import` rows while the commit waits for the owner lock (a commit that
+took the import row, read the limit or froze its rows first would hold it there), and
+`ACCOUNT_PURGE` does the same for the purge of the previews.
+
+The second is the batch add of the camera scan (`POST /inventory/items/batch`,
+`InventoryBatchService`, owner spec 2026-10-15): one bounded transaction (1 to 500 lines), the
+lines validated and the catalog read before it, the owner lock, the target binder and the binders of
+the equal items it raises, then those items through `lockAll`, `inventory.items.max` for the whole
+batch, the reconciliation in the same transaction. Its case is `BATCH_ADD`, and
+`aBatchAddNextToTheOtherWritesNeverDeadlocks` runs batches next to item writes, moves, privacy
+changes and two job workers.
+
+What the locks cost: a collector's own simultaneous writes wait for each other. A write waits for
+the freshness job only at a row the job has written in the run in progress, until that run
+commits. Public reads take no lock.
+
+What skipping costs: a binder or an item that is being written (or whose owner's privacy change is
+being reconciled, which holds every binder of that owner) at the moment the job passes is aged,
+warned, hidden or unlisted by the next hourly run instead. An expired temporary publication is
+private for readers all the same (they compare `public_until` with the clock); a card due to be
+hidden as stale stays public for that hour.
+
+Not covered:
+
+- The stored `publicly_listed` flag can be one decision behind. A reconciliation decides "listed"
+  from the snapshot of its statement and, when another transaction commits a change to the row
+  before the statement reaches it, PostgreSQL re-reads the row but not the privacy, account and
+  binder rows joined to it. Among the writes of one collector the owner lock rules this out; the
+  job takes no owner lock, so a run that overlaps a collector's write can still store the older
+  decision and emit one publication event for it. The next run stores the right value, and public
+  reads apply the live rules, never the flag. Same as before 2026-10-10.
+- The account purge holds the full lock of the collector's items. A transaction that inserts
+  references to two of those items in another order than ascending `id` could still end in a lock
+  cycle with it. The account is pending deletion and its listings are hidden by then.
+
+`InventoryLockOrderIT` covers the rest: the reported deadlock (each item write against the
+reconciliation of a privacy change, and against a transaction that takes no owner lock), three
+simultaneous writes of one collector, a row created during a privacy change, the owner lock as the
+first lock of every write (one case per entry point), item writes next to an uncommitted reference
+to their item and the trade transfer against references inserted in offer order, the admin hide
+during a privacy change, each statement of the job with a row it has to write held elsewhere, the
+job between its two updates of an item while a write holds the item's binder, a binder deleted
+with and without its items while it holds an item deleted earlier that the job used to write
+twice, the job between two statements while a reorder holds the binder it wants next, a write
+waiting for a row a photo upload holds, and a bounded run of every kind of write next to two job
+workers.
+
 #### `inventory_item_image`
 
 | Column | Type | Notes |
 | --- | --- | --- |
 | `id` | `uuid` | PK |
 | `item_id` | `uuid` | FK → `inventory_item.id` (cascade); at most 4 per item (API) |
-| `storage_key` | `text` | `UNIQUE`; `ObjectStorage` key `inventory/<owner id>/<random>.jpg` |
-| `url` | `text` | URL at upload time (informational); responses derive the current URL from `storage_key` |
+| `storage_key` | `text` | `UNIQUE`; `ObjectStorage` key `inventory/<owner id>/<random>.jpg`; never sent to clients |
+| `url` | `text` | URL at upload time (informational); responses give `/api/v1/public/item-images/{id}` (stage R15 review fix 1: a URL never names the owner) |
 | `width`, `height` | `integer` | pixels of the stored rendition (≤ 1600 on the long side) |
 | `sort_order` | `integer` | position |
 | `created_at` | `timestamptz` | |
@@ -863,6 +1117,120 @@ Append-only trail of freshness transitions (audit + notification de-duplication,
 
 Indexes: `ix_inventory_freshness_event_item`, `ix_inventory_freshness_event_binder` (partial),
 `ix_inventory_freshness_event_owner`.
+
+### V113 — inventory import previews (stage S5)
+
+A collector uploads a YDK deck file or a CSV exported from Collectr (`POST /inventory/imports`);
+the file is parsed and matched to the catalog, and what the collector then sees, edits and commits
+is stored here. The file itself is never stored, and neither is its name.
+
+#### `inventory_import`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `owner_id` | `uuid` | FK → `user_account.id` (cascade); the only account that can read, edit or commit the import (404 for everyone else) |
+| `source` | `text` | `YDK`, `COLLECTR_CSV` |
+| `status` | `text` | `PENDING` (a preview: editable, committable, discardable), `COMMITTING` (the commit wrote at least one chunk; the rows are frozen; a repeated commit continues), `COMMITTED` |
+| `include_main`, `include_extra`, `include_side` | `boolean` | YDK: which sections of the deck count (default all) |
+| `ignored_lines` | `integer` | lines of the file that were no card (YDK: no passcode; CSV: rows without a card name) |
+| `revision` | `bigint` | raised by every edit; a commit that planned from an older revision plans again |
+| `total_chunks` | `integer` | chunks of at most 500 items the commit writes; `NULL` exactly while `PENDING` (`ck_inventory_import_started`) |
+| `chunks_done` | `integer` | chunks written; `≤ total_chunks` |
+| `chunk_new_items` | `integer[]` | V114. The new items each chunk was planned to create when the commit started (element n = chunk n; `cardinality = total_chunks`). Those of the chunks after `chunks_done` are the room the commit **reserves** under `inventory.items.max` while the import is `COMMITTING`. `NULL`: no limit applied to the collector when the commit started (nothing reserved), or before the commit |
+| `result` | `jsonb` | counts of the commit so far: `itemsCreated`, `itemsMerged`, `copiesAdded`, `rowsImported`, `copiesNotAdded` (V114 code: copies beyond the 9 999 of one item; absent in a result stored before, read as 0) |
+| `created_at`, `updated_at` | `timestamptz` | |
+| `expires_at` | `timestamptz` | a `PENDING` preview is refused after it (410 `IMPORT_EXPIRED`); each chunk of a commit moves it to now + `inventory.import.preview_ttl_minutes`, so the result of a finished import stays readable that long for a repeated commit |
+| `committed_at` | `timestamptz` | set exactly when `COMMITTED` (`ck_inventory_import_committed`) |
+
+Indexes: `ix_inventory_import_owner (owner_id, created_at DESC)`, `ix_inventory_import_expires
+(expires_at)`, `ix_inventory_import_committing (owner_id) WHERE status = 'COMMITTING'` (V114: the
+usage of the limit, read by every item create).
+
+A new upload deletes the collector's other `PENDING` previews: a collector has at most one open
+preview, however many files they try. The upload takes the collector's **upload lock** first
+(`pg_advisory_xact_lock` on `hashtextextended('inventory-import-upload:' || owner_id, 0)`: two
+uploads sent at the same moment run one after the other, and the second replaces the preview of
+the first) and waits for a preview another transaction holds (an edit being saved). It is not the
+owner lock of the inventory writes: an upload writes no binder and no item and makes none of those
+writes wait. The job `inventory-import-purge` deletes `PENDING` and
+`COMMITTED` imports past `expires_at`, and `COMMITTING` ones 7 days past it (a commit nobody
+finished); it runs after every hourly `freshness` job (an expired preview is refused when it is
+read, so the hour is soon enough and no Cloud Scheduler job is added, ADR 0016) and on request
+(`POST /internal/jobs/inventory-import-purge`). The account purge deletes all of a collector's,
+after their items: the item purge takes the owner lock, and the previews are deleted with it in
+hand (the order of a commit: owner lock, then the import row).
+
+#### `inventory_import_row`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `import_id` | `uuid` | FK → `inventory_import.id` (cascade) |
+| `position` | `integer` | order in the file, from 0; `UNIQUE (import_id, position)` |
+| `passcode` | `text` | YDK: the card passcode without leading zeros (1–10 digits) |
+| `source_name`, `source_set`, `source_number`, `source_rarity` | `text` | CSV: the card name (≤ 150), set (≤ 120), number (≤ 40) and rarity (≤ 60) as the file wrote them, so a row that fits nothing can be shown. **No other value of the file is kept: no price, note, date or portfolio name** |
+| `qty_main`, `qty_extra`, `qty_side` | `integer` | YDK: copies per section; `NULL` for CSV rows |
+| `file_quantity` | `integer` | copies the file says (YDK: every section together), 0–9 999 (0: the file wrote no number of copies) |
+| `quantity` | `integer` | the copies the collector typed for the row (1–9 999); `NULL` = the copies of the file (YDK: of the sections that count) |
+| `card_id` | `uuid` | FK → `card.id` (`ON DELETE SET NULL`); `NULL` = the row fits nothing |
+| `unmatched_reason` | `text` | `UNKNOWN_PASSCODE`, `UNKNOWN_CARD`, `AMBIGUOUS_CARD`, `UNKNOWN_GAME`, `NO_PRINTING`, `INVALID_QUANTITY`; a row whose card left the catalog later reads `CARD_REMOVED` (not stored) |
+| `printing_count` | `integer` | printings of the card when the preview was made |
+| `suggested_printing_ids` | `uuid[]` | CSV: the printings that fit what the row says, when that is fewer than every printing of the card (≤ 50) |
+| `printing_id` | `uuid` | FK → `card_printing.id` (`ON DELETE SET NULL`); `NULL` = to choose |
+| `printing_choice` | `text` | `AUTO` (the row fits exactly one printing), `MANUAL` (the collector), `MOST_RECENT` (the bulk action: latest `card_set.release_date`, unknown dates last), `MOST_RECENT_ASSUMED` (V114: the bulk action, where the most recent set holds the card in several editions or finishes: the release date decides nothing between them, the plain copy, `UNLIMITED` and `NORMAL`, was taken and the row says so). A row whose printings of the most recent date differ otherwise (rarity, language, set) is left to the collector |
+| `condition` | `text` | condition code of the card's game; `NULL` for a row that fits nothing |
+| `condition_source` | `text` | `DEFAULT` (the file names none: the last, lowest condition of the game, the one that claims least about the card), `FILE`, `EDITED` |
+| `language`, `edition` | `text` | CSV: what the file says about the copy; `NULL` = the printing's |
+| `included` | `boolean` | `false` = the collector left the row out |
+| `commit_chunk` | `integer` | the chunk that writes the row, set when the commit starts; `NULL` = not imported |
+
+Indexes: `ix_inventory_import_row_card`, `ix_inventory_import_row_printing` (partial, for the
+`ON DELETE SET NULL` of the catalog), `ix_inventory_import_row_chunk (import_id, commit_chunk)`.
+
+**The commit and the locks.** A commit follows the rule of "A new bulk write" above. Before any
+transaction it reads the rows and makes its plan: the rows that go in (a card, a printing still in
+the catalog, not left out, at least one copy), merged into lines by printing + condition + edition
++ language (copies added, at most 9 999), 500 lines per chunk in file order. Then one transaction
+per chunk, one after the other:
+
+1. `BinderService.lockOwners` (the owner lock), before anything else;
+2. the import row `FOR UPDATE`. This is the lock an edit of the preview takes too (an edit takes no
+   other lock), so an edit and a commit never work on the same preview at once; a commit that finds
+   another status or another `revision` than it planned from reads the import again;
+3. first chunk only: the limit `inventory.items.max` for the whole import, every chunk of it (the
+   lines without an equal private item are the items it would add; the usage they are added to
+   holds the collector's items and what their other commits in progress reserved; beyond the
+   limit: 429 `LIMIT_REACHED`, nothing written), then `commit_chunk` on every row that goes in,
+   the status `COMMITTING` and `chunk_new_items`: the new items each chunk will create;
+4. `InventoryService.importLines`: the owner's equal **private** items are read under the owner
+   lock (the oldest first; an item the owner shows is never raised: an imported copy is private
+   until its owner publishes it), `lockForWrite` takes their binders and then those items in
+   ascending `id`, each line is one single-row statement (an `UPDATE` of the item it raises, or an
+   `INSERT` of a `PRIVATE` unfiled item), then `ListingReconciler.items`. A chunk after the first
+   creates exactly the items it reserved, unless the owner deleted since then an item a line was
+   going to raise: that line is a new item after all, and the chunk is only written when the
+   limit has room for the difference (429 otherwise, the import stays `COMMITTING`);
+5. `chunks_done` (and, for the last chunk, `COMMITTED`) in that same transaction.
+
+A chunk is therefore written and recorded together or not at all. A commit that dies between two
+chunks leaves the import `COMMITTING` with the chunks it finished; the next commit starts at
+`chunks_done + 1`. Two commits at once: the second waits for the owner lock, then finds the chunk
+recorded and skips it. Nothing reads the catalog, parses or validates while the owner lock is held;
+the limit check reads the plan (cached) and counts the owner's items.
+
+**The room a commit reserves (V114).** The limit was first checked once, in the first chunk, and
+the chunks still to write were counted nowhere: between two chunks the owner lock is free, a card
+added by hand or a second import found room that was already promised, and an import of 1 500
+cards at a limit of 1 500 ended at 1 514. Since V114 the usage of `inventory.items.max`
+(`InventoryExtensions.inventoryItemsMaxUsageSource`) is `count(live items) + sum(chunk_new_items
+of the chunks after chunks_done)` over the owner's `COMMITTING` imports. A chunk is written and
+recorded in one transaction, so a reader finds an item either in the inventory or in the
+reservation, never in both and never in neither; nothing has to be lowered when a chunk ends
+(`chunks_done` moves on). A commit nobody finished keeps its room until it is repeated or purged
+(7 days). `InventoryImportIT` holds the cases: the limit of an import of several chunks, a card
+added by hand and a second import between two chunks, eight writers adding cards while an import
+of three chunks is written, and the chunk whose merge target was deleted.
 
 ### Phase 4 — map discovery and search reads (V030; region-scoped since ADR 0017)
 
@@ -922,7 +1290,9 @@ applied by id lists from the messaging module.
 | `created_by` | `uuid` | FK → `user_account.id` (`SET NULL`); empty conversations are listed for their creator only |
 | `created_at`, `updated_at` | `timestamptz` | |
 | `last_message_id`, `last_message_at`, `last_message_kind`, `last_message_sender_id` | | denormalised last message (updated in the message transaction); `ck_conversation_last_kind` |
-| `last_message_preview` | `text` | **PRIVATE**; ≤ 200 (API writes ≤ 140): text, or "Card: …" / "Binder: …" / "Photo" labels |
+| `last_message_preview` | `text` | **PRIVATE**; ≤ 200 (API writes ≤ 140): text, or "Card: …" / "Binder: …" / "Photo" labels. It never outlives its message: a withdrawn sale note and an account purge that erases the last message (`MessagingAccountData.purge`, WC review R2-2) give the conversation the newest message left as its last one, or none (all `last_message_*` columns `NULL`) |
+| `subject_item_id`, `subject_binder_id` | `uuid` | V127: the chat's subject (its pinned card or deck core, stage R4): FK `inventory_item` / `binder` (`ON DELETE SET NULL`), at most one (`ck_conversation_one_subject`); the latest pin wins; partial indexes `ix_conversation_subject_item`, `ix_conversation_subject_binder` |
+| `subject_set_at`, `subject_set_by` | `timestamptz`, `uuid` | V127: when and by whom it was pinned (FK `user_account`, `SET NULL`): its owner (shared it: the other collector sees it while it is private) or the buyer (it was public then); a sale counts for the subject pinned at or before it |
 
 #### `conversation_participant`
 
@@ -952,9 +1322,9 @@ idempotent even under concurrent calls (`ON CONFLICT DO NOTHING`, then the exist
 | `sender_id` | `uuid` | FK → `user_account.id` (`SET NULL`); `NULL` for SYSTEM messages |
 | `kind` | `text` | `TEXT`, `CARD_LINK`, `BINDER_LINK`, `OFFER_LINK` (reserved, Phase 8), `IMAGE`, `SYSTEM` |
 | `body` | `text` | **PRIVATE**, ≤ 4 000 |
-| `payload` | `jsonb` | **PRIVATE** object: `card {printingId, cardId, name, printingCode}`, `binder {binderId, name, ownerHandle}` (snapshots at send time), `image {attachmentId}`; URLs are derived at read time |
+| `payload` | `jsonb` | **PRIVATE** object: `card {printingId, cardId, name, printingCode}`, `binder {binderId, name, ownerHandle}` (snapshots at send time), `image {attachmentId}`; stage R4: `item {itemId, ownerId, askingPriceText, rarity}` (a `CARD_LINK` of the sender's own card, as it was when shared) and, in a SYSTEM sale message, `sale {saleId, sellerId, buyerId, kind, name, quantity, trackingNumber, undone}` with `systemKey` `sale:<id>:SOLD`; URLs are derived at read time |
 | `created_at` | `timestamptz` | microseconds (keyset cursor with `id`) |
-| `edited_at`, `deleted_at` | `timestamptz` | no edit route yet; `deleted_at` set when the sender's account is purged |
+| `edited_at`, `deleted_at` | `timestamptz` | no edit route yet; `deleted_at` set when the sender's account is purged, and on a SYSTEM sale message when its sale is undone (stage R4) |
 | `moderation_state` | `text` | `OK`, `FLAGGED` (served normally), `REMOVED` (served with empty body and payload) |
 
 Indexes: `ix_message_conversation_created (conversation_id, created_at DESC, id DESC)` (contract),
@@ -977,11 +1347,11 @@ Indexes: `ix_message_conversation_created (conversation_id, created_at DESC, id 
 | --- | --- | --- |
 | `id` | `uuid` | PK (`uploadId`) |
 | `owner_id` | `uuid` | FK → `user_account.id` (cascade) |
-| `kind` | `text` | `MESSAGE` (`INVENTORY` reserved) |
-| `storage_key` | `text` | `UNIQUE`; the object moves to `message_attachment` when attached |
+| `kind` | `text` | `MESSAGE`, `COMMUNITY` (V134, stage R11: a photo of a community post, 3 MB at most) (`INVENTORY` reserved); `ck_image_upload_kind` since V134 |
+| `storage_key` | `text` | `UNIQUE`; the object moves to `message_attachment` (a message) or `community_post_photo` (a post) when attached |
 | `width`, `height`, `bytes` | `integer` | |
 | `created_at` | `timestamptz` | attachable for 1 h |
-| `consumed_at` | `timestamptz` | set when attached to a message |
+| `consumed_at` | `timestamptz` | set when attached to a message or a post |
 
 Indexes: `ix_image_upload_owner`, `ix_image_upload_pending (created_at) WHERE consumed_at IS NULL`
 (upload-cleanup job).
@@ -1018,7 +1388,26 @@ Index: `ix_user_block_blocked (blocked_id)` (contract; checks in both directions
 Indexes: `ix_community_channel_status_sort`, `ix_community_channel_region` (accent-insensitive
 city). Seeded in every environment with stable ids `00000000-0000-4000-8e00-0000000000NN`:
 montreal-yugioh, montreal-pokemon, montreal-magic, montreal-riftbound (REGION + game, city
-Montréal), looking-for, new-listings, trades, general.
+Montréal), looking-for, new-listings, trades, general. V110 archived the city channels and added
+one channel per platform region (`americas-north`, `americas-south`, `europe`). **Since V134
+(stage R11) the active channels are the 15 rooms**, one per platform region and game
+(`americas-north-yugioh` … `europe-riftbound`, kind `REGION` with `game_slug` and
+`region_label`); every other channel is `ARCHIVED` (hidden from members, read-only, posts kept for
+moderators and their authors' exports).
+
+#### `community_post_photo` (V134, stage R11)
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `post_id` | `uuid` | FK → `community_post.id` (`ON DELETE CASCADE`) |
+| `storage_key` | `text` | `uq_community_post_photo_storage_key`; the object key of the `COMMUNITY` upload it came from (`uploads/<owner id>/<random>.jpg`); URLs derived at read time |
+| `width`, `height`, `bytes` | `integer` | > 0; the re-encoded JPEG (≤ 1600 px, no EXIF or GPS data) |
+| `position` | `integer` | ≥ 0, `uq_community_post_photo_position (post_id, position)`: the photo's order in its post (at most 4 photos, API rule) |
+| `created_at` | `timestamptz` | |
+
+Public to members like the post. Rows and their stored files are deleted when the post is deleted
+(author or moderator), removed by a moderator, or its author's account is purged.
 
 #### `community_post`
 
@@ -1082,8 +1471,9 @@ Wishlist rows never carry a location. Since stage S2 (V112) no match is stored: 
 listing appears (`InventoryItemPublished`), `WishlistAlerts` alerts the collectors **of the same
 platform region** (ADR 0017; the lister discoverable, the wisher with a location) whose wishes it
 fits, once per collector and item (`wishlist_alert_sent`). No distance is measured or stored.
-The per-type daily notification limit (`usage_limit` `wishlist.alerts.per_day`, FREE 5 / PREMIUM
-unlimited) is counted through the `Limits` service in `usage_counter` (window = UTC day, Redis
+The per-type daily notification limit (`usage_limit` `wishlist.alerts.per_day`, 5 for every
+collector since stage F1; FREE 5 / PREMIUM unlimited before) is counted through the `Limits` service
+in `usage_counter` (window = UTC day, Redis
 mirror); there is no separate notification rate-limit table.
 
 ### V050 / V112 — wishlist items and sent alerts
@@ -1099,7 +1489,7 @@ mirror); there is no separate notification rate-limit table.
 | `printing_id` | `uuid` | FK → `card_printing.id` (cascade); `NULL` = any printing of the card (`ck_wishlist_item_target`, "card or printing required", was dropped by V112: `card_id` is `NOT NULL`) |
 | `rarity` | `text` | "any printing" wishes only (`ck_wishlist_item_rarity_any_printing`): any printing of this rarity, one of the rarities of the card's printings (validated by the API), 1-40 characters; `NULL` = any rarity |
 | `public_note` | `text` | V112: **public** note, plain text, ≤ 280 (`ck_wishlist_item_public_note`), moderated by the API; `''` = none |
-| `near_mint_only` | `boolean` | V112: only Near Mint or better copies fit (alerts, "Who wants it") |
+| `near_mint_only` | `boolean` | V112: only Near Mint or better copies fit (wishlist alerts; "Who wants it" only if stage S3 is built: skipped by the owner on 2026-10-13, not built) |
 | `price_term` | `text` | V112: optional display term relative to the TCG market price (`ck_wishlist_item_price_term`: `"<percent>% TCG"` with an optional `+`); one of `platform_settings` `wishlist.price_terms` when chosen; never a filter |
 | `created_at`, `updated_at` | `timestamptz` | |
 
@@ -1146,10 +1536,10 @@ and the wishlist's deletion participant).
 | --- | --- | --- |
 | `id` | `uuid` | PK |
 | `user_id` | `uuid` | FK → `user_account.id` (cascade); the recipient |
-| `type` | `text` | `WISHLIST_ALERT` (`WISHLIST_MATCH` until V112), `MESSAGE`, `OFFER_RECEIVED`, `OFFER_ACCEPTED`, `OFFER_COUNTERED`, `OFFER_DECLINED`, `BINDER_EXPIRING`, `BINDER_STALE_WARNING`, `BINDER_HIDDEN`, `RATING_RECEIVED`, `TRADE_UPDATE`, `SHIPMENT_STATUS`, `PAYMENT_UPDATE`, `REPORT_DECISION`, `SYSTEM` (pattern check; the enum lives in the API) |
+| `type` | `text` | `SALE_RECORDED` (stage R4: the buyer's "{seller} marked {card} as sold to you", in-app only, dedup key `sale:<id>:SOLD`, withdrawn by the undo), `WISHLIST_ALERT` (`WISHLIST_MATCH` until V112), `MESSAGE`, `OFFER_RECEIVED`, `OFFER_ACCEPTED`, `OFFER_COUNTERED`, `OFFER_DECLINED`, `BINDER_EXPIRING`, `BINDER_STALE_WARNING`, `BINDER_HIDDEN`, `RATING_RECEIVED`, `TRADE_UPDATE`, `SHIPMENT_STATUS`, `PAYMENT_UPDATE`, `REPORT_DECISION`, `SYSTEM` (pattern check; the enum lives in the API) |
 | `title` | `text` | 1-200 |
 | `body` | `text` | ≤ 1000; never message text, notes or coordinates |
-| `data` | `jsonb` | object: ids of the objects concerned and `deepLink` (`/cards/<cardId>?printing=<id>`, `?rarity=<rarity>` or `?printing=any` of a wishlist alert, `/messages/<conversationId>`, `/inventory?binder=<id or unfiled>`, the upgrade URL); notifications about one card add `cardName`, `game` and `cardImageUrl` (ADR 0015: the `CardImageUrlResolver` URL as produced, an API-relative `/api/v1/public/card-images/<id>` or placeholder path, never a re-host-only provider URL; made absolute when listed); `ck_notification_data` (object). Only read per recipient (`data ->> 'conversationId'` for the MESSAGE throttle and read-with-conversation), so no GIN index |
+| `data` | `jsonb` | object: ids of the objects concerned and `deepLink` (`/cards/<cardId>?printing=<id>`, `?rarity=<rarity>` or `?printing=any` of a wishlist alert, `/messages/<conversationId>`, `/inventory?binder=<id or unfiled>`; the upgrade URL of a limit notice until stage F1, ADR 0019); notifications about one card add `cardName`, `game` and `cardImageUrl` (ADR 0015: the `CardImageUrlResolver` URL as produced, an API-relative `/api/v1/public/card-images/<id>` or placeholder path, never a re-host-only provider URL; made absolute when listed); `ck_notification_data` (object). Only read per recipient (`data ->> 'conversationId'` for the MESSAGE throttle and read-with-conversation), so no GIN index |
 | `dedup_key` | `text` | `uq_notification_dedup_key`; e.g. `wishlist-alert:<userId>:<inventoryItemId>`, `message:<messageId>`, `binder-warning:<owner>:<binder or unfiled>:<epoch second>`, `binder-hidden:<owner>:<binder or unfiled>:<UTC day>`, `limit:<user>:<type>:<UTC day>` |
 | `in_app` | `boolean` | listed in the notification centre (in-app channel enabled for the category) |
 | `created_at` | `timestamptz` | microseconds (keyset cursor with `id`) |
@@ -1194,14 +1584,16 @@ and threshold are `moderation_rule` rows, the unanswered window and the strikes 
 | Column | Type | Notes |
 | --- | --- | --- |
 | `id` | `uuid` | PK |
-| `kind` | `text` | `TRADE`, `OFFER_ACCEPTED`, `CONVERSATION_QUALIFIED` |
+| `kind` | `text` | `TRADE`, `OFFER_ACCEPTED`, `CONVERSATION_QUALIFIED`, `SALE` (V127, stage R4: a sale marked from the chat; its undo deletes it while nobody rated it); `ck_interaction_kind` |
 | `user_a`, `user_b` | `uuid` | FK → `user_account.id` (cascade); `ck_interaction_pair_order`: `user_a < user_b` in PostgreSQL uuid order (the API inserts with `LEAST`/`GREATEST`) |
-| `subject_type` | `text` | `TRADE`, `OFFER`, `CONVERSATION` (follows the kind) |
-| `subject_id` | `uuid` | the trade, offer or conversation; no FK (other modules / later phases) |
+| `subject_type` | `text` | `TRADE`, `OFFER`, `CONVERSATION`, `SALE` (follows the kind); `ck_interaction_subject_type` |
+| `subject_id` | `uuid` | the trade, offer, conversation or sale; no FK (other modules / later phases) |
 | `occurred_at` | `timestamptz` | when the interaction happened |
 
 Constraint `uq_interaction_kind_subject (kind, subject_id)`: `InteractionService.record` is
-idempotent. Indexes: `ix_interaction_pair (user_a, user_b, occurred_at DESC)` (eligibility),
+idempotent. A rating holds its interaction `FOR KEY SHARE` until it is stored; the undo of a sale
+takes the interaction `FOR UPDATE`, then deletes it only when no rating exists
+(`InteractionService.removeIfUnrated`). Indexes: `ix_interaction_pair (user_a, user_b, occurred_at DESC)` (eligibility),
 `ix_interaction_user_b (user_b, occurred_at DESC)` (export).
 
 #### `rating`
@@ -1235,7 +1627,9 @@ Constraint `uq_rating_interaction_rater (interaction_id, rater_id)` (409 `ALREAD
 | `updated_at` | `timestamptz` | last recomputation |
 
 Recomputed by the ratings module (single upsert from `rating`) on every rating write, hide, unhide
-and deletion; read by `RatingSummaryProvider` (profiles, collector search results, offers; one query per
+and deletion. Of the OK ratings one collector gave another for sales (interaction kind `SALE`, stage
+R4), only the newest counts in the average and the count (review fix 1, F10: a pair cannot stack
+ratings through many one-copy sales); every rating stays listed. Read by `RatingSummaryProvider` (profiles, collector search results, offers; one query per
 page of results; no nearby ranking since ADR 0017, comment refreshed by V111). Index `ix_rating_summary_average (average DESC NULLS LAST, count DESC)`.
 
 #### `reference`
@@ -1269,6 +1663,7 @@ Constraint `uq_reference_author_subject (author_id, subject_id)`. Indexes:
 | `resolved_at`, `resolved_by` | `timestamptz`, `uuid` | decision time and moderator |
 | `resolution_note` | `text` | **moderator note**, ≤ 1000 (admin console and the audit of suspensions) |
 | `resolution_action` | `text` | `NONE`, `WARNING`, `LISTINGS_PAUSED`, `SUSPENDED`, `BANNED`; `ck_collector_report_resolved`: decided ⇔ `resolved_at` and `resolution_action` set |
+| `report_number` | `bigint` | the short number staff read ("#1047"), V135: unique (`ux_collector_report_number`), from `collector_report_number_seq` (1001 up; reports older than V135 numbered by filing date); searchable by staff, never shown to members |
 
 Indexes: `uq_collector_report_open_pair (reporter_id, reported_user_id) WHERE status IN ('OPEN',
 'UNDER_REVIEW')` (409 `REPORT_ALREADY_OPEN`; inserts use `ON CONFLICT … DO NOTHING` on it),
@@ -1348,6 +1743,43 @@ Local aggregate of the analytics publisher (one upsert per event on the async ex
 Redis keys of this phase: `idem:report:<reporterId>:<Idempotency-Key>` (report id, 24 h) and the
 Phase 5 moderation windows `mod:rate:REPORT:<ruleId>:<reporterId>` (reports per day).
 
+### V127 — `sale` (the deals module, stage R4)
+
+Mark as sold (owner spec 2026-10-14, sections 10 and 12; ADR 0018, part 2): the seller of a
+chat's card or deck core marks it sold to the other collector. Payment happens outside OrenjiTrade
+(Interac e-Transfer); a sale records the agreement only. Contract:
+[`r4-messages-sales.md`](../api/contracts/r4-messages-sales.md).
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK (the undo's `POST /sales/{id}/undo`) |
+| `conversation_id` | `uuid` | FK → `conversation.id` (cascade): the chat it was marked in |
+| `seller_id`, `buyer_id` | `uuid` | FK → `user_account.id` (cascade); `ck_sale_parties` (different) |
+| `kind` | `text` | `CARD` or `DECK_CORE` (`ck_sale_kind`) |
+| `inventory_item_id`, `binder_id` | `uuid` | FK → `inventory_item.id` / `binder.id` (`ON DELETE SET NULL`); at most one (`ck_sale_subject`) |
+| `name` | `text` | the card or deck core at the time of the sale (1-200) |
+| `quantity` | `integer` | copies sold (1-9 999; 1 for a deck core) |
+| `tracking_number` | `varchar(64)` | **PRIVATE to the two collectors**: optional, trimmed (`ck_sale_tracking_number`); never in logs or analytics |
+| `item_removed` | `boolean` | the sale took the card's last copy (the card left the inventory, restorable for the undo window) |
+| `removed_item_ids` | `uuid[]` | a deck core's cards that left the inventory with it (restored by the undo) |
+| `created_at` | `timestamptz` | when it was marked; the undo window is 10 minutes from it |
+| `undone_at` | `timestamptz` | when the seller undid it (before anyone rated it); the copies came back |
+
+Indexes: `ix_sale_conversation (conversation_id, created_at DESC)` (the pinned bar's "Sold"),
+`ix_sale_seller`, `ix_sale_buyer` (export, purge), partial `ix_sale_item` and `ix_sale_binder` (the
+foreign keys' `SET NULL`).
+
+What a sale writes, in one transaction: the copies leave the inventory (`InventorySales`: at 0 the
+card is soft-deleted with `restorable_until` = now + 10 minutes, its photos kept; a deck core gets
+`binder.sold_at` and its live cards are soft-deleted the same way), the `sale` row, an
+`interaction` `SALE`, a SYSTEM `message` with the key `sale:<id>:SOLD` and a `SALE_RECORDED`
+notification for the buyer. The undo puts it all back: the copies (a card that left is restored
+with its binder, visibility and photos; a deck core loses `sold_at` and its cards come back), then
+deletes the interaction (while unrated), marks the message deleted (`payload.sale.undone`) and
+deletes the notification. An inventory restore of a sold card (`POST /inventory/items/{id}/restore`,
+the same window) is allowed and the sale's undo then has nothing left to put back. The account
+purge deletes the account's sales (`DeletionParticipant` `deals`).
+
 ### Phase 8 — offers and trades (V070–V071)
 
 No table of this phase stores a location: the parties are shown with the owner block of the binders
@@ -1355,8 +1787,9 @@ module (their state or province and country, ADR 0017; never a city or a distanc
 `numeric(12,2)` + ISO currency. Every transition appends an event row (append-only) inside the same
 transaction as the state change; notifications, SYSTEM messages and analytics follow after commit
 from `OfferCreated` / `OfferUpdated` / `TradeUpdated` (Spring Modulith registry). Configurable
-numbers stay data (ADR 0014): the daily offer limit is `usage_limit` `offers.per_day` (FREE 20,
-PREMIUM 100, V011); `protectedPayments` is a `feature_flag` row.
+numbers stay data (ADR 0014): the daily offer limit is `usage_limit` `offers.per_day` (20 for
+every collector since stage F1; FREE 20 / PREMIUM 100 before, V011); `protectedPayments` is a
+`feature_flag` row.
 
 ### V070 — offers
 
@@ -1530,6 +1963,14 @@ Row of V112 (`WishlistSettings`, cached in Redis `wishlist-settings:v1` for ≤ 
 `wishlist.price_terms` `"80% TCG,85% TCG,90% TCG,100% TCG,100% TCG+"` (1–10 comma-separated terms
 `"<percent>% TCG"` with an optional `+`, percent 1–200).
 
+Rows of V113 (`InventoryImportSettings`, cached in Redis `inventory-import-settings:v1` for ≤ 60 s,
+evicted after `PUT /admin/inventory/import-settings`, ADMIN, audited
+`inventory.import.settings.update`): `inventory.import.ydk_max_kb` 100 (1–1024),
+`inventory.import.ydk_max_lines` 500 (10–5000), `inventory.import.csv_max_kb` 2048 (16–8192),
+`inventory.import.csv_max_rows` 5000 (10–20000), `inventory.import.preview_ttl_minutes` 60
+(5–1440). A kB is 1 024 bytes. The server applies them to every upload; a stored value outside its
+bounds falls back to the default.
+
 #### `seller_account`
 
 | Column | Type | Notes |
@@ -1690,6 +2131,11 @@ accounts for collector1 and collector2, payment `9f00…0001` (trade `9d00…000
 `9f00…0002` (trade `9d00…0004`) frozen by dispute `9f00…0101` (OPEN, NOT_AS_DESCRIBED).
 
 ### Phase 10 — subscriptions, credits, advertising, donations (V090–V093)
+
+> **Removed by stage F1 (2026-10-14, ADR 0019): V120 (advertising), V121 (donations), V122
+> (credits) and V123 (subscriptions, plans) dropped every table of this section.** The sections
+> below describe them as they were, for the history and for bringing a feature back (the code is
+> on the branch `archive/paid-features`; a new migration would recreate the tables).
 
 Feature flags `premiumPlans`, `credits`, `advertising`, `donations` (ADR 0014). Every provider is a
 local fake by default (billing: `FakeBillingProvider`, Stripe Billing only by configuration;
@@ -1892,6 +2338,15 @@ Indexes: `uq_card_image_provider (provider, provider_image_id) WHERE provider_im
 `uuid`, FK → `card_image.id` (`ON DELETE SET NULL`): the card's primary artwork. A printing shows its
 own image (`card_printing.image_id`), else its card's `image_id`, else the placeholder SVG.
 
+**Stage R10 (2026-10-21, no migration; [ADR 0021](../architecture/adr/0021-five-games-and-their-card-sources.md)):**
+Magic (`scryfall`, one artwork per `illustration_id`) and Pokémon (`tcgdex`, one artwork per
+printing) printings point `card_printing.image_id` at their own provider artwork, a card-level
+`card_image` row of the printing's card (`printing_id` NULL, `provider_image_id` the illustration
+id or the TCGdex card id); the importer writes it (only when it changes) and the printing lists show
+it. A card's primary artwork (`card.image_id`, position 0) is its earliest printing's, the printing
+the catalogue already shows a card with. `card_image.printing_id` stays reserved for the mock
+placeholders.
+
 #### `card_image_cache_usage`
 
 Single row (`id = 1`, `ck_card_image_cache_usage_single`): `used_bytes` (`bigint`, bytes of the
@@ -1953,3 +2408,42 @@ migration acting on data. Admin edits (`updated_by` set) are respected; the loca
 re-enables both so the fake checkout, credits and referral flows stay testable locally. Covered by
 `FeatureFlagsIT` (migration state) and `LaunchConfigurationIT` (everything else keeps working with
 every money flag off).
+
+**Stage F1 (2026-10-14, ADR 0019):** both rows are gone (V122 deletes `credits`, V123
+`premiumPlans`), with the `donations` (V121) and `advertising` (V120) flags. The local/dev seed now
+enables only `protectedPayments`; `LaunchConfigurationIT` checks that the removed flags no longer
+exist.
+
+### V120–V123 — free for all: Premium, ads, credits and donations removed (stage F1)
+
+Owner decision of 2026-10-14 (ADR 0019). Each migration drops its feature's tables without
+`CASCADE`, after its dependants, and deletes its flag; the code stays on the branch
+`archive/paid-features`, and bringing a feature back needs a **new** migration recreating what is
+dropped here (V011, V090–V093 are the original definitions).
+
+- **V120 — advertising:** drops `ad_conversion`, `ad_click`, `ad_impression`, `ad_campaign_daily`,
+  `ad_targeting_rule`, `ad_creative`, `ad_campaign`, `ad_placement`, `advertiser`; deletes the
+  `advertising` flag.
+- **V121 — donations:** drops `donation_webhook_event`, `donation`; deletes the `donations.*`
+  platform settings and the `donations` flag; completes the outbox rows of the removed
+  `DonationWebhookReceived` event.
+- **V122 — credits:** drops the `credit_balance` view, `credit_ledger_entry` and its append-only
+  trigger function, `referral_redemption`, `referral_code`, `credit_product`; deletes the
+  `credits.*` settings, the `credits` flag, the entitlements granted by credit purchases and the run
+  history of the removed `credits-reconcile` job.
+- **V123 — Premium:** drops `billing_webhook_event`, `subscription_event`, `subscription`,
+  `entitlement`, `plan_feature`, `user_account.plan_code` and `plan`; `usage_limit` keeps one row
+  per key (the FREE plan's value, with any admin edit; `plan_id` dropped, `UNIQUE (limit_key)`)
+  and loses `saved_searches.max` (a Premium perk of a feature never built) with its counters;
+  the `PREMIUM_USER` role leaves `user_role` (rows deleted, check constraint rebuilt as
+  `ck_user_role_role`); deletes the `premiumPlans` flag and the run history of
+  `subscriptions-period`.
+
+**Old data (V123):** the daily "limit reached" notices lose `planCode`, `upgradeUrl`, their link to
+`/premium` and the "Upgrade to Premium" sentence (rewritten as the API writes them now); admin
+broadcasts (`data.kind` `BROADCAST`) that linked to `/premium`, `/credits`, `/support` or their fake
+checkouts promoted those features and are deleted (no table references a notification); any other
+notification linking there keeps its text and loses the link (the API writes none); outbox rows of the removed billing events are completed. Audit rows of the old
+actions stay as history. Covered by `PaidFeaturesRemovalMigrationIT` (a scratch database migrated
+to V119, filled with plans, subscriptions, entitlements, credits, ads, donations, old notices,
+promotional broadcasts and outbox rows, then migrated to the latest version) and `FlywayMigrationIT`.

@@ -36,6 +36,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -75,6 +76,7 @@ public class RatingService {
     private final AuditService auditService;
     private final ApplicationEventPublisher events;
     private final TimeProvider timeProvider;
+    private final ObjectProvider<SaleDeals> saleDeals;
 
     public RatingService(
             InteractionService interactions,
@@ -86,7 +88,8 @@ public class RatingService {
             NotificationService notifications,
             AuditService auditService,
             ApplicationEventPublisher events,
-            TimeProvider timeProvider) {
+            TimeProvider timeProvider,
+            ObjectProvider<SaleDeals> saleDeals) {
         this.interactions = interactions;
         this.ratings = ratings;
         this.accounts = accounts;
@@ -97,6 +100,7 @@ public class RatingService {
         this.auditService = auditService;
         this.events = events;
         this.timeProvider = timeProvider;
+        this.saleDeals = saleDeals;
     }
 
     // ---------------------------------------------------------------------------------------
@@ -117,19 +121,40 @@ public class RatingService {
         List<InteractionView> found = interactions.between(me, otherId);
         Set<UUID> rated =
                 ratings.ratedInteractions(me, found.stream().map(InteractionView::id).toList());
+        Map<UUID, SaleDeals.Deal> deals = dealsOf(found);
         List<EligibleInteraction> result = new ArrayList<>();
         boolean eligible = false;
         for (InteractionView interaction : found) {
             boolean alreadyRated = rated.contains(interaction.id());
             eligible |= !alreadyRated;
+            SaleDeals.Deal deal =
+                    interaction.subjectType() == InteractionSubjectType.SALE
+                            ? deals.get(interaction.subjectId())
+                            : null;
             result.add(
                     new EligibleInteraction(
                             interaction.id(),
                             interaction.kind(),
                             interaction.occurredAt(),
-                            alreadyRated));
+                            alreadyRated,
+                            deal == null ? null : deal.name(),
+                            RatingRules.soldTo(deal == null ? null : deal.buyerId(), me)));
         }
         return new Eligibility(eligible && isRateable(otherId), result);
+    }
+
+    /**
+     * The sales the {@code SALE} interactions stand for (stage R14: the rating form names the
+     * deal); empty without the deals module.
+     */
+    private Map<UUID, SaleDeals.Deal> dealsOf(List<InteractionView> found) {
+        List<UUID> saleIds =
+                found.stream()
+                        .filter(i -> i.subjectType() == InteractionSubjectType.SALE)
+                        .map(InteractionView::subjectId)
+                        .toList();
+        SaleDeals source = saleDeals.getIfAvailable();
+        return saleIds.isEmpty() || source == null ? Map.of() : source.deals(saleIds);
     }
 
     // ---------------------------------------------------------------------------------------
@@ -141,16 +166,18 @@ public class RatingService {
     public RatingView submit(
             UUID me, UUID interactionId, RatingScores scores, @Nullable String rawComment) {
         @Nullable String comment = validated(scores, rawComment);
+        // Held until the rating is stored: the undo of a sale removes its interaction only while
+        // nobody rated it (stage R4).
         InteractionView interaction =
                 interactions
-                        .find(interactionId)
+                        .findForRating(interactionId)
                         .filter(found -> found.involves(me))
                         .orElseThrow(
                                 () ->
                                         new ApiException(
                                                 ErrorCode.RATING_NOT_ELIGIBLE,
-                                                "You can rate a collector after a completed trade,"
-                                                        + " an accepted offer or a real"
+                                                "You can rate a collector after a sale, a completed"
+                                                        + " trade, an accepted offer or a real"
                                                         + " conversation with them"));
         UUID rateeId = interaction.otherThan(me);
         if (!isRateable(rateeId)) {
@@ -262,6 +289,8 @@ public class RatingService {
         Map<String, @Nullable Object> data = new LinkedHashMap<>();
         data.put("ratingId", row.id().toString());
         data.put("overall", row.scores().overall());
+        // The rater's id (WF, WE review R2-2): an account deletion finds the row by it.
+        data.put("raterId", row.raterId().toString());
         if (rater != null) {
             data.put("raterHandle", rater.handle());
         }
@@ -336,26 +365,43 @@ public class RatingService {
     // ---------------------------------------------------------------------------------------
 
     @Transactional(readOnly = true)
-    public PageResponse<RatingView> adminList(
+    public PageResponse<AdminRatingView> adminList(
             @Nullable UUID rateeId,
             @Nullable UUID raterId,
             @Nullable RatingModerationState state,
             int page,
             int size) {
         RatingRepository.Page result = ratings.adminPage(rateeId, raterId, state, page, size);
+        return PageResponse.of(adminViews(result.rows()), page, size, result.total());
+    }
+
+    /**
+     * Ratings as staff read them (web stage WH1): the author, the rated collector and whoever hid
+     * it by name, never a bare id.
+     */
+    private List<AdminRatingView> adminViews(List<RatingRow> rows) {
         Set<UUID> ids = new LinkedHashSet<>();
-        result.rows().forEach(row -> ids.add(row.raterId()));
-        Map<UUID, MemberCard> raters = members.cards(ids);
-        return PageResponse.of(
-                result.rows().stream().map(row -> view(row, raters)).toList(),
-                page,
-                size,
-                result.total());
+        for (RatingRow row : rows) {
+            ids.add(row.raterId());
+            ids.add(row.rateeId());
+            if (row.hiddenBy() != null) {
+                ids.add(row.hiddenBy());
+            }
+        }
+        Map<UUID, MemberCard> cards = members.cards(ids);
+        return rows.stream()
+                .map(
+                        row ->
+                                new AdminRatingView(
+                                        view(row, cards),
+                                        cards.get(row.rateeId()),
+                                        row.hiddenBy() == null ? null : cards.get(row.hiddenBy())))
+                .toList();
     }
 
     /** {@code POST /admin/ratings/{id}/hide}: {@code 409} when already hidden. Audited. */
     @Transactional
-    public RatingView hide(AuthenticatedUser moderator, UUID ratingId, String reason) {
+    public AdminRatingView hide(AuthenticatedUser moderator, UUID ratingId, String reason) {
         RatingRow row =
                 ratings.findForUpdate(ratingId).orElseThrow(() -> ApiException.notFound(NOT_FOUND));
         if (row.moderationState() == RatingModerationState.HIDDEN) {
@@ -378,12 +424,12 @@ public class RatingService {
                 ratingId.toString(),
                 details);
         RatingRow updated = ratings.find(ratingId).orElseThrow();
-        return view(updated, members.cards(List.of(updated.raterId())));
+        return adminViews(List.of(updated)).get(0);
     }
 
     /** {@code POST /admin/ratings/{id}/unhide}: {@code 409} when not hidden. Audited. */
     @Transactional
-    public RatingView unhide(AuthenticatedUser moderator, UUID ratingId) {
+    public AdminRatingView unhide(AuthenticatedUser moderator, UUID ratingId) {
         RatingRow row =
                 ratings.findForUpdate(ratingId).orElseThrow(() -> ApiException.notFound(NOT_FOUND));
         if (row.moderationState() != RatingModerationState.HIDDEN) {
@@ -400,7 +446,7 @@ public class RatingService {
                 ratingId.toString(),
                 Map.of("rateeId", row.rateeId().toString()));
         RatingRow updated = ratings.find(ratingId).orElseThrow();
-        return view(updated, members.cards(List.of(updated.raterId())));
+        return adminViews(List.of(updated)).get(0);
     }
 
     // ---------------------------------------------------------------------------------------
@@ -469,6 +515,16 @@ public class RatingService {
     public record RatingView(RatingRow row, @Nullable MemberCard rater, Instant editableUntil) {}
 
     /**
+     * A rating in the moderator console.
+     *
+     * @param rating the rating with its author's card
+     * @param ratee the rated collector's card ({@code null} when unknown)
+     * @param hiddenBy the card of the staff member who hid it ({@code null} when visible)
+     */
+    public record AdminRatingView(
+            RatingView rating, @Nullable MemberCard ratee, @Nullable MemberCard hiddenBy) {}
+
+    /**
      * Averages of a collector's visible ratings (one decimal).
      *
      * @param average overall average, {@code null} without ratings
@@ -493,9 +549,20 @@ public class RatingService {
     /** A page of a collector's ratings with their summary. */
     public record CollectorRatings(CursorPage<RatingView> page, RatingSummaryView summary) {}
 
-    /** One interaction of the eligibility answer. */
+    /**
+     * One interaction of the eligibility answer.
+     *
+     * @param dealName a sale's card or deck core (stage R14), {@code null} for other kinds
+     * @param soldToYou a sale: {@code true} when the caller bought, {@code false} when the caller
+     *     sold; {@code null} for other kinds
+     */
     public record EligibleInteraction(
-            UUID id, InteractionKind kind, Instant occurredAt, boolean alreadyRated) {}
+            UUID id,
+            InteractionKind kind,
+            Instant occurredAt,
+            boolean alreadyRated,
+            @Nullable String dealName,
+            @Nullable Boolean soldToYou) {}
 
     /** The eligibility answer. */
     public record Eligibility(boolean eligible, List<EligibleInteraction> interactions) {}

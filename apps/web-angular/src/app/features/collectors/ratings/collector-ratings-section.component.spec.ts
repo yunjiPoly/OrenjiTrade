@@ -141,7 +141,7 @@ describe('CollectorRatingsSectionComponent', () => {
     expect(button('Rate this collector')).toBeUndefined();
     expect(button('Write a reference')).toBeUndefined();
     expect(element.querySelector('[data-testid="rating-hint"]')?.textContent).toContain(
-      'You can rate Tess Trader after a completed trade',
+      'You can rate Tess Trader after a deal with them',
     );
   });
 
@@ -161,7 +161,7 @@ describe('CollectorRatingsSectionComponent', () => {
     await create(true);
     expect(eligibility).not.toHaveBeenCalled();
     expect(element.textContent).toContain('Ratings could not load');
-    button('Retry')?.click();
+    button('Try again')?.click();
     await fixture.whenStable();
     expect(element.textContent).toContain('No ratings yet');
     expect(button('Rate this collector')).toBeUndefined();

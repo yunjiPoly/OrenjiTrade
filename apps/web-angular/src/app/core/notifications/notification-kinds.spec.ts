@@ -1,9 +1,11 @@
 import { NotificationResponseTypeEnum as Type } from '@orenji/api-client';
 import {
+  isHistoryNotification,
   isUnread,
   notificationCard,
   notificationKind,
   notificationLink,
+  notificationText,
   safeAppPath,
 } from './notification-kinds';
 
@@ -23,11 +25,11 @@ describe('notification kinds', () => {
     });
   });
 
-  it('shows the plan-limit notice with the premium icon', () => {
+  it('shows the daily limit notice with the limit icon', () => {
     expect(notificationKind({ type: Type.System, data: { kind: 'LIMIT_REACHED' } })).toEqual({
-      icon: 'workspace_premium',
+      icon: 'speed',
       tone: 'system',
-      label: 'Plan limit',
+      label: 'Limit reached',
     });
   });
 
@@ -75,26 +77,42 @@ describe('notification kinds', () => {
         data: { deepLink: '/cards/c-1?printing=any', cardId: 'c-1' },
       }),
     ).toBe('/cards/c-1?printing=any');
-    expect(notificationLink({ type: Type.WishlistAlert, data: {} })).toBe('/wishlist');
+    expect(notificationLink({ type: Type.WishlistAlert, data: {} })).toBe('/search?tab=wishlist');
     expect(notificationLink({ type: Type.Message, data: { conversationId: 'c-9' } })).toBe(
       '/messages/c-9',
     );
     expect(notificationLink({ type: Type.BinderStaleWarning, data: { binderId: 'b-2' } })).toBe(
       '/inventory?binder=b-2',
     );
-    // A plan-limit notice leads to Premium only when the API offered it (premiumPlans on).
+    // An old limit notice never leads to Premium (stage F1: removed); nor any old link to the
+    // removed paid pages.
     expect(
       notificationLink({
         type: Type.System,
-        data: { kind: 'LIMIT_REACHED', upgradeUrl: '/premium', deepLink: '/premium' },
+        data: {
+          kind: 'LIMIT_REACHED',
+          notificationType: 'WISHLIST_ALERT',
+          upgradeUrl: '/premium',
+          deepLink: '/premium',
+        },
       }),
-    ).toBe('/premium');
+    ).toBe('/search?tab=wishlist');
+    for (const removed of [
+      '/premium?checkout=success',
+      '/credits',
+      '/support',
+      '/checkout/fake-billing/x',
+    ]) {
+      expect(notificationLink({ type: Type.System, data: { deepLink: removed } })).toBe(
+        '/notifications',
+      );
+    }
     expect(
       notificationLink({
         type: Type.System,
         data: { kind: 'LIMIT_REACHED', notificationType: 'WISHLIST_ALERT' },
       }),
-    ).toBe('/wishlist');
+    ).toBe('/search?tab=wishlist');
     expect(notificationLink({ type: Type.System, data: { kind: 'LIMIT_REACHED' } })).toBe(
       '/notifications',
     );
@@ -103,7 +121,7 @@ describe('notification kinds', () => {
         type: Type.WishlistAlert,
         data: { deepLink: 'https://evil.example', cardId: '../../x' },
       }),
-    ).toBe('/wishlist');
+    ).toBe('/search?tab=wishlist');
     expect(notificationLink({ type: Type.RatingReceived, data: {} })).toBe('/notifications');
   });
 
@@ -132,55 +150,72 @@ describe('notification kinds', () => {
     expect(notificationKind({ type: Type.ReportDecision, data: {} }).label).toBe('Report decision');
   });
 
-  it('opens offers and trades (Phase 8), with the new withdrawn / expired kinds', () => {
-    expect(
-      notificationLink({
-        type: Type.OfferReceived,
-        data: { deepLink: '/offers/o-1', offerId: 'o-1' },
-      }),
-    ).toBe('/offers/o-1');
-    expect(notificationLink({ type: Type.OfferCountered, data: { offerId: 'o-2' } })).toBe(
-      '/offers/o-2',
-    );
-    expect(
-      notificationLink({ type: Type.OfferAccepted, data: { offerId: 'o-2', tradeId: 't-1' } }),
-    ).toBe('/trades/t-1');
-    expect(notificationLink({ type: Type.TradeUpdate, data: { tradeId: 't-1' } })).toBe(
-      '/trades/t-1',
-    );
-    expect(notificationLink({ type: Type.TradeUpdate, data: {} })).toBe('/trades');
-    expect(notificationLink({ type: Type.OfferExpired, data: {} })).toBe('/offers');
+  it('reads old offer, trade, payment and dispute notices as history (decision 2, web WA)', () => {
+    for (const notice of [
+      { type: Type.OfferReceived, data: { deepLink: '/offers/o-1', offerId: 'o-1' } },
+      { type: Type.OfferCountered, data: { offerId: 'o-2' } },
+      { type: Type.OfferAccepted, data: { offerId: 'o-2', tradeId: 't-1' } },
+      { type: Type.TradeUpdate, data: { tradeId: 't-1' } },
+      { type: Type.OfferExpired, data: {} },
+      { type: Type.PaymentUpdate, data: { deepLink: '/settings/payouts', tradeId: 't-1' } },
+      { type: Type.ShipmentStatus, data: { tradeId: 't-2' } },
+      { type: Type.DisputeUpdate, data: { disputeId: 'd-1', tradeId: 't-1' } },
+      { type: Type.System, data: { deepLink: '/disputes/d-1' } },
+      { type: Type.System, data: { deepLink: '/checkout/fake/ref-1' } },
+      { type: Type.System, data: { deepLink: '/settings/offers' } },
+    ]) {
+      expect(notificationLink(notice), JSON.stringify(notice)).toBe('/notifications');
+    }
+    // Their kinds read as history and still say what happened; the list shows them unlinked.
     expect(notificationKind({ type: Type.OfferCancelled, data: {} })).toEqual({
       icon: 'undo',
       tone: 'offer',
-      label: 'Offer withdrawn',
+      label: 'Past offer · withdrawn',
     });
-    expect(notificationKind({ type: Type.OfferExpired, data: {} }).label).toBe('Offer expired');
+    expect(notificationKind({ type: Type.OfferReceived, data: {} }).label).toBe('Past offer');
+    expect(notificationKind({ type: Type.OfferExpired, data: {} }).label).toBe(
+      'Past offer · expired',
+    );
+    expect(notificationKind({ type: Type.DisputeUpdate, data: {} }).label).toBe('Past dispute');
+    expect(isHistoryNotification({ type: Type.OfferReceived })).toBe(true);
+    expect(isHistoryNotification({ type: Type.TradeUpdate })).toBe(true);
+    expect(isHistoryNotification({ type: Type.Message })).toBe(false);
+    expect(isHistoryNotification({ type: Type.System })).toBe(false);
   });
 
-  it('opens the Phase 9 payment, shipment and dispute notices where they belong', () => {
-    expect(
-      notificationLink({
-        type: Type.PaymentUpdate,
-        data: { deepLink: '/settings/payouts', tradeId: 't-1' },
-      }),
-    ).toBe('/settings/payouts');
-    expect(notificationLink({ type: Type.PaymentUpdate, data: { tradeId: 't-1' } })).toBe(
-      '/trades/t-1',
-    );
-    expect(notificationLink({ type: Type.ShipmentStatus, data: { tradeId: 't-2' } })).toBe(
-      '/trades/t-2',
-    );
-    expect(
-      notificationLink({ type: Type.DisputeUpdate, data: { disputeId: 'd-1', tradeId: 't-1' } }),
-    ).toBe('/disputes/d-1');
-    expect(notificationLink({ type: Type.DisputeUpdate, data: { tradeId: 't-1' } })).toBe(
-      '/trades/t-1',
-    );
-    expect(notificationKind({ type: Type.DisputeUpdate, data: {} })).toEqual({
-      icon: 'gavel',
-      tone: 'warning',
-      label: 'Dispute',
+  it('heads an old notice as history, never with the server’s live words (decision 2)', () => {
+    const notice = (type: string, data: Record<string, unknown>) => ({
+      type: type as Type,
+      title: 'New offer on Azure-Eyes Sky Dragon',
+      body: 'Devon Okafor offered 20.00 CAD for Azure-Eyes Sky Dragon.',
+      data,
+    });
+    const card = { cardName: 'Azure-Eyes Sky Dragon' };
+    const offersGone = 'Offers are no longer available. Deals happen in the chat.';
+    const paymentsGone =
+      "Payments and disputes aren't part of OrenjiTrade. Deals happen in the chat, and the buyer pays by e-Transfer outside the app.";
+    expect(notificationText(notice(Type.OfferReceived, card))).toEqual({
+      title: 'Past offer on Azure-Eyes Sky Dragon',
+      body: offersGone,
+    });
+    expect(notificationText(notice(Type.OfferAccepted, {})).title).toBe('A past offer');
+    expect(notificationText(notice(Type.TradeUpdate, card))).toEqual({
+      title: 'Past trade of Azure-Eyes Sky Dragon',
+      body: offersGone,
+    });
+    expect(notificationText(notice(Type.ShipmentStatus, {})).title).toBe('A past trade');
+    expect(notificationText(notice(Type.PaymentUpdate, card))).toEqual({
+      title: 'Past payment for Azure-Eyes Sky Dragon',
+      body: paymentsGone,
+    });
+    expect(notificationText(notice(Type.DisputeUpdate, { cardName: '  ' }))).toEqual({
+      title: 'A past dispute',
+      body: paymentsGone,
+    });
+    // Every other notice keeps the server's words.
+    expect(notificationText(notice(Type.Message, card))).toEqual({
+      title: 'New offer on Azure-Eyes Sky Dragon',
+      body: 'Devon Okafor offered 20.00 CAD for Azure-Eyes Sky Dragon.',
     });
   });
 

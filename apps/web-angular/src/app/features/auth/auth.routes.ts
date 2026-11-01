@@ -1,7 +1,10 @@
 import { Routes } from '@angular/router';
 import { authGuard, guestGuard } from '../../core/auth/auth.guards';
 
-/** `/auth/*`: sign in/up, verification, password reset, consent and account-state pages. */
+/**
+ * `/auth/*`: sign in and up, verification, password reset, and the account states (Review our
+ * terms, suspended or scheduled for deletion, could not load). Bare pages (spec 14: no rail).
+ */
 export const AUTH_ROUTES: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'sign-in' },
   {
@@ -39,6 +42,14 @@ export const AUTH_ROUTES: Routes = [
     canActivate: [authGuard],
     loadComponent: () =>
       import('./consent/consent-page.component').then((m) => m.ConsentPageComponent),
+  },
+  {
+    // "We could not load your account" (spec 14, an account state).
+    path: 'unavailable',
+    title: 'We could not load your account',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./unavailable/unavailable-page.component').then((m) => m.UnavailablePageComponent),
   },
   {
     path: 'suspended',

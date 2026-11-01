@@ -4,20 +4,13 @@ import { MeResponseRolesEnum } from '@orenji/api-client';
 export type Role = `${MeResponseRolesEnum}`;
 
 /** Every role, lowest privilege first (display order). */
-export const ALL_ROLES: readonly Role[] = [
-  'USER',
-  'PREMIUM_USER',
-  'MODERATOR',
-  'ADMIN',
-  'SUPER_ADMIN',
-];
+export const ALL_ROLES: readonly Role[] = ['USER', 'MODERATOR', 'ADMIN', 'SUPER_ADMIN'];
 
 /** Roles only a SUPER_ADMIN may grant or revoke (AdminUserService rules). */
 export const PRIVILEGED_ROLES: readonly Role[] = ['ADMIN', 'SUPER_ADMIN'];
 
 export const ROLE_LABELS: Record<Role, string> = {
   USER: 'Collector',
-  PREMIUM_USER: 'Premium',
   MODERATOR: 'Moderator',
   ADMIN: 'Admin',
   SUPER_ADMIN: 'Super admin',

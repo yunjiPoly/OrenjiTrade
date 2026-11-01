@@ -29,9 +29,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Admin console operations on accounts. Every write is audited in the same transaction and, for
- * suspensions, mirrored to the identity provider (the Firebase user is disabled so sessions cannot
- * be refreshed).
+ * Admin console operations on accounts. Every write is audited in the same transaction. A
+ * suspension leaves the login on (owner decision of 2026-10-28): the collector stays signed in, or
+ * signs in again, and the phone shows "Account suspended" with its end date, while the API refuses
+ * every non-public request of the account ({@code 403 ACCOUNT_SUSPENDED}, {@code
+ * AccountAccessFilter}; the realtime connection too). Lifting a suspension still enables the
+ * Firebase user, so accounts disabled under the earlier rule get their login back. A ban (a report
+ * decision) still disables it.
  */
 @Service
 public class AdminUserService {
@@ -125,9 +129,15 @@ public class AdminUserService {
                 AuditService.TARGET_USER,
                 targetId.toString(),
                 withoutNulls(details));
-        identityAdminClient.disableUser(target.providerUid());
+        // The login stays on and the refresh tokens are kept: the account's own state refuses
+        // every request, and a phone already signed in reaches "Account suspended" at its next
+        // request instead of "Your session has ended" (owner decision of 2026-10-28).
     }
 
+    /**
+     * Lifts a suspension or a ban and enables the Firebase user: idempotent for a login that was
+     * never disabled, and the way back for an account disabled under the earlier rule or banned.
+     */
     @Transactional
     public void unsuspend(AuthenticatedUser actor, UUID targetId) {
         UserAccountSnapshot target = requireTarget(targetId);
@@ -204,7 +214,6 @@ public class AdminUserService {
                 account.emailVerified(),
                 account.status(),
                 account.roles(),
-                account.planCode(),
                 avatars == null ? null : avatars.avatarUrlOf(account.id()),
                 account.createdAt(),
                 account.lastActiveAt(),

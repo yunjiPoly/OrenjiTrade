@@ -30,6 +30,11 @@ public class ConversationRepository {
                    c.last_message_preview, c.last_message_kind, c.last_message_sender_id,
                    COALESCE(c.last_message_at, c.created_at) AS sort_at,
                    me.muted, me.archived, me.last_read_at, other.user_id AS other_id,
+                   c.subject_item_id, c.subject_binder_id, c.subject_set_at, c.subject_set_by,
+                   (SELECT jsonb_build_object('sale', lm.payload -> 'sale',
+                                              'offer', (lm.payload -> 'offer') IS NOT NULL)::text
+                      FROM message lm
+                     WHERE lm.id = c.last_message_id AND lm.kind = 'SYSTEM') AS last_system,
                    (SELECT count(*) FROM message m
                      WHERE m.conversation_id = c.id AND m.deleted_at IS NULL
                        AND m.sender_id IS DISTINCT FROM me.user_id
@@ -158,6 +163,95 @@ public class ConversationRepository {
                 .param("id", conversationId)
                 .query(ConversationRepository::summary)
                 .optional();
+    }
+
+    /**
+     * Pins the chat's subject (stage R4): a card ({@code itemId}) or a deck core ({@code
+     * binderId}), the latest wins. Pinning the subject the chat already has pins it again: its time
+     * and who pinned it are those of this pin, so an earlier sale of it no longer marks the chat
+     * "Sold" (the seller can record a sale of the copies left) and a card its owner shares is shown
+     * to the other collector even when it is private (review fix 1, findings F5 and F6). The caller
+     * holds the item or the binder {@code FOR KEY SHARE} before this update takes the conversation
+     * row.
+     *
+     * @return whether the conversation exists
+     */
+    public boolean setSubject(
+            UUID conversationId,
+            @Nullable UUID itemId,
+            @Nullable UUID binderId,
+            UUID setBy,
+            Instant at) {
+        return jdbc.sql(
+                                """
+                                UPDATE conversation
+                                   SET subject_item_id = :itemId, subject_binder_id = :binderId,
+                                       subject_set_at = :at, subject_set_by = :setBy
+                                 WHERE id = :id
+                                """)
+                        .param("id", conversationId)
+                        .param("itemId", itemId, Types.OTHER)
+                        .param("binderId", binderId, Types.OTHER)
+                        .param("setBy", setBy)
+                        .param("at", Timestamp.from(at))
+                        .update()
+                > 0;
+    }
+
+    /** The stored subject of a conversation (empty for an unknown conversation). */
+    public Optional<SubjectRef> subjectOf(UUID conversationId) {
+        return jdbc.sql(
+                        "SELECT subject_item_id, subject_binder_id, subject_set_at, subject_set_by"
+                                + " FROM conversation WHERE id = :id")
+                .param("id", conversationId)
+                .query(
+                        (rs, rowNum) -> {
+                            Timestamp setAt = rs.getTimestamp("subject_set_at");
+                            return new SubjectRef(
+                                    rs.getObject("subject_item_id", UUID.class),
+                                    rs.getObject("subject_binder_id", UUID.class),
+                                    setAt == null ? null : setAt.toInstant(),
+                                    rs.getObject("subject_set_by", UUID.class));
+                        })
+                .optional();
+    }
+
+    /** A conversation left without any message keeps no last message (the undo of a sale). */
+    public void clearLastMessage(UUID conversationId) {
+        jdbc.sql(
+                        """
+                        UPDATE conversation
+                           SET last_message_id = NULL, last_message_at = NULL,
+                               last_message_preview = NULL, last_message_kind = NULL,
+                               last_message_sender_id = NULL
+                         WHERE id = :id
+                        """)
+                .param("id", conversationId)
+                .update();
+    }
+
+    /**
+     * Locks ({@code FOR NO KEY UPDATE}, ascending id) and returns the conversations of {@code
+     * senderId} whose last message they sent: the account deletion erases those messages, so each
+     * conversation needs its last message again (WC review R2-2). A message another collector
+     * stored meanwhile takes the row first and leaves it out.
+     */
+    public List<UUID> lockWithLastMessageFrom(UUID senderId) {
+        return jdbc.sql(
+                        """
+                        SELECT c.id
+                          FROM conversation c
+                         WHERE c.id IN (SELECT cp.conversation_id FROM conversation_participant cp
+                                         WHERE cp.user_id = :sender)
+                           AND (c.last_message_sender_id = :sender
+                                OR c.last_message_id IN (SELECT m.id FROM message m
+                                                          WHERE m.sender_id = :sender))
+                         ORDER BY c.id
+                           FOR NO KEY UPDATE
+                        """)
+                .param("sender", senderId)
+                .query(UUID.class)
+                .list();
     }
 
     /** Records the last message of a conversation (inside the message transaction). */
@@ -301,6 +395,7 @@ public class ConversationRepository {
     private static SummaryRow summary(ResultSet rs, int rowNum) throws SQLException {
         Timestamp lastMessageAt = rs.getTimestamp("last_message_at");
         Timestamp lastRead = rs.getTimestamp("last_read_at");
+        Timestamp subjectSetAt = rs.getTimestamp("subject_set_at");
         return new SummaryRow(
                 rs.getObject("id", UUID.class),
                 rs.getTimestamp("created_at").toInstant(),
@@ -314,7 +409,13 @@ public class ConversationRepository {
                 rs.getBoolean("muted"),
                 rs.getBoolean("archived"),
                 lastRead == null ? null : lastRead.toInstant(),
-                rs.getInt("unread_count"));
+                rs.getInt("unread_count"),
+                new SubjectRef(
+                        rs.getObject("subject_item_id", UUID.class),
+                        rs.getObject("subject_binder_id", UUID.class),
+                        subjectSetAt == null ? null : subjectSetAt.toInstant(),
+                        rs.getObject("subject_set_by", UUID.class)),
+                rs.getString("last_system"));
     }
 
     /** A participant waiting to answer since {@code since}. */
@@ -346,5 +447,26 @@ public class ConversationRepository {
             boolean muted,
             boolean archived,
             @Nullable Instant lastReadAt,
-            int unreadCount) {}
+            int unreadCount,
+            SubjectRef subject,
+            @Nullable String lastSystemJson) {}
+
+    /**
+     * The stored subject of a conversation (stage R4): at most one of the item and the binder.
+     *
+     * @param itemId the card
+     * @param binderId the deck core
+     * @param setAt when it was pinned
+     * @param setBy who pinned it
+     */
+    public record SubjectRef(
+            @Nullable UUID itemId,
+            @Nullable UUID binderId,
+            @Nullable Instant setAt,
+            @Nullable UUID setBy) {
+
+        public boolean isEmpty() {
+            return itemId == null && binderId == null;
+        }
+    }
 }

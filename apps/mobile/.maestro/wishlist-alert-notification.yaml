@@ -1,10 +1,12 @@
 # Wishlist + wishlist alerts (stage S2 of the 2026-10-08 product change, ADR 0017): Wren (fresh,
 # fictional, discoverable, in Montevideo: Americas (South), a region no other flow uses) adds
-# Emberfang Fox to her wishlist through the app with a public note, "Near Mint only" and a price
-# term (no price, trade preference, private note or alert switch any more); Hal, in the same
+# Emberfang Fox to her wishlist through the app ("Add a wish" opens Search's card search, the card
+# picked opens the form, stage R14) with a public note, "Near Mint only" and a price chip (no
+# price, trade preference, private note or alert switch any more); Hal, in the same
 # region, lists a Near Mint copy publicly (host script scripts/wishlist.js). Wren gets one wishlist
-# alert over the realtime channel: the bell's badge rises without a reload; the alert names Hal's
-# state (never a city, a distance or a position) and opens the card page.
+# alert over the realtime channel: the bell's orange dot shows without a reload (stage R9); the
+# alert, under New in Notifications, names Hal's state (never a city, a distance or a position)
+# and opens Who has this card.
 appId: ${APP_ID}
 name: Wishlist alert, notification and card page
 tags:
@@ -22,50 +24,54 @@ tags:
     env:
       EMAIL: ${output.wren.email}
       PASSWORD: ${output.wren.password}
-- extendedWaitUntil:
-    visible:
-      id: 'tab-wishlist'
-    timeout: 60000
+- runFlow: subflows/open-search-tab.yaml
+# Search › Wishlist (the old Wishlist tab, stage R5): the alert switch, "Add a wish".
 - tapOn:
-    id: 'tab-wishlist'
+    id: 'search-segment-wishlist'
 - extendedWaitUntil:
     visible:
       id: 'wishlist-empty'
     timeout: 60000
 - assertVisible:
-    id: 'wishlist-visible'
+    id: 'wishlist-alerts-switch'
 - assertNotVisible:
     id: 'wishlist-location-prompt'
 - tapOn:
-    id: 'wishlist-empty-action'
+    id: 'wishlist-add'
 
-# The wish: card autocomplete, then the public note, Near Mint only and a price term.
+# "Add a wish" (stage R14, mockup v50 screens 12 and 64): Search's card search, the card picked
+# opens the form; then Near Mint only, a price chip and the public note.
 - extendedWaitUntil:
     visible:
-      id: 'card-picker-input'
+      id: 'search-input'
     timeout: 60000
+- assertVisible:
+    id: 'wish-card-step'
 - tapOn:
-    id: 'card-picker-input'
+    id: 'search-input'
 - inputText: 'emberfang'
 - runFlow: subflows/hide-keyboard.yaml
 - extendedWaitUntil:
     visible:
-      id: 'suggestion-CARD-PFT-002'
+      id: 'search-result-.*'
     timeout: 60000
+- takeScreenshot: wish-search
 - tapOn:
-    id: 'suggestion-CARD-PFT-002'
+    id: 'search-result-.*'
+    index: 0
 - extendedWaitUntil:
     visible:
       id: 'wish-card'
     timeout: 60000
+- assertVisible:
+    id: 'wish-card-line'
+    text: '.*in the catalog'
+- assertVisible:
+    id: 'wish-change-card'
 - assertNotVisible:
     id: 'wish-radius'
 - assertNotVisible:
     id: 'wish-max-price'
-- tapOn:
-    id: 'wish-note'
-- inputText: 'Fictional Maestro wish.'
-- runFlow: subflows/hide-keyboard.yaml
 - tapOn:
     id: 'wish-near-mint'
 - runFlow:
@@ -77,14 +83,21 @@ tags:
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:
-      ID: 'wish-save'
+      ID: 'wish-note'
+- tapOn:
+    id: 'wish-note'
+- inputText: 'Fictional Maestro wish.'
+- runFlow: subflows/hide-keyboard.yaml
+- takeScreenshot: wish-form
 - tapOn:
     id: 'wish-save'
 - extendedWaitUntil:
     visible:
-      id: 'wishlist-summary'
+      id: 'search-wishlist'
     timeout: 60000
-- assertVisible: '.*Near Mint only.*'
+- extendedWaitUntil:
+    visible: '.*NM only · 85% TCG.*'
+    timeout: 30000
 - assertNotVisible: '.*[Mm]atch.*'
 - runScript:
     file: scripts/wishlist.js
@@ -104,40 +117,46 @@ tags:
       BINDER: ${output.hal.binderId}
 - extendedWaitUntil:
     visible:
-      id: 'notification-bell-wishlist-badge'
+      id: 'notification-bell-search-dot'
     timeout: 90000
+- assertVisible:
+    id: 'notification-bell-search'
+    text: 'Notifications, 1 new'
 - takeScreenshot: wishlist-alert-live
 
-# The notification centre, then the card page.
+# Notifications (stage R9): the alert under New, "{card} from your wishlist was listed in
+# {province}" over "{lister} · {price}", then Who has this card.
 - tapOn:
-    id: 'notification-bell-wishlist'
+    id: 'notification-bell-search'
 - extendedWaitUntil:
     visible:
       id: 'screen-notifications'
     timeout: 60000
 - extendedWaitUntil:
-    visible: '.*Wishlist alert: Emberfang Fox.*'
+    visible: 'Emberfang Fox from your wishlist was listed in Montevideo\. .*'
     timeout: 60000
-- assertVisible: '.*was just listed by @.* in Montevideo, Uruguay.*'
+- assertVisible:
+    id: 'notifications-section-fresh'
+- assertNotVisible: '.*Uruguay.*'
 - assertNotVisible: '.*km away.*'
 - takeScreenshot: notifications-centre
-# The alert by the start of its name: Android lists the title as a text of its own, iOS names the
-# whole row "Wishlist alert: Emberfang Fox. …" (a pattern open at the front would also match the
-# row's "Mark as read: …" button).
-- tapOn: 'Wishlist alert: Emberfang Fox.*'
+# The alert by the start of its name: iOS names the whole row "Emberfang Fox from your wishlist
+# was listed in Montevideo. hal… · …, 1 minute ago, unread".
+- tapOn: 'Emberfang Fox from your wishlist was listed in Montevideo\. .*'
 - extendedWaitUntil:
     visible:
       id: 'card-name'
       text: 'Emberfang Fox'
     timeout: 60000
-# The wish is for any printing: the alert says so (?printing=any) and the card screen shows
-# "Any printing", never a printing picked for the collector.
-- runFlow:
-    file: subflows/scroll-down-to.yaml
-    env:
-      ID: 'card-selected-any'
+# The wish is for any printing: the alert says so (?printing=any) and Who has this card starts
+# on "Any printing", never a printing picked for the collector; Hal's copy is under Montevideo.
 - assertVisible:
-    id: 'card-selected-any'
-- assertNotVisible:
-    id: 'card-selected-printing'
+    id: 'card-printing'
+    text: 'Any printing.*'
+- runFlow:
+    file: subflows/list-scroll-to.yaml
+    env:
+      ID: 'holders-group-UY-MO'
+- assertVisible:
+    id: 'holders-group-UY-MO'
 - takeScreenshot: wishlist-alert-card

@@ -5,6 +5,294 @@ ESLint + Prettier · Vitest unit tests · Playwright E2E · nginx container for 
 
 Read [`CLAUDE.md`](../../CLAUDE.md) and ADR 0006 before changing conventions.
 
+**The web redesign** (`docs/product/specs/2026-10-20-web-redesign.md`, stages WA to WH2 of the
+owner's prompt of 2026-10-28) is built one stage at a time; see "The shell (web redesign WA)"
+below for what stage WA changed. Offers, trades, checkout and disputes are gone from the web UI
+(decision 2, ADR 0018): their sections below describe the server modules and the old pages.
+
+## The shell (web redesign WA)
+
+The frame of every page (`core/layout`, spec section 4, boards W1, W3, W28, W29 and W30):
+
+- **Top bar** (64, sticky; `top-bar`): the wordmark (Home), the **region pill** and the **game
+  pill** in the page's scope (Home and Search both, card, set and binder pages the region pill,
+  the rest none; route `data.shell.pills`), the **global search** (a deferred chunk; hidden on
+  Search), the **bell** (an orange dot, "Notifications, N new") and the **avatar** with the
+  account menu; a guest gets "Sign in". The region and game pills open lazy popovers (`Popovers`,
+  CDK overlay; a bottom sheet below 960): "Choose a region" (the home region marked, "Not your
+  region" with the way back) and "Choose a game" (Yu-Gi-Oh! only until stage WD, the other games
+  "Cards coming soon", "{n} of your cards" from `GET /inventory/summary`). **Below 960**, on the
+  five tabs' own pages (route `data.shell.tabBar`: `/`, `/search`, `/inventory`, `/messages*`,
+  `/profile`), it is the phone's **per-tab bar** (spec 16, board W29): the tab's title in Sora 28
+  (`ShellLayout.tabTitle`; Home shows its two pills instead), the pills on Home and Search, the
+  bell, and on Profile the avatar with the account menu; the page's own title is then visually
+  hidden (`ShellTabTitleDirective`, `app-page-header`'s `tabTitle`), so each page keeps one h1.
+  Every other page keeps the wordmark, the pills in scope, the bell and the avatar.
+- **Global search** (`global-search`): `/` or Ctrl/Cmd+K, an ARIA combobox; empty, the recent
+  searches of this browser (`core/search/recent-searches.service.ts`, localStorage per account,
+  at most 8, never sent anywhere; Settings › Privacy › "Remember my searches"); typing (150 ms,
+  from 2 characters) up to 8 cards of the browsed game (`GET /cards/suggest`), up to 3 collectors
+  of the browsed region for a signed-in collector (`GET /search/collectors`), and "Search binders
+  and deck cores for '…'"; no counts. A code matching one printing opens it preselected.
+- **Rail** (72, `rail`, at 960 and wider) and **tab bar** (`tab-bar`, below 960): Home, Search,
+  Inventory, Messages (unread chats badge, `unread-chats`, a deferred probe of
+  `GET /conversations`) and Profile; Admin for staff and the "?" button on the rail.
+- **Account menu**: View my profile (`/profile`), Settings, Appearance › (Same as the system,
+  Light, Dark), Keyboard shortcuts, Trading safely, Admin console (staff), Sign out.
+- **Keyboard** (`core/keyboard`): `/`, Ctrl/Cmd+K, `g` then h s i m p, `n` (Add cards), `?` (the
+  lazy "Keyboard shortcuts" dialog); single keys never fire in a field or over a dialog or menu,
+  and Settings › Appearance › "Single-key shortcuts" turns them off (`KeyboardPrefs`).
+- **Toasts** (`core/feedback`): every `MatSnackBar.open()` of the app becomes a shell toast
+  (`ToastSnackBar`): bottom-left beside the rail (above the tab bar below 960), up to 3, 6 s or
+  10 s with an Undo, paused on hover or focus.
+- **Skip links** ("Skip to content", "Skip the map" while the map is shown), the **session
+  banner** ("We could not load your account." with "Try again"), and the **footer** of reading
+  pages only (`data.shell.layout`).
+- **Routes and old links** (`/search?card=` and `?printing=` open `/cards/:id` since stage WD) (`app.routes.ts`, `core/routing/legacy-redirects.ts`, spec 4.11): Home
+  (`/`, the region's map until stage WE), Search with Cards | Binders | Wishlist beside the map
+  (stage WD, below), Messages with Chats | Community (`/messages/community/:room`),
+  `/profile`; `/map` → Search › Binders, `/cards?q=` → Search › Cards, `/wishlist` → Search ›
+  Wishlist, `/community` → Messages › Community, `/offers` and `/trades` → Messages with the toast
+  "Offers are no longer available. Deals happen in the chat.", `/checkout` and `/disputes` → a
+  notice, `/settings/offers|payouts` → Settings. Only the landing and Legal are indexable
+  (decision 6, `OrenjiTitleStrategy`).
+
+## Search, Who has this card, sets, binders and deck cores (web redesign WD)
+
+Spec sections 6 to 8 (boards W3 to W9), contract `docs/api/contracts/wd-web-search.md`.
+
+- **One game at a time** (`core/game/game-context.service.ts`): the game pill lists `GET /games`
+  (a game without cards is "Cards coming soon"); the browsed game is the one picked in this visit,
+  else the one kept in this browser for the account (`orenji.game.<account>`, `orenji.game.guest`,
+  try/catch), else the first profile game that has cards, else Yu-Gi-Oh! (the phone's rule). Home
+  and Search send it as `game=`; Search mirrors `?region=&game=` in its URL; a card, set, binder or
+  deck core of another game makes that game the browsed one.
+- **`/search`** (`features/search`): the list pane (400; 520 with a binder open at lg; 360 at md)
+  beside the map (`map/search-map`, Leaflet in the Search chunk: the map steps, the viewer's
+  province in a teal dashed outline, a hovered row's province in ink, "Show my province", + and −,
+  the legend, "Made with Natural Earth"); `?tab=cards|binders|wishlist&q&state=<code>|all&kind=
+binders|deckcores&open=<binderId>&wish=<id>` (`data/search-url.ts`).
+  - **Cards** (`panes/cards-pane`): the field focused on arrival, the recent searches of this
+    browser, then the top bar's results at full height (the browsed game's cards, a member's 3
+    collectors, "Search binders and deck cores for …"); Enter opens the active or first card.
+  - **Binders** (`panes/binders-pane`, `data/binder-list.store.ts`): the field, the state chip or
+    "Pick on the map", Binders | Deck cores, "Browse by state or province" (`panes/state-list`:
+    Whole region, your province pinned, countries; one tab stop) or the rows (`panes/binder-row`,
+    cursor pages, "Load more", the spec's empty states). A click on a state lands in its binders.
+    Hovering or focusing a row outlines its province and reads nothing.
+  - **A binder or deck core beside the list** (`drill-in/binder-drill-in`, `?open=`): at lg in the
+    list pane under "← Back to results" (Back restores the scroll and the row's focus), at xl
+    (`min-width: 1920px`) in a middle pane of 520, at md and below its full page. Its open is the
+    only read of the binder (`BinderViewStore.open`, one public binder view); the limit reads
+    "You've opened 30 public binders today. Every collector has the same limits. More tomorrow at
+    …".
+  - **Wishlist** (`panes/wishlist-pane`, `panes/wish-holders`): the alerts and visibility
+    switches, [Add a wish], the browsed game's wishes with "Available" or "None yet"
+    (`GET /wishlist/availability?region&game`), Select and [Remove from wishlist]; the chosen
+    wish's holders in the map's pane. A guest reads "Get told when it's listed".
+  - Below 960, the phone's Search: Map | List on Binders, the map full width with the state card
+    ("See binders").
+- **`/cards/:id`** (`features/catalog/card-page`, Who has this card): the card (art at 160, the
+  game, the name, its first or chosen printing with a link to the set, "Check TCGplayer price ↗",
+  the wishlist toggle, "I have this card", the data credit) and who has it
+  (`shared/discovery/who-has`, shared with the wishlist's holder pane: `sort=province`, groups with
+  sticky headers, "Jump to", "Also in a deck core", rows of one tab stop, "Message" to the chat
+  drawer). "Any printing ▾" opens the printing listbox (`printing-popover`). "I have this card"
+  opens Inventory's Add cards drawer over the page (`card-add-host`, a chunk shared with
+  Inventory). No card text, attributes or market price (decision 10).
+- **`/sets/:id`** (`features/catalog/set-page`): the code, the name, "Released … · n printings",
+  [Who has cards of this set] and the printings grid; "Add from this set" puts a − 0 + stepper on
+  each tile and a footer (the count, Private | Public, a binder of the set's game, [Add n cards]:
+  one create per tile).
+- **`/binders/:id`** (`features/binders`, boards W8 and W9): a deck core's gallery (thumbnails,
+  ←/→, a lightbox), key cards and its sticky panel (price, seller card, Message or Manage in
+  Inventory, the note, "⋯" Share and Report); a binder's header, "Search this binder" and the sort
+  pill (Recently added, Name, Price: `sort=` of the items) and its cards with "Load more"
+  (`shared/discovery/binder-view`).
+
+## Home, profiles, notifications and settings (web redesign WE)
+
+Boards W1, W2 and W23 to W25; spec sections 5, 11, 12 and 13; decisions 13 and 16.
+
+- **Home** (`/`, `features/home`, lazy): "What's new" with "{game} · {region} · last 30 days", the
+  sticky toolbar (the chips All, New cards, Wanted and Deck cores in a "Show" group, "Updated 5 min
+  ago" and a refresh button), the feed of `GET /feed?region&game&kind&previews=6` (`HomeFeedStore`:
+  cursor pages loaded when the end comes into view, a post seen twice keeps its first copy) in
+  "Today", "Earlier this week" and "Earlier this month". A post (`FeedPostComponent`): a 36 avatar
+  and the handle opening the profile, "listed 12 cards" / "wants a card" / "is selling a deck
+  core", "5 min · Quebec"; new cards as six 100×147 tiles with prices (the 6th "+N" from 7 cards,
+  opening the profile), one card with "Message {handle} about {card}" (the chat drawer, the card
+  as its subject), a wish with "I have it" (`IHaveIt`: the chat drawer to the wisher with "Hi! I
+  have {card}." waiting in the box, your public copy of that card as the chat's card when you
+  have one; nothing is sent), a deck core's photo band opening the deck core. Every 5 minutes
+  while the tab is visible one post is read quietly: newer posts show the pill "New posts · Show"
+  (never a number; posts never slide in). The end: "You're all caught up" and the window's
+  sentence; day one: "Nothing new in {region} yet"; a quiet game: "Nothing new in {game} yet" with
+  [Add your {game} cards] and [Switch game]; a quiet chip: its line and [Show all]. A guest reads
+  "A collector" with a plain avatar (R15). The URL keeps `?region&game&kind` (spec 4.11).
+- **Home's rail** (320, lg and up): Get started (signed in, until the three steps are done or
+  "Hide these steps", kept per account in this browser) or the guest card, then the **map card**:
+  a static SVG (`static-map.ts`, Web Mercator into 280×168 card pixels rounded to a tenth, from the
+  bundled boundaries; no Leaflet, which stays in the Search chunk) shaded by the binder counts,
+  your province outlined in teal, "Quebec · your province" over "7 binders · 5 deck cores",
+  [Explore the map] and the caption; then the footer links. At md the feed is centred with Get
+  started on top and no map card; below 960 the phone's Home. Nothing else (decision 16: no "Your
+  desk", no wishlist availability).
+- **Profiles** (`/collectors/:handle`, `/profile`; `collector-profile-view`): the header card
+  (avatar 96 with the online dot, the name, "@handle · ★4.9" scrolling to the ratings, the games
+  and tags, "Laval, Quebec · Member since 2024 · Active this week": the city only while its owner
+  shows it); another collector's [Message {handle}] and "⋯" (Share profile, Report, Block or
+  Unblock), your own [Edit profile], [Share profile] and the gear. Main column: Cards (12 tiles;
+  a game control when the collector lists cards of two or more games, from their binders and first
+  cards; "See all" pages of 24 inline, yours to Inventory), Binders (three, "See all" inline or to
+  Inventory › Binders), Looking for (rows with the terms and the note; "I have it" on someone
+  else's, "Edit" on yours; never an availability). Side column: About, Ratings & references (the
+  average, the count, the 2 latest references, "See all references" to the full section below),
+  how deals go (yours: where your city shows). Blocked and private states as before.
+- **Notifications** (spec 12): the bell opens a 400 popover (`notification-popover`, lazy; a
+  bottom sheet below 960) with "Mark all as read", the gear, NEW and EARLIER and "See all
+  notifications"; `/notifications` is centred at 720 with [All | Unread n], "New" with "Mark all
+  as read", then "Earlier" by day, and "Load more". Both read `excludeTypes=MESSAGE` (chats have
+  their own badge in Messages; a chat's push never raises the bell). Rows
+  (`notification-row`, `notification-rows.ts`): the kind tile, "{bold subject} {rest}" over one
+  muted line, the time; reminders answered in place ("Still have them" confirms the binder, then
+  "Confirmed. They stay in search."; "Review the binder"); old offer, trade, payment and dispute
+  notices read as history and open nothing. No web push (decision 13).
+- **Settings** (`/settings/:section`, spec 13): container 1040, a nav of 248 (the mini profile
+  card with "Edit profile"; Where you ship from: Location with "Quebec, Canada · On the map",
+  Shipping details "Phone app only"; App: Notifications, Privacy, Appearance with the theme; Safety:
+  Blocked, My reports; Account: Account, Legal; Sign out and "OrenjiTrade web 1.0.0"). Location:
+  "Show me on the map" (409 `LOCATION_REQUIRED` answered in place), the region, country, state and
+  city with "Show my city on my profile", what others see (members, your profile, visitors), how
+  OrenjiTrade protects where you live, "Remove my location", "No changes yet" and Save.
+  Notifications: the topics by App and Email, Push "Set on your phone", quiet hours; no offers or
+  trades. Privacy: as before with "Clear my searches". Appearance: three preview tiles and the
+  "Single-key shortcuts" switch; the environment line only off production. Legal: the documents
+  (the payment policies hidden while `protectedPayments` is off) and Trading safely.
+
+## Sign-in, the welcome and guests (web redesign WG)
+
+Spec section 14, decision 4, boards W26 and W27; the phone's R12 and R15. Contract:
+`docs/api/contracts/wg-web-sign-in-guests.md`.
+
+- **Pages of their own** (`data.shell.bare`): `/auth/**` and `/onboarding` show neither the top
+  bar, the rail, the tab bar nor the footer.
+- **The sign-in steps** (`features/auth`, `AuthLayoutComponent`): a form panel (a 400 column) with
+  "Not now, keep browsing" (back to `?returnUrl=`, forgetting a guest's pending action), the
+  wordmark, the page's title and "Terms, privacy and community guidelines"; at 960 and wider the
+  right panel (`AuthArtComponent`): "Who in my region has this card?", three lines and a decorative
+  choropleth of Americas (North) drawn from the bundled boundaries in a fixed pattern
+  (`aria-hidden`, no API read). **Sign in** (email, password with Show, "Forgot your password?",
+  [Sign in], "or", [Continue with Google], "New to OrenjiTrade? Create an account"); **Create your
+  account** (display name, email, password, the documents card with "Accept all" and "Read" for
+  each, the 18+ line in its own card, never ticked by "Accept all", English only; "Create account"
+  waits, `aria-disabled`, with one reason line under it that turns amber after a press:
+  `sign-up-rules.ts`); **Reset your password** and **Check your inbox**; **Verify your email** (the
+  mail tile, [I have verified my email], [Resend email] then "Resend in 30 s", "Do this later").
+  Native inputs with their labels above, 48 tall; the orange 52 and outline 52 buttons
+  (`auth-form.scss`).
+- **The account states** (centred 480 cards): Review our terms (`/auth/consent`, the documents due
+  and the age, alone with "Please confirm your age to keep using OrenjiTrade." for an older
+  account: the welcome never asks it), suspended (the end date, the appeal line, Community
+  guidelines, Sign out) or scheduled for deletion ([Cancel deletion], "Download my data") at
+  `/auth/suspended`, and "We could not load your account" with [Try again] at
+  `/auth/unavailable` (right after a sign-in and on account pages; public pages keep the session
+  banner).
+- **The welcome** (`/onboarding`, a centred 560 card, "Step n of 3", a 3-part bar, Back and
+  Continue 52): "Who are you?" (the handle's live check "@sam_trades is free", the display name
+  typed at sign-up, an optional bio), "What do you collect?" (the games as 96 tiles, "Opens first"
+  on the first picked game that has cards, coming-soon games dimmed; languages and tags), "Where do
+  you ship from?" ("We never use GPS and never ask for your address.", country, state or province,
+  an optional city, "Show me on the map" off). Finishing opens the first game and goes Home, or
+  back to where a guest was (`welcome-rules.ts`).
+- **Guests** (signed out): Home, Search (Cards and Binders), a card, a set, a binder or deck core,
+  Legal and Settings › Appearance and Legal are open; collectors read "A collector", a plain avatar
+  and the province (the API sends no one: R15). Inventory, Messages and Profile show the guest
+  page (`shared/guest/guest-page.component.ts`: a 64 tile, the title, [Create account] and [Sign
+  in] back to the very page; Profile lists Appearance, Trading safely and Legal). Every action that
+  needs an account opens the sign-in dialog (`core/guest`: `GuestActions.ask`, a lazy 440 dialog
+  with the card or "A collector" it is about); Create account and Sign in keep the action (its
+  listing or card, never a collector) and it finishes once the account is ready and the guest is
+  back on the page (`guest-finish.ts`, a lazy chunk: `GET /listings/owner`, then the chat drawer,
+  "I have it", the profile, the wish dialog or Report; the card page and the set page take their
+  own Add actions).
+
+## The admin console: shell, overview and moderation (web redesign WH1)
+
+Spec sections 15.1 to 15.4 and 15.9, decision 3, boards A1 to A6 and A24. Contract:
+`docs/api/contracts/wh1-admin-console.md`. A lazy chunk (`features/admin`), staff only.
+
+- **Its own frame** (`data.shell.console`, `AdminShellComponent`): the app's top bar, rail, tab
+  bar and footer step aside. The console's top bar (64): the wordmark and "Admin console" (to the
+  Overview), the staff search (`console/staff-search.component.ts`; `/` and Ctrl/Cmd+K focus it;
+  "Find a collector, card or report" for admins, "Find a report by its number" for moderators;
+  results grouped Collectors, Cards, Reports, arrows and Enter), the role pill ("Super admin",
+  "Admin", "Moderator"), "Back to OrenjiTrade" and the account menu. The grouped nav (260,
+  `console/admin-nav.ts`): Overview; MODERATION (Reports and Flags and rules with their orange open
+  counts, Community, Ratings); COLLECTORS; CATALOG; RULES; SYSTEM; PAYMENTS only while
+  `protectedPayments` is on. Moderators see the Overview and the four MODERATION items. Below 960
+  the nav is a grid of items above the page. The counts come from `AdminCounts` (the dashboard for
+  admins, the report and flag lists for moderators).
+- **The page pattern** (`console/console-page.scss`, `console-controls.scss`): an eyebrow, the H1
+  (28), a subtitle, actions; segmented states, native selects, cards, chips in today's tones; every
+  write ends with a toast "{result}" and "Recorded in the audit log." (`runConsoleAction`).
+- **Overview** (`overview/`, A1 and A24): what needs a person (amber when waiting), the report
+  queue with "Assign to me", open flags, the system card with the card image meter, the last 5
+  staff actions, the collectors' numbers; a moderator's "Waiting for the team", "Assigned to you",
+  "Unassigned" and "What moderators decide". Each card loads and retries on its own.
+- **Reports** (`reports/`, A2 and A3): one split view, `/admin/reports` and `/admin/reports/:id`
+  (the list at 400 with the status tabs, Reason, "Assigned to me" and "Only @handle", all in the
+  URL; the open report beside it: facts, the conversation with "Shipping address shared · hidden
+  from staff", notes, the reported collector, the reporter, the five history sections collapsible).
+  Below 1280 one pane at a time. The resolve dialog: radio cards, Suspend and Ban for admins only,
+  the confirm button naming the action.
+- **Flags and rules** (`moderation/`, A4): tabs Flags (first; state and Subject in the URL; the rule
+  that fired; a community post's room and text with "Open the post"; a private message's text
+  never) and Rules (today's rules component). The Community page has no flags tab any more.
+- **Community** (`community/`, A5): the 15 rooms (3 regions x 5 games) with posts in 24 h, the
+  hourly limit and Open or Archived; the room drawer (name, description, posts per member per
+  hour, position, the slug read-only, "Open the room", Archive or Restore, Save; Esc closes it);
+  "Archived channels". No "New channel".
+- **Ratings** (`ratings/`, A6): tabs Ratings and References, Show (All, Visible, Hidden), "Rated
+  collector" and "Rated by" (people seen on the pages read, by @handle), Hide with a reason and
+  Restore with a confirmation.
+- The payments pages (Transactions, Disputes, Payments; only while `protectedPayments` is on) keep
+  their screens inside the console's frame.
+
+## The admin console: collectors, catalog, rules and system (web redesign WH2)
+
+Boards A7 to A23, spec sections 15.5 to 15.7 and 15.9; contract
+`docs/api/contracts/wh2-admin-console.md`. The page pattern of spec 15.2 everywhere: the eyebrow,
+H1 and subtitle, the filter bar (`console-page.scss`), the count line, a card holding the table
+(`console/console-table.scss`, Material tables restyled through their variables, "1–20 of 64" and
+the paginator), skeletons, empty states and errors with "Try again"; every write ends with a toast
+and "Recorded in the audit log." (`runConsoleAction`).
+
+- **Staff search**: administrators ask `GET /admin/search` once (handles, emails, names, card
+  names, printing codes, report numbers); moderators the report queue by number.
+- **Users** (`users/`, A7) and **the account** (A8: the header with the place, Pause listings and
+  Suspend; Moderation with its facts and the five history sections; Recent activity; Public
+  listings, Roles, Account deletion, Consents). **Listings** (`listings/`, A9: Needs review with
+  Stale and Hidden counts, All listings, the table). **Binders** (`binders/`, A10: Kind and Owner
+  filters, the deck core chip).
+- **Cards** (`cards/`, A11): the list with game chips; the card editor in a 520 drawer
+  (`?open=<id>`, previous and next, New card `?open=new`, Add printing); `/admin/cards/:id`
+  redirects to the drawer. **Card data and images** (`card-data/`, A12): games and sources, Run a
+  sync (game, source, mode, images mode and limit, the provider etiquette line), the card image
+  cache (meter by game, counts, Check the cache, Clear a game's images… confirmed, the 5 GB cap
+  line), recent runs with their phase and the Report drawer. **Games** (`games/`, A13: card counts,
+  the amber panel of a game without cards, New game `?game=new`).
+- **Usage limits** (`usage-limits/`, A14, grouped), **Import limits** (`import-limits/`, A15, new),
+  **Wishlist terms** (`wishlist/`, A16, an ordered list with drag and move buttons), **Auto-delist**
+  (`delist/`, A17), **Feature flags** (`feature-flags/`, A18: names, rollout, `mlScanning` locked),
+  **Regions** (`regions/`, A19: search, collapsed lists, a move confirmed). Editors are named
+  ("Changed Oct 14 by Alex Morin", `console/editor-line.ts`), never by id.
+- **Notifications** (`notifications/`, A20, Send an announcement), **System health** (`health/`,
+  A21: every job named and explained, `health/job-labels.ts`; the Storage meter), **Analytics**
+  (`analytics/`, A22: searches without results, messages per wish), **Audit log** (`audit/`, A23:
+  `audit/audit-entries.ts` labels every action the API writes; Who, Target, readable targets, the
+  details as JSON with names and the request id).
+
 ## Run
 
 ```bash
@@ -92,8 +380,8 @@ the map draws bundled boundary files (see Maps below, ADR 0017).
    from any call to `SessionService`, which routes to `/auth/consent` or `/auth/suspended`
    (opt out with `SKIP_SESSION_REDIRECT`).
 5. `limitReachedInterceptor` — any 429 `LIMIT_REACHED` opens the limit-reached dialog
-   (`core/limits`, lazy chunk: limit key and label, used/limit, reset time, the premium benefit
-   and a "See Premium" link to `/premium` while the `premiumPlans` flag is on). The error still
+   (`core/limits`, lazy chunk: the limit's label, used/limit, reset time and "Every collector
+   has the same limits."; no plan, no link, nothing to buy since stage F1). The error still
    reaches the caller; opt out with `SKIP_LIMIT_DIALOG`.
 6. `authInterceptor` — `Authorization: Bearer <Firebase ID token>` on every API route except
    `/api/v1/public/**` and `/api/v1/meta` (unless the request sets `ATTACH_ID_TOKEN`, used by
@@ -121,8 +409,10 @@ arrays as `Set`, which `HttpClient` would serialise as `{}`; use `roleList()` to
   or Google), `getIdToken(forceRefresh)`, sign-out, `ready()` for guards.
 - **`SessionService`**: `GET /api/v1/me` for the signed-in user, reloaded on user switch;
   statuses `anonymous | loading | ready | consent-required | suspended | deletion-pending |
-error` (error = retryable; the shell shows a banner with Retry). Exposes roles,
-  `needsOnboarding`, `canAccessAdmin`.
+error` (error = retryable; the shell shows a banner with Retry; account pages show "We could not
+  load your account"). `consent-required` also covers an account that never confirmed being 18 or
+  older (web WG, as the phone). Exposes roles, `needsOnboarding` (profile and interests),
+  `canAccessAdmin`.
 - **Guards** (`core/auth/auth.guards.ts`): `authGuard`, `accountGuard` (terms accepted, not
   suspended), `onboardingGuard` (public pages: visitors pass, signed-in collectors must have
   finished onboarding), `accountStateGuard`, `adminGuard` (ADMIN/SUPER_ADMIN everywhere,
@@ -132,10 +422,11 @@ error` (error = retryable; the shell shows a banner with Retry). Exposes roles,
 Routes: `/auth/sign-in`, `/auth/sign-up` (required legal documents from
 `GET /public/legal/documents`, consents recorded, verification email), `/auth/verify-email`,
 `/auth/reset-password`, `/auth/consent`, `/auth/suspended` (suspension or pending deletion with
-cancel + export), `/onboarding` (profile, interests, "Where are you?"), `/settings/{profile,
+cancel + export), `/auth/unavailable` (web WG), `/onboarding` (the welcome's three steps, web WG),
+`/settings/{profile,
 privacy, notifications, location, account, appearance}` (`/settings/trading-area` redirects), `/collectors/:handle`,
-`/admin` (dashboard), `/admin/users`, `/admin/users/:id`, `/admin/audit-logs`; Phase 2 adds
-`/cards`, `/cards/:id`, `/sets/:id`, `/premium`, `/admin/games`, `/admin/cards[/:id]`,
+`/admin` (the Overview since WH1), `/admin/users`, `/admin/users/:id`, `/admin/audit-logs`; Phase 2 adds
+`/cards`, `/cards/:id`, `/sets/:id`, `/admin/games`, `/admin/cards[/:id]`,
 `/admin/feature-flags`, `/admin/usage-limits`.
 
 Local accounts: `docs/development/test-accounts.md` (password `LocalDev!2026`, emulator only).
@@ -148,30 +439,31 @@ the Emulator UI (http://localhost:4000/auth).
   `GET /public/feature-flags` (with the ID token when signed in, so partial rollouts are
   evaluated per account) on the first navigation outside `/auth/**`, and again after a sign-in
   or sign-out. `isEnabled()` / `enabled()` are `false` until known, so switched-off features
-  never flash. Used by the top bar (Community needs `publicChat`), the account menu and the
-  limit dialog (`premiumPlans`); `featureGuard(key, label)` protects flag-gated routes
+  never flash. Used by the top bar (Community needs `publicChat`) and the protected payment
+  entry points (`protectedPayments`); `featureGuard(key, label)` protects flag-gated routes
   (`/community`).
-- **Limits**: `LimitReachedService` + interceptor (see HTTP layer); `PlansStore`
-  (`GET /plans`, shared by `/premium` and the dialog); `/premium` lists the plans and, signed
-  in, the collector's usage (`GET /me/plan`). Checkout arrives with billing (Phase 10).
-- **Catalog** (`features/catalog`, `shared/catalog`): top-bar `CardSearchBoxComponent`
-  (`GET /cards/suggest`, 250 ms debounce, 2+ characters, arrow keys + Enter, printing
-  suggestions open the card with that printing selected, Enter without a highlighted
-  suggestion searches `/cards?q=`; deferred chunk with the plain search field as placeholder);
-  `/cards` (query + game pills + set/rarity/language/edition from the game's `GameSchema`,
+- **Limits**: `LimitReachedService` + interceptor (see HTTP layer); limit wording in
+  `shared/limits/limit-labels.ts`; the collector's usage comes from `GET /me/limits`
+  (`LimitsService`). The same limits apply to every collector (stage F1, ADR 0019).
+- **Catalog** (`features/catalog`, `shared/catalog`): the top bar's search is the shell's
+  `GlobalSearchComponent` (`core/layout/global-search`, stage WA: cards of the browsed game from
+  `GET /cards/suggest`, collectors for members, Enter on free text opens Search › Cards, a typed
+  printing code opens that printing; a deferred chunk with the plain field as placeholder);
+  the card pickers share `uniqueSuggestions` (`shared/catalog/card-suggestions.ts`);
+  `/cards` (its text in `text=`, since an old `/cards?q=` link opens Search › Cards; game pills + set/rarity/language/edition from the game's `GameSchema`,
   every piece of state in the URL, paginated grid, printing-code badge); `/cards/:id`
   (`?printing=<id>` selects a printing, `?rarity=` shows "Any printing in <rarity>" and
   `?printing=any` shows "Any printing", both without picking, highlighting or pricing one;
-  hero picture, attributes rendered from the schema's
-  `metadataFields`, printings table with market prices, "Add to inventory" (opens the add-card
-  dialog on that printing), "Who has this in my region" (opens `/search?card=<id>`, the holders
-  of the platform region on screen; ADR 0017) and "Add to wishlist"; `/sets/:id` (cards + paginated checklist). `GamesStore`
+  since stage WD Who has this card and set pages with "Add from this set" (see the WD section above;
+  no attributes, printings table or market price any more). `GamesStore`
   (`GET /games`) also feeds the profile game picker, so hidden games disappear there.
 - **Admin**: `/admin/games` (list incl. hidden, edit names/status/order and the schema JSON with
-  live validation and a preview), `/admin/cards` (find cards, catalog sync with polling and the
-  latest runs), `/admin/cards/:id` (card fields, schema-driven attributes, printings dialog),
+  live validation and a preview), `/admin/cards` (find cards; since WH2 the card editor is a drawer
+  and the catalog sync lives on `/admin/card-data`), `/admin/cards/:id` (redirects to the drawer:
+  card fields, schema-driven attributes, printings dialog),
   `/admin/feature-flags` (switch with confirmation; SUPER_ADMIN, read-only for ADMIN),
-  `/admin/usage-limits` (plans x limits, inline edit with validation; SUPER_ADMIN).
+  `/admin/usage-limits` (one row per limit, the same for everyone; inline edit with validation;
+  SUPER_ADMIN).
 - Not in the generated client, so not in the UI yet: `metadata.<key>` catalog filters (the
   generator did not emit the dynamic query parameters).
 
@@ -180,48 +472,93 @@ the Emulator UI (http://localhost:4000/auth).
 Contract: `docs/api/contracts/phase3-inventory.md` (web section). Generated client only
 (`InventoryService`, `BindersService`, `PublicBindersService`).
 
-- **`/inventory`** (`features/inventory`): signed-out visitors get a sign-in invitation. The
-  container (`InventoryPageComponent`) keeps every filter in the URL
-  (`?binder=<id>|unfiled&q=&game=&visibility=&availability=&condition=&freshness=&sort=&view=&page=&size=`,
-  parsed by `data/inventory-params.ts`) and provides `InventoryStore` (signals for binders,
-  summary, privacy settings, the item page, selection; writes return promises that reject with
-  `ApiError`) and `BinderActionsService` to its dialogs through the page injector.
-  - Left: `BinderListComponent` (All cards, Unfiled, binders with visibility icon and counts,
-    New binder, binder manager); a horizontal strip below 960 px.
-  - Top: `InventorySummaryComponent` (cards/copies, public now, private, temporarily public with
-    the next end, stale + hidden with "Confirm all" = bulk CONFIRM of every STALE/HIDDEN item),
-    a privacy notice when something is public but the collector is neither discoverable nor has a
-    PUBLIC profile (ADR 0004 rules), `InventoryToolbarComponent` (search, visibility segmented
-    control All/Private/Public/Temporarily public, game, availability, condition, freshness,
-    sort, grid/table).
-  - Selected binder: `BinderHeaderComponent` (kind, description, effective visibility with the
-    reason when nobody can see it, counts, freshness, publish 1 hour / 24 hours / until disabled,
-    make private, view public page, edit, confirm, delete).
-  - Items: `InventoryItemCardComponent` (grid) / `InventoryItemTableComponent` (table) with
-    picture, name, printing code, condition/availability/offers chips, price, quantity stepper
-    (PATCH in place), visibility badge (`data/visibility-status.ts` explains why a public item is
-    not visible: hidden, expired, private binder, owner hidden) and freshness badge (server label).
-  - Multi-select: `BulkBarComponent` (visibility incl. temporary with 1 h / 24 h / 3 / 7 / 30
-    days, move to binder or unfiled, availability, confirm, delete with confirmation); the outcome
-    sentence lists skipped cards and why (`data/bulk-actions.ts`).
-  - Dialogs (opened with the page injector): `AddCardDialogComponent` (autocomplete on
-    `/cards/suggest` → printing picker on `/cards/{id}` → details, private by default so cards can
-    be prepared and published later; `/inventory?card=<id>&add=<printingId>` opens it, used by the
-    card detail's "Add to inventory"), `ItemEditorSheetComponent` (side panel: every field via
-    `ItemDetailsFieldsComponent`, PATCH of the changed fields only (`data/item-form.ts`), photos,
-    confirm availability, delete), `BinderFormDialogComponent` (create/edit; 429 `binders.max`
-    opens the global limit-reached dialog and an inline message), `BinderManagerDialogComponent`
-    (drag and drop or arrow buttons to reorder, inline rename, publish/make private, delete,
-    create).
-- **`/binders/:id`** (`features/binders`): public binder (`GET /public/binders/{id}` + items, sent
-  with the ID token when signed in so `binder.views.per_day` counts and blocks apply). Owner
-  card with the owner's state or province only (ADR 0017), game pills, search and
-  availability filter in the URL, public item cards (condition, availability, price, offers,
-  public notes; never private notes). States: not available (404), daily view limit (429),
-  error with retry.
-- **Collector page**: "View public binder" opens the first public binder; public binders
-  (`GET /collectors/{handle}/binders`) and a preview of public cards
-  (`GET /collectors/{handle}/inventory`) are listed.
+- **`/inventory`** and **`/inventory/import`** (`features/inventory`, web redesign stage WB, spec
+  section 9, boards W10 to W17; `inventory.routes.ts`, two lazy chunks; CDK drag-drop only in the
+  Inventory chunk). The phone's card model (decision 8): copies, the price as "$ | % TCG" saved as
+  one text (`data/item-price.ts`, `data/card-form.ts`, ported from the phone), Private or Public, a
+  binder of the card's game, the public note, photos. Signed-out visitors get a sign-in invitation.
+  The container (`InventoryPageComponent`) keeps the view in the URL
+  (`?tab=cards|binders&binder=<id>|unfiled&q=&game=&visibility=PUBLIC|PRIVATE&freshness=&sort=created|name|price&dir=&view=table|grid&item=<id>`,
+  `data/inventory-params.ts`; the table or grid choice is also remembered in this browser) and
+  provides `InventoryStore` (100 cards a load with "Load more", the selection with Shift ranges,
+  highlights of new rows, inline saves with `confirm: true`, restores), `InventoryActions` (deletes
+  with Undo through `POST /items/{id}/restore` one card at a time, bulk outcomes that name what
+  changed and why, Ctrl/Cmd+Z for the last Undo outside a text field) and `BinderActionsService`.
+  - Layout: at lg and xl the binder pane (256), the list and a 440 drawer that pushes it; at md the
+    pane hides (a Binder menu in the toolbar) and drawers lie over the list with a scrim; below 960
+    the phone's design (drawers between the per-tab bar and the tab bar, one scrolling row of
+    filters, an icon bulk dock, no drag and no quick add rows).
+  - `BinderPaneComponent`: All cards, Unfiled, one section per game (stage G) with binder rows (a
+    24 px cover, lock or globe, count, deck core tag), a "⋯" menu (also on right-click: Edit binder,
+    Make public or private, Move up, Move down, Delete binder), reorder by drag within a game, and
+    the drop targets of a card drag (same-game binders outlined, others dimmed "Only … cards can go
+    in").
+  - Header: "Inventory", Cards | Binders with your counts, Import, the orange Add cards split
+    button (Quick add rows · Shift+N, Import a deck (.ydk), Import from Collectr (.csv)). The
+    summary line, the binder strip ([Private | Public], Edit binder), the freshness banner ("Still
+    have them" = bulk CONFIRM of every stale or hidden card, "Show them"), the visibility banner,
+    the paused-listings banner.
+  - `InventoryToolbarComponent`: search ("/" focuses it), Game, [All | Public | Private], Sort
+    (Recently added, Name, Price) with its direction, Clear filters, Select (grid), [Table | Grid].
+  - `InventoryTableComponent` (`role=grid`, 72 px rows, sticky header; container queries give the
+    phone's row with the drawer open and drop Binder and Updated at md): the art (a 160 px preview
+    on hover; drag starts here), name, game monogram, code and rarity, a same-game binder menu, the
+    visibility tag (click toggles Private and Public), a copies stepper on hover or focus, the
+    inline price (`PriceEditorComponent`: Enter saves, Esc cancels, "Was: …" for an old text), the
+    age with a freshness dot, the "⋯" menu (Edit, Move to binder, Make public or private, Still have
+    it, Check TCGplayer price, Delete). One tab stop (the active row): ↑↓ or j/k, Enter, Space or x,
+    Ctrl/Cmd+A, Esc. `InventoryGridComponent`: tiles (art ≤160, badge, checkbox, name, code, price,
+    copies).
+  - `BulkDockComponent`: "6 selected" · Make public · Make private · Move to binder (by game,
+    Unfiled, New binder…) · Still have them · Delete (confirm, then "6 cards deleted" with Undo) ·
+    Clear (Esc anywhere on the page while nothing lies on top). No "Set price" and no "Select all
+    that match" (decision 19). Its buttons stay focusable while an action runs (`aria-disabled`).
+    Undo (and Ctrl/Cmd+Z) restores four cards at a time; a 429 `RATE_LIMITED` pauses for the
+    server's `retryAfterSeconds` (twice at most), and the cards still waiting keep an Undo of their
+    own ("Try again in 40 s") until the server's 10 minutes end. An inline save is announced
+    ("Price saved") through `LiveAnnouncer`.
+  - `QuickAddRowsComponent` (Shift+N): a code resolves its printing through `/cards/suggest`, a
+    name opens a printing list; Enter adds the row (one `POST /inventory/items`), copies reset to 1;
+    each added row has Undo for 10 minutes; errors and the 429 stay inline.
+  - Drawers (`drawer/`): `EditCardDrawerComponent` (Previous and Next with Alt+↑ / Alt+↓, each
+    saving first; "Discard your changes?", also when leaving Inventory (`leaveInventoryGuard`);
+    Ctrl/Cmd+Enter; a stated condition, language and edition (the old web form, or a Collectr
+    import) read-only as "Stated when it was added: …" with "Add to public note"; a binder change
+    keeps the card's stored visibility (a temporary publication stays temporary); photos in four
+    slots, images dropped on the
+    drawer go there), `AddCardsDrawerComponent` (Card, Printing, Details; "Keep these for the next
+    card"; the loop back to the search; "Add many at once").
+  - Binders (`binders/`): `BindersTabComponent` (by game, covers, freshness with "Still have
+    them", Move up / Move down, the deck core tip), `EditBinderDrawerComponent` (name, the game
+    locked once the binder holds a card, [Private | Public], the purple "Sell as a deck core" with
+    photos, price, note and key cards), `NewBinderDialogComponent` (five game tiles, "Cards coming
+    soon" for a game without cards, the deck core switch, "Cards inside" from a selection; the
+    stage G 409s and the binder limit in plain words).
+  - A `.ydk` or `.csv` dropped anywhere on Inventory opens Import with it (`ImportHandoff`); any
+    other file is answered with a toast and never uploaded. While a drawer is open the app's
+    single-key shortcuts are off (`data-shortcuts-off` on the drawer frame). Printings that share a
+    code say what tells them apart (edition, language, finish: `printingVariant`, the phone's rule)
+    in Add cards, quick add rows and the import's printing menu. A public binder offers "View
+    public page" (strip, pane menu, Binders tab card and menu, Edit binder); a temporary one says
+    when it ends.
+- **`/inventory/import`** (`import/`, contract `docs/api/contracts/s5-inventory-import.md`):
+  `ImportSourceComponent` (deck or Collectr, the drop zone, the limits read from
+  `GET /inventory/imports/limits`, paste the text), the check (chips All | Which copy? | Not
+  recognised, "Use the newest", `ImportRowsComponent` with the deck sections, the printing menu,
+  copies and status), the sticky footer ("34 cards · 69 copies will be added", Add, Discard) and
+  `ImportDoneComponent`. Every row control holds (aria-disabled, still focusable) while its row
+  saves, while the check works ("Use the newest", a section) or its lines reload, and a box always
+  ends showing what its row holds (WB review R2-1). An open preview (60 minutes) or a cut commit is
+  picked up again. The commit returns no item ids, so the imported cards do not open already
+  selected (decision 19): Inventory opens sorted by Recently added.
+- **`/binders/:id`** (`features/binders`): public binder or deck core (`GET /public/binders/{id}` +
+  items, sent with the ID token when signed in so `binder.views.per_day` counts and blocks apply;
+  web stage WD's boards W8 and W9, see the WD section). The owner's state or province only (ADR
+  0017); search and sort in the URL; never private notes. States: "This binder isn't public
+  anymore." (404), the daily view limit (429), an error with "Try again".
+- **Collector page**: its Binders open each public binder (since web stage WE, board W23; "View
+  public binder" left); public binders (`GET /collectors/{handle}/binders`) and the public cards
+  (`GET /collectors/{handle}/inventory?excludeDeckCoreItems=true`) are listed.
 
 ## Map discovery and search (Phase 4, platform regions since ADR 0017)
 
@@ -229,7 +566,7 @@ Contracts: `docs/api/contracts/phase4-map-search.md` and `docs/api/contracts/s1-
 Generated client only (`RegionsService`, `SearchService`, `PublicBindersService`, `CatalogService`).
 
 - **Region switcher** (top left, `core/region/region-context.service.ts`): every region-scoped call
-  (search, suggestions, card holders, ads, the map) sends `region`. Signed in: the home region of
+  (search, suggestions, card holders, the map) sends `region`. Signed in: the home region of
   `GET /me` (`homeRegion`); signed out: the last choice kept in `localStorage`, else
   `americas-north`. Changing it updates `?region=` on `/map`.
 - **`/map`** (`features/map`): one Leaflet vector map (`boundary-map`, Leaflet 1.9.4 lazy-loaded,
@@ -243,23 +580,16 @@ Generated client only (`RegionsService`, `SearchService`, `PublicBindersService`
   binders in cursor pages (`GET /regions/{region}/subdivisions/{code}/binders`, "Load more"), with a
   skeleton, an empty state, an error with retry; states listed but not drawn (too small or newer
   than the data) are reachable from the list. The right-hand Messages panel (Phase 5) stays.
+  **Since web stage WE** the map page, its state list and panel are gone: Home is the feed (with a
+  static map card) and the map with its list of states is Search › Binders (stage WD); `/map`
+  redirects there.
 - **Location** (`shared/location`): `LocationFieldsComponent` (region, country and state pickers
   fed by `GET /regions`, optional city ≤ 80 characters, "Show my city on my profile") in onboarding
   ("Where are you?") and Settings → Location (`PUT/DELETE /me/location`); a gentle prompt invites
   collectors without a location. No GPS, no geolocation API (the CSP's `Permissions-Policy` denies
   it), no map picker.
-- **`/search`** (`features/search`, the mobile Search tab), all state in the URL
-  (`data/search-params.ts`):
-  - `?q=&tab=cards|collectors|binders`: `GET /search` in tabs (cards + printings + sets,
-    collectors with their matching listings, public binders with their owner block). When the
-    query resolves to a card or printing, a banner lists the holders of the region with "All
-    holders and prices".
-  - `?card=|printing=` + `availability`, `condition`, `minPrice`, `maxPrice`, `freshness`,
-    `edition`, `language`, `offers`, `sort=freshness|price`, `page`: the card-holders view
-    (`GET /search/card-holders` in the browsed region) with `HolderFiltersComponent` (reactive
-    form; prices validated inline, min <= max) and paginated `HolderRowComponent`s (listing +
-    holder with their state or province, View binder).
-  - Every search sends the browsed region (the region switcher); there is no centre or distance.
+- **`/search`**: since web stage WD the list beside the map (see the WD section above); every
+  call sends the browsed region and game; there is no centre or distance.
 
 ## Messaging, realtime and community (Phase 5)
 
@@ -273,7 +603,8 @@ document; their shapes live in `core/realtime/realtime-events.ts` with runtime g
   STOMP 1.2 over a native WebSocket (`stomp-frames.ts` codec + `stomp-connection.ts` client, a
   lazy chunk, heartbeats both ways, no dependency) at `wsBaseUrl` (`/config.json`, derived from
   `apiBaseUrl` when empty) with the ID token as `access_token`. Subscribes only to
-  `/user/queue/messages|receipts|typing|presence|notifications` (the last one since Phase 6),
+  `/user/queue/messages|receipts|typing|presence|notifications|conversations` (notifications
+  since Phase 6, conversations since web stage WC),
   sends only `/app/typing`. `state` signal
   (`disabled | connecting | connected | reconnecting`, shown by `RealtimeStatusComponent` as
   "Live" / "Reconnecting…"); exponential backoff 1 s → 30 s with jitter, immediate retry when the
@@ -302,28 +633,131 @@ document; their shapes live in `core/realtime/realtime-events.ts` with runtime g
 - **Map panel** (`features/map/messages-panel.component.ts`): the messenger in the right-hand
   sidenav with the live indicator and "Open full page"; the preview's Message button opens (or
   creates, `POST /conversations`, idempotent) the conversation there; the panel toggle carries the
-  unread badge. **`/messages`, `/messages/:id`**: the full-page messenger, two columns from 840 px,
-  list or thread on phones; the open conversation lives in the URL. The collector profile's
-  Message button opens `/messages/:id` (`shared/messaging/conversation-starter.service.ts`).
+  unread badge. **`/messages`, `/messages/:id`**: the full-page messenger; since web stage WC the
+  inbox beside the chat from 960 px, one pane per route below (section "Messages: the deal beside
+  the chat" below). "Message" buttons open the chat drawer (`shared/messaging/chat-drawer.service.ts`).
+- **Messages: the deal beside the chat (web redesign WC, spec 10, boards W18 to W21).**
+  - **Layout** (`messages-page.component.ts`, `messenger/`): at lg (1280 and wider) the inbox (340,
+    with the page's H1 and Chats | Community projected as `[inboxHeader]`), the chat (its thread
+    centred at 720) and the deal panel (320; "Deal" in the chat's header, `aria-pressed`, its
+    state remembered in this browser under `orenjitrade.messages.dealPanel`); at md (960 to 1279)
+    the inbox (300) and the chat, the deal panel a 360 drawer with a scrim, a focus trap and Esc;
+    below 960 one pane per route, the deal panel a full-screen sheet. Esc in the chat gives the
+    focus back to the inbox row.
+  - **Inbox** (`conversation-list/`): "Search chats" (the page's own search, `/` focuses it),
+    [All | Unread], rows of 76 (44 avatar and online dot, the handle, the phone's times "2 min",
+    "Yesterday", "Sat", "Oct 14", orange when unread, the last message on one line: "You: …", a
+    sale worded for the reader, an old offer as "Offer (no longer available)", the chat's card or
+    deck core as a 28×40 thumbnail), the selected row `surfaceVariant` with a 2 px orange inset;
+    ↑↓ or j k (single-key shortcuts, off with Settings › Appearance's switch), Enter; "No chats
+    yet" with [Search cards]; "No chats match …" with "Show all chats".
+  - **Chat** (`thread/`): the header (36 avatar, the handle, "Online · Quebec", the state or
+    province only; "Deal"; "⋯": Rate {h} when eligible, Mute, Archive, Report {h}, Block {h});
+    the pinned bar (`pinned-bar.component.ts`: 30×42 art, name, "{code} · {rarity}", the price as
+    typed; the seller's "· your card" and the teal outline **Mark as sold**, the only entry; a
+    "Sold" tag after the sale; "No longer listed" for a buyer); the shield tip of the reader's
+    side (it replaces the dismissible trading safety notice of 2026-10-05, spec 20); the thread
+    (bubbles ≤ 480, `chat.otherBubble`, a shared card as the 280 card with its price, the sale
+    note in the `chat.sale*` tokens with "Tracking {n}", [Rate {other}] and, for the seller,
+    Undo for 10 minutes, then gone; undone sales dropped from the thread when their pushed copy
+    arrives); the quick replies of the side (`data/deal-rules.ts`, the phone's rule with the owner
+    decision of 2026-10-28: the later replies for both once sold); the composer
+    (`composer/`: the 40 round "+" menu, the field of 1 to 6 lines, Enter or Ctrl/Cmd+Enter sends,
+    Shift+Enter a new line, a photo dropped on the chat attaches, "Not sent · {reason}" with
+    "Try again"; the draft of each chat kept in memory by `shared/messaging/chat-drafts.service.ts`).
+  - **"+" menu** (`dialogs/`): "Send my address" and "Send my e-Transfer email" open a 440 dialog
+    typed each time (`autocomplete="off"`, the text only in the dialog's signals, sent at once with
+    "Send in this chat", the preview of what the other collector reads, "OrenjiTrade doesn't keep
+    this…"; decision 9: nothing is written to localStorage, sessionStorage or IndexedDB, an E2E
+    reads all three); "Send a photo"; "Share a card from your inventory" (a 520 picker on
+    `GET /inventory/items`, sent as `CARD_LINK` with `inventoryItemId`, which pins the chat's
+    subject) and "Share a binder" (the public binders and deck cores of `GET /binders`).
+  - **Mark as sold** (`dialogs/mark-sold-dialog.component.ts`, 480): the card row, "Copies sold"
+    − 1 + up to the copies held (a deck core sells as one), "Tracking number · optional" (the API's
+    rule as typed), the live sentence ("You keep 1 copy in your inventory." / "It was your last
+    copy…"), `POST /conversations/{id}/sales` with the subject shown (409 `SUBJECT_CHANGED` closes
+    with the news), refusals inline; then the toast "Marked as sold" with Undo
+    (`POST /sales/{id}/undo`). Tracking numbers are never logged by the web.
+  - **Deal panel** (`deal/deal-panel.component.ts`): "THIS CHAT IS ABOUT" (96×140 art, name, code,
+    price, View card / View deck core); the seller's copies, visibility and binder
+    (`GET /inventory/items/{id}`) with "Open in Inventory" (`/inventory?item=`), after the sale
+    "Sold Oct 20 · Tracking …" with Undo and [Rate]; the buyer's "How deals work here" (four steps),
+    "OrenjiTrade never holds the money and does not protect payments." and Trading safely; "WITH"
+    (48 avatar, handle, "★4.9 · 14 ratings" and "Member since" from `GET /collectors/{handle}`, the
+    place from the chat's participant, never the profile's city); the buyer's "More from {seller}"
+    (four 64 tiles from the existing `GET /collectors/{handle}/inventory?excludeDeckCoreItems=true`,
+    the chat's card left out, no counts; a tile puts "Could you add your {card} ({price}) to the
+    same package?" in the composer; 404 shows none).
+  - **Chat drawer** (`drawer/chat-drawer.component.ts`, a `@defer` chunk of the shell that shares
+    the chat's code with Messages; `shared/messaging/chat-drawer.service.ts`): "Message" on a
+    holder of Who has this card (`/search?card=`, about that copy), a public binder (about the deck
+    core when it sells as one), Home's binders and a collector profile opens the chat in a 440
+    non-modal drawer under the top bar (`aria-modal="false"`, no scrim): header (avatar, handle,
+    status, "Open in Messages ↗", Close), pinned bar, tip, thread, quick replies, composer. One at a
+    time (another replaces it, each draft kept); Esc closes it from inside and the focus goes back
+    to the opener; F6 moves between the page and the drawer. At lg and xl it pushes the page; at
+    md it overlays it, and Esc on the page closes it too, the focus staying where it is (a control
+    under the drawer shows again; a menu, a dialog, an open list or a text field's own Esc comes
+    first). Below 960 "Message" goes to `/messages/:id`; going to Messages closes it. One realtime
+    connection for all of it.
+  - **Realtime**: `RealtimeService` also subscribes to `/user/queue/conversations` (stage R4: a pin
+    of the other collector), so the pinned bar and the inbox follow it.
+  - **Refusals** read the same for every reason (owner decision of 2026-10-28): a send refused with
+    403 `MESSAGING_BLOCKED` reads "This collector cannot receive messages right now.", never a
+    block; the blocker alone sees "You blocked {h}…".
+  - **Rate and Report** (`shared/ratings`, `shared/reports`, also from profiles): Rate names the
+    deal ("{card} · sold Oct 20", stage R14's `dealName`), the words Poor, Not great, Okay, Good,
+    Excellent, "Write a reference instead" and "Publish rating"; Report is "Report {handle}" with
+    "Why are you reporting them?", "Send report" disabled with "Choose a reason first.", then
+    "Report sent" with Done and "Follow it in My reports".
+  - **Settings › Shipping details** (`/settings/shipping`): "On the web, OrenjiTrade doesn't save
+    your address or e-Transfer email. …" (decision 9), nothing to fill in.
 - **Blocks**: `shared/messaging/block-actions.service.ts` (confirmation + snack bar) from the thread
   menu and the community post menu; **Settings → Blocked users** (`GET /me/blocks`, Unblock).
-- **`/community`, `/community/:slug`** (`features/community`, behind `featureGuard('publicChat')`;
-  the nav link is hidden while the flag is off): `CommunityStore` (channels, feed with cursor
-  pages, reply threads, writes that resolve to the inline message of a refusal: 409
-  `DUPLICATE_POST`, 422 `POST_BLOCKED`, 429 with the wait), `ChannelSidebarComponent` (game
-  filter; groups by city, games, topics; collapses behind a button on narrow screens),
-  channel header, `PostComposerComponent` (1–2000 characters, card / public binder links,
-  Ctrl+Enter), `PostItemComponent` (edit in place, delete with confirmation, block the author,
-  moderator "Remove" with a required reason, "Report collector" (Phase 7)) and
-  `PostRepliesComponent` (inline replies, Enter sends, delete own, moderator remove).
-- **Admin → Community** (`features/admin/community`, moderators and admins): channels (create,
-  edit, archive/restore with `POST/PATCH /admin/community/channels`) and the automatic moderation
-  flags (`GET /admin/moderation/flags` by state, resolve with an optional note); `?tab=flags`.
+- **Messages › Community** (web redesign WF, spec 10.7 and 10.8, board W22; the phone's R11 rooms;
+  `features/community`; Community while `publicChat` is on; old `/community` links land there):
+  - **Routes**: `/messages?tab=community` (the list) and `/messages/community/:room` (a room, slug
+    `{region}-{game}`), served by the one Messages route (`messagesMatcher`, title "Community" in a
+    room) so Back below 960 gives the focus to the room's row. At 960 and wider the Community tab
+    opens the browsed game's room of the browsed region at once; a link to another region's room
+    browses that region; the region pill's switch opens the same game's room there.
+  - **Layout** (`community-view.component.ts`): the inbox column (340 at lg, 300 at md, with the
+    page's H1 and Chats | Community) beside the room; one pane per route below 960 (the room above
+    the tabs, with "Back to Community").
+  - **The inbox column** (`room-list/`, `CommunityRoomsStore`): Community's own region pill (the
+    top bar's `app-region-pill` with `wide`), "Game rooms", the five rooms of the region
+    (`GET /community/channels?region=`; the browsed game's first, then the order of `GET /games`;
+    a 38 tile, the game, "{handle}: {text}" or "You: …", the time; bold with an orange dot while
+    someone else posted since the last visit in this browser, kept per account under
+    `orenji.community.visits.{uid}` and removed on sign-out), ↑ ↓ between rooms, the footnote.
+    Skeleton rows, "Try again", "The community is closed right now".
+  - **A room** (`room/room-view`, `RoomStore`): the header (tile, name, "{region} · public room",
+    "Room rules" pressed while shown), the banner, the posts read like a chat (`role="log"`, newest
+    at the bottom, day separators, "Show older posts", the first page read again every 15 s while on
+    screen and on coming back to the tab), the message box. `room-post`: a 36 avatar, the handle
+    (the profile), "You", "{province} · {time}" (never a city), the text, a phone's photos read
+    only (the photo viewer: Previous, Next, ← →, Esc), a shared card ("View": Who has this card on
+    that printing), deck core ("Deck core", its price, "Open") or binder, "Binder no longer
+    available"; "⋯" on hover or focus with Message {h} (the chat in Messages), Report this post
+    (the report dialog shows the post), Block {h} (the board's confirmation, the posts gone at once,
+    Undo in the toast, "Unblock" in Room rules), Remove for moderators; Edit and Delete on one's
+    own. No reply threads. `room-composer`: "+" with "Share a card" (your public cards of the
+    room's game, `GET /inventory/items?game&markedPublic=true`) and "Share a binder or deck core"
+    (the share picker's room mode), the attachment above the field, the field 1 to 6 lines, Enter
+    posts, Shift+Enter a new line, the post button orange with text, the phone's refusals (the
+    room's 10 an hour, the same text twice, the rules, a network error with "Try again").
+  - **Room rules** (`room-rules`): the third pane (320) at 1280 and wider, shown or hidden and
+    remembered (`orenjitrade.community.rulesPanel`); a 360 drawer at md and a sheet below 960, Esc
+    closes, the focus back on "Room rules".
+- **Admin → Community** (`features/admin/community`, moderators and admins): since web stage WH1
+  the 15 rooms with their drawer (edit, archive and restore with `PATCH
+/admin/community/channels/{id}`; no "New channel") and "Archived channels"; the automatic
+  moderation flags moved to Flags and rules (`/admin/moderation`).
 
 ## Wishlist, matching and notifications (Phase 6)
 
 Contract: `docs/api/contracts/phase6-wishlist-notifications.md` ("Web / mobile"). Generated client
-only (`WishlistService`, `NotificationsService`; plan cap from `PlansService.getMyPlan`, location
+only (`WishlistService`, `NotificationsService`; the cap from `LimitsService.getMyLimits`, location
 state from `LocationService.getMyLocation`). No web push registration (no FCM locally).
 
 - **Notification centre** (`core/notifications`): `NotificationCenter` (started by
@@ -336,7 +770,9 @@ state from `LocationService.getMyLocation`). No web push registration (no FCM lo
   after each reconnection and after the caller's own read receipts (reading a conversation marks
   its MESSAGE notifications read server side). `notification-kinds.ts`: icon / tone / label per
   type and the page a notification opens (`data.deepLink` when it is a safe in-app path, else a
-  path rebuilt from its ids; the SYSTEM limit notice opens `/premium`).
+  path rebuilt from its ids; the SYSTEM limit notice opens `/wishlist` for wishlist alerts, else
+  `/notifications`; an old link to `/premium`, `/credits`, `/support` or their checkouts is never
+  followed).
 - **Top-bar bell** (`core/layout/notification-bell`): unread badge (bumps on arrival, "99+"),
   `aria-label` "Notifications, N unread", `data-realtime` = connection state; menu with the latest
   notifications (tinted icon per type, unread dot, relative time), opening one marks it read and
@@ -348,12 +784,13 @@ state from `LocationService.getMyLocation`). No web push registration (no FCM lo
   Yesterday, Earlier this week, Older), per-row "Mark as read", "Mark all as read", link to
   Settings → Notifications.
 - **`/wishlist`** (`features/wishlist`, stage S2; old `/wishlist/<id>` links redirect to it):
-  `WishlistStore` (`GET /wishlist`, `DELETE` with confirmation, plan usage of
-  `wishlist.items.max`, the location and privacy settings through `MyLocationStore`, quiet re-read
+  `WishlistStore` (`GET /wishlist`, `DELETE` with confirmation, the usage of
+  `wishlist.items.max` from `GET /me/limits`, the location and privacy settings through
+  `MyLocationStore`, quiet re-read
   on reconnection) → a prompt to set country and state when no location is set (alerts come from
   collectors of the region), "Let others see what you want" (the `wishlistVisible` privacy
-  setting, explained), the summary (wishes and usage meter with a Premium link from 80 % while
-  `premiumPlans` is on) and `WishCardComponent` (picture, which copy, public note, "Near Mint
+  setting, explained), the summary (wishes and usage meter, nothing to buy) and `WishCardComponent`
+  (picture, which copy, public note, "Near Mint
   only" and price term chips with the approximate amount for one printing, Edit, Remove). No
   matches, filters or per-wish alert switch any more.
 - **Add/edit dialog** (`shared/wishlist`, a lazy chunk opened by `WishlistActions` from the
@@ -426,9 +863,10 @@ Contract: `docs/api/contracts/phase7-ratings-reports-admin.md` (backend notes an
   notices LISTINGS_PAUSED (→ `/inventory`) and MODERATION_WARNING (→ Community Guidelines) get
   their icons and links.
 - **Admin console** (`features/admin`; moderators see Dashboard, Community, Reports,
-  Moderation and Ratings; transactions, disputes, payments, ads, subscriptions and credits
-  arrived with Phases 9 and 10): Dashboard (`GET /admin/dashboard` tiles with links for admins; open /
-  under-review reports and open flags for moderators; quick links), **Reports** (`/admin/reports`
+  Moderation and Ratings; transactions, disputes and payments arrived with Phase 9; the Phase 10
+  ads, subscriptions and credits left with stage F1): Dashboard (`GET /admin/dashboard` tiles
+  with links for admins; open / under-review reports and open flags for moderators; quick
+  links), **Reports** (`/admin/reports`
   filters status, reason, "assigned to me", one collector in the URL; `/admin/reports/:id` with
   the report, the reported conversation when there is one, reporter and reported collector
   cards, the moderation history, moderator notes, Assign to me, Resolve dialog: take action
@@ -449,6 +887,11 @@ Contract: `docs/api/contracts/phase7-ratings-reports-admin.md` (backend notes an
   logs (new action labels; REPORT targets link to the report).
 
 ## Offers and trades (Phase 8)
+
+> **Removed from the web UI in stage WA (decision 2, ADR 0018).** `/offers` and `/trades` lead to
+> Messages with the toast "Offers are no longer available. Deals happen in the chat."; old offer
+> messages read as history (no link), old offer notifications open the list. The screens below
+> were deleted with their E2E specs; the server modules stay. The rest of this section is history.
 
 Contract: `docs/api/contracts/phase8-offers-trades.md` (backend notes and deviations in
 `apps/api/README.md`, "Offers and trades (Phase 8)"). Generated client only (`OffersService`,
@@ -509,6 +952,11 @@ Contract: `docs/api/contracts/phase8-offers-trades.md` (backend notes and deviat
   not declared by the generated `ProblemDetail`; `problemExtension()` reads them defensively.
 
 ## Payment protection and disputes (Phase 9)
+
+> **Removed from the web UI in stage WA (decision 2, ADR 0018).** `/checkout/*` and
+> `/disputes/*` show a notice ("Payments and disputes aren't part of OrenjiTrade…") with "Go to
+> Messages"; Settings › Payouts left; the admin console keeps its payment pages. The rest of this
+> section is history.
 
 Contract: `docs/api/contracts/phase9-payments-disputes.md` (backend notes and deviations in
 `apps/api/README.md`, "Payment protection and disputes (Phase 9)"). Generated client only
@@ -583,72 +1031,22 @@ sections stay available. Locally the API runs the fake provider: no card, no mon
   shows existing TEXT / TRACKING evidence, and written statements go to the thread; the TEXT /
   TRACKING forms need a distinct operationId in the API and a client regeneration.
 
-## Premium, credits, ads and donations (Phase 10)
+## Premium, credits, ads and donations: removed (stage F1, 2026-10-14)
 
-Contract: `docs/api/contracts/phase10-freemium-credits-ads-donations.md` (backend notes and
-deviations in `apps/api/README.md`, "Subscriptions, credits, ads, donations (Phase 10)").
-Generated client only (`PlansService`, `SubscriptionsService`, `CreditsService`, `AdsService`,
-`DonationsService`, `AdminBillingService`, `AdminPlansService`). Every provider is a local fake:
-no card, no money. Member screens follow their flags (`premiumPlans`, `credits`, `advertising`,
-`donations`; hidden or guarded while off, 404 `FEATURE_DISABLED` explained); admin sections stay
-available. Wording and refusals live in `shared/billing/billing-labels.ts`.
+Phase 10 built Premium (`/premium`, the fake billing checkout), credits (`/credits`, referrals),
+sponsored placements (`shared/ads`, the SEARCH_SPONSORED, MAP_PANEL, INVENTORY_SIDEBAR and
+COLLECTOR_PROFILE slots), voluntary donations (`/support`, the fake donation checkout, the
+supporters wall) and their admin pages (`/admin/plans`, `/admin/subscriptions`, `/admin/credits`,
+`/admin/ads`, `/admin/donations`, the user's Entitlements panel). The owner made the app free for
+all on 2026-10-14 ([ADR 0019](../../docs/architecture/adr/0019-free-for-all-no-paid-features.md)):
+all of it is removed, the routes answer "Page not found", the account menu and the footer have
+no Premium, Credits or "Support OrenjiTrade" entry, and no page shows a "Sponsored" row. The
+code is kept on the branch `archive/paid-features`.
 
-- **Premium** `/premium` (`features/premium`, `PremiumStore`): plan comparison from `GET /plans`
-  (`PlanCardComponent`: create an account, "Sign in to upgrade", "Upgrade to Premium",
-  "Continue to checkout" for an open checkout, "Current plan"), the live subscription
-  (`SubscriptionCardComponent`: status, price, member since, renews / ends on, PAST_DUE note,
-  "Cancel at period end" / "Cancel now" / "Close the checkout", each confirmed), usage meters
-  from `GET /me/plan` (`UsageMetersComponent`: counters with bars, caps as values, unlimited,
-  "Boosted" overrides), active boosts and a credits teaser. Upgrade ->
-  `POST /me/subscription/checkout` (409 `ALREADY_SUBSCRIBED` explained; only local fake checkout paths
-  or https provider pages are followed) -> `/checkout/fake-billing/:ref`. The limit-reached
-  dialog's "See Premium" lands here and closes every open dialog on the way.
-- **Fake billing checkout** `/checkout/fake-billing/:ref` and **fake donation checkout**
-  `/checkout/fake-donation/:ref` (`features/checkout`, `ProviderCheckoutStore` with
-  `FakeBillingCheckoutStore` / `FakeDonationCheckoutStore`, presentational
-  `FakeProviderCheckoutComponent`): "Local test payment" banner, Pay / "Simulate a failed
-  payment", polling until the synthetic webhook changed the checkout (a declined subscription
-  attempt stays open: "Try again"), then `/premium?checkout=success` (session reloaded: plan and
-  PREMIUM_USER role) or `/support?donation=thanks`.
-- **Credits** `/credits` (`features/credits`, `CreditsStore`; account menu "Credits"): balance
-  with the "never withdrawable or transferable" wording, products to unlock for a day
-  (`CreditProductsComponent`, disabled with "You need N more"), `SpendCreditsDialogComponent`
-  (cost, balance after, duration; one idempotency key per dialog so a retry never spends twice;
-  409 `INSUFFICIENT_CREDITS` with balance and cost), active boosts, referral card (own code with
-  copy / share, rewards, redeem form with 404 and 409 `REFERRAL_NOT_ALLOWED` reasons on the
-  field) and the cursor-paged ledger ("Load more").
-- **Sponsored placements** (`shared/ads`): `SponsoredSlotComponent`
-  (`GET /ads?placement=&game=`) renders nothing while `advertising` is off, for `[]` (Premium,
-  entitlements) or on errors, waits for the session and reloads when the member or plan
-  changes. `SponsoredAdComponent` always shows the literal "Sponsored" label (with why, and
-  "Remove ads" while Premium is sold) and links through the API's click route only
-  (`adClickHref`: `/api/v1/ads/{id}/click?token=` or https; new tab, `rel="sponsored"`);
-  `AdImpressionDirective` + `AdTrackingService` record one impression per serve token once half
-  of the ad is visible. Slots: SEARCH_SPONSORED (`/search` results and card holders),
-  MAP_PANEL (top of the map list panel), INVENTORY_SIDEBAR (`/inventory`), COLLECTOR_PROFILE
-  (other collectors' profiles).
-- **Support** `/support` (`features/support`, `SupportStore`; footer "Support OrenjiTrade",
-  account menu): clearly labelled "Voluntary support" that never changes ratings, ranking or
-  trust; `DonationFormComponent` (preset or custom amount, currency, private message up to 280
-  characters, public-thanks opt-in; the API's accepted range and currencies are shown on the
-  fields when it refuses), the public supporters wall (display names and month only) and the
-  member's own donations. There is no member route for the accepted amounts: presets are
-  suggestions and the API's 400 field errors carry the range.
-- **Admin** (ADMIN area; every write confirmed and "in the audit log"): **Plans** `/admin/plans`
-  (features and limits; SUPER_ADMIN edits name, description, price, currency, availability,
-  order and feature switches), **Subscriptions** `/admin/subscriptions?status=&plan=&userId=` and
-  `/admin/subscriptions/:id` (history, webhooks with payload on demand, cancel at the period end
-  or now with a reason), **Credits** `/admin/credits?userId=` (ledger of all or one account with
-  its balance, "Grant credits" dialog for grants and corrections, credit products and referral
-  rules edited by SUPER_ADMIN), **Ads** `/admin/ads?tab=campaigns|advertisers|placements` and
-  `/admin/ads/campaigns/:id` (campaign dialog with schedule, budgets, pricing and bid, priority
-  and frequency cap; activate / pause / end; `TargetingEditorComponent` with kinds AND / values OR
-  and coordinates refused; creatives dialog with https-or-site-path URLs; delivery tiles and daily
-  statistics), **Donations** `/admin/donations?status=` and `/admin/donations/:id` (totals per
-  currency, webhooks, full refund and accepted amounts for SUPER_ADMIN). The user page gains
-  Subscriptions / Credits links and an **Entitlements** panel (grant a limit or feature override
-  with an optional end and a note, revoke). Audit labels cover `subscription.cancel`,
-  `credits.*`, `ads.*`, `donation.refund`, `donations.settings.update`.
+What stays: the usage limits, the same for every collector. A 429 `LIMIT_REACHED` opens the
+plain limit dialog (`core/limits`); the wishlist summary shows `wishlist.items.max` from
+`GET /me/limits`; a SUPER_ADMIN edits the limits in `/admin/usage-limits`
+(`AdminUsageLimitsService`, one row per key). Protected payments (Phase 9) are unchanged.
 
 ## Maps
 
@@ -664,13 +1062,18 @@ their provenance (Natural Earth 5.1.1, public domain, built with mapshaper 0.7.5
   `dist/tokens.ts` (typed constants). `src/styles.scss` imports the CSS by relative path. Use
   `var(--color-primary)`, `var(--spacing-4)`, `var(--radius-md)`, `var(--font-display)`,
   `var(--color-status-fresh)`, ... — never raw hex.
-- Material 3: `src/theme/_theme-colors.scss` was generated with
+- Material 3 (web redesign WA, spec 2.7): `src/theme/_theme-colors.scss` was generated with
   `ng generate @angular/material:theme-color --primary-color=#F4761A --tertiary-color=#0F766E`.
-  `styles.scss` applies `mat.theme()` (Inter as plain family, Sora as brand family) on `html`
-  (light), on `[data-theme='dark']` and under `prefers-color-scheme: dark` for
-  `html:not([data-theme='light'])`.
+  `styles.scss` applies one `mat.theme()` on `html` (typography, density, shape) and maps every
+  `--mat-sys-*` colour to a design token, so the tokens decide light, dark and the system
+  preference; elevation is off (`--mat-sys-level*: none`), ripples are off
+  (`MAT_RIPPLE_GLOBAL_OPTIONS`), and the dialog, menu, select, autocomplete, form field and
+  tooltip overrides give the redesign's radii. Light `onPrimary` is ink (decision 21).
+- The games' accents and monograms come from the `gameTile` tokens (`shared/domain/games.ts`,
+  `light-dark()`); no game colour is hard-coded.
 - `ThemeService` (`core/theme`) holds `preference` (`light | dark | system`, persisted in
-  `localStorage`) and `resolved`; it sets `html[data-theme]`. The toolbar menu drives it.
+  `localStorage`, "Same as the system" by default) and `resolved`; it sets `html[data-theme]`.
+  The account menu's Appearance › and Settings › Appearance drive it.
 - Icons: Material Symbols Rounded (`MatIconRegistry.setDefaultFontSetClass`).
 - Fonts (Sora, Inter, JetBrains Mono) and icons come from Google Fonts (preconnected in
   `index.html`); the CSP allows exactly those origins.
@@ -679,7 +1082,7 @@ their provenance (Natural Earth 5.1.1, public domain, built with mapshaper 0.7.5
 
 ```
 src/app/
-  app.config.ts, app.routes.ts       providers, lazy routes ("" -> /map, "**" -> not found)
+  app.config.ts, app.routes.ts       providers, lazy routes with data.shell ("" Home, "**" not found)
   core/
     account/    AccountExportService (GET /me/export -> JSON download)
     api/        provideApiClient()  (generated client wiring)
@@ -690,28 +1093,23 @@ src/app/
     feature-flags/ FeatureFlagsService, featureGuard
     http/       interceptors, ApiError, friendlyError, HttpContext tokens
     limits/     limit-reached interceptor, service and dialog
-    layout/     app-shell, top-bar, notification-bell, account-menu, session-banner, bottom-nav
-                (<960px), footer, api-version, theme-toggle
-    routing/    OrenjiTitleStrategy ("<page> · OrenjiTrade")
+    layout/     app-shell, ShellLayout (route data.shell, breakpoints), top-bar (+ pill styles),
+                rail (>=960px), tab-bar (<960px), region-pill and game-pill (lazy popovers),
+                popover (Popovers), global-search (deferred), notification-bell, account-menu,
+                session-banner, footer, unread-chats, shell-icon, api-version
+    feedback/   ToastService, ToastHostComponent, ToastSnackBar (MatSnackBar stand-in)
+    keyboard/   KeyboardShortcuts, KeyboardPrefs, the "?" dialog (lazy)
+    search/     RecentSearches (this browser only)
+    game/       GameContext (the browsed game)
+    routing/    OrenjiTitleStrategy ("<page> · OrenjiTrade", robots), legacy-redirects
     theme/      ThemeService
   features/
     auth/       sign-in, sign-up, verify-email, reset-password, consent, suspended
     onboarding/ three-step wizard
-    settings/   shell + profile, privacy, notifications, location, offers, payouts, blocked
-                users, my reports, account, appearance
-    offers/     /offers inbox (tabs, status filter, summary rows) and /offers/:id (action bar,
-                history); data/ (OffersInboxStore, OfferDetailStore)
-    trades/     /trades list and /trades/:id (next-action banner, steps, timeline, payment,
-                shipment and dispute cards, payout reminder); data/ (TradesListStore,
-                TradeDetailStore, TradeProtectionActions); dialogs/ (ship, open dispute)
-    checkout/   /checkout/fake/:ref (payments), /checkout/fake-billing/:ref and
-                /checkout/fake-donation/:ref (local fake providers); data/ (FakeCheckoutStore,
-                ProviderCheckoutStore + billing / donation stores)
-    credits/    /credits: data/ (CreditsStore), balance, products, spend dialog, referral card,
-                ledger
-    support/    /support: data/ (SupportStore), donation form, supporters wall, my donations
-    disputes/   /disputes/:id (overview, evidence with uploads, thread, timeline); data/
-                (DisputeStore)
+    settings/   shell + profile, privacy, notifications, location, blocked users, my reports,
+                account, appearance (offers and payouts left with stage WA)
+    notice/     the notice of old /checkout and /disputes links (stage WA)
+    profile/    /profile: your own collector page (stage WA)
     collectors/ public profile (container + presentational view, public wishlist, ratings and
                 references section)
     admin/      shell, dashboard, users (list, detail, roles editor, suspend dialog, moderation
@@ -720,27 +1118,26 @@ src/app/
                 flags), reports (list, detail, resolve dialog, history, notes), moderation
                 (rules, flags), listings, binders, ratings, notifications, analytics, delist
                 (auto-delist editor), health, payments (transactions, payments, payment detail
-                with refund, webhooks, payment rules), disputes (queue, detail, resolve dialog),
-                billing (plans, subscriptions, credits, ads with campaign detail and targeting,
-                donations, user entitlements)
-    catalog/    card search (filters, URL params), card detail (metadata, printings), set page
+                with refund, webhooks, payment rules), disputes (queue, detail, resolve dialog)
+    catalog/    card search (filters, URL params), card page (Who has this card, printing
+                picker, the Add drawer host), set page (Add from this set)
     inventory/  /inventory: data/ (params, store, item form, bulk actions, visibility status),
                 binder list, toolbar, summary, items (grid card, table), bulk bar,
                 binders (header, publish menu, form + manager dialogs), editor side panel,
                 add-card dialog
-    binders/    /binders/:id public binder (container + header)
-    premium/    /premium: data/ (PremiumStore), plan card, subscription card, usage meters
-    map/        /map: data/ (params, query, clusters, markers, MapDiscoveryStore), map canvas,
-                preview card, discovery panel + collector list, filters bar, legend, area
-                prompt, messages panel (the messenger)
+    binders/    /binders/:id public binder or deck core (boards W8, W9)
+    map/        the region's map (Home and Search › Binders since stage WA): boundary map,
+                states list, a state's binders; data/ (RegionMapStore, boundaries)
     messages/   /messages: data/ (ConversationsStore, ThreadStore, drafts, previews, thread
                 items), messenger, conversation list, thread (view, header, list, bubble),
                 composer, realtime status
-    community/  /community: data/ (CommunityStore, helpers), channel sidebar, post composer,
-                post item, replies, moderator remove dialog
-    search/     /search: data/ (params), unified results (tabs, collector result), card holders
-                (filters form, result row)
-    wishlist/   /wishlist: data/ (WishlistStore), list (wish card, summary)
+    community/  Messages › Community (stage WF): data/ (copy, rules, CommunityRoomsStore,
+                RoomStore), community view, room list, room (view, post, composer, rules, photo
+                viewer), moderator remove dialog
+    search/     /search (Cards | Binders | Wishlist beside the map, stage WD): data/ (URL,
+                binder list), panes (cards, binders, state list, rows, wishlist, holder pane),
+                drill-in, map
+    wishlist/   data/ (WishlistStore, used by Search › Wishlist)
     notifications/ /notifications: data/ (NotificationFeedStore, day groups)
     legal, not-found
   shared/
@@ -748,25 +1145,24 @@ src/app/
                 (CardPictures: card + printing pictures for id-only listings), card data
                 attribution (provider credits per game, footer and card/set pages)
     inventory/  inventory labels, item chips, public item card, public binder card
-    plans/      PlansStore, plan and limit wording
-    billing/    subscription / credit / donation wording and refusals, active boosts
-    ads/        SponsoredSlot, sponsored ad card, impression directive and tracking, safe links
-    discovery/  discovery labels (filters, ratings, listings), DiscoveryCentreService
-    search/     UnifiedSearchBox (GET /search/suggest), suggestion grouping and routing
+    limits/     limit wording (labels, windows, values)
+    discovery/  discovery labels, who-has (the holders list), binder-view (store, gallery, owner,
+                cards, key cards), ViewerPlaceService
+    search/     suggestion grouping and routing (the unified search box left with web stage WE)
     domain/     games, place / last-active labels
     location/   LocationFields (region, country, state pickers, city), MyLocationStore
     regions/    RegionsStore (GET /regions), platform region names
     profile/    profile form, game / language / tag pickers, MyProfileStore
     links/      card / binder link pickers (autocomplete), shared link card
     messaging/  ConversationStarterService, BlockActionsService
-    offers/     offer and trade labels, OfferTarget, offer form, refusals, make-offer button and
-                dialog, card picker, reason dialog, deal summary, party card, status chip, offer
-                link card and picker, CursorList, OfferActionsService
+    offers/     offer and trade labels, refusals, status chip, and the offer card of old chat
+                messages (history, no link); the rest left with offers (stage WA)
     wishlist/   WishlistActions, add/edit dialog (card picker, criteria fields), form, labels
     pipes/      relativeTime, mediaUrl
-    ui/         avatar, card-art, card-image, confirm-dialog, game-chip, section-card,
-                empty-state, error-state, skeleton, page-header, freshness-badge, condition-chip,
-                availability-chip, visibility-badge, search-field, wordmark, quantity-stepper
+    ui/         avatar, card-art, card-image (never wider than 160 px), confirm-dialog, game-chip,
+                section-card, empty-state, error-state, skeleton, page-header, freshness-badge,
+                condition-chip, availability-chip, visibility-badge, search-field, wordmark,
+                quantity-stepper, underline-tabs
 ```
 
 ### Card pictures (ADR 0015)
@@ -813,8 +1209,8 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
   form rules, avatar validation, admin helpers, sign-in page, `relativeTime`, freshness,
   `AppConfigService`, legal pages; Phase 2: feature flags (deferral on account pages, reload on
   sign-in, guard), limit-reached parsing/interceptor/dialog, card search box, catalog labels,
-  card search params, card metadata, game schema validation, usage-limit matrix and cell
-  editor, admin metadata form, plan labels; Phase 3: inventory params, item form (defaults,
+  card search params, card metadata, game schema validation, usage-limit rows and cell
+  editor, admin metadata form, limit labels; Phase 3: inventory params, item form (defaults,
   create request, changed-fields PATCH, validation), bulk actions and outcome wording,
   visibility explanations, inventory store (context, selection, quantity, confirm all, reorder
   rollback), quantity stepper, inventory labels, compact freshness badge; Phase 4: map params,
@@ -856,16 +1252,12 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
   option (flag on / off), payment card and protected steps, `FakeCheckoutStore` (polling,
   failure, 409, give-up), `DisputeStore` (uploads, limit and hold refusals, messages, live
   re-reads), evidence uploader, Settings → Payouts, admin money and resolve forms, transaction
-  rows and webhook payloads, dashboard links, notification links; Phase 10: billing labels
-  and refusals (checkout, spend, referral, donation fields, safe checkout targets, idempotency
-  keys), `PremiumStore` and usage rows, fake billing / donation checkout stores (outcomes, retry
-  after a decline, give-up), `CreditsStore` (paging, spend, insufficient balance, redeem),
-  `SponsoredSlotComponent` (label, click route, one impression, `[]`, flag off, waits for the
-  session, reload on upgrade), donation form (presets, custom amount, API range), admin campaign
-  form, targeting (no coordinates), creative URLs and entitlement values, the limit dialog
-  closing every dialog.
+  rows and webhook payloads, dashboard links, notification links (old links to the removed
+  pages are not followed); stage F1: the plain limit dialog (no plan, no link) and the usage
+  limits page (one row per key).
 - E2E (`npm run e2e`, Playwright/chromium; `npx playwright install chromium` once):
-  - `e2e/smoke.spec.ts`: shell, navigation, legal draft banner, 404 (no API needed).
+  - `e2e/smoke.spec.ts`: the shell for a guest (Home with the pills, the rail, Sign in), the
+    region pill, the map without a provider, legal draft banner, 404.
   - `e2e/auth.spec.ts`, `e2e/settings.spec.ts`, `e2e/admin.spec.ts` run against the **real
     local stack** and create fresh fictional users through the UI or the emulator REST API:
     sign-up with consents, email verification through the emulator's oob codes, onboarding
@@ -875,8 +1267,9 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
     cancel, admin suspend/unsuspend and the audit log, moderator/collector restrictions.
   - `e2e/catalog.spec.ts` (autocomplete to card detail with keyboard, printings and set page,
     filters in the URL, printing-code search, not-found) and `e2e/admin-rules.spec.ts` (super
-    admin switches a flag with confirmation and edits a usage limit inline, both persist after a
-    reload and are restored afterwards; admins read-only; game schema validation; mock catalog
+    admin raises a usage limit inline (`binder.views.per_day`, one row for everyone), it persists
+    after a reload and `GET /me/limits` follows, then it is restored; admins read-only; game schema
+    validation; mock catalog
     sync).
   - `e2e/inventory.spec.ts`: open the inventory from the navigation, add a card (autocomplete →
     printing → details, private), quantity stepper, create a binder, move the card into it, make
@@ -919,11 +1312,14 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
     (429, without the technical limit key) with the inline explanation and the focus back on the
     save button.
     No JSON response carries a coordinate.
-  - `e2e/community.spec.ts`: `/community` opens the channel of the browsed platform region (the
-    former city channels show as archived); a collector posts with a card link, is refused a duplicate (409) and a banned term
-    (422) inline, edits the post; a second collector replies inline; the author sees the reply
-    after a reload and deletes the post. A moderator removes a post with a required reason, then
-    resolves the flag a banned-term post raised in Admin → Community.
+  - `e2e/community.spec.ts` (stage WF): Messages › Community opens the Yu-Gi-Oh! room of the
+    region beside its five rooms and Room rules; a post with a shared card from "+", the duplicate
+    and the moderation refusals in the phone's words, the list's preview, another collector's "⋯"
+    (Message, Report this post, Block), edit and delete; Report this post (the dialog shows the
+    post) and Block (the posts leave at once and after a reload); the room's limit of 10 an hour;
+    Room rules as a drawer at md (Esc gives the focus back) and one pane per route at 390 (Back
+    gives the focus to the room's row); a moderator's removal with a required reason and the flag a
+    banned-term post raised in Admin → Community. No JSON response carries a coordinate.
   - `e2e/reporting.spec.ts`: a collector opens another collector's profile, presses Report, the
     "Report collector" popup asks "Why are you reporting this user?" with the seven reasons in
     order, Confirm is disabled until one is chosen, the report is confirmed; a second report is
@@ -940,47 +1336,22 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
     update, the rating is edited within its window and a reference is written; the rated
     collector gets RATING_RECEIVED without the comment; an unrelated collector sees no rate or
     reference action and the API refuses their rating (403 `RATING_NOT_ELIGIBLE`).
-  - `e2e/offers.spec.ts` (fresh collectors; the sellers declare a place): B makes
-    a cash offer on A's public binder card through the dialog (amount required, a second offer on
-    the card refused inline with a link to the open one) and shares it from the message composer;
-    A has the OFFER_RECEIVED notification and sees the SYSTEM message and the OFFER_LINK card in
-    the conversation, opens the offer, is refused an unchanged counter-offer and counters; B
-    accepts from the Sent inbox ("Your turn") and lands on the trade page; both mark the
-    in-person meetup and confirm the exchange (COMPLETED, A's copies drop from 2 to 1), B rates A
-    from the trade page and A gets "Rate this collector" on B's profile. A second test: A switches
-    off mixed offers in Settings → Offers, B's mixed offer is refused inline (422) and B sends a
-    trade offer with two copies of a private card from A's profile; A's decline on a proposal
-    that another device countered meanwhile gets 409 `STALE_OFFER` and the page moves to the live
-    proposal; B declines the counter-offer with a reason and withdraws a cash offer on a
-    sale-only card; the inbox status filter; a stranger gets the not-found state and 404. No
-    JSON response carries a coordinate.
-  - `e2e/payments.spec.ts` (fake payment provider, fresh collectors with declared places):
-    a seller sets up payouts in Settings → Payouts; a buyer offers with "Use payment
-    protection" (explanatory copy, no "escrow"); once accepted the buyer pays on the trade page,
-    lands on the "Local test payment" checkout, pays and comes back PAID; the seller marks the
-    card as shipped with tracking; the buyer confirms receipt: COMPLETED with the payout (amount
-    minus the fee) shown to both. A second protected trade (prepared through the API up to the
-    shipment) is disputed from the trade page (reason required), gets a previewed photo and a
-    message; a stranger gets the not-found state and 404; an admin finds it in the queue, puts it
-    on hold, adds a note and resolves it for the buyer after the review step; the payment shows
-    the refund, the audit log lists `dispute.freeze`, `dispute.note` and `dispute.resolve`, and
-    the buyer sees the decision, the refund and the cancelled trade. No JSON response carries a
+  - `e2e/shell.spec.ts` (stage WA): the five areas from the rail at 1440 and 1024 and from the
+    tab bar at 390 (no horizontal scroll); the region and game popovers from the keyboard
+    ("Your region", "Not your region" and the way back, "Cards coming soon"); the top bar's search
+    with `/` and Ctrl/Cmd+K, cards, recent searches and "Remember my searches" off; the account
+    menu (no Offers, Trades or Payouts; Appearance › Dark and back); the "?" dialog, `g` then `i`,
+    and the single-key switch; the skip links; the session banner with "Try again"; the theme
+    following the system; every old link of spec 4.11 with its toast or notice. (`offers.spec.ts`,
+    `payments.spec.ts` and the acceptance offers and payment protection specs left with their
+    screens.)
+  - `e2e/usage-limits.spec.ts` (stage F1): a fresh collector (discoverable in Quebec) fills
+    `binders.max` (5, the same for everyone); the sixth binder gets the plain limit dialog ("you
+    used 5 of 5", "Does not reset on its own", "Every collector has the same limits.", no link,
+    no plan); `GET /me/limits` answers 5 / 5 without `planCode` or `upgradeUrl`; the account menu
+    has no Premium, Credits or Support entry; `/premium`, `/credits` and `/support` are "Page not
+    found"; no request goes to `/ads`, `/plans` or `/me/plan`; no JSON answer carries a
     coordinate.
-  - `e2e/freemium.spec.ts` (fake billing provider): a fresh FREE collector (discoverable in
-    Quebec) sees the inventory's "Sponsored" placement, fills `binders.max`, gets the
-    limit-reached dialog and follows "See Premium"; "Upgrade to Premium" opens the local fake
-    billing checkout, a simulated decline keeps it open, "Pay" lands on
-    `/premium?checkout=success` with binders 5 / 50; the sixth binder is created and no ad is
-    left; "Cancel now" returns the collector to FREE (6 / 5).
-  - `e2e/credits-ads.spec.ts`: a fresh collector redeems another one's referral code (an unknown
-    code explained first) and spends the credits on a 24 h unlock (balance, ledger, boosts; the
-    referrer earned 100); a signed-out visitor sees the map panel's "Sponsored" house ad
-    (impression 204) whose click lands on `/premium`, a FREE collector sees a sponsored search
-    result that disappears once Premium; a donation through the footer's "Support OrenjiTrade"
-    shows the API's range on the field, passes the fake donation checkout and puts the opted-in
-    name on the supporters wall (never the amount or message); an admin grants credits, creates,
-    edits, targets (coordinates refused) and ends a campaign, grants and revokes an entitlement,
-    and finds the audit entries.
   - `e2e/admin-moderation.spec.ts`: an administrator's dashboard counts, the listing review
     queue, hiding a collector's listing with a required reason from their listings, pausing and
     resuming the collector's listings (the collector sees the "under review" banner on
@@ -1006,9 +1377,11 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
   `npm run test:e2e -- --reuse-running e2e/map.spec.ts` or `npm run e2e` here. The global setup
   refuses any API without the E2E identity block (`e2e/support/isolation.ts`), so the developer
   API on :8080 is never used. Two Playwright projects: `chromium` (every spec, fully parallel)
-  and `launch-config` (`e2e/launch-config.spec.ts` alone, after `chromium`, because it switches
-  the stack's real feature flags off through the admin API and restores them); run the latter by
-  itself with `npm run test:e2e -- e2e/launch-config.spec.ts --no-deps`.
+  and `launch-config` (`e2e/launch-config.spec.ts` and `e2e/admin-flags.spec.ts`, after
+  `chromium`, serially, because they switch the stack's real feature flags through the admin API
+  and restore them: `protectedPayments` off for the launch configuration, `publicChat` off and on
+  for the flag page); run the latter by itself with
+  `npm run test:e2e -- e2e/launch-config.spec.ts e2e/admin-flags.spec.ts --no-deps`.
 
 ## Docker (Cloud Run)
 
